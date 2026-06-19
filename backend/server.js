@@ -34,6 +34,6 @@ const cronReminderRoutes = require("./routes/cronreminderRoutes");
 
 app.use("/api/cron", cronReminderRoutes);
 
-app.listen(5000, "0.0.0.0", () => {
-  console.log("Server running on port 5000");
+app.listen(3009, "0.0.0.0", () => {
+  console.log("Server running on port 3009");
 });

@@ -113,9 +113,11 @@ cron.schedule("* * * * *", async () => {
               continue;
             }
 
+            let sentAny = false;
             for (let token of r.userId.fcmTokens) {
 
               try {
+                const message = `₹${r.amount} payment due for ${r.bankName}`;
 
                 await admin.messaging().send({
 
@@ -127,7 +129,7 @@ cron.schedule("* * * * *", async () => {
                     "💳 Credit Card Reminder",
 
                     body:
-                    `₹${r.amount} payment due for ${r.bankName}`,
+                    message,
                   },
 
                   android: {
@@ -183,10 +185,12 @@ cron.schedule("* * * * *", async () => {
                     r.status.toString(),
                   },
                 });
-r.notificationLogs.push({
+
+                r.notificationLogs.push({
                   message,
                   sentAt: new Date(),
                 });
+                sentAny = true;
                 console.log(
                     "✅ Notification Sent:",
                     token
@@ -199,6 +203,9 @@ r.notificationLogs.push({
                     err.message
                 );
               }
+            }
+            if (sentAny) {
+              await r.save();
             }
           }
         }

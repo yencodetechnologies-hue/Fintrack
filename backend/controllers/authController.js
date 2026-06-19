@@ -1,6 +1,10 @@
 const User = require("../models/user");
-  const bcrypt = require("bcryptjs");
-  const nodemailer = require("nodemailer");
+const Card = require("../models/card");
+const Reminder = require("../models/reminder");
+const Lend = require("../models/lend");
+const Liability = require("../models/liability");
+const bcrypt = require("bcryptjs");
+const nodemailer = require("nodemailer");
 
 
   exports.signup = async (req, res) => {
@@ -210,6 +214,34 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         message: user ? "Email already exists" : "Email available",
       });
 
+    } catch (error) {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+        
+      });
+    }
+  };
+
+  exports.deleteAccount = async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "User ID is required" });
+      }
+
+      // Delete user details and all associated documents
+      await Card.deleteMany({ userId });
+      await Reminder.deleteMany({ userId });
+      await Lend.deleteMany({ userId });
+      await Liability.deleteMany({ userId });
+      await User.findByIdAndDelete(userId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Account and all associated cards, reminders, and data deleted successfully",
+      });
     } catch (error) {
       return res.status(500).json({
         success: false,

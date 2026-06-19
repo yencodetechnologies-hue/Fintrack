@@ -51,5 +51,17 @@ class ApiService {
       return {"success": false, "message": "Connection error"};
     }
   }
+
+  static Future<Map<String, dynamic>> deleteAccount(String userId) async {
+    try {
+      final res = await http.delete(
+        Uri.parse("${AppConfig.authBase}/delete-account/$userId"),
+        headers: {"Content-Type": "application/json"},
+      );
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {"success": false, "message": "Connection error: $e"};
+    }
+  }
 }
 

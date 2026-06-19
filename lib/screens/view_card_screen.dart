@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
 import 'card_home.dart';
 import 'view_reminder_page.dart';
+import 'profile_screen.dart';
+import '../config/app_config.dart';
 
 // ── 20 unique card styles ─────────────────────────────────────────────────────
 enum _CardStyle {
@@ -78,7 +80,221 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
 
     await newCards;
   }
-  int _selectedIndex = 0;
+
+  void _showDeleteBottomSheet(BuildContext context, dynamic card) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.6),
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppConfig.darkSlate,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(28),
+              topRight: Radius.circular(28),
+            ),
+            border: Border.all(
+              color: Colors.red.withOpacity(0.15),
+              width: 1.5,
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag Handle
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Warning Icon
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.red.withOpacity(0.1),
+                      border: Border.all(
+                        color: Colors.red.withOpacity(0.2),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.delete_forever_rounded,
+                      color: Colors.redAccent,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Title
+                  const Text(
+                    "Delete Credit Card",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Subtitle
+                  Text(
+                    "Are you sure you want to permanently delete this credit card? This action cannot be undone and will purge all linked reminders.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Card Preview Card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.02),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.06),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.04),
+                          ),
+                          child: const Icon(
+                            Icons.credit_card_rounded,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                card['bankName'] ?? 'Unknown Bank',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "•••• •••• •••• ${card['last4digits'] ?? '0000'}",
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 13,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: Colors.white.withOpacity(0.12),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          onPressed: () => Navigator.pop(sheetContext),
+                          child: Text(
+                            "Cancel",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          onPressed: () async {
+                            Navigator.pop(sheetContext);
+                            final messenger = ScaffoldMessenger.of(context);
+                            final res = await CardService.deleteCard(card['_id'], widget.userId);
+                            if (!context.mounted) return;
+                            
+                            messenger.showSnackBar(
+                              SnackBar(
+                                behavior: SnackBarBehavior.floating,
+                                backgroundColor: AppConfig.darkSlate,
+                                content: Text(
+                                  res['message'] ?? 'Deleted',
+                                  style: const TextStyle(
+                                    color: AppConfig.primaryTeal,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            );
+                            await refreshCards();
+                          },
+                          child: const Text(
+                            "Delete",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _selectedIndex = 1;
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -216,23 +432,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             }, child: const Text('Update')),
                           ],
                         )),
-                    onDelete: () => showDialog(context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Delete Card'),
-                          content: const Text('Are you sure you want to delete?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                            ElevatedButton(onPressed: () async {
-                              Navigator.pop(context);
-                              final messenger = ScaffoldMessenger.of(context);
-                              final res = await CardService.deleteCard(card['_id'], widget.userId);
-                              if (!mounted) { return; }
-                              messenger.showSnackBar(SnackBar(content: Text(res['message'] ?? 'Deleted')));
-                              await refreshCards();
-
-                            }, child: const Text('Delete')),
-                          ],
-                        )),
+                    onDelete: () => _showDeleteBottomSheet(context, card),
                   ),
                 );
               },
@@ -251,6 +451,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
         currentIndex: _selectedIndex,
 
         onTap: (index) {
+          if (index == _selectedIndex) return;
           setState(() {
             _selectedIndex = index;
           });
@@ -268,22 +469,36 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
           }
 
           if (index == 1) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => ViewCardScreen(
-                  userId: widget.userId,userName: widget.userName,
+                  userId: widget.userId,
+                  userName: widget.userName,
                 ),
               ),
             );
           }
 
           if (index == 2) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => ViewReminderPage(
-                  userId: widget.userId,userName: widget.userName,
+                  userId: widget.userId,
+                  userName: widget.userName,
+                ),
+              ),
+            );
+          }
+
+          if (index == 3) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProfileScreen(
+                  userId: widget.userId,
+                  userName: widget.userName,
                 ),
               ),
             );
@@ -292,18 +507,23 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
 
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
+            icon: Icon(Icons.home_rounded),
             label: "Home",
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card),
+            icon: Icon(Icons.credit_card_rounded),
             label: "Cards",
           ),
 
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
+            icon: Icon(Icons.notifications_rounded),
             label: "Reminder",
+          ),
+
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_rounded),
+            label: "Profile",
           ),
         ],
       ),
@@ -406,12 +626,16 @@ class _Body extends StatelessWidget {
         style: TextStyle(color: text, fontSize: 18, letterSpacing: 4, fontWeight: FontWeight.w700)),
     const SizedBox(height: 10),
     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end, children: [
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 7, letterSpacing: 1.5)),
-        const SizedBox(height: 2),
-        Text(name.isEmpty ? 'USER NAME' : name.toUpperCase(),
-            style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8)),
-      ]),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 7, letterSpacing: 1.5)),
+          const SizedBox(height: 2),
+          Text(name.isEmpty ? 'USER NAME' : name.toUpperCase(),
+              style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8),
+              overflow: TextOverflow.ellipsis),
+        ]),
+      ),
+      const SizedBox(width: 8),
       net,
     ]),
   ]);

@@ -836,15 +836,11 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.white60,
-
+        backgroundColor: AppConfig.background,
+        selectedItemColor: AppConfig.primaryTeal,
+        unselectedItemColor: Colors.white54,
         type: BottomNavigationBarType.fixed,
-
         currentIndex: _selectedIndex,
-
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
@@ -863,18 +859,19 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
           }
 
           if (index == 1) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => ViewCardScreen(
-                  userId: widget.userId,userName: widget.userName,
+                  userId: widget.userId,
+                  userName: widget.userName,
                 ),
               ),
             );
           }
 
           if (index == 2) {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) => ViewReminderPage(
@@ -1494,72 +1491,74 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
         color: _bg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 42, height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2E2E45),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(
-                  color: widget.accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(widget.buttonIcon, color: widget.accentColor, size: 20),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 42, height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E2E45),
+                borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(width: 12),
-              Text(widget.title,
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Form(
-            key: widget.formKey,
-            child: Column(
+            ),
+            const SizedBox(height: 20),
+            Row(
               children: [
-                _FormField(controller: widget.nameCtrl,   label: "Person Name",  icon: Icons.person_rounded,         accent: widget.accentColor),
-                const SizedBox(height: 14),
-                _FormField(controller: widget.reasonCtrl, label: "Reason",       icon: Icons.notes_rounded,           accent: widget.accentColor),
-                const SizedBox(height: 14),
-                _FormField(controller: widget.amountCtrl, label: "Amount (₹)",   icon: Icons.currency_rupee_rounded,  accent: widget.accentColor, keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                GestureDetector(
-                  onTap: () async { await widget.onPickDate(); setState(() {}); },
-                  child: AbsorbPointer(
-                    child: _FormField(controller: widget.dateCtrl, label: "Payable Date", icon: Icons.calendar_month_rounded, accent: widget.accentColor),
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: widget.accentColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
                   ),
+                  child: Icon(widget.buttonIcon, color: widget.accentColor, size: 20),
                 ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity, height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: widget.onSubmit,
-                    icon: Icon(widget.buttonIcon, size: 20),
-                    label: Text(widget.buttonLabel,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.3)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.accentColor,
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                  ),
-                ),
+                const SizedBox(width: 12),
+                Text(widget.title,
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)),
               ],
             ),
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 22),
+            Form(
+              key: widget.formKey,
+              child: Column(
+                children: [
+                  _FormField(controller: widget.nameCtrl,   label: "Person Name",  icon: Icons.person_rounded,         accent: widget.accentColor),
+                  const SizedBox(height: 14),
+                  _FormField(controller: widget.reasonCtrl, label: "Reason",       icon: Icons.notes_rounded,           accent: widget.accentColor),
+                  const SizedBox(height: 14),
+                  _FormField(controller: widget.amountCtrl, label: "Amount (₹)",   icon: Icons.currency_rupee_rounded,  accent: widget.accentColor, keyboardType: TextInputType.number),
+                  const SizedBox(height: 14),
+                  GestureDetector(
+                    onTap: () async { await widget.onPickDate(); setState(() {}); },
+                    child: AbsorbPointer(
+                      child: _FormField(controller: widget.dateCtrl, label: "Payable Date", icon: Icons.calendar_month_rounded, accent: widget.accentColor),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity, height: 54,
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onSubmit,
+                      icon: Icon(widget.buttonIcon, size: 20),
+                      label: Text(widget.buttonLabel,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.3)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.accentColor,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

@@ -126,7 +126,7 @@ cron.schedule("* * * * *", async () => {
                   notification: {
 
                     title:
-                    "💳 Credit Card Reminder",
+                    "💳 Fintrack Reminder",
 
                     body:
                     message,

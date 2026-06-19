@@ -5,6 +5,7 @@ import 'update_reminder_page.dart';
 import 'package:card/config/app_config.dart';
 import 'card_home.dart';
 import 'view_card_screen.dart';
+import 'profile_screen.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,7 +60,7 @@ class ViewReminderPage extends StatefulWidget {
 class _ViewReminderPageState extends State<ViewReminderPage> {
   List reminders = [];
   bool isLoading  = true;
-  int  _selectedIndex = 0;
+  int  _selectedIndex = 2;
   double get totalDueAmount {
     double total = 0;
 
@@ -207,15 +208,18 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
         unselectedItemColor: Colors.white38,
         type: BottomNavigationBarType.fixed, currentIndex: _selectedIndex,
         onTap: (i) {
+          if (i == _selectedIndex) return;
           setState(() => _selectedIndex = i);
           if (i == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => CardHome(userId: widget.userId, userName: widget.userName)));
-          if (i == 1) Navigator.push(context, MaterialPageRoute(builder: (_) => ViewCardScreen(userId: widget.userId, userName: widget.userName)));
-          if (i == 2) Navigator.push(context, MaterialPageRoute(builder: (_) => ViewReminderPage(userId: widget.userId, userName: widget.userName)));
+          if (i == 1) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ViewCardScreen(userId: widget.userId, userName: widget.userName)));
+          if (i == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ViewReminderPage(userId: widget.userId, userName: widget.userName)));
+          if (i == 3) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId, userName: widget.userName)));
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_rounded),          label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.credit_card_rounded),   label: "Cards"),
           BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: "Reminder"),
+          BottomNavigationBarItem(icon: Icon(Icons.person_rounded),        label: "Profile"),
         ],
       ),
     );
@@ -462,17 +466,22 @@ class _ReminderCreditCard extends StatelessWidget {
                 const Spacer(),
                 // amount
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text("AMOUNT DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
-                    const SizedBox(height: 3),
-                    Text("₹$amount", style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.w800)),
-                  ]),
-                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text("STMT / DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
-                    const SizedBox(height: 3),
-                    Text("$statementDate  /  $paymentDate",
-                        style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600)),
-                  ]),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text("AMOUNT DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+                      const SizedBox(height: 3),
+                      Text("₹$amount", style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text("STMT / DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
+                      const SizedBox(height: 3),
+                      Text("$statementDate  /  $paymentDate",
+                          style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
                 ]),
               ]),
             ),

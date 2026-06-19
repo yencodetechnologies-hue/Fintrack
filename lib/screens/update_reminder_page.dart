@@ -1,4 +1,6 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:card/config/app_config.dart';
@@ -222,10 +224,9 @@ class _UpdateReminderPageState
         return Theme(
 
           data: ThemeData.dark().copyWith(
-
-            colorScheme:
-            const ColorScheme.dark(
-              primary: Color(0xFF00D9FF),
+            colorScheme: const ColorScheme.dark(
+              primary: AppConfig.primaryTeal,
+              surface: AppConfig.darkSlate,
             ),
           ),
 
@@ -288,39 +289,39 @@ class _UpdateReminderPageState
       ) {
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
 
         Radio<int>(
-
           value: value,
-
           groupValue:
           reminders[key]?["count"] ?? 1,
 
-          activeColor:
-          const Color(0xFF00D9FF),
+          activeColor: AppConfig.primaryTeal,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
 
           onChanged: (val) {
 
             if (val == null) return;
 
             setState(() {
-
-              reminders[key]!["count"] =
-                  val;
-
+              reminders[key]!["count"] = val;
               reminders[key]!["times"] =
               <TimeOfDay>[];
-
             });
           },
         ),
 
-        Text(
-          label,
+        const SizedBox(width: 4),
 
-          style: const TextStyle(
-            color: Colors.white,
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -336,25 +337,25 @@ class _UpdateReminderPageState
     reminders.containsKey(key);
 
     return Container(
-
-      margin:
-      const EdgeInsets.only(bottom: 15),
-
-      padding: const EdgeInsets.all(15),
-
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-
-        color: Colors.black,
-
-        borderRadius:
-        BorderRadius.circular(20),
-
+        color: selected ? Colors.white.withOpacity(0.04) : Colors.white.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: const Color(0xFF00D9FF),
-          width: 2,
+          color: selected
+              ? AppConfig.primaryTeal.withOpacity(0.4)
+              : Colors.white.withOpacity(0.08),
+          width: 1.2,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-
       child: Column(
         children: [
 
@@ -362,12 +363,13 @@ class _UpdateReminderPageState
             children: [
 
               Checkbox(
-
                 value: selected,
-
-                activeColor:
-                const Color(0xFF00D9FF),
-
+                activeColor: AppConfig.primaryTeal,
+                checkColor: const Color(0xFF0F172A),
+                side: BorderSide(
+                  color: selected ? AppConfig.primaryTeal : Colors.white30,
+                  width: 1.5,
+                ),
                 onChanged: (val) {
 
                   setState(() {
@@ -375,11 +377,8 @@ class _UpdateReminderPageState
                     if (val == true) {
 
                       reminders[key] = {
-
                         "count": 1,
-
-                        "times":
-                        <TimeOfDay>[],
+                        "times": <TimeOfDay>[],
                       };
 
                     } else {
@@ -391,11 +390,9 @@ class _UpdateReminderPageState
               ),
 
               Text(
-
                 title,
-
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.white70,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -406,83 +403,90 @@ class _UpdateReminderPageState
           if (selected)
             Column(
               children: [
-
+                const SizedBox(height: 8),
                 Row(
-
                   mainAxisAlignment:
                   MainAxisAlignment.spaceEvenly,
 
                   children: [
 
-                    radioBtn(
-                      key,
-                      1,
-                      "Once",
+                    Expanded(
+                      child: radioBtn(
+                        key,
+                        1,
+                        "Once",
+                      ),
                     ),
 
-                    radioBtn(
-                      key,
-                      2,
-                      "Twice",
+                    Expanded(
+                      child: radioBtn(
+                        key,
+                        2,
+                        "Twice",
+                      ),
                     ),
 
-                    radioBtn(
-                      key,
-                      3,
-                      "Thrice",
+                    Expanded(
+                      child: radioBtn(
+                        key,
+                        3,
+                        "Thrice",
+                      ),
                     ),
                   ],
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
                 ElevatedButton(
-
-                  style:
-                  ElevatedButton.styleFrom(
-
-                    backgroundColor:
-                    const Color(0xFF00D9FF),
-
-                    foregroundColor:
-                    Colors.black,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppConfig.primaryTeal.withOpacity(0.1),
+                    foregroundColor: AppConfig.primaryTeal,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: AppConfig.primaryTeal.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
-
-                  onPressed: () =>
-                      pickTimes(key),
-
+                  onPressed: () => pickTimes(key),
                   child: const Text(
                     "Select Time",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
 
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
 
                 Column(
-
                   children:
                   (reminders[key]?["times"]
                   as List? ??
                       [])
-
                       .map((t) {
 
                     if (t is TimeOfDay) {
 
                       return Padding(
-
                         padding:
                         const EdgeInsets.only(
-                          bottom: 5,
+                          bottom: 6,
                         ),
 
                         child: Text(
-
                           "${t.hour.toString().padLeft(2, '0')}:"
                               "${t.minute.toString().padLeft(2, '0')}",
 
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppConfig.primaryTeal,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       );
@@ -499,195 +503,168 @@ class _UpdateReminderPageState
     );
   }
 
-  Widget customBox(
-      IconData icon,
-      String text,
-      ) {
-
+  Widget buildDateTile({
+    required String title,
+    required String value,
+    required VoidCallback onTap,
+  }) {
     return Container(
-
-      width: double.infinity,
-
-      padding: const EdgeInsets.all(18),
-
+      margin: const EdgeInsets.only(bottom: 18),
       decoration: BoxDecoration(
-
-        color: Colors.black,
-
-        borderRadius:
-        BorderRadius.circular(18),
-
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0xFF00D9FF),
-          width: 2,
+          color: Colors.white.withOpacity(0.08),
+          width: 1.2,
         ),
       ),
-
-      child: Row(
-        children: [
-
-          Icon(
-            icon,
-            color: const Color(0xFF7DF9FF),
+      child: Material(
+        color: Colors.transparent,
+        child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppConfig.primaryTeal.withOpacity(0.1),
+            shape: BoxShape.circle,
           ),
-
-          const SizedBox(width: 12),
-
-          Text(
-            text,
-
+          child: Icon(
+            Icons.calendar_month,
+            color: AppConfig.primaryTeal.withOpacity(0.8),
+            size: 20,
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: AppConfig.hintColor,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            value,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          color: Colors.white30,
+          size: 16,
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
+    final dateFormat = DateFormat("dd MMM yyyy");
 
     return Scaffold(
-
-      backgroundColor: Colors.black,
-
+      backgroundColor: AppConfig.background,
       appBar: AppBar(
-
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
-
-          child: CircleAvatar(
-            backgroundColor: Colors.transparent,
-
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.03),
+              border: Border.all(
+                color: AppConfig.primaryTeal.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.all(4.0),
             child: Image.asset(
               "assets/images/logo.png",
             ),
           ),
         ),
-
         centerTitle: true,
-
-        title: ShaderMask(
-
-          shaderCallback: (bounds) {
-
-            return const LinearGradient(
-              colors: [
-
-                Color(0xFF7DF9FF),
-                Color(0xFF4DEEFF),
-                Color(0xFF00D9FF),
-
-              ],
-            ).createShader(bounds);
-          },
-
-          child: const Text(
-
-            "Update Reminder",
-
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+        title: const Text(
+          "Update Reminder",
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            letterSpacing: 0.5,
           ),
         ),
-
         actions: [
-
           IconButton(
-
             icon: const Icon(
               Icons.logout_rounded,
-              color: Color(0xFF00D9FF),
-              size: 30,
+              color: AppConfig.primaryTeal,
+              size: 26,
             ),
-
             onPressed: () {
-
               showDialog(
-
                 context: context,
-
                 builder: (context) => AlertDialog(
-
-                  backgroundColor:
-                  const Color(0xff1A1A1A),
-
+                  backgroundColor: AppConfig.darkSlate,
                   shape: RoundedRectangleBorder(
-                    borderRadius:
-                    BorderRadius.circular(20),
-                  ),
-
-                  title: const Text(
-                    "Logout",
-                    style:
-                    TextStyle(color: Colors.white),
-                  ),
-
-                  content: const Text(
-                    "Are you sure want to logout?",
-                    style: TextStyle(
-                      color: Colors.white70,
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: Colors.white.withOpacity(0.08),
+                      width: 1.5,
                     ),
                   ),
-
+                  title: const Text(
+                    "Logout",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  content: const Text(
+                    "Are you sure you want to logout?",
+                    style: TextStyle(color: Colors.white70),
+                  ),
                   actions: [
-
                     TextButton(
-
                       onPressed: () {
                         Navigator.pop(context);
                       },
-
                       child: const Text(
                         "Cancel",
-                        style:
-                        TextStyle(color: Colors.white),
+                        style: TextStyle(color: Colors.white60),
                       ),
                     ),
-
                     ElevatedButton(
-
-                      style:
-                      ElevatedButton.styleFrom(
-                        backgroundColor:
-                        Colors.white,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppConfig.primaryTeal,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-
                       onPressed: () async {
-
-                        final prefs =
-                        await SharedPreferences
-                            .getInstance();
-
+                        final prefs = await SharedPreferences.getInstance();
                         await prefs.clear();
-
                         if (!context.mounted) return;
-
                         Navigator.pushAndRemoveUntil(
-
                           context,
-
                           MaterialPageRoute(
-                            builder: (context) =>
-                            const HomeScreen(),
+                            builder: (_) => const HomeScreen(),
                           ),
-
-                              (route) => false,
+                          (route) => false,
                         );
                       },
-
                       child: const Text(
                         "Logout",
-                        style:
-                        TextStyle(color: Colors.black),
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -697,278 +674,307 @@ class _UpdateReminderPageState
           ),
         ],
       ),
-
-      body: SingleChildScrollView(
-
-        padding: const EdgeInsets.all(16),
-
-        child: Column(
-          children: [
-
-            DropdownButtonFormField<String>(
-
-              value: selectedCardId,
-
-              dropdownColor: Colors.black,
-
-              style: const TextStyle(
-                color: Colors.white,
+      body: Stack(
+        children: [
+          // Background soft glowing teal orb 1
+          Positioned(
+            top: -80,
+            left: -80,
+            child: Container(
+              width: 320,
+              height: 320,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppConfig.primaryTeal.withOpacity(0.12),
               ),
-
-              decoration: InputDecoration(
-
-                labelText: "Select Bank",
-
-                labelStyle: const TextStyle(
-                  color: Color(0xFF7DF9FF),
-                ),
-
-                filled: true,
-                fillColor: Colors.black,
-
-                enabledBorder:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(18),
-
-                  borderSide: const BorderSide(
-                    color: Color(0xFF00D9FF),
-                    width: 2,
-                  ),
-                ),
-
-                focusedBorder:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(18),
-
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7DF9FF),
-                    width: 2.5,
-                  ),
-                ),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
+                child: Container(color: Colors.transparent),
               ),
+            ),
+          ),
+          // Background soft glowing blue orb 2
+          Positioned(
+            bottom: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppConfig.gradientEnd.withOpacity(0.08),
+              ),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+          ),
 
-              items:
-              cards.map<DropdownMenuItem<String>>(
-                      (card) {
-
-                    return DropdownMenuItem(
-
-                      value: card["_id"],
-
-                      child: Text(
-                        card["bankName"],
-
-                        style: const TextStyle(
-                          color: Colors.white,
-                        ),
+          SafeArea(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Glassmorphic Form Container
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.02),
+                      borderRadius: BorderRadius.circular(28),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.06),
+                        width: 1.5,
                       ),
-                    );
-                  }).toList(),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 25,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          "Update Details",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
 
-              onChanged: (value) {
+                        // BANK DROPDOWN
+                        DropdownButtonFormField<String>(
+                          value: selectedCardId,
+                          dropdownColor: AppConfig.darkSlate,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Select Bank",
+                            labelStyle: const TextStyle(
+                              color: AppConfig.hintColor,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.account_balance_rounded,
+                              color: AppConfig.primaryTeal,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.03),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: Colors.white.withOpacity(0.08),
+                                width: 1.2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: AppConfig.primaryTeal,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          items: cards.map<DropdownMenuItem<String>>((card) {
+                            return DropdownMenuItem(
+                              value: card["_id"],
+                              child: Text(
+                                card["bankName"],
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            final selected = cards.firstWhere((c) => c["_id"] == value);
+                            setState(() {
+                              selectedBankName = selected["bankName"];
+                              selectedCardId = value;
+                            });
+                          },
+                        ),
 
-                final selected =
-                cards.firstWhere(
-                        (c) => c["_id"] == value);
+                        const SizedBox(height: 18),
 
-                setState(() {
+                        // AMOUNT FIELD
+                        TextField(
+                          controller: amountController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: "Amount",
+                            labelStyle: const TextStyle(
+                              color: AppConfig.hintColor,
+                              fontSize: 14,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.currency_rupee,
+                              color: AppConfig.primaryTeal,
+                              size: 20,
+                            ),
+                            filled: true,
+                            fillColor: Colors.white.withOpacity(0.03),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color: Colors.white.withOpacity(0.08),
+                                width: 1.2,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: AppConfig.primaryTeal,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
 
-                  selectedBankName =
-                  selected["bankName"];
+                        const SizedBox(height: 18),
 
-                  selectedCardId = value;
+                        // STATEMENT DATE
+                        buildDateTile(
+                          title: "Statement Date",
+                          value: statementDate == null
+                              ? "Select Date"
+                              : dateFormat.format(statementDate!),
+                          onTap: () => pickDate(true),
+                        ),
 
-                });
-              },
-            ),
-
-            const SizedBox(height: 20),
-
-            TextField(
-
-              controller: amountController,
-
-              style: const TextStyle(
-                color: Colors.white,
-              ),
-
-              decoration: InputDecoration(
-
-                labelText: "Amount",
-
-                labelStyle: const TextStyle(
-                  color: Color(0xFF7DF9FF),
-                ),
-
-                prefixIcon: const Icon(
-                  Icons.currency_rupee,
-                  color: Color(0xFF7DF9FF),
-                ),
-
-                filled: true,
-                fillColor: Colors.black,
-
-                enabledBorder:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(18),
-
-                  borderSide: const BorderSide(
-                    color: Color(0xFF00D9FF),
-                    width: 2,
-                  ),
-                ),
-
-                focusedBorder:
-                OutlineInputBorder(
-
-                  borderRadius:
-                  BorderRadius.circular(18),
-
-                  borderSide: const BorderSide(
-                    color: Color(0xFF7DF9FF),
-                    width: 2.5,
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            InkWell(
-              onTap: () => pickDate(true),
-
-              child: customBox(
-                Icons.calendar_month,
-                "Statement: ${formatDate(statementDate)}",
-              ),
-            ),
-
-            const SizedBox(height: 15),
-
-            InkWell(
-              onTap: () => pickDate(false),
-
-              child: customBox(
-                Icons.access_time_filled,
-                "Payment: ${formatDate(paymentDate)}",
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            buildReminderTile(
-              "7_days_before",
-              "7 Days Before",
-            ),
-
-            buildReminderTile(
-              "3_days_before",
-              "3 Days Before",
-            ),
-
-            buildReminderTile(
-              "1_day_before",
-              "1 Day Before",
-            ),
-
-            buildReminderTile(
-              "due_date",
-              "Due Date",
-            ),
-
-            buildReminderTile(
-              "1_day_after",
-              "1 Day After",
-            ),
-
-            const SizedBox(height: 25),
-
-            SizedBox(
-
-              width: double.infinity,
-              height: 60,
-
-              child: ElevatedButton(
-
-                style:
-                ElevatedButton.styleFrom(
-
-                  backgroundColor:
-                  Colors.black,
-
-                  elevation: 10,
-
-                  shadowColor:
-                  const Color(0xFF00D9FF),
-
-                  shape:
-                  RoundedRectangleBorder(
-
-                    borderRadius:
-                    BorderRadius.circular(20),
-
-                    side: const BorderSide(
-                      color: Color(0xFF00D9FF),
-                      width: 2,
+                        // PAYMENT DATE
+                        buildDateTile(
+                          title: "Payment Date",
+                          value: paymentDate == null
+                              ? "Select Date"
+                              : dateFormat.format(paymentDate!),
+                          onTap: () => pickDate(false),
+                        ),
+                      ],
                     ),
                   ),
-                ),
 
-                onPressed: updateReminder,
+                  const SizedBox(height: 24),
 
-                child: const Text(
-
-                  "Update Reminder",
-
-                  style: TextStyle(
-                    color: Color(0xFF7DF9FF),
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                  const Text(
+                    "Reminder Settings",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white70,
+                      letterSpacing: -0.2,
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 12),
+
+                  buildReminderTile(
+                    "7_days_before",
+                    "7 Days Before",
+                  ),
+
+                  buildReminderTile(
+                    "3_days_before",
+                    "3 Days Before",
+                  ),
+
+                  buildReminderTile(
+                    "1_day_before",
+                    "1 Day Before",
+                  ),
+
+                  buildReminderTile(
+                    "due_date",
+                    "Due Date",
+                  ),
+
+                  buildReminderTile(
+                    "1_day_after",
+                    "1 Day After",
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // UPDATE BUTTON
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [
+                          AppConfig.gradientStart,
+                          AppConfig.gradientEnd,
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppConfig.gradientStart.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: updateReminder,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        minimumSize: const Size(double.infinity, 56),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: const Text(
+                        "Update Reminder",
+                        style: TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+        ],
       ),
-
-      bottomNavigationBar:
-      BottomNavigationBar(
-
-        backgroundColor: Colors.black,
-
-        selectedItemColor: Colors.blue,
-
-        unselectedItemColor:
-        Colors.white60,
-
-        type:
-        BottomNavigationBarType.fixed,
-
+      bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: AppConfig.darkSlate,
+        selectedItemColor: AppConfig.primaryTeal,
+        unselectedItemColor: Colors.white30,
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
-
         onTap: (index) {
-
+          if (index == _selectedIndex) return;
           setState(() {
             _selectedIndex = index;
           });
 
           if (index == 0) {
-
             Navigator.pushReplacement(
-
               context,
-
               MaterialPageRoute(
-
                 builder: (_) => CardHome(
                   userId: widget.userId,
                   userName: widget.userName,
@@ -978,52 +984,38 @@ class _UpdateReminderPageState
           }
 
           if (index == 1) {
-
-            Navigator.push(
-
+            Navigator.pushReplacement(
               context,
-
               MaterialPageRoute(
-
-                builder: (_) =>
-                    ViewCardScreen(
-                      userId: widget.userId,
-                      userName: widget.userName,
-                    ),
+                builder: (_) => ViewCardScreen(
+                  userId: widget.userId,
+                  userName: widget.userName,
+                ),
               ),
             );
           }
 
           if (index == 2) {
-
-            Navigator.push(
-
+            Navigator.pushReplacement(
               context,
-
               MaterialPageRoute(
-
-                builder: (_) =>
-                    ViewReminderPage(
-                      userId: widget.userId,
-                      userName: widget.userName,
-                    ),
+                builder: (_) => ViewReminderPage(
+                  userId: widget.userId,
+                  userName: widget.userName,
+                ),
               ),
             );
           }
         },
-
         items: const [
-
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: "Home",
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.credit_card),
             label: "Cards",
           ),
-
           BottomNavigationBarItem(
             icon: Icon(Icons.notifications),
             label: "Reminder",

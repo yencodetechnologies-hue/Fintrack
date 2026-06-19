@@ -1,6 +1,6 @@
 class AppConfig {
 
-  static const String baseUrl = "http://192.168.100.248:3009";
+  static const String baseUrl = "https://fintrack.yencodetechnologies.in";
 
 
   static const String authBase = "$baseUrl/api/auth";

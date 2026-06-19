@@ -41,48 +41,49 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDXByWwhIAaT20GvrW5_Lo_c_ReFeEzkSE',
-    appId: '1:749541207800:web:e03eccbe94a2952b1d150d',
-    messagingSenderId: '749541207800',
-    projectId: 'cardreminder-ade76',
-    authDomain: 'cardreminder-ade76.firebaseapp.com',
-    storageBucket: 'cardreminder-ade76.firebasestorage.app',
-    measurementId: 'G-D94KL87LPM',
+    apiKey: 'AIzaSyBbUoxa3XFRMpLHj9wNc4awuo61xl9678U',
+    appId: '1:1097214336094:web:af37d7f62b99ed3bd5a8cf',
+    messagingSenderId: '1097214336094',
+    projectId: 'meeraprabhu-4159a',
+    authDomain: 'meeraprabhu-4159a.firebaseapp.com',
+    storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
+    measurementId: 'G-7ZQH6R0PG6',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCqrSB7TjdN0BjSl5ZeTIlIveCMieFAnQ8',
-    appId: '1:749541207800:android:1901a36ef36aa3e41d150d',
-    messagingSenderId: '749541207800',
-    projectId: 'cardreminder-ade76',
-    storageBucket: 'cardreminder-ade76.firebasestorage.app',
+    apiKey: 'AIzaSyDsUhDyM09d0uiPXTNN_4KUIUl7jIrFoAA',
+    appId: '1:1097214336094:android:cf55f97f21f2f196d5a8cf',
+    messagingSenderId: '1097214336094',
+    projectId: 'meeraprabhu-4159a',
+    storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDiwId2dg0oFQo35coIfPR3wBuxVwfrrxg',
-    appId: '1:749541207800:ios:234b3a5bf4550f561d150d',
-    messagingSenderId: '749541207800',
-    projectId: 'cardreminder-ade76',
-    storageBucket: 'cardreminder-ade76.firebasestorage.app',
+    apiKey: 'AIzaSyCSI3Mmr3HDjfJZQ1F9BMkup1RxhPi6R9g',
+    appId: '1:1097214336094:ios:7da4d84f41531bc2d5a8cf',
+    messagingSenderId: '1097214336094',
+    projectId: 'meeraprabhu-4159a',
+    storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
     iosBundleId: 'com.yencode.fintrack',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDiwId2dg0oFQo35coIfPR3wBuxVwfrrxg',
-    appId: '1:749541207800:ios:234b3a5bf4550f561d150d',
-    messagingSenderId: '749541207800',
-    projectId: 'cardreminder-ade76',
-    storageBucket: 'cardreminder-ade76.firebasestorage.app',
+    apiKey: 'AIzaSyCSI3Mmr3HDjfJZQ1F9BMkup1RxhPi6R9g',
+    appId: '1:1097214336094:ios:7da4d84f41531bc2d5a8cf',
+    messagingSenderId: '1097214336094',
+    projectId: 'meeraprabhu-4159a',
+    storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
     iosBundleId: 'com.yencode.fintrack',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDXByWwhIAaT20GvrW5_Lo_c_ReFeEzkSE',
-    appId: '1:749541207800:web:b8923056264c44ea1d150d',
-    messagingSenderId: '749541207800',
-    projectId: 'cardreminder-ade76',
-    authDomain: 'cardreminder-ade76.firebaseapp.com',
-    storageBucket: 'cardreminder-ade76.firebasestorage.app',
-    measurementId: 'G-YCS6S8XWXF',
+    apiKey: 'AIzaSyBbUoxa3XFRMpLHj9wNc4awuo61xl9678U',
+    appId: '1:1097214336094:web:34c5c2571208a6f3d5a8cf',
+    messagingSenderId: '1097214336094',
+    projectId: 'meeraprabhu-4159a',
+    authDomain: 'meeraprabhu-4159a.firebaseapp.com',
+    storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
+    measurementId: 'G-LJMDG5Z5WH',
   );
+
 }

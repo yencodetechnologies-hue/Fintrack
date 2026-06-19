@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "749541207800",
+    "project_id": "cardreminder-ade76",
+    "storage_bucket": "cardreminder-ade76.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:749541207800:android:1901a36ef36aa3e41d150d",
+        "android_client_info": {
+          "package_name": "com.yencode.fintrack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqrSB7TjdN0BjSl5ZeTIlIveCMieFAnQ8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

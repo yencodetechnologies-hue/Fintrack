@@ -75,7 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => loginLoading = true);
 
     try {
-      String? token = await FCMService.getToken();
+      // FCM token is optional — login must succeed even without notifications.
+      final token = await FCMService.getToken();
 
       final res = await ApiService.login(
         loginEmail.text.trim(),

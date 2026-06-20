@@ -7,19 +7,14 @@ import 'screens/splash_screen.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } on FirebaseException catch (e) {
-    if (e.code != 'duplicate-app') rethrow;
-  }
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  // Set up Firebase messaging click listener for notifications redirection
-  FCMService.initializeNotificationClickedHandler(navigatorKey);
+  await FCMService.initializeNotificationClickedHandler(navigatorKey);
 
   runApp(const MyApp());
 }

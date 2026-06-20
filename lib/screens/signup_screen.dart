@@ -73,7 +73,8 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => signupLoading = true);
 
     try {
-      String? token = await FCMService.getToken();
+      // FCM token is optional — signup must succeed even without notifications.
+      final token = await FCMService.getToken();
 
       final res = await ApiService.signup(
         signupName.text.trim(),

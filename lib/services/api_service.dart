@@ -21,7 +21,7 @@ class ApiService {
           "email": email,
           "password": password,
           "confirmPassword": confirmPassword,
-          "fcmToken": token,
+          if (token != null && token.isNotEmpty) "fcmToken": token,
         }),
       );
 
@@ -42,7 +42,7 @@ class ApiService {
         body: jsonEncode({
           "email": email,
           "password": password,
-          "fcmToken": token,
+          if (token != null && token.isNotEmpty) "fcmToken": token,
         }),
       );
 

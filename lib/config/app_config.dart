@@ -23,7 +23,7 @@ class AppConfig {
   static const String liability = "$baseUrl/api/liability";
 
   // App Text Branding
-  static const String appName = "Fintrack";
+  static const String appName = "Q Fin";
   static const String appSubtitle = "Your secure smart wallet assistant";
   static const String signupSubtitle = "Join Fintrack for smart card management";
 

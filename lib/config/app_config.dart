@@ -21,7 +21,7 @@ class AppConfig {
   static const String reminderStatus = "$baseUrl/reminder/status";
   static const String lend = "$baseUrl/api/lend";
   static const String liability = "$baseUrl/api/liability";
-
+  static const String cron="$baseUrl/api/NotificationLog";
   // App Text Branding
   static const String appName = "Q Fin";
   static const String appSubtitle = "Your secure smart wallet assistant";

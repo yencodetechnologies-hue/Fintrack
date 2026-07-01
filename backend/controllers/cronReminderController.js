@@ -1,4 +1,4 @@
-const NotificationLog = require("../models/notificationcron");
+const NotificationLog = require("../models/NotificationLog");
 
 exports.getNotificationLogs = async (req, res) => {
   try {

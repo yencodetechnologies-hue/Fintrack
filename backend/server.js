@@ -30,7 +30,7 @@ const lendRoutes = require("./routes/lendRoutes");
 const liabilityRoutes = require("./routes/liabilityRoutes");
 app.use("/api/lend", lendRoutes);
 app.use("/api/liability", liabilityRoutes);
-const cronReminderRoutes = require("./routes/cronreminderRoutes");
+const cronReminderRoutes = require("./routes/cronReminderRoutes");
 
 app.use("/api/cron", cronReminderRoutes);
 

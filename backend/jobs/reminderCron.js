@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const moment = require("moment");
 const Reminder = require("../models/reminder");
 const admin = require("../config/firebase");
-
+const NotificationLog = require("../models/NotificationLog");
 cron.schedule("* * * * *", async () => {
 
   console.log("🔁 Checking reminders...");
@@ -186,15 +186,20 @@ cron.schedule("* * * * *", async () => {
                   },
                 });
 
-                r.notificationLogs.push({
-                  message,
-                  sentAt: new Date(),
-                });
-                sentAny = true;
-                console.log(
-                    "✅ Notification Sent:",
-                    token
-                );
+               // Save to NotificationLog collection
+               await NotificationLog.create({
+                 message,
+               });
+
+               // Save inside Reminder document
+               r.notificationLogs.push({
+                 message,
+                 sentAt: new Date(),
+               });
+
+               sentAny = true;
+
+               console.log("✅ Notification Sent:", token);
 
               } catch (err) {
 

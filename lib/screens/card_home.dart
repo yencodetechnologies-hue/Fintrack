@@ -1,7 +1,7 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'dart:convert';
 import '../config/app_config.dart';
 import 'add_reminder_page.dart';
 import 'card_create_screen.dart';
@@ -10,12 +10,15 @@ import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
 import 'profile_screen.dart';
+import 'package:http/http.dart' as http;
 
 class CardHome extends StatelessWidget {
   final String userId;
   final String userName;
 
   const CardHome({
+
+
     super.key,
     required this.userId,
     required this.userName,
@@ -46,6 +49,425 @@ class GridViewPage extends StatefulWidget {
 
 class _GridViewPageState extends State<GridViewPage> {
   int _selectedIndex = 0;
+  OverlayEntry? _notifOverlay;
+  final List<Map<String, dynamic>> _notifLogs = [];
+  final Set<int> _selectedNotifs = {};
+  bool _notifsLoading = false;
+
+  // ── fetch ────────────────────────────────────────────────────────────────
+
+  Future<void> _fetchNotifLogs() async {
+    setState(() => _notifsLoading = true);
+    try {
+      final res = await http.get(
+        Uri.parse(
+          "${AppConfig.cron}?userId=${widget.userId}",
+        ),
+      );
+
+      if (!mounted) return;
+
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final data = List<Map<String, dynamic>>.from(body['data'] as List);
+      _notifLogs
+        ..clear()
+        ..addAll(data);
+    } catch (e) {
+      _notifLogs.clear();
+    }
+    if (!mounted) return;
+    setState(() => _notifsLoading = false);
+  }
+
+  // ── toggle ───────────────────────────────────────────────────────────────
+
+  void _toggleNotificationPopup(BuildContext ctx) {
+    if (_notifOverlay != null) {
+      _closeNotifPopup();
+      return;
+    }
+    _fetchNotifLogs().then((_) {
+      if (mounted) _openNotifPopup(ctx);
+    });
+  }
+
+  // ── open ─────────────────────────────────────────────────────────────────
+
+  void _openNotifPopup(BuildContext ctx) {
+    final overlay = Overlay.of(ctx);
+    final topPadding = MediaQuery.of(ctx).padding.top;
+    final appBarBottom = topPadding + kToolbarHeight;
+    final screenHeight = MediaQuery.of(ctx).size.height;
+
+    _notifOverlay = OverlayEntry(
+      builder: (overlayCtx) {
+        return StatefulBuilder(
+          builder: (overlayCtx, setPopState) {
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _closeNotifPopup,
+                    child: Container(color: Colors.black54),
+                  ),
+                ),
+                Positioned(
+                  top: appBarBottom,
+                  left: 0,
+                  right: 0,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Container(
+                      color: const Color(0xFF1A1A1A),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+
+                          // header
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  'Notifications',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (_selectedNotifs.isNotEmpty) ...[
+                                  Text(
+                                    '${_selectedNotifs.length} selected',
+                                    style: const TextStyle(
+                                      color: Color(0xFF00D9FF),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(
+                                        color: Color(0xFF00D9FF),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      setPopState(() {
+                                        final sorted =
+                                        _selectedNotifs.toList()
+                                          ..sort(
+                                                (a, b) => b.compareTo(a),
+                                          );
+                                        for (final i in sorted) {
+                                          _notifLogs.removeAt(i);
+                                        }
+                                        _selectedNotifs.clear();
+                                      });
+                                    },
+                                    icon: const Icon(
+                                      Icons.delete_outline,
+                                      color: Color(0xFF00D9FF),
+                                      size: 13,
+                                    ),
+                                    label: const Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: Color(0xFF00D9FF),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                ],
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Color(0xFF555555),
+                                    size: 20,
+                                  ),
+                                  onPressed: _closeNotifPopup,
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // chips
+                          Padding(
+                            padding:
+                            const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                            child: Row(
+                              children: [
+                                _notifChip('Select all', () {
+                                  setPopState(() {
+                                    _selectedNotifs.addAll(
+                                      List.generate(
+                                        _notifLogs.length,
+                                            (i) => i,
+                                      ),
+                                    );
+                                  });
+                                }),
+                                const SizedBox(width: 8),
+                                _notifChip('Clear', () {
+                                  setPopState(
+                                        () => _selectedNotifs.clear(),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+
+                          const Divider(
+                            color: Color(0xFF2A2A2A),
+                            height: 1,
+                          ),
+
+                          // list
+                          ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: screenHeight * 0.55,
+                            ),
+                            child: _notifsLoading
+                                ? const Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF00D9FF),
+                                ),
+                              ),
+                            )
+                                : _notifLogs.isEmpty
+                                ? const Padding(
+                              padding: EdgeInsets.all(32),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons
+                                          .notifications_off_outlined,
+                                      size: 32,
+                                      color: Color(0xFF333333),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'No notifications',
+                                      style: TextStyle(
+                                        color: Color(0xFF555555),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                                : ListView.separated(
+                              shrinkWrap: true,
+                              physics:
+                              const ClampingScrollPhysics(),
+                              itemCount: _notifLogs.length,
+                              separatorBuilder: (_, x) =>
+                              const Divider(
+                                color: Color(0xFF222222),
+                                height: 1,
+                              ),
+                              itemBuilder: (_, i) {
+                                final log = _notifLogs[i];
+                                final isSel =
+                                _selectedNotifs.contains(i);
+                                return InkWell(
+                                  onTap: () =>
+                                      setPopState(() {
+                                        isSel
+                                            ? _selectedNotifs
+                                            .remove(i)
+                                            : _selectedNotifs.add(i);
+                                      }),
+                                  child: Padding(
+                                    padding:
+                                    const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 11,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        AnimatedContainer(
+                                          duration: const Duration(
+                                            milliseconds: 150,
+                                          ),
+                                          width: 18,
+                                          height: 18,
+                                          decoration:
+                                          BoxDecoration(
+                                            color: isSel
+                                                ? const Color(
+                                              0xFF00D9FF,
+                                            )
+                                                : Colors
+                                                .transparent,
+                                            border: Border.all(
+                                              color: isSel
+                                                  ? const Color(
+                                                0xFF00D9FF,
+                                              )
+                                                  : const Color(
+                                                0xFF444444,
+                                              ),
+                                              width: 1.5,
+                                            ),
+                                            borderRadius:
+                                            BorderRadius
+                                                .circular(5),
+                                          ),
+                                          child: isSel
+                                              ? const Icon(
+                                            Icons.check,
+                                            size: 12,
+                                            color:
+                                            Colors.black,
+                                          )
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                            CrossAxisAlignment
+                                                .start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      '💳 Credit Card Reminder',
+                                                      style:
+                                                      TextStyle(
+                                                        color: isSel
+                                                            ? const Color(
+                                                          0xFF00D9FF,
+                                                        )
+                                                            : Colors
+                                                            .white,
+                                                        fontSize:
+                                                        13,
+                                                        fontWeight:
+                                                        FontWeight
+                                                            .w500,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Text(
+                                                    _formatTime(
+                                                      log['sentAt']
+                                                      as String?,
+                                                    ),
+                                                    style:
+                                                    const TextStyle(
+                                                      color: Color(
+                                                        0xFF555555,
+                                                      ),
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(
+                                                height: 3,
+                                              ),
+                                              Text(
+                                                (log['message']
+                                                as String?) ??
+                                                    '',
+                                                style:
+                                                const TextStyle(
+                                                  color: Color(
+                                                    0xFF777777,
+                                                  ),
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow
+                                                    .ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    overlay.insert(_notifOverlay!);
+  }
+
+  // ── close ────────────────────────────────────────────────────────────────
+
+  void _closeNotifPopup() {
+    _notifOverlay?.remove();
+    _notifOverlay = null;
+    _selectedNotifs.clear();
+  }
+
+  // ── chip ─────────────────────────────────────────────────────────────────
+
+  Widget _notifChip(String label, VoidCallback onTap) {
+    return GestureDetector(
+        onTap: onTap,
+        child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFF333333)),
+              borderRadius: BorderRadius.circular(7),
+            ),
+          child: Text(
+            label,
+            style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 12),
+          ),
+        ),
+    );
+  }
+
+  // ── format time ──────────────────────────────────────────────────────────
+
+  String _formatTime(String? raw) {
+    if (raw == null) return '';
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+  // ── dispose ──────────────────────────────────────────────────────────────
+
+  @override
+  void dispose() {
+    _closeNotifPopup();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,17 +566,7 @@ class _GridViewPageState extends State<GridViewPage> {
               color: AppConfig.primaryTeal,
               size: 26,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ViewReminderPage(
-                    userId: widget.userId,
-                    userName: widget.userName,
-                  ),
-                ),
-              );
-            },
+            onPressed: () => _toggleNotificationPopup(context),
           ),
           IconButton(
             icon: const Icon(

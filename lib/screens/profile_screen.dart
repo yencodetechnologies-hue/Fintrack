@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../config/app_config.dart';
 import '../services/api_service.dart';
 import '../services/card_service.dart';
+import '../services/email_sync_service.dart';
 import '../services/user_storage.dart';
 import 'home_screen.dart';
 import 'card_home.dart';
@@ -33,11 +34,154 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int reminderCount = 0;
   bool isLoadingStats = true;
   bool isDeletingAccount = false;
+  bool gmailConnected = false;
+  String? gmailEmail;
+  String? gmailLastSync;
+  bool isGmailLoading = false;
 
   @override
   void initState() {
     super.initState();
     _loadProfileData();
+  }
+
+  Future<void> _loadGmailStatus() async {
+    try {
+      final status = await EmailSyncService.getStatus(widget.userId);
+      if (mounted) {
+        setState(() {
+          gmailConnected = status['connected'] == true;
+          gmailEmail = status['googleEmail']?.toString();
+          gmailLastSync = status['lastSyncAt']?.toString();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleGmailConnect() async {
+    setState(() => isGmailLoading = true);
+    try {
+      final result = await EmailSyncService.connectGmail(widget.userId);
+      if (!mounted) return;
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gmail connected: ${result['googleEmail'] ?? ''}'),
+          ),
+        );
+        await _loadGmailStatus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Failed to connect Gmail')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isGmailLoading = false);
+    }
+  }
+
+  Future<void> _handleGmailSync() async {
+    setState(() => isGmailLoading = true);
+    try {
+      final result = await EmailSyncService.syncBills(widget.userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['success'] == true
+                ? 'Sync done — ${result['newBills'] ?? 0} new bill(s) found'
+                : (result['message'] ?? 'Sync failed'),
+          ),
+        ),
+      );
+      await _loadGmailStatus();
+    } finally {
+      if (mounted) setState(() => isGmailLoading = false);
+    }
+  }
+
+  Future<void> _handleGmailDisconnect() async {
+    setState(() => isGmailLoading = true);
+    try {
+      final result = await EmailSyncService.disconnectGmail(widget.userId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['success'] == true
+                ? 'Gmail disconnected'
+                : (result['message'] ?? 'Disconnect failed'),
+          ),
+        ),
+      );
+      await _loadGmailStatus();
+    } finally {
+      if (mounted) setState(() => isGmailLoading = false);
+    }
+  }
+
+  void _showGmailDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppConfig.darkSlate,
+        title: const Text('Gmail Bill Sync', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              gmailConnected
+                  ? 'Connected: ${gmailEmail ?? "Gmail"}'
+                  : 'Connect Gmail to auto-fetch credit card bills (due date, amount).',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            if (gmailLastSync != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Last sync: $gmailLastSync',
+                style: const TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Colors.white60)),
+          ),
+          if (gmailConnected) ...[
+            TextButton(
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailSync();
+                    },
+              child: const Text('Sync now', style: TextStyle(color: AppConfig.primaryTeal)),
+            ),
+            TextButton(
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailDisconnect();
+                    },
+              child: const Text('Disconnect', style: TextStyle(color: Colors.redAccent)),
+            ),
+          ] else
+            TextButton(
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailConnect();
+                    },
+              child: const Text('Connect', style: TextStyle(color: AppConfig.primaryTeal)),
+            ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadProfileData() async {
@@ -66,6 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     }
+    await _loadGmailStatus();
   }
 
   Future<void> _handleDeleteAccount() async {
@@ -478,6 +623,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ),
                                       ).then((_) => _loadProfileData());
                                     },
+                                  ),
+                                  _buildDivider(),
+                                  _buildMenuItem(
+                                    icon: Icons.mail_outline_rounded,
+                                    title: gmailConnected
+                                        ? "Gmail Connected"
+                                        : "Connect Gmail",
+                                    color: Colors.lightBlueAccent,
+                                    onTap: _showGmailDialog,
                                   ),
                                   _buildDivider(),
                                   _buildMenuItem(

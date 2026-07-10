@@ -35,6 +35,13 @@ status: {
   paymentDate: Date,
 
   reminders: [reminderItemSchema],
+
+  notificationLogs: [
+    {
+      message: String,
+      sentAt: { type: Date, default: Date.now },
+    },
+  ],
 }, { timestamps: true });
 
 module.exports = mongoose.model("Reminder", reminderSchema);

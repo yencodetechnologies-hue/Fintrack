@@ -30,9 +30,14 @@ const lendRoutes = require("./routes/lendRoutes");
 const liabilityRoutes = require("./routes/liabilityRoutes");
 app.use("/api/lend", lendRoutes);
 app.use("/api/liability", liabilityRoutes);
-const cronReminderRoutes = require("./routes/cronReminderRoutes");
+const cronReminderRoutes = require("./routes/cronreminderRoutes");
 
 app.use("/api/cron", cronReminderRoutes);
+
+const emailSyncRoutes = require("./routes/emailSyncRoutes");
+app.use("/api/email", emailSyncRoutes);
+
+require("./jobs/emailSyncCron");
 
 app.listen(3009, "0.0.0.0", () => {
   console.log("Server running on port 3009");

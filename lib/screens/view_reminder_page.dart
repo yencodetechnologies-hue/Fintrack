@@ -3,45 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'update_reminder_page.dart';
 import 'package:card/config/app_config.dart';
+import 'package:card/utils/bank_card_style.dart';
 import 'card_home.dart';
 import 'view_card_screen.dart';
 import 'profile_screen.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-// ── 20 unique card styles (same as view_card_screen) ─────────────────────────
-enum _CardStyle {
-  sbi, hdfc, kotak, axisRibbon, flipkart, yes, icici,
-  amexGold, amexBlue, federal, indusind, rbl, hsbc, pnb,
-  idfc, idbi, paytm, stanchart, canara, tmb,
-}
-
-_CardStyle _styleForBank(String bankName) {
-  final b = bankName.toLowerCase().trim();
-  if (b.contains('sbi') || b.contains('state bank'))        return _CardStyle.sbi;
-  if (b.contains('hdfc'))                                    return _CardStyle.hdfc;
-  if (b.contains('kotak'))                                   return _CardStyle.kotak;
-  if (b.contains('axis'))                                    return _CardStyle.axisRibbon;
-  if (b.contains('flipkart'))                                return _CardStyle.flipkart;
-  if (b.contains('yes'))                                     return _CardStyle.yes;
-  if (b.contains('icici') || b.contains('amazon'))          return _CardStyle.icici;
-  if (b.contains('amex gold') || b.contains('american express gold')) return _CardStyle.amexGold;
-  if (b.contains('amex') || b.contains('american'))         return _CardStyle.amexBlue;
-  if (b.contains('federal'))                                 return _CardStyle.federal;
-  if (b.contains('indus'))                                   return _CardStyle.indusind;
-  if (b.contains('rbl'))                                     return _CardStyle.rbl;
-  if (b.contains('hsbc'))                                    return _CardStyle.hsbc;
-  if (b.contains('pnb') || b.contains('punjab'))            return _CardStyle.pnb;
-  if (b.contains('idfc') || b.contains('onecard') || b.contains('slice')) return _CardStyle.idfc;
-  if (b.contains('idbi') || b.contains('bandhan'))          return _CardStyle.idbi;
-  if (b.contains('paytm') || b.contains('airtel') || b.contains('jupiter')) return _CardStyle.paytm;
-  if (b.contains('standard') || b.contains('scbank'))       return _CardStyle.stanchart;
-  if (b.contains('canara') || b.contains('union') || b.contains('boi') || b.contains('central')) return _CardStyle.canara;
-  if (b.contains('tmb') || b.contains('tamilnadu'))         return _CardStyle.tmb;
-  if (bankName.isEmpty) return _CardStyle.idfc;
-  final index = bankName.codeUnits.reduce((a, b) => a + b) % _CardStyle.values.length;
-  return _CardStyle.values[index];
-}
 
 // ── palette ───────────────────────────────────────────────────────────────────
 const Color _bg   = Color(0xFF0A0A0F);
@@ -229,7 +196,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
   Widget _buildItem(Map r) {
     final bool isPaid = (r["status"] ?? "unpaid") == "paid";
     final String bank = (r["bankName"] ?? "").toString();
-    final style = _styleForBank(bank);
+    final style = styleForBank(bank);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -371,7 +338,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
 class _ReminderCreditCard extends StatelessWidget {
   final String bank, amount, paymentDate, statementDate;
   final bool isPaid;
-  final _CardStyle style;
+  final CardStyle style;
   final VoidCallback onTogglePaid;
 
   const _ReminderCreditCard({
@@ -383,26 +350,26 @@ class _ReminderCreditCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (style) {
-      case _CardStyle.sbi:        return _mkCard(const [Color(0xFF002366), Color(0xFF0047AB)], const Color(0xFF002366), [Positioned.fill(child: CustomPaint(painter: _GridPainter(color: Color(0xFF4488CC))))]);
-      case _CardStyle.hdfc:       return _mkCard(const [Color(0xFF8B0000), Color(0xFFCC0000)], const Color(0xFF8B0000), [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))]);
-      case _CardStyle.kotak:      return _mkCard(const [Color(0xFF1A0800), Color(0xFF2D1200)], const Color(0xFFB8600A), [Positioned.fill(child: CustomPaint(painter: _InfinityPainter())), Positioned(top:-20,right:20,child: Container(width:180,height:180, decoration: BoxDecoration(shape:BoxShape.circle,gradient:RadialGradient(colors:[Color(0xFFFF8C00).withValues(alpha:0.3),Colors.transparent]))))]);
-      case _CardStyle.axisRibbon: return _mkCard(const [Color(0xFF050505), Color(0xFF0A0A0A)], const Color(0xFF2244AA), [Positioned.fill(child: CustomPaint(painter: _NeonRibbonPainter()))]);
-      case _CardStyle.flipkart:   return _mkCard(const [Color(0xFF0B1C6B), Color(0xFF1A3399)], const Color(0xFF0B1C6B), [Positioned.fill(child: CustomPaint(painter: _RibbonPainter(c1: Color(0xFF4499FF), c2: Color(0xFFFF44AA))))]);
-      case _CardStyle.yes:        return _mkCard(const [Color(0xFF003087), Color(0xFF0050C8)], const Color(0xFF003087), [Positioned.fill(child: CustomPaint(painter: _MandalaPainter()))]);
-      case _CardStyle.icici:      return _mkCard(const [Color(0xFF1A1A1A), Color(0xFF0D0D0D)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))]);
-      case _CardStyle.amexGold:   return _mkCard(const [Color(0xFFB8970A), Color(0xFFDAA520), Color(0xFFEDD060)], const Color(0xFFB8860B), [Positioned.fill(child: CustomPaint(painter: _GoldWavePainter()))], textColor: const Color(0xFF1A1400));
-      case _CardStyle.amexBlue:   return _mkCard(const [Color(0xFF003087), Color(0xFF0050C8)], const Color(0xFF001A66), [Positioned.fill(child: CustomPaint(painter: _DotGridPainter(color: Color(0xFF4488DD))))]);
-      case _CardStyle.federal:    return _mkCard(const [Color(0xFF050505), Color(0xFF111111)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _PolygonPainter(color: Color(0xFF333333))))], textColor: const Color(0xFFD4AF37));
-      case _CardStyle.indusind:   return _mkCard(const [Color(0xFF111111), Color(0xFF1C1C1C)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _GridTexturePainter()))]);
-      case _CardStyle.rbl:        return _mkCard(const [Color(0xFF1A1A1A), Color(0xFF2A2A2A)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _BrushPainter())), Positioned(bottom:-20,right:-10,child: Text('PLAY',style: TextStyle(fontSize:110,fontWeight:FontWeight.w900,color:Colors.white.withValues(alpha:0.07),letterSpacing:-4)))]);
-      case _CardStyle.hsbc:       return _mkCard(const [Color(0xFF9B0000), Color(0xFFBB0000)], const Color(0xFF9B0000), [Positioned.fill(child: CustomPaint(painter: _HexPainter()))]);
-      case _CardStyle.pnb:        return _mkCard(const [Color(0xFF5C0018), Color(0xFF8B0025)], const Color(0xFF5C0018), [Positioned.fill(child: CustomPaint(painter: _AuroraPainter()))]);
-      case _CardStyle.idfc:       return _mkCard(const [Color(0xFF003344), Color(0xFF005566)], const Color(0xFF003344), [Positioned.fill(child: CustomPaint(painter: _CarbonPainter()))]);
-      case _CardStyle.idbi:       return _mkCard(const [Color(0xFF1A0050), Color(0xFF2D0080)], const Color(0xFF1A0050), [Positioned.fill(child: CustomPaint(painter: _SunburstPainter()))]);
-      case _CardStyle.paytm:      return _mkCard(const [Color(0xFF000814), Color(0xFF001A4D)], const Color(0xFF002D72), [Positioned.fill(child: CustomPaint(painter: _GalaxyPainter()))]);
-      case _CardStyle.stanchart:  return _mkCard(const [Color(0xFF006B3C), Color(0xFF009B5B)], const Color(0xFF006B3C), [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))]);
-      case _CardStyle.canara:     return _mkCard(const [Color(0xFF004D00), Color(0xFF007700)], const Color(0xFF004D00), [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))]);
-      case _CardStyle.tmb:        return _mkCard(const [Color(0xFF00008B), Color(0xFF0000CD)], const Color(0xFF00008B), [Positioned.fill(child: CustomPaint(painter: _OceanPainter()))]);
+      case CardStyle.sbi:        return _mkCard(const [Color(0xFF002366), Color(0xFF0047AB)], const Color(0xFF002366), [Positioned.fill(child: CustomPaint(painter: _GridPainter(color: Color(0xFF4488CC))))]);
+      case CardStyle.hdfc:       return _mkCard(const [Color(0xFF8B0000), Color(0xFFCC0000)], const Color(0xFF8B0000), [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))]);
+      case CardStyle.kotak:      return _mkCard(const [Color(0xFF1A0800), Color(0xFF2D1200)], const Color(0xFFB8600A), [Positioned.fill(child: CustomPaint(painter: _InfinityPainter())), Positioned(top:-20,right:20,child: Container(width:180,height:180, decoration: BoxDecoration(shape:BoxShape.circle,gradient:RadialGradient(colors:[Color(0xFFFF8C00).withValues(alpha:0.3),Colors.transparent]))))]);
+      case CardStyle.axisRibbon: return _mkCard(const [Color(0xFF050505), Color(0xFF0A0A0A)], const Color(0xFF2244AA), [Positioned.fill(child: CustomPaint(painter: _NeonRibbonPainter()))]);
+      case CardStyle.flipkart:   return _mkCard(const [Color(0xFF0B1C6B), Color(0xFF1A3399)], const Color(0xFF0B1C6B), [Positioned.fill(child: CustomPaint(painter: _RibbonPainter(c1: Color(0xFF4499FF), c2: Color(0xFFFF44AA))))]);
+      case CardStyle.yes:        return _mkCard(const [Color(0xFF003087), Color(0xFF0050C8)], const Color(0xFF003087), [Positioned.fill(child: CustomPaint(painter: _MandalaPainter()))]);
+      case CardStyle.icici:      return _mkCard(const [Color(0xFF1A1A1A), Color(0xFF0D0D0D)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))]);
+      case CardStyle.amexGold:   return _mkCard(const [Color(0xFFB8970A), Color(0xFFDAA520), Color(0xFFEDD060)], const Color(0xFFB8860B), [Positioned.fill(child: CustomPaint(painter: _GoldWavePainter()))], textColor: const Color(0xFF1A1400));
+      case CardStyle.amexBlue:   return _mkCard(const [Color(0xFF003087), Color(0xFF0050C8)], const Color(0xFF001A66), [Positioned.fill(child: CustomPaint(painter: _DotGridPainter(color: Color(0xFF4488DD))))]);
+      case CardStyle.federal:    return _mkCard(const [Color(0xFF050505), Color(0xFF111111)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _PolygonPainter(color: Color(0xFF333333))))], textColor: const Color(0xFFD4AF37));
+      case CardStyle.indusind:   return _mkCard(const [Color(0xFF111111), Color(0xFF1C1C1C)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _GridTexturePainter()))]);
+      case CardStyle.rbl:        return _mkCard(const [Color(0xFF1A1A1A), Color(0xFF2A2A2A)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _BrushPainter())), Positioned(bottom:-20,right:-10,child: Text('PLAY',style: TextStyle(fontSize:110,fontWeight:FontWeight.w900,color:Colors.white.withValues(alpha:0.07),letterSpacing:-4)))]);
+      case CardStyle.hsbc:       return _mkCard(const [Color(0xFF9B0000), Color(0xFFBB0000)], const Color(0xFF9B0000), [Positioned.fill(child: CustomPaint(painter: _HexPainter()))]);
+      case CardStyle.pnb:        return _mkCard(const [Color(0xFF5C0018), Color(0xFF8B0025)], const Color(0xFF5C0018), [Positioned.fill(child: CustomPaint(painter: _AuroraPainter()))]);
+      case CardStyle.idfc:       return _mkCard(const [Color(0xFF003344), Color(0xFF005566)], const Color(0xFF003344), [Positioned.fill(child: CustomPaint(painter: _CarbonPainter()))]);
+      case CardStyle.idbi:       return _mkCard(const [Color(0xFF1A0050), Color(0xFF2D0080)], const Color(0xFF1A0050), [Positioned.fill(child: CustomPaint(painter: _SunburstPainter()))]);
+      case CardStyle.paytm:      return _mkCard(const [Color(0xFF000814), Color(0xFF001A4D)], const Color(0xFF002D72), [Positioned.fill(child: CustomPaint(painter: _GalaxyPainter()))]);
+      case CardStyle.stanchart:  return _mkCard(const [Color(0xFF006B3C), Color(0xFF009B5B)], const Color(0xFF006B3C), [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))]);
+      case CardStyle.canara:     return _mkCard(const [Color(0xFF004D00), Color(0xFF007700)], const Color(0xFF004D00), [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))]);
+      case CardStyle.tmb:        return _mkCard(const [Color(0xFF00008B), Color(0xFF0000CD)], const Color(0xFF00008B), [Positioned.fill(child: CustomPaint(painter: _OceanPainter()))]);
     }
   }
 

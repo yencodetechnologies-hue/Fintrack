@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const moment = require("moment");
 const Reminder = require("../models/reminder");
 const admin = require("../config/firebase");
-const NotificationLog = require("../models/NotificationLog");
+const NotificationLog = require("../models/notificationcron");
 cron.schedule("* * * * *", async () => {
 
   console.log("🔁 Checking reminders...");
@@ -164,6 +164,22 @@ cron.schedule("* * * * *", async () => {
                       tag:
                       "payment-reminder",
 
+                    },
+                  },
+
+                  apns: {
+                    headers: {
+                      "apns-priority": "10",
+                    },
+                    payload: {
+                      aps: {
+                        sound: "default",
+                        badge: 1,
+                        alert: {
+                          title: "💳 Fintrack Reminder",
+                          body: message,
+                        },
+                      },
                     },
                   },
 

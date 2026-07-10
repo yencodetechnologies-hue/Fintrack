@@ -52,6 +52,26 @@ class ApiService {
     }
   }
 
+
+  static Future<Map<String, dynamic>> updateFcmToken(
+    String userId,
+    String token,
+  ) async {
+    try {
+      final res = await http.post(
+        Uri.parse(AppConfig.updateFcmToken),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "fcmToken": token,
+        }),
+      );
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {"success": false, "message": "Connection error"};
+    }
+  }
+
   static Future<Map<String, dynamic>> deleteAccount(String userId) async {
     try {
       final res = await http.delete(

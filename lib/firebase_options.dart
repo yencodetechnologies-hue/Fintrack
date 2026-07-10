@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1097214336094',
     projectId: 'meeraprabhu-4159a',
     storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
-    iosBundleId: 'com.yencode.fintrack',
+    iosBundleId: 'com.yencode.fintracks',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '1097214336094',
     projectId: 'meeraprabhu-4159a',
     storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
-    iosBundleId: 'com.yencode.fintrack',
+    iosBundleId: 'com.yencode.fintracks',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

@@ -11,6 +11,8 @@ import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
 import 'profile_screen.dart';
 import 'package:http/http.dart' as http;
+import '../services/email_sync_service.dart';
+import '../services/fcm_service.dart';
 
 class CardHome extends StatelessWidget {
   final String userId;
@@ -53,6 +55,95 @@ class _GridViewPageState extends State<GridViewPage> {
   final List<Map<String, dynamic>> _notifLogs = [];
   final Set<int> _selectedNotifs = {};
   bool _notifsLoading = false;
+  List<Map<String, dynamic>> _billSuggestions = [];
+  bool _billsLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FCMService.syncTokenWithServer(widget.userId);
+    _loadBillSuggestions();
+  }
+
+  Future<void> _loadBillSuggestions() async {
+    setState(() => _billsLoading = true);
+    try {
+      final suggestions =
+          await EmailSyncService.getSuggestions(widget.userId);
+      if (mounted) {
+        setState(() {
+          _billSuggestions = suggestions;
+          _billsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _billSuggestions = [];
+          _billsLoading = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildBillSuggestionBanner() {
+    if (_billsLoading || _billSuggestions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final bill = _billSuggestions.first;
+    final bank = bill['bankName'] ?? 'Card';
+    final last4 = bill['last4Digits'] ?? '****';
+    final amount = bill['amount']?.toString() ?? '?';
+    final dueRaw = bill['paymentDueDate'] as String?;
+    final dueStr = dueRaw != null
+        ? DateTime.tryParse(dueRaw)?.toLocal().toString().split(' ').first ?? dueRaw
+        : 'soon';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppConfig.primaryTeal.withOpacity(0.15),
+            AppConfig.gradientEnd.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppConfig.primaryTeal.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.mail_outline, color: AppConfig.primaryTeal),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Bill found: $bank •••• $last4 — ₹$amount due $dueStr',
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddReminderPage(
+                    userId: widget.userId,
+                    userName: widget.userName,
+                  ),
+                ),
+              ).then((_) => _loadBillSuggestions());
+            },
+            child: const Text(
+              'Set reminder',
+              style: TextStyle(color: AppConfig.primaryTeal),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ── fetch ────────────────────────────────────────────────────────────────
 
@@ -368,8 +459,9 @@ class _GridViewPageState extends State<GridViewPage> {
                                                   ),
                                                   Text(
                                                     _formatTime(
-                                                      log['sentAt']
-                                                      as String?,
+                                                      (log['sentAt'] ??
+                                                              log['createdAt'])
+                                                          as String?,
                                                     ),
                                                     style:
                                                     const TextStyle(
@@ -832,6 +924,8 @@ class _GridViewPageState extends State<GridViewPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
+
+                    _buildBillSuggestionBanner(),
 
                     // Dynamic non-overflowing Action Grid
                     GridView.builder(

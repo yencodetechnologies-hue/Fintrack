@@ -47,6 +47,19 @@
 			</array>
 		</dict>
 	</dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fintrack</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.yencode.fintracks</string>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to scan your card and fill in card details.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

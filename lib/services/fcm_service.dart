@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import '../screens/view_reminder_page.dart';
+import 'api_service.dart';
 import 'user_storage.dart';
 
 class FCMService {
@@ -11,53 +12,94 @@ class FCMService {
   static Future<String?> getToken() async {
     try {
       final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission();
-      await _logPushTokens(messaging);
-      return await messaging.getToken();
+      await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      await _waitForApnsTokenIfNeeded(messaging);
+      final fcmToken = await messaging.getToken();
+      debugPrint('FCM Token: $fcmToken');
+      return fcmToken;
     } catch (e) {
       debugPrint('FCM getToken error: $e');
       return null;
     }
   }
 
-  static Future<void> _logPushTokens(FirebaseMessaging messaging) async {
-    if (Platform.isIOS) {
-      String? apnsToken = await messaging.getAPNSToken();
-      if (apnsToken == null) {
-        for (var i = 0; i < 5 && apnsToken == null; i++) {
-          await Future.delayed(const Duration(seconds: 1));
-          apnsToken = await messaging.getAPNSToken();
-        }
-      }
-      debugPrint('APNS Token: $apnsToken');
-    }
+  static Future<void> _waitForApnsTokenIfNeeded(
+    FirebaseMessaging messaging,
+  ) async {
+    if (!Platform.isIOS) return;
 
-    final fcmToken = await messaging.getToken();
-    debugPrint('FCM Token: $fcmToken');
+    String? apnsToken = await messaging.getAPNSToken();
+    for (var i = 0; i < 3 && apnsToken == null; i++) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      apnsToken = await messaging.getAPNSToken();
+    }
+    debugPrint('APNS Token: $apnsToken');
   }
 
-  /// Sets up message tap listeners for when the app is in the background or terminated.
-  static Future<void> initializeNotificationClickedHandler(GlobalKey<NavigatorState> navKey) async {
-    // 1. Listen for background clicks (when app is running in background)
+  static Future<void> initialize(GlobalKey<NavigatorState> navKey) async {
+    final messaging = FirebaseMessaging.instance;
+
+    await messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (Platform.isIOS) {
+      await messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint(
+        'Foreground notification: ${message.notification?.title} - ${message.notification?.body}',
+      );
+    });
+
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _handleNotificationClick(navKey);
     });
 
-    // 2. Listen for terminated clicks (when app is launched from notification tap)
-    FirebaseMessaging.instance.getInitialMessage().then((RemoteMessage? message) {
-      if (message != null) {
-        _handleNotificationClick(navKey);
+    final initialMessage = await messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationClick(navKey);
+    }
+
+    messaging.onTokenRefresh.listen((token) async {
+      debugPrint('FCM token refreshed: $token');
+      final userId = await UserStorage.getUserId();
+      if (userId != null) {
+        await syncTokenWithServer(userId, token);
       }
     });
   }
 
-  static Future<void> _handleNotificationClick(GlobalKey<NavigatorState> navKey) async {
-    // Wait a brief moment to ensure navigator state is fully initialized
+  static Future<void> syncTokenWithServer(
+    String userId, [
+    String? token,
+  ]) async {
+    token ??= await getToken();
+    if (token == null || token.isEmpty) return;
+
+    final res = await ApiService.updateFcmToken(userId, token);
+    debugPrint('FCM token sync: ${res["message"] ?? res}');
+  }
+
+  static Future<void> _handleNotificationClick(
+    GlobalKey<NavigatorState> navKey,
+  ) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    
-    String? userId = await UserStorage.getUserId();
-    String? userName = await UserStorage.getUserName();
-    
+
+    final userId = await UserStorage.getUserId();
+    final userName = await UserStorage.getUserName();
+
     if (userId != null) {
       navKey.currentState?.push(
         MaterialPageRoute(

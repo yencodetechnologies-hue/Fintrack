@@ -60,7 +60,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCSI3Mmr3HDjfJZQ1F9BMkup1RxhPi6R9g',
-    appId: '1:1097214336094:ios:7da4d84f41531bc2d5a8cf',
+    appId: '1:1097214336094:ios:2ed1e5a5c672125ed5a8cf',
     messagingSenderId: '1097214336094',
     projectId: 'meeraprabhu-4159a',
     storageBucket: 'meeraprabhu-4159a.firebasestorage.app',
@@ -69,7 +69,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyCSI3Mmr3HDjfJZQ1F9BMkup1RxhPi6R9g',
-    appId: '1:1097214336094:ios:7da4d84f41531bc2d5a8cf',
+    appId: '1:1097214336094:ios:2ed1e5a5c672125ed5a8cf',
     messagingSenderId: '1097214336094',
     projectId: 'meeraprabhu-4159a',
     storageBucket: 'meeraprabhu-4159a.firebasestorage.app',

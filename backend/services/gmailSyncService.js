@@ -3,6 +3,10 @@ const ParsedBill = require("../models/parsedBill");
 const Card = require("../models/card");
 const User = require("../models/user");
 const admin = require("../config/firebase");
+const {
+  buildApnsConfig,
+  sendToUserTokens,
+} = require("../utils/fcmNotifications");
 const { parseEmail, GMAIL_SEARCH_QUERY } = require("./emailParsers");
 const { banksMatch, hashContent } = require("./emailParsers/helpers");
 const { getAuthenticatedGmailClient } = require("./gmailAuthService");
@@ -92,26 +96,21 @@ async function sendNewBillNotification(user, parsed, card) {
   const dueStr = parsed.paymentDueDate
     ? new Date(parsed.paymentDueDate).toLocaleDateString("en-IN")
     : "soon";
+  const title = "New bill detected";
+  const body = `${parsed.bankName} •••• ${last4} — ₹${parsed.amount || "?"} due ${dueStr}`;
 
-  const message = {
-    notification: {
-      title: "New bill detected",
-      body: `${parsed.bankName} •••• ${last4} — ₹${parsed.amount || "?"} due ${dueStr}`,
-    },
-    data: {
-      type: "bill_detected",
-      bankName: parsed.bankName,
-      parsedBillId: parsed._id.toString(),
-    },
-  };
-
-  for (const token of user.fcmTokens) {
-    try {
-      await admin.messaging().send({ ...message, token });
-    } catch (err) {
-      console.log("FCM bill notification error:", err.message);
-    }
-  }
+  await sendToUserTokens(user, async (token) => {
+    await admin.messaging().send({
+      token,
+      notification: { title, body },
+      apns: buildApnsConfig(title, body),
+      data: {
+        type: "bill_detected",
+        bankName: parsed.bankName,
+        parsedBillId: parsed._id.toString(),
+      },
+    });
+  });
 }
 
 async function syncUser(userId, { skipRateLimit = false } = {}) {

@@ -72,8 +72,9 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       }
 
 
-      if (fcmToken && !user.fcmTokens.includes(fcmToken)) {
-        user.fcmTokens.push(fcmToken);
+      if (fcmToken) {
+        user.fcmTokens = [fcmToken, ...user.fcmTokens.filter((t) => t !== fcmToken)]
+          .slice(0, 5);
         await user.save();
       }
 
@@ -276,10 +277,9 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         });
       }
 
-      if (!user.fcmTokens.includes(fcmToken)) {
-        user.fcmTokens.push(fcmToken);
-        await user.save();
-      }
+      user.fcmTokens = [fcmToken, ...user.fcmTokens.filter((t) => t !== fcmToken)]
+        .slice(0, 5);
+      await user.save();
 
       res.json({
         success: true,

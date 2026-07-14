@@ -33,6 +33,10 @@ class AppConfig {
   static const String emailApply = "$emailBase/apply";
   static const String emailDisconnect = "$emailBase/disconnect";
 
+  // Platform identifiers (must match Firebase + native project config)
+  static const String iosBundleId = "com.yencode.fintracks";
+  static const String androidPackageName = "com.yencode.fintrack";
+
   // Web OAuth client ID from Google Cloud Console (used by google_sign_in)
   static const String googleWebClientId =
       "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com";

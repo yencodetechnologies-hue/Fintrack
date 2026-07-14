@@ -3,6 +3,11 @@ const moment = require("moment");
 const Reminder = require("../models/reminder");
 const admin = require("../config/firebase");
 const NotificationLog = require("../models/notificationcron");
+const {
+  buildApnsConfig,
+  buildAndroidConfig,
+  sendToUserTokens,
+} = require("../utils/fcmNotifications");
 cron.schedule("* * * * *", async () => {
 
   console.log("🔁 Checking reminders...");
@@ -113,120 +118,40 @@ cron.schedule("* * * * *", async () => {
               continue;
             }
 
-            let sentAny = false;
-            for (let token of r.userId.fcmTokens) {
+            const title = "💳 Fintrack Reminder";
+            const message = `₹${r.amount} payment due for ${r.bankName}`;
 
-              try {
-                const message = `₹${r.amount} payment due for ${r.bankName}`;
+            const { sent } = await sendToUserTokens(r.userId, async (token) => {
+              await admin.messaging().send({
+                token,
+                notification: {
+                  title,
+                  body: message,
+                },
+                android: buildAndroidConfig(),
+                apns: buildApnsConfig(title, message),
+                data: {
+                  type: "payment_reminder",
+                  bankName: r.bankName.toString(),
+                  amount: r.amount.toString(),
+                  paymentDate: r.paymentDate.toString(),
+                  status: r.status.toString(),
+                },
+              });
+            });
 
-                await admin.messaging().send({
+            if (sent > 0) {
+              await NotificationLog.create({ message });
 
-                  token: token,
+              r.notificationLogs.push({
+                message,
+                sentAt: new Date(),
+              });
 
-                  notification: {
-
-                    title:
-                    "💳 Fintrack Reminder",
-
-                    body:
-                    message,
-                  },
-
-                  android: {
-
-                    priority: "high",
-
-                    notification: {
-
-                      channelId:
-                      "payment_reminder",
-
-                      sound: "default",
-
-                      icon: "ic_launcher",
-
-                      color: "#00D9FF",
-
-                      sticky: false,
-
-                      visibility: "public",
-
-                      notificationPriority:
-                      "PRIORITY_MAX",
-
-                      defaultSound: true,
-
-                      defaultVibrateTimings: true,
-
-                      ticker:
-                      "Card Payment Alert",
-
-                      tag:
-                      "payment-reminder",
-
-                    },
-                  },
-
-                  apns: {
-                    headers: {
-                      "apns-priority": "10",
-                    },
-                    payload: {
-                      aps: {
-                        sound: "default",
-                        badge: 1,
-                        alert: {
-                          title: "💳 Fintrack Reminder",
-                          body: message,
-                        },
-                      },
-                    },
-                  },
-
-                  data: {
-
-                    type:
-                    "payment_reminder",
-
-                    bankName:
-                    r.bankName.toString(),
-
-                    amount:
-                    r.amount.toString(),
-
-                    paymentDate:
-                    r.paymentDate.toString(),
-
-                    status:
-                    r.status.toString(),
-                  },
-                });
-
-               // Save to NotificationLog collection
-               await NotificationLog.create({
-                 message,
-               });
-
-               // Save inside Reminder document
-               r.notificationLogs.push({
-                 message,
-                 sentAt: new Date(),
-               });
-
-               sentAny = true;
-
-               console.log("✅ Notification Sent:", token);
-
-              } catch (err) {
-
-                console.log(
-                    "❌ Firebase Error:",
-                    err.message
-                );
-              }
-            }
-            if (sentAny) {
               await r.save();
+              console.log(`✅ Notification Sent (${sent} device(s))`);
+            } else {
+              console.log("❌ Notification not delivered to any device");
             }
           }
         }

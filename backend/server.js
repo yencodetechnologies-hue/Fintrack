@@ -37,6 +37,9 @@ app.use("/api/cron", cronReminderRoutes);
 const emailSyncRoutes = require("./routes/emailSyncRoutes");
 app.use("/api/email", emailSyncRoutes);
 
+const notificationRoutes = require("./routes/notificationRoutes");
+app.use("/api/notifications", notificationRoutes);
+
 require("./jobs/emailSyncCron");
 
 app.listen(3009, "0.0.0.0", () => {

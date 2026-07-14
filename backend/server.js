@@ -34,6 +34,11 @@ const cronReminderRoutes = require("./routes/cronreminderRoutes");
 
 app.use("/api/cron", cronReminderRoutes);
 
+const emailSyncRoutes = require("./routes/emailSyncRoutes");
+app.use("/api/email", emailSyncRoutes);
+
+require("./jobs/emailSyncCron");
+
 app.listen(3009, "0.0.0.0", () => {
   console.log("Server running on port 3009");
 });

@@ -6,10 +6,17 @@ exports.getNotificationLogs = async (req, res) => {
       createdAt: -1,
     });
 
+    const data = logs.map((log) => ({
+      _id: log._id,
+      message: log.message,
+      createdAt: log.createdAt,
+      sentAt: log.createdAt,
+    }));
+
     res.status(200).json({
       success: true,
-      count: logs.length,
-      data: logs,
+      count: data.length,
+      data,
     });
   } catch (err) {
     res.status(500).json({

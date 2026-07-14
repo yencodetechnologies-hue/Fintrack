@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/api_service.dart';
@@ -40,6 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
     String? userName = await UserStorage.getUserName();
 
     if (userId != null) {
+      // Sync in background — don't block navigation on APNS/FCM token fetch.
+      unawaited(FCMService.syncTokenWithServer(userId));
+
       if (!mounted) return;
 
       Navigator.pushReplacement(
@@ -75,7 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => loginLoading = true);
 
     try {
-      String? token = await FCMService.getToken();
+      // FCM token is optional — login must succeed even without notifications.
+      final token = await FCMService.getToken();
 
       final res = await ApiService.login(
         loginEmail.text.trim(),

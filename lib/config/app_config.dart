@@ -12,6 +12,7 @@ class AppConfig {
   static const String forgotPassword = "$authBase/forgot-password";
   static const String verifyOtp = "$authBase/verify-otp";
   static const String resetPassword = "$authBase/reset-password";
+  static const String updateFcmToken = "$authBase/update-fcm-token";
 
   static const String cards = "$baseUrl/api/cards";
 
@@ -21,9 +22,22 @@ class AppConfig {
   static const String reminderStatus = "$baseUrl/reminder/status";
   static const String lend = "$baseUrl/api/lend";
   static const String liability = "$baseUrl/api/liability";
+  static const String cron = "$baseUrl/api/cron/notification-logs";
 
+  static const String emailBase = "$baseUrl/api/email";
+  static const String emailConnect = "$emailBase/connect";
+  static const String emailConnectUrl = "$emailBase/connect-url";
+  static const String emailStatus = "$emailBase/status";
+  static const String emailSync = "$emailBase/sync";
+  static const String emailSuggestions = "$emailBase/suggestions";
+  static const String emailApply = "$emailBase/apply";
+  static const String emailDisconnect = "$emailBase/disconnect";
+
+  // Web OAuth client ID from Google Cloud Console (used by google_sign_in)
+  static const String googleWebClientId =
+      "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com";
   // App Text Branding
-  static const String appName = "Fintrack";
+  static const String appName = "Q Fin";
   static const String appSubtitle = "Your secure smart wallet assistant";
   static const String signupSubtitle = "Join Fintrack for smart card management";
 

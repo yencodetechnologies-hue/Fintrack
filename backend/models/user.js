@@ -39,6 +39,16 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
           },
+
+    gmailConnection: {
+      googleEmail: { type: String, default: null },
+      refreshTokenEnc: { type: String, default: null },
+      accessToken: { type: String, default: null },
+      accessTokenExpiry: { type: Date, default: null },
+      connectedAt: { type: Date, default: null },
+      lastSyncAt: { type: Date, default: null },
+      syncEnabled: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );

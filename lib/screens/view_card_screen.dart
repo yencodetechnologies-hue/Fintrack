@@ -7,59 +7,7 @@ import 'card_home.dart';
 import 'view_reminder_page.dart';
 import 'profile_screen.dart';
 import '../config/app_config.dart';
-
-// ── 20 unique card styles ─────────────────────────────────────────────────────
-enum _CardStyle {
-  sbi,        // SBI — dark navy + geometric grid
-  hdfc,       // HDFC — deep red + brushed metal
-  kotak,      // Kotak — dark brown + infinity symbol orange
-  axisRibbon, // Axis — pitch black + blue/pink neon ribbons
-  flipkart,   // Flipkart — deep navy + blue/pink ribbon
-  yes,        // YES Bank — royal blue + mandala
-  icici,      // ICICI — brushed black + orange accent
-  amexGold,   // Amex Gold — classic gold + wave pattern
-  amexBlue,   // Amex Blue — deep navy blue + warrior emboss
-  federal,    // Federal — pitch black + geometric eagle dark
-  indusind,   // IndusInd — charcoal black + crocodile texture
-  rbl,        // RBL — dark gunmetal + large text overlay
-  hsbc,       // HSBC — deep red + hexagon
-  pnb,        // PNB — maroon + aurora
-  idfc,       // IDFC — dark teal + carbon
-  idbi,       // IDBI — deep purple + sunburst
-  paytm,      // Paytm — midnight blue + stars
-  stanchart,  // StanChart — emerald green + shimmer
-  canara,     // Canara — forest green + sparkle
-  tmb,        // TMB — deep navy + ocean waves
-}
-
-// ── brand colour exact match ──────────────────────────────────────────────────
-_CardStyle _styleForBank(String bankName) {
-  final b = bankName.toLowerCase().trim();
-  if (b.contains('sbi') || b.contains('state bank'))        { return _CardStyle.sbi; }
-  if (b.contains('hdfc'))                                    { return _CardStyle.hdfc; }
-  if (b.contains('kotak'))                                   { return _CardStyle.kotak; }
-  if (b.contains('axis'))                                    { return _CardStyle.axisRibbon; }
-  if (b.contains('flipkart'))                                { return _CardStyle.flipkart; }
-  if (b.contains('yes'))                                     { return _CardStyle.yes; }
-  if (b.contains('icici') || b.contains('amazon'))          { return _CardStyle.icici; }
-  if (b.contains('amex gold') || b.contains('american express gold')) { return _CardStyle.amexGold; }
-  if (b.contains('amex') || b.contains('american'))         { return _CardStyle.amexBlue; }
-  if (b.contains('federal'))                                 { return _CardStyle.federal; }
-  if (b.contains('indus'))                                   { return _CardStyle.indusind; }
-  if (b.contains('rbl'))                                     { return _CardStyle.rbl; }
-  if (b.contains('hsbc'))                                    { return _CardStyle.hsbc; }
-  if (b.contains('pnb') || b.contains('punjab'))            { return _CardStyle.pnb; }
-  if (b.contains('idfc') || b.contains('onecard') || b.contains('slice')) { return _CardStyle.idfc; }
-  if (b.contains('idbi') || b.contains('bandhan'))          { return _CardStyle.idbi; }
-  if (b.contains('paytm') || b.contains('airtel') || b.contains('jupiter')) { return _CardStyle.paytm; }
-  if (b.contains('standard') || b.contains('scbank'))       { return _CardStyle.stanchart; }
-  if (b.contains('canara') || b.contains('union') || b.contains('boi') || b.contains('central')) { return _CardStyle.canara; }
-  if (b.contains('tmb') || b.contains('tamilnadu'))         { return _CardStyle.tmb; }
-  // unknown bank → hash across all 20 styles, always unique
-  if (bankName.isEmpty) { return _CardStyle.idfc; }
-  final index = bankName.codeUnits.reduce((a, b) => a + b) % _CardStyle.values.length;
-  return _CardStyle.values[index];
-}
+import '../utils/bank_card_style.dart';
 
 class ViewCardScreen extends StatefulWidget {
   final String userId;
@@ -417,7 +365,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                   padding: const EdgeInsets.only(bottom: 24),
                   child: _CreditCard(
                     bank: bank, name: name, digits: digits,
-                    style: _styleForBank(bank),
+                    style: styleForBank(bank),
                     onEdit: () => showDialog(context: context,
                         builder: (_) => AlertDialog(
                           title: const Text('Update Card'),
@@ -535,7 +483,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
 // ─── Router ───────────────────────────────────────────────────────────────────
 class _CreditCard extends StatelessWidget {
   final String bank, name, digits;
-  final _CardStyle style;
+  final CardStyle style;
   final VoidCallback onEdit, onDelete;
   const _CreditCard({required this.bank, required this.name, required this.digits,
     required this.style, required this.onEdit, required this.onDelete});
@@ -543,26 +491,26 @@ class _CreditCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     switch (style) {
-      case _CardStyle.sbi:        return _SbiCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.hdfc:       return _HdfcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.kotak:      return _KotakCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.axisRibbon: return _AxisCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.flipkart:   return _FlipkartCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.yes:        return _YesCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.icici:      return _IciciCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.amexGold:   return _AmexGoldCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.amexBlue:   return _AmexBlueCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.federal:    return _FederalCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.indusind:   return _IndusIndCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.rbl:        return _RblCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.hsbc:       return _HsbcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.pnb:        return _PnbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.idfc:       return _IdfcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.idbi:       return _IdbiCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.paytm:      return _PaytmCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.stanchart:  return _StanChartCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.canara:     return _CanaraCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
-      case _CardStyle.tmb:        return _TmbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.sbi:        return _SbiCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.hdfc:       return _HdfcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.kotak:      return _KotakCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.axisRibbon: return _AxisCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.flipkart:   return _FlipkartCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.yes:        return _YesCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.icici:      return _IciciCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.amexGold:   return _AmexGoldCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.amexBlue:   return _AmexBlueCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.federal:    return _FederalCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.indusind:   return _IndusIndCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.rbl:        return _RblCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.hsbc:       return _HsbcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.pnb:        return _PnbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.idfc:       return _IdfcCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.idbi:       return _IdbiCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.paytm:      return _PaytmCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.stanchart:  return _StanChartCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.canara:     return _CanaraCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.tmb:        return _TmbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
     }
   }
 }

@@ -3,7 +3,7 @@ const router = express.Router();
 
 const {
   getNotificationLogs,
-} = require("../controllers/cronreminderController");
+} = require("../controllers/cronReminderController");
 
 router.get("/notification-logs", getNotificationLogs);
 

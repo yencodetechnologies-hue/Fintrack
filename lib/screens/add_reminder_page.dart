@@ -9,6 +9,7 @@ import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/email_sync_service.dart';
 class AddReminderPage extends StatefulWidget {
   final String userId;
   final String userName;
@@ -38,11 +39,187 @@ class _AddReminderPageState
   TextEditingController();
 
   Map<String, Map<String, dynamic>> reminders = {};
+  bool gmailConnected = false;
+  bool isFetchingGmail = false;
 
   @override
   void initState() {
     super.initState();
     fetchCards();
+    _loadGmailStatus();
+  }
+
+  Future<void> _loadGmailStatus() async {
+    try {
+      final status = await EmailSyncService.getStatus(widget.userId);
+      if (mounted) {
+        setState(() {
+          gmailConnected = status['connected'] == true;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _connectGmail() async {
+    final result = await EmailSyncService.connectGmail(widget.userId);
+    if (!mounted) return;
+    if (result['success'] == true) {
+      setState(() => gmailConnected = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Gmail connected: ${result['googleEmail'] ?? ''}',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result['message'] ?? 'Gmail connect failed')),
+      );
+    }
+  }
+
+  void _applyBillToForm(Map<String, dynamic> bill) {
+    setState(() {
+      if (bill['amount'] != null) {
+        amountController.text = bill['amount'].toString();
+      }
+      if (bill['statementDate'] != null) {
+        statementDate = DateTime.tryParse(bill['statementDate'].toString());
+      }
+      if (bill['paymentDueDate'] != null) {
+        paymentDate = DateTime.tryParse(bill['paymentDueDate'].toString());
+      }
+      final cardId = bill['cardId'];
+      if (cardId != null) {
+        final idStr = cardId is Map ? cardId['_id']?.toString() : cardId.toString();
+        if (idStr != null && cards.any((c) => c['_id'] == idStr)) {
+          selectedCardId = idStr;
+          selectedBankName = bill['bankName']?.toString();
+        }
+      } else if (bill['bankName'] != null) {
+        final match = cards.cast<Map>().where(
+          (c) => (c['bankName'] as String?)
+              ?.toLowerCase()
+              .contains(bill['bankName'].toString().toLowerCase()) ?? false,
+        );
+        if (match.length == 1) {
+          selectedCardId = match.first['_id'];
+          selectedBankName = match.first['bankName'];
+        }
+      }
+    });
+  }
+
+  Future<void> _fetchFromGmail() async {
+    if (!gmailConnected) {
+      await _connectGmail();
+      if (!gmailConnected) return;
+    }
+
+    setState(() => isFetchingGmail = true);
+
+    try {
+      final syncResult = await EmailSyncService.syncBills(widget.userId);
+      if (!mounted) return;
+
+      if (syncResult['success'] != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(syncResult['message'] ?? 'Sync failed')),
+        );
+        return;
+      }
+
+      final suggestions =
+          await EmailSyncService.getSuggestions(widget.userId);
+      if (!mounted) return;
+
+      if (suggestions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No credit card bills found in Gmail (last 45 days)'),
+          ),
+        );
+        return;
+      }
+
+      await showModalBottomSheet(
+        context: context,
+        backgroundColor: AppConfig.darkSlate,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Bills from Gmail',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...suggestions.map((bill) {
+                    final bank = bill['bankName'] ?? 'Card';
+                    final last4 = bill['last4Digits'] ?? '****';
+                    final amount = bill['amount']?.toString() ?? '?';
+                    final due = bill['paymentDueDate'] != null
+                        ? DateFormat('dd MMM yyyy').format(
+                            DateTime.parse(bill['paymentDueDate'].toString()),
+                          )
+                        : 'Unknown';
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        '$bank •••• $last4',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      subtitle: Text(
+                        '₹$amount due $due',
+                        style: const TextStyle(color: AppConfig.hintColor),
+                      ),
+                      trailing: const Icon(
+                        Icons.arrow_forward_ios,
+                        color: AppConfig.primaryTeal,
+                        size: 16,
+                      ),
+                      onTap: () async {
+                        await EmailSyncService.applyBill(
+                          userId: widget.userId,
+                          parsedBillId: bill['_id'].toString(),
+                          cardId: bill['cardId'] is Map
+                              ? bill['cardId']['_id']?.toString()
+                              : bill['cardId']?.toString(),
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        _applyBillToForm(bill);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Bill details applied — set reminder schedule'),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  }),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } finally {
+      if (mounted) setState(() => isFetchingGmail = false);
+    }
   }
 
   Future<void> fetchCards() async {
@@ -690,6 +867,37 @@ class _AddReminderPageState
                         ),
                       ],
                     ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: isFetchingGmail ? null : _fetchFromGmail,
+                          icon: isFetchingGmail
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.mail_outline, size: 18),
+                          label: Text(
+                            gmailConnected
+                                ? 'Fetch from Gmail'
+                                : 'Connect & Fetch Gmail',
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppConfig.primaryTeal,
+                            side: BorderSide(
+                              color: AppConfig.primaryTeal.withOpacity(0.5),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
 
                   const SizedBox(height: 24),

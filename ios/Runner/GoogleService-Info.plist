@@ -9,7 +9,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.yencode.fintrack</string>
+	<string>com.yencode.fintracks</string>
 	<key>PROJECT_ID</key>
 	<string>meeraprabhu-4159a</string>
 	<key>STORAGE_BUCKET</key>

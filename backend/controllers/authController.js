@@ -223,6 +223,39 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
   };
 
+  exports.updateFcmToken = async (req, res) => {
+    try {
+      const { userId, fcmToken } = req.body;
+
+      if (!userId || !fcmToken) {
+        return res.status(400).json({
+          success: false,
+          message: "userId and fcmToken are required",
+        });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      if (!user.fcmTokens.includes(fcmToken)) {
+        user.fcmTokens.push(fcmToken);
+        await user.save();
+      }
+
+      res.json({
+        success: true,
+        message: "FCM token updated",
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
   exports.deleteAccount = async (req, res) => {
     try {
       const { userId } = req.params;

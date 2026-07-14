@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
@@ -21,7 +22,7 @@ class ApiService {
           "email": email,
           "password": password,
           "confirmPassword": confirmPassword,
-          "fcmToken": token,
+          if (token != null && token.isNotEmpty) "fcmToken": token,
         }),
       );
 
@@ -42,13 +43,49 @@ class ApiService {
         body: jsonEncode({
           "email": email,
           "password": password,
-          "fcmToken": token,
+          if (token != null && token.isNotEmpty) "fcmToken": token,
         }),
       );
 
       return jsonDecode(res.body);
     } catch (e) {
       return {"success": false, "message": "Connection error"};
+    }
+  }
+
+
+  static Future<Map<String, dynamic>> updateFcmToken(
+    String userId,
+    String token,
+  ) async {
+    try {
+      final res = await http.post(
+        Uri.parse(AppConfig.updateFcmToken),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "fcmToken": token,
+        }),
+      );
+
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        debugPrint(
+          'FCM token sync HTTP ${res.statusCode}: ${res.body}',
+        );
+        return {
+          "success": false,
+          "message": "HTTP ${res.statusCode}: ${res.body}",
+        };
+      }
+
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {"success": false, "message": "Invalid response: ${res.body}"};
+    } catch (e) {
+      debugPrint('FCM token sync error: $e');
+      return {"success": false, "message": "Connection error: $e"};
     }
   }
 

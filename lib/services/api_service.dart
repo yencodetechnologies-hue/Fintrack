@@ -54,6 +54,34 @@ class ApiService {
   }
 
 
+  static Future<Map<String, dynamic>> validateSession(String userId) async {
+    try {
+      final res = await http.get(
+        Uri.parse("${AppConfig.authBase}/session/$userId"),
+        headers: {"Content-Type": "application/json"},
+      );
+
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) {
+        return {
+          ...decoded,
+          "statusCode": res.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "statusCode": res.statusCode,
+        "message": "Invalid response: ${res.body}",
+      };
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Connection error: $e",
+      };
+    }
+  }
+
   static Future<Map<String, dynamic>> updateFcmToken(
     String userId,
     String token,
@@ -74,6 +102,7 @@ class ApiService {
         );
         return {
           "success": false,
+          "statusCode": res.statusCode,
           "message": "HTTP ${res.statusCode}: ${res.body}",
         };
       }

@@ -89,7 +89,7 @@ class _SignupScreenState extends State<SignupScreen> {
       if (!mounted) return;
 
       if (res["success"] == true) {
-        final userId = res["userId"]?.toString();
+        final userId = UserStorage.parseMongoId(res["userId"]);
 
         if (userId == null) {
           throw Exception("userId NULL after signup");

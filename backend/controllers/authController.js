@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const User = require("../models/user");
 const Card = require("../models/card");
 const Reminder = require("../models/reminder");
@@ -223,14 +224,47 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
   };
 
+  exports.validateSession = async (req, res) => {
+    try {
+      const userId = String(req.params.userId || "").trim();
+
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId",
+        });
+      }
+
+      const user = await User.findById(userId).select("_id");
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      return res.json({ success: true });
+    } catch (error) {
+      return res.status(500).json({ success: false, message: error.message });
+    }
+  };
+
   exports.updateFcmToken = async (req, res) => {
     try {
-      const { userId, fcmToken } = req.body;
+      const userId = String(req.body.userId || "").trim();
+      const fcmToken = String(req.body.fcmToken || "").trim();
 
       if (!userId || !fcmToken) {
         return res.status(400).json({
           success: false,
           message: "userId and fcmToken are required",
+        });
+      }
+
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid userId",
         });
       }
 

@@ -37,25 +37,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> checkLogin() async {
-    String? userId = await UserStorage.getUserId();
-    String? userName = await UserStorage.getUserName();
+    final userId = await UserStorage.getUserId();
+    final userName = await UserStorage.getUserName();
 
-    if (userId != null) {
-      // Sync in background — don't block navigation on APNS/FCM token fetch.
-      unawaited(FCMService.syncTokenWithServer(userId));
+    if (userId == null) return;
 
-      if (!mounted) return;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CardHome(
-            userId: userId,
-            userName: userName ?? "User",
-          ),
-        ),
-      );
+    final session = await ApiService.validateSession(userId);
+    if (session['success'] != true) {
+      await UserStorage.clearUserId();
+      return;
     }
+
+    // Sync in background — don't block navigation on APNS/FCM token fetch.
+    unawaited(FCMService.syncTokenWithServer(userId));
+
+    if (!mounted) return;
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CardHome(
+          userId: userId,
+          userName: userName ?? "User",
+        ),
+      ),
+    );
   }
 
   Future<void> handleLogin() async {
@@ -91,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
 
       if (res["success"] == true) {
-        final userId = res["user"]["id"]?.toString();
+        final userId = UserStorage.parseMongoId(res["user"]?["id"]);
 
         if (userId == null) {
           throw Exception("userId is NULL");

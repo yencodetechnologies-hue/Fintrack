@@ -1,6 +1,19 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserStorage {
+  /// Normalizes MongoDB ids returned as strings or nested JSON maps.
+  static String? parseMongoId(dynamic value) {
+    if (value == null) return null;
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    if (value is Map) {
+      return parseMongoId(value[r'$oid'] ?? value['_id'] ?? value['id']);
+    }
+    final asString = value.toString().trim();
+    return asString.isEmpty ? null : asString;
+  }
 
   static const keyUserId = "user_id";
   static const keyUserName = "user_name";

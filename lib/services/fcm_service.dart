@@ -199,6 +199,14 @@ class FCMService {
         'FCM token sync (attempt $attempt/$maxAttempts): ${res["message"] ?? res}',
       );
       if (success) return;
+
+      final statusCode = res['statusCode'];
+      if (statusCode == 404 || statusCode == 400) {
+        debugPrint('FCM token sync: clearing stale saved user session');
+        await UserStorage.clearUserId();
+        return;
+      }
+
       if (attempt < maxAttempts) {
         await Future.delayed(Duration(milliseconds: 500 * attempt));
       }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
@@ -66,9 +67,25 @@ class ApiService {
           "fcmToken": token,
         }),
       );
-      return jsonDecode(res.body);
+
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        debugPrint(
+          'FCM token sync HTTP ${res.statusCode}: ${res.body}',
+        );
+        return {
+          "success": false,
+          "message": "HTTP ${res.statusCode}: ${res.body}",
+        };
+      }
+
+      final decoded = jsonDecode(res.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      return {"success": false, "message": "Invalid response: ${res.body}"};
     } catch (e) {
-      return {"success": false, "message": "Connection error"};
+      debugPrint('FCM token sync error: $e');
+      return {"success": false, "message": "Connection error: $e"};
     }
   }
 

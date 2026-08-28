@@ -6,7 +6,7 @@ const YAHOO_TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token";
 const YAHOO_USERINFO_URL = "https://api.login.yahoo.com/openid/v1/userinfo";
 
 function getRedirectUri() {
-  return process.env.YAHOO_REDIRECT_URI || "https://fintrack.yencodetechnologies.in/api/yahoo/oauth/callback";
+  return process.env.YAHOO_REDIRECT_URI || "https://fintrack.yencodetechnologies.in/api/email/yahoo/oauth/callback";
 }
 
 function getConnectUrl(userId) {

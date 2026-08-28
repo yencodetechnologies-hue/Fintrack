@@ -112,7 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please configure YAHOO_CLIENT_ID & YAHOO_CLIENT_SECRET in backend/.env')),
+          const SnackBar(content: Text('Yahoo service unavailable. Please deploy backend changes and configure .env on your server.')),
         );
       }
     } catch (e) {

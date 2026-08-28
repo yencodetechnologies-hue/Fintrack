@@ -101,29 +101,43 @@ class EmailSyncService {
 
   // ── Yahoo OAuth Helpers ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getYahooStatus(String userId) async {
-    final res = await http.get(
-      Uri.parse("${AppConfig.baseUrl}/api/yahoo/status/$userId"),
-    );
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    try {
+      final res = await http.get(
+        Uri.parse("${AppConfig.baseUrl}/api/yahoo/status/$userId"),
+      );
+      if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {"connected": false};
   }
 
   static Future<String?> getYahooConnectUrl(String userId) async {
-    final res = await http.get(
-      Uri.parse("${AppConfig.baseUrl}/api/yahoo/connect-url?userId=$userId"),
-    );
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    if (data["success"] == true) {
-      return data["authUrl"]?.toString();
-    }
+    try {
+      final res = await http.get(
+        Uri.parse("${AppConfig.baseUrl}/api/yahoo/connect-url?userId=$userId"),
+      );
+      if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        if (data["success"] == true) {
+          return data["authUrl"]?.toString();
+        }
+      }
+    } catch (_) {}
     return null;
   }
 
   static Future<Map<String, dynamic>> disconnectYahoo(String userId) async {
-    final res = await http.post(
-      Uri.parse("${AppConfig.baseUrl}/api/yahoo/disconnect"),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"userId": userId}),
-    );
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    try {
+      final res = await http.post(
+        Uri.parse("${AppConfig.baseUrl}/api/yahoo/disconnect"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"userId": userId}),
+      );
+      if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return {"success": false, "message": "Failed to reach server"};
   }
 }

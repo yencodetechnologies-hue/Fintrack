@@ -150,17 +150,44 @@ exports.getSuggestions = async (req, res) => {
       return res.status(400).json({ success: false, message: "Valid userId required" });
     }
 
-    const suggestions = await ParsedBill.find({
+    const Reminder = require("../models/reminder");
+    const activeReminders = await Reminder.find({ userId });
+
+    const allBills = await ParsedBill.find({
       userId,
-      status: "pending",
+      status: { $ne: "dismissed" },
     })
       .populate("cardId")
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(50);
+
+    const uniqueBills = [];
+    const seenKeys = new Set();
+    for (const bill of allBills) {
+      const dueKey = bill.paymentDueDate ? new Date(bill.paymentDueDate).toISOString().split('T')[0] : 'no_due';
+      const key = `${bill.bankName || 'bank'}_${bill.last4Digits || 'last4'}_${bill.amount || 0}_${dueKey}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        uniqueBills.push(bill);
+      } else {
+        await ParsedBill.deleteOne({ _id: bill._id });
+      }
+    }
+
+    const pendingSuggestions = uniqueBills.filter((bill) => {
+      const isReminderSet = activeReminders.some((rem) => {
+        const remCardId = rem.cardId?._id ? rem.cardId._id.toString() : rem.cardId?.toString();
+        const billCardId = bill.cardId?._id ? bill.cardId._id.toString() : bill.cardId?.toString();
+        const sameCard = remCardId && billCardId && remCardId === billCardId;
+        const sameAmount = Number(rem.amount) === Number(bill.amount);
+        return sameCard || sameAmount;
+      });
+      return !isReminderSet;
+    });
 
     return res.status(200).json({
       success: true,
-      data: suggestions,
+      data: pendingSuggestions,
     });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });

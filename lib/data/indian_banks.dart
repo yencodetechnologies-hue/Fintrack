@@ -87,7 +87,7 @@ const indianBanks = <BankOption>[
   BankOption(
     id: 'idfc',
     displayName: 'IDFC First Bank',
-    matchKeywords: ['idfc', 'onecard', 'slice'],
+    matchKeywords: ['idfc', 'idfcfirst'],
   ),
   BankOption(
     id: 'idbi',
@@ -107,12 +107,82 @@ const indianBanks = <BankOption>[
   BankOption(
     id: 'canara',
     displayName: 'Canara Bank',
-    matchKeywords: ['canara', 'union', 'boi', 'central'],
+    matchKeywords: ['canara'],
   ),
   BankOption(
     id: 'tmb',
     displayName: 'Tamilnad Mercantile Bank (TMB)',
     matchKeywords: ['tmb', 'tamilnadu'],
+  ),
+  BankOption(
+    id: 'bob',
+    displayName: 'Bank of Baroda (BOBcard)',
+    matchKeywords: ['bob', 'baroda', 'bobcard'],
+  ),
+  BankOption(
+    id: 'aubank',
+    displayName: 'AU Small Finance Bank',
+    matchKeywords: ['aubank', 'aubankcard', 'au small'],
+  ),
+  BankOption(
+    id: 'amazon_pay',
+    displayName: 'Amazon Pay ICICI Card',
+    matchKeywords: ['amazonpay', 'amazonicici', 'amazon pay'],
+  ),
+  BankOption(
+    id: 'onecard',
+    displayName: 'OneCard Metal',
+    matchKeywords: ['onecard', 'one card'],
+  ),
+  BankOption(
+    id: 'union',
+    displayName: 'Union Bank of India',
+    matchKeywords: ['union', 'unionbank'],
+  ),
+  BankOption(
+    id: 'boi',
+    displayName: 'Bank of India (BOI)',
+    matchKeywords: ['boi', 'bankofindia'],
+  ),
+  BankOption(
+    id: 'indian_bank',
+    displayName: 'Indian Bank / Allahabad',
+    matchKeywords: ['indianbank', 'allahabad'],
+  ),
+  BankOption(
+    id: 'scapia',
+    displayName: 'Scapia Federal Card',
+    matchKeywords: ['scapia'],
+  ),
+  BankOption(
+    id: 'slice',
+    displayName: 'Slice Card',
+    matchKeywords: ['slice', 'sliceit'],
+  ),
+  BankOption(
+    id: 'dbs',
+    displayName: 'DBS Bank (digibank)',
+    matchKeywords: ['dbs', 'digibank'],
+  ),
+  BankOption(
+    id: 'sib',
+    displayName: 'South Indian Bank (SIB)',
+    matchKeywords: ['sib', 'southindianbank'],
+  ),
+  BankOption(
+    id: 'kvb',
+    displayName: 'Karur Vysya Bank (KVB)',
+    matchKeywords: ['kvb', 'karurvysya'],
+  ),
+  BankOption(
+    id: 'central_bank',
+    displayName: 'Central Bank of India',
+    matchKeywords: ['centralbank', 'central'],
+  ),
+  BankOption(
+    id: 'sbm',
+    displayName: 'SBM Bank India',
+    matchKeywords: ['sbm', 'sbmbank'],
   ),
 ];
 

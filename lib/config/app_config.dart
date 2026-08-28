@@ -39,7 +39,7 @@ class AppConfig {
 
   // Web OAuth client ID from Google Cloud Console (used by google_sign_in)
   static const String googleWebClientId =
-      "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com";
+      "1097214336094-h00iafanm4hk5g19k08lmnt4rr43pe7k.apps.googleusercontent.com";
   // App Text Branding
   static const String appName = "Q Fin";
   static const String appSubtitle = "Your secure smart wallet assistant";

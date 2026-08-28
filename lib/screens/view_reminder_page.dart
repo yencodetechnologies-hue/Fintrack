@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'update_reminder_page.dart';
-import 'package:card/config/app_config.dart';
-import 'package:card/utils/bank_card_style.dart';
+import '../config/app_config.dart';
+import '../utils/bank_card_style.dart';
 import 'card_home.dart';
 import 'view_card_screen.dart';
 import 'profile_screen.dart';
 import 'home_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/qfin_nav_bar.dart';
 
-// ── palette ───────────────────────────────────────────────────────────────────
-const Color _bg   = Color(0xFF0A0A0F);
-const Color _card = Color(0xFF13131A);
-const Color _cyan = Color(0xFF00D9FF);
-const Color _green= Color(0xFF00E5A0);
-const Color _red  = Color(0xFFFF4D6D);
+// ── QFin Vintage Palette ──────────────────────────────────────────────────────
+const Color _bg        = Color(0xFFF6F4EB); // Vintage Cream Sheet
+const Color _forestDark= Color(0xFF0F261C); // Header / Accent Dark Green
+const Color _darkText  = Color(0xFF132A20); // Dark Forest Text
+const Color _terracotta= Color(0xFFB8452D); // Terracotta Primary Accent
+const Color _gold      = Color(0xFFD4AF37); // Metallic Gold Accent
+const Color _card      = Colors.white;       // White Card Containers
+const Color _green     = Color(0xFF2E7D32); // Success Status
+const Color _red       = Color(0xFFB8452D); // Alert/Error Red
 
 class ViewReminderPage extends StatefulWidget {
   final String userId;
@@ -101,93 +106,169 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      appBar: AppBar(
-        backgroundColor: _bg, elevation: 0, centerTitle: true,
-        leading: Padding(padding: const EdgeInsets.all(8),
-            child: CircleAvatar(backgroundColor: Colors.transparent,
-                child: Image.asset("assets/images/logo.png"))),
-        title: ShaderMask(
-          shaderCallback: (b) => const LinearGradient(
-              colors: [Color(0xFF7DF9FF), Color(0xFF4DEEFF), Color(0xFF00D9FF)]).createShader(b),
-          child: const Text("View Reminders",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: _cyan, size: 28),
-            onPressed: () => showDialog(context: context,
-                builder: (_) => _ConfirmDlg(
-                  title: "Logout", message: "Are you sure you want to logout?",
-                  confirmLabel: "Logout", confirmColor: _cyan,
-                  onConfirm: () async {
-                    final p = await SharedPreferences.getInstance();
-                    await p.clear();
-                    if (!context.mounted) return;
-                    Navigator.pushAndRemoveUntil(context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()), (r) => false);
-                  },
-                )),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        color: _cyan, backgroundColor: _card, onRefresh: fetchReminders,
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator(color: _cyan))
-            : reminders.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(width: 80, height: 80,
-              decoration: BoxDecoration(color: _cyan.withValues(alpha: 0.08), shape: BoxShape.circle,
-                  border: Border.all(color: _cyan.withValues(alpha: 0.2), width: 1.5)),
-              child: const Icon(Icons.credit_card_off_rounded, color: _cyan, size: 36)),
-          const SizedBox(height: 16),
-          const Text("No reminders found",
-              style: TextStyle(color: Colors.white54, fontSize: 15, fontWeight: FontWeight.w500)),
-        ]))
-            : ListView(
+      body: SafeArea(
+        child: Column(
           children: [
+            // Top Distinct Editorial Agenda Header (Terracotta Accent Bar)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Row(
+                children: [
+                  if (Navigator.canPop(context)) ...[
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: _darkText.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _darkText.withValues(alpha: 0.15)),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: _darkText, size: 20),
+                      ),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
 
-            Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: _card,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: _cyan .withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                "Total Due Amount : ₹${totalDueAmount.toStringAsFixed(0)}",
-                style: const TextStyle(
-                  color: _cyan,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "BILLING AGENDA",
+                          style: GoogleFonts.ibmPlexMono(
+                            color: _forestDark,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Scheduled Payments",
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.fraunces(
+                            color: _darkText,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
+            const Divider(color: Color(0xFFE2DDD0), height: 1),
 
-            ...reminders.map((r) => _buildItem(r)).toList(),
+            // Main Content Area
+            Expanded(
+              child: RefreshIndicator(
+                color: _forestDark,
+                backgroundColor: Colors.white,
+                onRefresh: fetchReminders,
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator(color: _forestDark))
+                    : reminders.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(
+                                    color: _forestDark.withValues(alpha: 0.06),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: _forestDark.withValues(alpha: 0.15)),
+                                  ),
+                                  child: const Icon(Icons.notifications_off_outlined, color: _forestDark, size: 34),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No reminders found",
+                                  style: GoogleFonts.fraunces(
+                                    color: _darkText,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "Create a reminder to get automated bill alerts.",
+                                  style: GoogleFonts.inter(color: Colors.black54, fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            children: [
+                              // Distinct Total Due Ledger Banner Card
+                              Container(
+                                margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 1.2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.03),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: _terracotta.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: const Icon(Icons.account_balance_rounded, color: _terracotta, size: 24),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "TOTAL OUTSTANDING DUE",
+                                          style: GoogleFonts.ibmPlexMono(
+                                            color: Colors.black54,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          "₹${totalDueAmount.toStringAsFixed(0)}",
+                                          style: GoogleFonts.inter(
+                                            color: _darkText,
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
 
+                              ...reminders.map((r) => _buildItem(r)).toList(),
+                            ],
+                          ),
+              ),
+            ),
           ],
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: _card, selectedItemColor: _cyan,
-        unselectedItemColor: Colors.white38,
-        type: BottomNavigationBarType.fixed, currentIndex: _selectedIndex,
-        onTap: (i) {
-          if (i == _selectedIndex) return;
-          setState(() => _selectedIndex = i);
-          if (i == 0) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => CardHome(userId: widget.userId, userName: widget.userName)));
-          if (i == 1) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ViewCardScreen(userId: widget.userId, userName: widget.userName)));
-          if (i == 2) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ViewReminderPage(userId: widget.userId, userName: widget.userName)));
-          if (i == 3) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: widget.userId, userName: widget.userName)));
-        },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_rounded),          label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.credit_card_rounded),   label: "Cards"),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_rounded), label: "Reminder"),
-          BottomNavigationBarItem(icon: Icon(Icons.person_rounded),        label: "Profile"),
-        ],
       ),
     );
   }
@@ -200,137 +281,222 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Column(children: [
-
-        // ── BANK STYLED CREDIT CARD ──────────────────────────────────────
-        _ReminderCreditCard(
-          bank: bank,
-          amount: r["amount"]?.toString() ?? "0",
-          paymentDate: _date(r["paymentDate"]),
-          statementDate: _date(r["statementDate"]),
-          isPaid: isPaid,
-          style: style,
-          onTogglePaid: () async {
-            final newVal = !isPaid;
-            setState(() => r["status"] = newVal ? "paid" : "unpaid");
-            await http.put(
-              Uri.parse(AppConfig.reminderStatus),
-              headers: {"Content-Type": "application/json"},
-              body: jsonEncode({
-                "userId": r["userId"]["_id"],
-                "cardId": r["cardId"]["_id"],
-                "status": newVal ? "paid" : "unpaid",
-              }),
-            );
-          },
-        ),
-
-        const SizedBox(height: 12),
-
-        // ── NOTIFICATION SCHEDULE ────────────────────────────────────────
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _card,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: _cyan.withValues(alpha: 0.2)),
+      child: Column(
+        children: [
+          // ── BANK STYLED CREDIT CARD ──────────────────────────────────────
+          _ReminderCreditCard(
+            bank: bank,
+            amount: r["amount"]?.toString() ?? "0",
+            paymentDate: _date(r["paymentDate"]),
+            statementDate: _date(r["statementDate"]),
+            isPaid: isPaid,
+            style: style,
+            onTogglePaid: () async {
+              final newVal = !isPaid;
+              setState(() => r["status"] = newVal ? "paid" : "unpaid");
+              await http.put(
+                Uri.parse(AppConfig.reminderStatus),
+                headers: {"Content-Type": "application/json"},
+                body: jsonEncode({
+                  "userId": r["userId"]["_id"],
+                  "cardId": r["cardId"]["_id"],
+                  "status": newVal ? "paid" : "unpaid",
+                }),
+              );
+            },
           ),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Icon(Icons.notifications_active_rounded, color: _cyan, size: 15),
-              const SizedBox(width: 7),
-              const Text("Notification Schedule",
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                    color: _cyan.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _cyan.withValues(alpha: 0.3))),
-                child: Text("${(r["reminders"] as List?)?.length ?? 0} alerts",
-                    style: const TextStyle(color: _cyan, fontSize: 10, fontWeight: FontWeight.w700)),
+
+          const SizedBox(height: 12),
+
+          // ── NOTIFICATION SCHEDULE (Vintage Cream Style) ───────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.notifications_active_rounded, color: _forestDark, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Notification Schedule",
+                      style: GoogleFonts.inter(
+                        color: _darkText,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _forestDark.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        "${(r["reminders"] as List?)?.length ?? 0} alerts",
+                        style: GoogleFonts.ibmPlexMono(
+                          color: _forestDark,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ..._scheduleItems(r["reminders"]),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // ── EDIT / DELETE BUTTONS ─────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _Btn(
+                  label: "Edit",
+                  icon: Icons.edit_rounded,
+                  color: _forestDark,
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (_) => _ConfirmDlg(
+                      title: "Update Reminder",
+                      message: "Do you want to update this reminder?",
+                      confirmLabel: "Update",
+                      confirmColor: _forestDark,
+                      onConfirm: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => UpdateReminderPage(
+                              userId: r["userId"]["_id"],
+                              userName: widget.userName,
+                              reminderData: r,
+                            ),
+                          ),
+                        ).then((v) {
+                          if (v == true) fetchReminders();
+                        });
+                      },
+                    ),
+                  ),
+                ),
               ),
-            ]),
-            const SizedBox(height: 12),
-            ..._scheduleItems(r["reminders"]),
-          ]),
-        ),
-
-        const SizedBox(height: 10),
-
-        // ── EDIT / DELETE ────────────────────────────────────────────────
-        Row(children: [
-          Expanded(child: _Btn(label: "Edit", icon: Icons.edit_rounded, color: _cyan,
-              onTap: () => showDialog(context: context,
-                  builder: (_) => _ConfirmDlg(
-                    title: "Update Reminder", message: "Do you want to update this reminder?",
-                    confirmLabel: "Update", confirmColor: _cyan,
-                    onConfirm: () {
-                      Navigator.pop(context);
-                      Navigator.push(context,
-                          MaterialPageRoute(builder: (_) => UpdateReminderPage(
-                              userId: r["userId"]["_id"], userName: widget.userName, reminderData: r))).then((v) {
-                        if (v == true) fetchReminders();
-                      });
-                    },
-                  )))),
-          const SizedBox(width: 10),
-          Expanded(child: _Btn(label: "Delete", icon: Icons.delete_rounded, color: _red,
-              onTap: () => showDialog(context: context,
-                  builder: (_) => _ConfirmDlg(
-                    title: "Delete Reminder",
-                    message: "Are you sure you want to delete this reminder? This cannot be undone.",
-                    confirmLabel: "Delete", confirmColor: _red,
-                    onConfirm: () { Navigator.pop(context); deleteReminder(r["_id"]); },
-                  )))),
-        ]),
-      ]),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Btn(
+                  label: "Delete",
+                  icon: Icons.delete_rounded,
+                  color: _terracotta,
+                  onTap: () => showDialog(
+                    context: context,
+                    builder: (_) => _ConfirmDlg(
+                      title: "Delete Reminder",
+                      message: "Are you sure you want to delete this reminder? This cannot be undone.",
+                      confirmLabel: "Delete",
+                      confirmColor: _terracotta,
+                      onConfirm: () {
+                        Navigator.pop(context);
+                        deleteReminder(r["_id"]);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
   // ── SCHEDULE CHIPS ────────────────────────────────────────────────────────
   List<Widget> _scheduleItems(List? list) {
-    if (list == null || list.isEmpty) return [
-      const Text("No schedule set", style: TextStyle(color: Colors.white38, fontSize: 13))
-    ];
-    return list.map<Widget>((item) => Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _cyan.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _cyan.withValues(alpha: 0.2)),
-      ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-                color: _cyan.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _cyan.withValues(alpha: 0.4))),
-            child: Text(_fKey(item["key"]),
-                style: const TextStyle(color: _cyan, fontWeight: FontWeight.w700, fontSize: 11.5)),
-          ),
-          const SizedBox(width: 8),
-          Text("× ${item["count"]} times",
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11.5)),
-        ]),
-        const SizedBox(height: 8),
-        Wrap(spacing: 6, runSpacing: 6,
-            children: ((item["times"] ?? []) as List).map<Widget>((t) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(7),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.1))),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.access_time_rounded, color: _cyan, size: 12),
-                const SizedBox(width: 4),
-                Text(t.toString(), style: const TextStyle(color: Colors.white, fontSize: 11.5)),
-              ]),
-            )).toList()),
-      ]),
-    )).toList();
+    if (list == null || list.isEmpty) {
+      return [
+        Text(
+          "No schedule set",
+          style: GoogleFonts.inter(color: Colors.black45, fontSize: 13),
+        )
+      ];
+    }
+    return list.map<Widget>((item) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _bg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+                  ),
+                  child: Text(
+                    _fKey(item["key"]),
+                    style: GoogleFonts.inter(
+                      color: _darkText,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "× ${item["count"]} times",
+                  style: GoogleFonts.inter(color: Colors.black45, fontSize: 11.5),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: ((item["times"] ?? []) as List).map<Widget>((t) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.access_time_rounded, color: _terracotta, size: 12),
+                      const SizedBox(width: 4),
+                      Text(
+                        t.toString(),
+                        style: GoogleFonts.inter(color: _darkText, fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }).toList();
   }
 }
 
@@ -370,6 +536,20 @@ class _ReminderCreditCard extends StatelessWidget {
       case CardStyle.stanchart:  return _mkCard(const [Color(0xFF006B3C), Color(0xFF009B5B)], const Color(0xFF006B3C), [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))]);
       case CardStyle.canara:     return _mkCard(const [Color(0xFF004D00), Color(0xFF007700)], const Color(0xFF004D00), [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))]);
       case CardStyle.tmb:        return _mkCard(const [Color(0xFF00008B), Color(0xFF0000CD)], const Color(0xFF00008B), [Positioned.fill(child: CustomPaint(painter: _OceanPainter()))]);
+      case CardStyle.bob:        return _mkCard(const [Color(0xFFD84315), Color(0xFFBF360C)], const Color(0xFFD84315), [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))]);
+      case CardStyle.aubank:     return _mkCard(const [Color(0xFF311B92), Color(0xFF4527A0)], const Color(0xFF311B92), [Positioned.fill(child: CustomPaint(painter: _SunburstPainter()))]);
+      case CardStyle.amazonPay:  return _mkCard(const [Color(0xFF1E252B), Color(0xFF232F3E)], const Color(0xFF1E252B), [Positioned.fill(child: CustomPaint(painter: _CarbonPainter()))], textColor: const Color(0xFFFF9900));
+      case CardStyle.onecard:    return _mkCard(const [Color(0xFF0F0F0F), Color(0xFF242424)], Colors.black, [Positioned.fill(child: CustomPaint(painter: _GridTexturePainter()))]);
+      case CardStyle.union:      return _mkCard(const [Color(0xFF0D47A1), Color(0xFFB71C1C)], const Color(0xFF0D47A1), [Positioned.fill(child: CustomPaint(painter: _RibbonPainter(c1: const Color(0xFFE53935), c2: const Color(0xFF1E88E5))))]);
+      case CardStyle.boi:        return _mkCard(const [Color(0xFFE65100), Color(0xFF0D47A1)], const Color(0xFFE65100), [Positioned.fill(child: CustomPaint(painter: _MandalaPainter()))]);
+      case CardStyle.indianBank: return _mkCard(const [Color(0xFF004D40), Color(0xFF00695C)], const Color(0xFF004D40), [Positioned.fill(child: CustomPaint(painter: _DotGridPainter(color: const Color(0xFF80CBC4))))]);
+      case CardStyle.scapia:     return _mkCard(const [Color(0xFFFF4081), Color(0xFF7C4DFF)], const Color(0xFFFF4081), [Positioned.fill(child: CustomPaint(painter: _NeonRibbonPainter()))]);
+      case CardStyle.slice:      return _mkCard(const [Color(0xFF1A0033), Color(0xFF2D0066)], const Color(0xFF1A0033), [Positioned.fill(child: CustomPaint(painter: _GalaxyPainter()))], textColor: const Color(0xFF76FF03));
+      case CardStyle.dbs:        return _mkCard(const [Color(0xFF880000), Color(0xFF111111)], const Color(0xFF880000), [Positioned.fill(child: CustomPaint(painter: _HexPainter()))]);
+      case CardStyle.sib:        return _mkCard(const [Color(0xFF4A148C), Color(0xFF6A1B9A)], const Color(0xFF4A148C), [Positioned.fill(child: CustomPaint(painter: _AuroraPainter()))]);
+      case CardStyle.kvb:        return _mkCard(const [Color(0xFF1B5E20), Color(0xFF2E7D32)], const Color(0xFF1B5E20), [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))]);
+      case CardStyle.centralBank:return _mkCard(const [Color(0xFF1565C0), Color(0xFF0D47A1)], const Color(0xFF1565C0), [Positioned.fill(child: CustomPaint(painter: _GridPainter(color: const Color(0xFF90CAF9))))]);
+      case CardStyle.sbm:        return _mkCard(const [Color(0xFF0D47A1), Color(0xFF1976D2)], const Color(0xFF0D47A1), [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))]);
     }
   }
 
@@ -461,35 +641,86 @@ class _ReminderCreditCard extends StatelessWidget {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 class _Btn extends StatelessWidget {
-  final String label; final IconData icon; final Color color; final VoidCallback onTap;
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
   const _Btn({required this.label, required this.icon, required this.color, required this.onTap});
-  @override Widget build(BuildContext context) => GestureDetector(onTap: onTap,
-      child: Container(height: 46,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: color.withValues(alpha: 0.45))),
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, color: color, size: 18), const SizedBox(width: 7),
-            Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13.5)),
-          ])));
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 46,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: color.withValues(alpha: 0.3), width: 1.2),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 7),
+              Text(
+                label,
+                style: GoogleFonts.inter(color: color, fontWeight: FontWeight.bold, fontSize: 13.5),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _ConfirmDlg extends StatelessWidget {
-  final String title, message, confirmLabel; final Color confirmColor; final VoidCallback onConfirm;
-  const _ConfirmDlg({required this.title, required this.message, required this.confirmLabel, required this.confirmColor, required this.onConfirm});
-  @override Widget build(BuildContext context) => AlertDialog(
-      backgroundColor: const Color(0xFF13131A),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: confirmColor.withValues(alpha: 0.3))),
-      title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17)),
-      content: Text(message, style: const TextStyle(color: Colors.white60, fontSize: 14)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const TextStyle(color: Colors.white38).apply() != null ? const Text("Cancel", style: TextStyle(color: Colors.white38)) : const Text("Cancel")),
-        GestureDetector(onTap: onConfirm,
-            child: Container(padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                decoration: BoxDecoration(color: confirmColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: confirmColor.withValues(alpha: 0.5))),
-                child: Text(confirmLabel, style: TextStyle(color: confirmColor, fontWeight: FontWeight.w700, fontSize: 13.5)))),
-        const SizedBox(width: 4),
-      ]);
+  final String title, message, confirmLabel;
+  final Color confirmColor;
+  final VoidCallback onConfirm;
+  const _ConfirmDlg({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.confirmColor,
+    required this.onConfirm,
+  });
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: const Color(0xFFF6F4EB),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: confirmColor.withValues(alpha: 0.2)),
+        ),
+        title: Text(
+          title,
+          style: GoogleFonts.fraunces(color: const Color(0xFF132A20), fontWeight: FontWeight.w600, fontSize: 18),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.inter(color: Colors.black87, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              "Cancel",
+              style: GoogleFonts.inter(color: const Color(0xFF132A20)),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: confirmColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 0,
+            ),
+            onPressed: onConfirm,
+            child: Text(
+              confirmLabel,
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+            ),
+          ),
+        ],
+      );
 }
 
 // ═══════════════════════ PAINTERS (copied from view_card_screen) ══════════════

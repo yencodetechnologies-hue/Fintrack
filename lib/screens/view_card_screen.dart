@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/card_service.dart';
 import 'update_card_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,7 @@ import 'view_reminder_page.dart';
 import 'profile_screen.dart';
 import '../config/app_config.dart';
 import '../utils/bank_card_style.dart';
+import '../widgets/qfin_nav_bar.dart';
 
 class ViewCardScreen extends StatefulWidget {
   final String userId;
@@ -245,238 +247,205 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
   int _selectedIndex = 1;
   @override
   Widget build(BuildContext context) {
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color goldText = Color(0xFFD4AF37);
+    const Color terracotta = Color(0xFFB8452D);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      appBar: AppBar(
-        elevation: 0, backgroundColor: Colors.black,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-
-          child: CircleAvatar(
-            backgroundColor: Colors.transparent,
-
-            child: Image.asset(
-              "assets/images/logo.png",
-            ),
-          ),
-        ),
-        title: const Text(
-          "View Card",
-          style: TextStyle(
-            color: const Color(0xFF00D9FF),
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
-
-        centerTitle: true,
-
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: const Color(0xFF00D9FF),
-              size: 30,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: const Color(0xff1A1A1A),
-
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(color: Colors.white),
-                  ),
-
-                  content: const Text(
-                    "Are you sure want to logout?",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.white),
+      backgroundColor: creamSheet,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Full Vintage Cream Editorial Top Bar (No split green container)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              child: Row(
+                children: [
+                  if (Navigator.canPop(context)) ...[
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: darkText.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: darkText.withValues(alpha: 0.15)),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
                       ),
+                      onPressed: () => Navigator.maybePop(context),
                     ),
+                    const SizedBox(width: 10),
+                  ],
 
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                      ),
-
-                      onPressed: () async {
-                        final prefs =
-                        await SharedPreferences.getInstance();
-
-                        await prefs.clear();
-
-                        if (!context.mounted) return;
-
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                            const HomeScreen(),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "DIGITAL VAULT",
+                          style: GoogleFonts.ibmPlexMono(
+                            color: terracotta,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.8,
                           ),
-                              (route) => false,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "Card Collection",
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.fraunces(
+                            color: darkText,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Color(0xFFE2DDD0), height: 1),
+
+            // Content Canvas (Directly on Cream Background)
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: refreshCards,
+                child: FutureBuilder<List<dynamic>>(
+                  future: cardsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: darkText),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Error: ${snapshot.error}',
+                          style: GoogleFonts.inter(color: Colors.redAccent),
+                        ),
+                      );
+                    }
+                    final cards = snapshot.data ?? [];
+                    if (cards.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: darkText.withValues(alpha: 0.06),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.credit_card_off_rounded,
+                                size: 40,
+                                color: darkText.withValues(alpha: 0.4),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              'No cards found',
+                              style: GoogleFonts.fraunces(
+                                color: darkText,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w500,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Add a new credit card from the Home Quick Actions.',
+                              style: GoogleFonts.inter(
+                                color: Colors.black54,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+                      itemCount: cards.length,
+                      itemBuilder: (context, index) {
+                        final card = cards[index];
+                        final bank = (card['bankName'] ?? '').toString();
+                        final name = (card['cardName'] ?? '').toString();
+                        final digits = (card['last4digits'] ?? '').toString();
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 24),
+                          child: _CreditCard(
+                            bank: bank,
+                            name: name,
+                            digits: digits,
+                            style: styleForBank(bank),
+                            onEdit: () => showDialog(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                backgroundColor: creamSheet,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                title: Text(
+                                  'Update Card',
+                                  style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold),
+                                ),
+                                content: Text(
+                                  'Are you sure you want to update this card?',
+                                  style: GoogleFonts.inter(color: Colors.black87),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text('Cancel', style: GoogleFonts.inter(color: darkText)),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0F261C),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    onPressed: () async {
+                                      Navigator.pop(context);
+                                      final result = await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => UpdateCardScreen(
+                                            card: card,
+                                            userId: widget.userId,
+                                            userName: widget.userName,
+                                          ),
+                                        ),
+                                      );
+                                      if (result == true) {
+                                        refreshCards();
+                                      }
+                                    },
+                                    child: Text('Update', style: GoogleFonts.inter(color: Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            onDelete: () => _showDeleteBottomSheet(context, card),
+                          ),
                         );
                       },
-
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.black),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: refreshCards,
-        child: FutureBuilder<List<dynamic>>(
-          future: cardsFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) { return const Center(child: CircularProgressIndicator()); }
-            if (snapshot.hasError) { return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white))); }
-            final cards = snapshot.data ?? [];
-            if (cards.isEmpty) { return const Center(child: Text('No cards found', style: TextStyle(color: Colors.white70))); }
-            return ListView.builder(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-              itemCount: cards.length,
-              itemBuilder: (context, index) {
-                final card   = cards[index];
-                final bank   = (card['bankName']    ?? '').toString();
-                final name   = (card['cardName']    ?? '').toString();
-                final digits = (card['last4digits'] ?? '').toString();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: _CreditCard(
-                    bank: bank, name: name, digits: digits,
-                    style: styleForBank(bank),
-                    onEdit: () => showDialog(context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text('Update Card'),
-                          content: const Text('Are you sure you want to update?'),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                            ElevatedButton(onPressed: () async {
-                              Navigator.pop(context);
-                              final result = await Navigator.push(context,
-                                  MaterialPageRoute(builder: (_) => UpdateCardScreen(card: card, userId: widget.userId,userName:widget.userName)));
-                              if (result == true) { refreshCards(); }
-                            }, child: const Text('Update')),
-                          ],
-                        )),
-                    onDelete: () => _showDeleteBottomSheet(context, card),
-                  ),
-                );
-              },
-            );
-          },
+              ),
+            ),
+          ],
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.black,
-
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.white60,
-
-        type: BottomNavigationBarType.fixed,
-
-        currentIndex: _selectedIndex,
-
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardHome(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewCardScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewReminderPage(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-        },
-
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: "Home",
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_rounded),
-            label: "Cards",
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_rounded),
-            label: "Reminder",
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: "Profile",
-          ),
-        ],
-      ),
     );
-
   }
 }
 
@@ -511,6 +480,20 @@ class _CreditCard extends StatelessWidget {
       case CardStyle.stanchart:  return _StanChartCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
       case CardStyle.canara:     return _CanaraCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
       case CardStyle.tmb:        return _TmbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.bob:        return _BobCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.aubank:     return _AuBankCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.amazonPay:  return _AmazonPayCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.onecard:    return _OneCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.union:      return _UnionCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.boi:        return _BoiCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.indianBank: return _IndianBankCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.scapia:     return _ScapiaCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.slice:      return _SliceCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.dbs:        return _DbsCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.sib:        return _SibCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.kvb:        return _KvbCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.centralBank:return _CentralBankCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
+      case CardStyle.sbm:        return _SbmCard(bank: bank, name: name, digits: digits, onEdit: onEdit, onDelete: onDelete);
     }
   }
 }
@@ -896,6 +879,160 @@ class _TmbCard extends StatelessWidget {
       overlays: [Positioned.fill(child: CustomPaint(painter: _OceanPainter()))],
       child: _Body(bank: bank, name: name, digits: digits, sub: 'PLATINUM',
           text: Colors.white, subtext: const Color(0xFF88AAFF),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _BobCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _BobCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFD84315), Color(0xFFBF360C)], shadow: const Color(0xFFD84315),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'BOBCARD',
+          text: Colors.white, subtext: const Color(0xFFFFCCBC),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _AuBankCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _AuBankCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF311B92), Color(0xFF4527A0)], shadow: const Color(0xFF311B92),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _SunburstPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'ZENITH CARD',
+          text: Colors.white, subtext: const Color(0xFFD1C4E9),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _AmazonPayCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _AmazonPayCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1E252B), Color(0xFF232F3E)], shadow: const Color(0xFF1E252B),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _CarbonPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'AMAZON PAY ICICI',
+          text: const Color(0xFFFF9900), subtext: Colors.white54,
+          chip: _gChip(), net: const _Visa(c: Color(0xFFFF9900)), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _OneCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _OneCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0F0F0F), Color(0xFF242424)], shadow: Colors.black,
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GridTexturePainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'ONE METAL',
+          text: Colors.white, subtext: Colors.white38,
+          chip: _sChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _UnionCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _UnionCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0D47A1), Color(0xFFB71C1C)], shadow: const Color(0xFF0D47A1),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _RibbonPainter(c1: const Color(0xFFE53935), c2: const Color(0xFF1E88E5))))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'SIGNATURE',
+          text: Colors.white, subtext: Colors.white70,
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _BoiCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _BoiCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFE65100), Color(0xFF0D47A1)], shadow: const Color(0xFFE65100),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _MandalaPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'STAR CARD',
+          text: Colors.white, subtext: const Color(0xFFFFCC80),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _IndianBankCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _IndianBankCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF004D40), Color(0xFF00695C)], shadow: const Color(0xFF004D40),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _DotGridPainter(color: const Color(0xFF80CBC4))))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'GLOBAL CARD',
+          text: Colors.white, subtext: const Color(0xFFB2DFDB),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _ScapiaCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _ScapiaCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFFF4081), Color(0xFF7C4DFF)], shadow: const Color(0xFFFF4081),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _NeonRibbonPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'TRAVEL VISA',
+          text: Colors.white, subtext: Colors.white70,
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _SliceCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _SliceCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1A0033), Color(0xFF2D0066)], shadow: const Color(0xFF1A0033),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GalaxyPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'SLICE CARD',
+          text: const Color(0xFF76FF03), subtext: Colors.white54,
+          chip: _sChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _DbsCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _DbsCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF880000), Color(0xFF111111)], shadow: const Color(0xFF880000),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _HexPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'DIGIBANK PLATINUM',
+          text: Colors.white, subtext: const Color(0xFFFF8888),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _SibCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _SibCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF4A148C), Color(0xFF6A1B9A)], shadow: const Color(0xFF4A148C),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _AuroraPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'SIBCARD',
+          text: Colors.white, subtext: const Color(0xFFE1BEE7),
+          chip: _gChip(), net: const _MC(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _KvbCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _KvbCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1B5E20), Color(0xFF2E7D32)], shadow: const Color(0xFF1B5E20),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'KVB CARD',
+          text: Colors.white, subtext: const Color(0xFFA5D6A7),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _CentralBankCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _CentralBankCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1565C0), Color(0xFF0D47A1)], shadow: const Color(0xFF1565C0),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GridPainter(color: const Color(0xFF90CAF9))))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'CENTRAL CARD',
+          text: Colors.white, subtext: const Color(0xFFBBDEFB),
+          chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
+}
+
+class _SbmCard extends StatelessWidget {
+  final String bank, name, digits; final VoidCallback onEdit, onDelete;
+  const _SbmCard({required this.bank, required this.name, required this.digits, required this.onEdit, required this.onDelete});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0D47A1), Color(0xFF1976D2)], shadow: const Color(0xFF0D47A1),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))],
+      child: _Body(bank: bank, name: name, digits: digits, sub: 'GLOBAL CREDIT',
+          text: Colors.white, subtext: const Color(0xFF90CAF9),
           chip: _gChip(), net: const _Visa(), onEdit: onEdit, onDelete: onDelete));
 }
 

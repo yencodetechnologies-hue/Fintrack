@@ -19,10 +19,66 @@ enum CardStyle {
   stanchart,
   canara,
   tmb,
+  bob,
+  aubank,
+  amazonPay,
+  onecard,
+  union,
+  boi,
+  indianBank,
+  scapia,
+  slice,
+  dbs,
+  sib,
+  kvb,
+  centralBank,
+  sbm,
 }
 
 CardStyle styleForBank(String bankName) {
   final b = bankName.toLowerCase().trim();
+  if (b.contains('amazon pay') || b.contains('amazonicici') || b.contains('amazon icici')) {
+    return CardStyle.amazonPay;
+  }
+  if (b.contains('onecard') || b.contains('one card')) {
+    return CardStyle.onecard;
+  }
+  if (b.contains('scapia')) {
+    return CardStyle.scapia;
+  }
+  if (b.contains('slice')) {
+    return CardStyle.slice;
+  }
+  if (b.contains('bobcard') || b.contains('bank of baroda') || b.contains('baroda')) {
+    return CardStyle.bob;
+  }
+  if (b.contains('au small') || b.contains('au bank') || b.contains('aubank')) {
+    return CardStyle.aubank;
+  }
+  if (b.contains('union bank') || b.contains('union')) {
+    return CardStyle.union;
+  }
+  if (b.contains('bank of india') || b.contains('boi')) {
+    return CardStyle.boi;
+  }
+  if (b.contains('indian bank') || b.contains('allahabad')) {
+    return CardStyle.indianBank;
+  }
+  if (b.contains('dbs') || b.contains('digibank')) {
+    return CardStyle.dbs;
+  }
+  if (b.contains('south indian') || b.contains('sib')) {
+    return CardStyle.sib;
+  }
+  if (b.contains('karur vysya') || b.contains('kvb')) {
+    return CardStyle.kvb;
+  }
+  if (b.contains('central bank')) {
+    return CardStyle.centralBank;
+  }
+  if (b.contains('sbm')) {
+    return CardStyle.sbm;
+  }
   if (b.contains('sbi') || b.contains('state bank')) {
     return CardStyle.sbi;
   }
@@ -65,7 +121,7 @@ CardStyle styleForBank(String bankName) {
   if (b.contains('pnb') || b.contains('punjab')) {
     return CardStyle.pnb;
   }
-  if (b.contains('idfc') || b.contains('onecard') || b.contains('slice')) {
+  if (b.contains('idfc')) {
     return CardStyle.idfc;
   }
   if (b.contains('idbi') || b.contains('bandhan')) {
@@ -77,10 +133,7 @@ CardStyle styleForBank(String bankName) {
   if (b.contains('standard') || b.contains('scbank')) {
     return CardStyle.stanchart;
   }
-  if (b.contains('canara') ||
-      b.contains('union') ||
-      b.contains('boi') ||
-      b.contains('central')) {
+  if (b.contains('canara')) {
     return CardStyle.canara;
   }
   if (b.contains('tmb') || b.contains('tamilnadu')) {

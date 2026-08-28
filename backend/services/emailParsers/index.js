@@ -2,12 +2,16 @@ const parseHdfc = require("./hdfcParser");
 const parseIcici = require("./iciciParser");
 const parseAxis = require("./axisParser");
 const parsePaytm = require("./paytmParser");
+const parseSbi = require("./sbiParser");
+const parseKotak = require("./kotakParser");
 
 const PARSERS = [
   { match: (from) => from.includes("hdfcbank.com"), parse: parseHdfc },
   { match: (from) => from.includes("icicibank.com"), parse: parseIcici },
   { match: (from) => from.includes("axisbank.com"), parse: parseAxis },
   { match: (from) => from.includes("paytm.com"), parse: parsePaytm },
+  { match: (from) => from.includes("sbicard.com"), parse: parseSbi },
+  { match: (from) => from.includes("kotak.com"), parse: parseKotak },
 ];
 
 function parseEmail({ from, subject, body, messageId }) {
@@ -15,7 +19,8 @@ function parseEmail({ from, subject, body, messageId }) {
 
   for (const parser of PARSERS) {
     if (parser.match(fromLower)) {
-      return parser.parse({ subject, body, messageId });
+      const res = parser.parse({ subject, body, messageId });
+      if (res) return res;
     }
   }
 
@@ -28,7 +33,9 @@ const GMAIL_SEARCH_QUERY = [
   "from:alerts@hdfcbank.com OR",
   "from:credit_cards@icicibank.com OR",
   "from:axisbank.com OR",
-  "from:paytm.com",
+  "from:paytm.com OR",
+  "from:sbicard.com OR",
+  "from:kotak.com",
   ")",
   "(",
   'subject:"credit card" OR',

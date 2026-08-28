@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../config/app_config.dart';
@@ -10,17 +11,30 @@ import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
 import 'profile_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../services/email_sync_service.dart';
 import '../services/fcm_service.dart';
+import '../widgets/qfin_nav_bar.dart';
+
+class CardHomeTheme {
+  static const Color background = Color(0xFF0F261C); // QFin Deep Forest Green Header / Background
+  static const Color cardBg = Color(0xFFF6F4EB); // Vintage Cream Card Surface
+  static const Color cardBorder = Color(0xFFE2DDD0); // Soft Vintage Cream Border
+  static const Color borderDark = Color(0xFFE2DDD0);
+  static const Color emeraldGlow = Color(0xFFD4AF37); // Vintage Gold Accent
+  static const Color primaryBlue = Color(0xFFB8452D); // Terracotta Accent
+  static const Color cyanGlow = Color(0xFFD4AF37); // Vintage Gold Accent
+  static const Color cyanAccent = Color(0xFFD4AF37);
+  static const Color textWhite = Color(0xFF132A20); // Dark Forest Slate Text inside Cream Cards
+  static const Color textMuted = Color(0xFF6B7280); // Muted Text
+}
 
 class CardHome extends StatelessWidget {
   final String userId;
   final String userName;
 
   const CardHome({
-
-
     super.key,
     required this.userId,
     required this.userName,
@@ -91,61 +105,206 @@ class _GridViewPageState extends State<GridViewPage> {
       return const SizedBox.shrink();
     }
 
-    final bill = _billSuggestions.first;
-    final bank = bill['bankName'] ?? 'Card';
-    final last4 = bill['last4Digits'] ?? '****';
-    final amount = bill['amount']?.toString() ?? '?';
-    final dueRaw = bill['paymentDueDate'] as String?;
-    final dueStr = dueRaw != null
-        ? DateTime.tryParse(dueRaw)?.toLocal().toString().split(' ').first ?? dueRaw
-        : 'soon';
+    const Color darkText = Color(0xFF132A20);
+    const Color terracotta = Color(0xFFB8452D);
+    const Color goldAccent = Color(0xFFD4AF37);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppConfig.primaryTeal.withOpacity(0.15),
-            AppConfig.gradientEnd.withOpacity(0.1),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppConfig.primaryTeal.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.mail_outline, color: AppConfig.primaryTeal),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Bill found: $bank •••• $last4 — ₹$amount due $dueStr',
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AddReminderPage(
-                    userId: widget.userId,
-                    userName: widget.userName,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: terracotta,
+                    shape: BoxShape.circle,
                   ),
                 ),
-              ).then((_) => _loadBillSuggestions());
-            },
-            child: const Text(
-              'Set reminder',
-              style: TextStyle(color: AppConfig.primaryTeal),
+                const SizedBox(width: 8),
+                Text(
+                  "Action Required",
+                  style: GoogleFonts.fraunces(
+                    color: darkText,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: terracotta.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: terracotta.withValues(alpha: 0.25)),
+              ),
+              child: Text(
+                "${_billSuggestions.length} ${_billSuggestions.length == 1 ? 'Bill Found' : 'Bills Found'}",
+                style: GoogleFonts.ibmPlexMono(
+                  color: terracotta,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._billSuggestions.map((bill) {
+          final bank = bill['bankName'] ?? 'Card';
+          final last4 = bill['last4Digits'] ?? '****';
+          final amount = bill['amount']?.toString() ?? '?';
+          final dueRaw = bill['paymentDueDate'] as String?;
+          final dueStr = dueRaw != null
+              ? DateTime.tryParse(dueRaw)?.toLocal().toString().split(' ').first ?? dueRaw
+              : 'soon';
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white,
+                  terracotta.withValues(alpha: 0.04),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: terracotta.withValues(alpha: 0.3),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: terracotta.withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: terracotta.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.mark_email_unread_rounded,
+                        color: terracotta,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "$bank •••• $last4",
+                            style: GoogleFonts.inter(
+                              color: darkText,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            "Statement Due: $dueStr",
+                            style: GoogleFonts.inter(
+                              color: Colors.black54,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "₹$amount",
+                          style: GoogleFonts.inter(
+                            color: darkText,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: goldAccent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            "DUE SOON",
+                            style: GoogleFonts.ibmPlexMono(
+                              color: const Color(0xFF8A6D00),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 42,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: terracotta,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (!mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddReminderPage(
+                            userId: widget.userId,
+                            userName: widget.userName,
+                            initialBill: bill,
+                          ),
+                        ),
+                      ).then((_) => _loadBillSuggestions());
+                    },
+                    icon: const Icon(Icons.add_alarm_rounded, size: 18),
+                    label: Text(
+                      'Set Bill Reminder',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
-
-  // ── fetch ────────────────────────────────────────────────────────────────
 
   Future<void> _fetchNotifLogs() async {
     setState(() => _notifsLoading = true);
@@ -170,8 +329,6 @@ class _GridViewPageState extends State<GridViewPage> {
     setState(() => _notifsLoading = false);
   }
 
-  // ── toggle ───────────────────────────────────────────────────────────────
-
   void _toggleNotificationPopup(BuildContext ctx) {
     if (_notifOverlay != null) {
       _closeNotifPopup();
@@ -181,8 +338,6 @@ class _GridViewPageState extends State<GridViewPage> {
       if (mounted) _openNotifPopup(ctx);
     });
   }
-
-  // ── open ─────────────────────────────────────────────────────────────────
 
   void _openNotifPopup(BuildContext ctx) {
     final overlay = Overlay.of(ctx);
@@ -204,35 +359,45 @@ class _GridViewPageState extends State<GridViewPage> {
                 ),
                 Positioned(
                   top: appBarBottom,
-                  left: 0,
-                  right: 0,
+                  left: 16,
+                  right: 16,
                   child: Material(
                     color: Colors.transparent,
                     child: Container(
-                      color: const Color(0xFF1A1A1A),
+                      decoration: BoxDecoration(
+                        color: CardHomeTheme.cardBg,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: CardHomeTheme.borderDark),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.4),
+                            blurRadius: 25,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-
-                          // header
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            padding: const EdgeInsets.fromLTRB(20, 16, 16, 10),
                             child: Row(
                               children: [
-                                const Text(
+                                Text(
                                   'Notifications',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
+                                  style: GoogleFonts.fraunces(
+                                    color: const Color(0xFF132A20),
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w500,
+                                    fontStyle: FontStyle.italic,
                                   ),
                                 ),
                                 const Spacer(),
                                 if (_selectedNotifs.isNotEmpty) ...[
                                   Text(
                                     '${_selectedNotifs.length} selected',
-                                    style: const TextStyle(
-                                      color: Color(0xFF00D9FF),
+                                    style: GoogleFonts.karla(
+                                      color: CardHomeTheme.cyanGlow,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -240,7 +405,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(
-                                        color: Color(0xFF00D9FF),
+                                        color: CardHomeTheme.cyanGlow,
                                       ),
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 10,
@@ -265,13 +430,13 @@ class _GridViewPageState extends State<GridViewPage> {
                                     },
                                     icon: const Icon(
                                       Icons.delete_outline,
-                                      color: Color(0xFF00D9FF),
-                                      size: 13,
+                                      color: CardHomeTheme.cyanGlow,
+                                      size: 14,
                                     ),
-                                    label: const Text(
+                                    label: Text(
                                       'Delete',
-                                      style: TextStyle(
-                                        color: Color(0xFF00D9FF),
+                                      style: GoogleFonts.karla(
+                                        color: CardHomeTheme.cyanGlow,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -282,20 +447,17 @@ class _GridViewPageState extends State<GridViewPage> {
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                   icon: const Icon(
-                                    Icons.close,
-                                    color: Color(0xFF555555),
-                                    size: 20,
+                                    Icons.close_rounded,
+                                    color: CardHomeTheme.textMuted,
+                                    size: 22,
                                   ),
                                   onPressed: _closeNotifPopup,
                                 ),
                               ],
                             ),
                           ),
-
-                          // chips
                           Padding(
-                            padding:
-                            const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                             child: Row(
                               children: [
                                 _notifChip('Select all', () {
@@ -317,44 +479,40 @@ class _GridViewPageState extends State<GridViewPage> {
                               ],
                             ),
                           ),
-
                           const Divider(
-                            color: Color(0xFF2A2A2A),
+                            color: CardHomeTheme.borderDark,
                             height: 1,
                           ),
-
-                          // list
                           ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight: screenHeight * 0.55,
+                              maxHeight: screenHeight * 0.5,
                             ),
                             child: _notifsLoading
                                 ? const Padding(
                               padding: EdgeInsets.all(32),
                               child: Center(
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF00D9FF),
+                                  color: CardHomeTheme.cyanGlow,
                                 ),
                               ),
                             )
                                 : _notifLogs.isEmpty
-                                ? const Padding(
-                              padding: EdgeInsets.all(32),
+                                ? Padding(
+                              padding: const EdgeInsets.all(32),
                               child: Center(
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Icons
-                                          .notifications_off_outlined,
-                                      size: 32,
-                                      color: Color(0xFF333333),
+                                    const Icon(
+                                      Icons.notifications_off_outlined,
+                                      size: 36,
+                                      color: CardHomeTheme.textMuted,
                                     ),
-                                    SizedBox(height: 8),
+                                    const SizedBox(height: 8),
                                     Text(
                                       'No notifications',
-                                      style: TextStyle(
-                                        color: Color(0xFF555555),
+                                      style: GoogleFonts.karla(
+                                        color: CardHomeTheme.textMuted,
                                         fontSize: 13,
                                       ),
                                     ),
@@ -364,12 +522,11 @@ class _GridViewPageState extends State<GridViewPage> {
                             )
                                 : ListView.separated(
                               shrinkWrap: true,
-                              physics:
-                              const ClampingScrollPhysics(),
+                              physics: const ClampingScrollPhysics(),
                               itemCount: _notifLogs.length,
                               separatorBuilder: (_, x) =>
                               const Divider(
-                                color: Color(0xFF222222),
+                                color: CardHomeTheme.borderDark,
                                 height: 1,
                               ),
                               itemBuilder: (_, i) {
@@ -380,15 +537,13 @@ class _GridViewPageState extends State<GridViewPage> {
                                   onTap: () =>
                                       setPopState(() {
                                         isSel
-                                            ? _selectedNotifs
-                                            .remove(i)
+                                            ? _selectedNotifs.remove(i)
                                             : _selectedNotifs.add(i);
                                       }),
                                   child: Padding(
-                                    padding:
-                                    const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 11,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
                                     ),
                                     child: Row(
                                       children: [
@@ -396,99 +551,77 @@ class _GridViewPageState extends State<GridViewPage> {
                                           duration: const Duration(
                                             milliseconds: 150,
                                           ),
-                                          width: 18,
-                                          height: 18,
-                                          decoration:
-                                          BoxDecoration(
+                                          width: 20,
+                                          height: 20,
+                                          margin: const EdgeInsets.only(
+                                            right: 12,
+                                          ),
+                                          decoration: BoxDecoration(
                                             color: isSel
-                                                ? const Color(
-                                              0xFF00D9FF,
-                                            )
-                                                : Colors
-                                                .transparent,
+                                                ? CardHomeTheme.cyanGlow
+                                                : Colors.transparent,
+                                            borderRadius:
+                                            BorderRadius.circular(6),
                                             border: Border.all(
                                               color: isSel
-                                                  ? const Color(
-                                                0xFF00D9FF,
-                                              )
-                                                  : const Color(
-                                                0xFF444444,
-                                              ),
-                                              width: 1.5,
+                                                  ? CardHomeTheme.cyanGlow
+                                                  : CardHomeTheme.textMuted,
                                             ),
-                                            borderRadius:
-                                            BorderRadius
-                                                .circular(5),
                                           ),
                                           child: isSel
                                               ? const Icon(
                                             Icons.check,
-                                            size: 12,
-                                            color:
-                                            Colors.black,
+                                            size: 14,
+                                            color: Colors.black,
                                           )
                                               : null,
                                         ),
-                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
+                                            CrossAxisAlignment.start,
                                             children: [
                                               Row(
+                                                mainAxisAlignment:
+                                                MainAxisAlignment
+                                                    .spaceBetween,
                                                 children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      '💳 Credit Card Reminder',
-                                                      style:
-                                                      TextStyle(
-                                                        color: isSel
-                                                            ? const Color(
-                                                          0xFF00D9FF,
-                                                        )
-                                                            : Colors
-                                                            .white,
-                                                        fontSize:
-                                                        13,
-                                                        fontWeight:
-                                                        FontWeight
-                                                            .w500,
+                                                  Text(
+                                                    (log['title']
+                                                    as String?) ??
+                                                        'Notification',
+                                                    style: GoogleFonts.karla(
+                                                      color: const Color(
+                                                        0xFF132A20,
                                                       ),
+                                                      fontSize: 13.5,
+                                                      fontWeight:
+                                                      FontWeight.bold,
                                                     ),
                                                   ),
                                                   Text(
                                                     _formatTime(
-                                                      (log['sentAt'] ??
-                                                              log['createdAt'])
-                                                          as String?,
+                                                      log['sentAt']
+                                                      as String?,
                                                     ),
-                                                    style:
-                                                    const TextStyle(
-                                                      color: Color(
-                                                        0xFF555555,
-                                                      ),
+                                                    style: GoogleFonts.karla(
+                                                      color: CardHomeTheme
+                                                          .textMuted,
                                                       fontSize: 11,
                                                     ),
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(
-                                                height: 3,
-                                              ),
+                                              const SizedBox(height: 3),
                                               Text(
-                                                (log['message']
-                                                as String?) ??
+                                                (log['message'] as String?) ??
                                                     '',
-                                                style:
-                                                const TextStyle(
-                                                  color: Color(
-                                                    0xFF777777,
-                                                  ),
-                                                  fontSize: 12,
+                                                style: GoogleFonts.karla(
+                                                  color:
+                                                  CardHomeTheme.textMuted,
+                                                  fontSize: 12.5,
                                                 ),
-                                                overflow: TextOverflow
-                                                    .ellipsis,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ],
                                           ),
@@ -515,34 +648,33 @@ class _GridViewPageState extends State<GridViewPage> {
     overlay.insert(_notifOverlay!);
   }
 
-  // ── close ────────────────────────────────────────────────────────────────
-
   void _closeNotifPopup() {
     _notifOverlay?.remove();
     _notifOverlay = null;
     _selectedNotifs.clear();
   }
 
-  // ── chip ─────────────────────────────────────────────────────────────────
-
   Widget _notifChip(String label, VoidCallback onTap) {
+    const Color darkText = Color(0xFF132A20);
     return GestureDetector(
-        onTap: onTap,
-        child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFF333333)),
-              borderRadius: BorderRadius.circular(7),
-            ),
-          child: Text(
-            label,
-            style: const TextStyle(color: Color(0xFFAAAAAA), fontSize: 12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: darkText,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
+      ),
     );
   }
-
-  // ── format time ──────────────────────────────────────────────────────────
 
   String _formatTime(String? raw) {
     if (raw == null) return '';
@@ -553,605 +685,414 @@ class _GridViewPageState extends State<GridViewPage> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
   }
-  // ── dispose ──────────────────────────────────────────────────────────────
 
-  @override
-  void dispose() {
-    _closeNotifPopup();
-    super.dispose();
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> items = [
+    const Color forestDark = Color(0xFF0F261C);
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color goldText = Color(0xFFD4AF37);
+    const Color terracotta = Color(0xFFB8452D);
+
+    final List<Map<String, dynamic>> horizontalChips = [
       {
-        "name": "Add Card",
-        "subtitle": "Add new card",
-        "icon": Icons.add_card_rounded,
-        "color": const Color(0xFF3B82F6), // Premium Blue
-        "page": (BuildContext context) => CardCreateScreen(
-              userId: widget.userId,
-              userName: widget.userName,
-            ),
+        "title": "Add Card",
+        "icon": FontAwesomeIcons.creditCard,
+        "color": terracotta,
+        "bg": terracotta.withValues(alpha: 0.08),
+        "page": (context) => CardCreateScreen(userId: widget.userId, userName: widget.userName),
       },
       {
-        "name": "View Card",
-        "subtitle": "View your cards",
-        "icon": Icons.credit_card,
-        "color": const Color(0xFF10B981), // Emerald Green
-        "page": (BuildContext context) => ViewCardScreen(
-              userId: widget.userId,
-              userName: widget.userName,
-            ),
+        "title": "Add Reminder",
+        "icon": FontAwesomeIcons.solidBell,
+        "color": darkText,
+        "bg": darkText.withValues(alpha: 0.08),
+        "page": (context) => AddReminderPage(userId: widget.userId, userName: widget.userName),
       },
       {
-        "name": "Add Reminder",
-        "subtitle": "Add new reminder",
-        "icon": Icons.add_alert_rounded,
-        "color": const Color(0xFFF59E0B), // Amber Orange
-        "page": (BuildContext context) => AddReminderPage(
-              userId: widget.userId,
-              userName: widget.userName,
-            ),
-      },
-      {
-        "name": "View Reminder",
-        "subtitle": "View all reminders",
-        "icon": Icons.notifications_active,
-        "color": const Color(0xFF8B5CF6), // Violet Purple
-        "page": (BuildContext context) => ViewReminderPage(
-              userId: widget.userId,
-              userName: widget.userName,
-            ),
-      },
-      {
-        "name": "Lend & Liability",
-        "subtitle": "Track payments",
-        "icon": Icons.account_balance_wallet,
-        "color": const Color(0xFF06B6D4), // Teal Cyan
-        "page": (BuildContext context) => LendLiabilityPage(
-              userId: widget.userId,
-              userName: widget.userName,
-            ),
+        "title": "Lend & Borrow",
+        "icon": FontAwesomeIcons.handshake,
+        "color": const Color(0xFF8A6D00),
+        "bg": goldText.withValues(alpha: 0.15),
+        "page": (context) => LendLiabilityPage(userId: widget.userId, userName: widget.userName),
       },
     ];
 
+    final List<Map<String, dynamic>> mainFeatures = [
+      {
+        "title": "My Credit Cards",
+        "subtitle": "Manage active limits & billing cycles",
+        "icon": FontAwesomeIcons.wallet,
+        "badge": "Active Cards",
+        "color": darkText,
+        "page": (context) => ViewCardScreen(userId: widget.userId, userName: widget.userName),
+      },
+      {
+        "title": "Upcoming Reminders",
+        "subtitle": "Track bill due dates & scheduled payments",
+        "icon": FontAwesomeIcons.calendarCheck,
+        "badge": "Scheduled Bills",
+        "color": terracotta,
+        "page": (context) => ViewReminderPage(userId: widget.userId, userName: widget.userName),
+      },
+      {
+        "title": "Lend & Borrow Tracker",
+        "subtitle": "Monitor personal payables and receivables",
+        "icon": FontAwesomeIcons.scaleUnbalanced,
+        "badge": "Track Balances",
+        "color": darkText,
+        "page": (context) => LendLiabilityPage(userId: widget.userId, userName: widget.userName),
+      },
+    ];
+
+    final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';
+
     return Scaffold(
-      backgroundColor: AppConfig.background,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.03),
-              border: Border.all(
-                color: AppConfig.primaryTeal.withOpacity(0.2),
-                width: 1,
+      backgroundColor: creamSheet,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Unified Executive Top Navigation Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      if (Navigator.canPop(context)) ...[
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Container(
+                            padding: const EdgeInsets.all(9),
+                            decoration: BoxDecoration(
+                              color: forestDark.withValues(alpha: 0.06),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+                            ),
+                            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+                          ),
+                          onPressed: () => Navigator.maybePop(context),
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: forestDark,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: forestDark.withValues(alpha: 0.25),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            initial,
+                            style: GoogleFonts.fraunces(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Notification Icon
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: forestDark.withValues(alpha: 0.06),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+                      ),
+                      child: Stack(
+                        children: [
+                          const Icon(Icons.notifications_outlined, color: darkText, size: 20),
+                          if (_notifLogs.isNotEmpty)
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: terracotta,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    onPressed: () => _toggleNotificationPopup(context),
+                  ),
+                ],
               ),
-            ),
-            padding: const EdgeInsets.all(4.0),
-            child: Image.asset(
-              "assets/images/logo.png",
-              width: 24,
-              height: 24,
-            ),
-          ),
-        ),
-        title: const Text(
-          AppConfig.appName,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
-            letterSpacing: 0.5,
-          ),
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.notifications_rounded,
-              color: AppConfig.primaryTeal,
-              size: 26,
-            ),
-            onPressed: () => _toggleNotificationPopup(context),
-          ),
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppConfig.primaryTeal,
-              size: 26,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: AppConfig.darkSlate,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: Colors.white.withOpacity(0.08),
-                      width: 1.5,
+              const SizedBox(height: 18),
+
+              // 2. Greeting & Title Banner
+              Text(
+                "FINANCIAL DASHBOARD",
+                style: GoogleFonts.ibmPlexMono(
+                  color: darkText.withValues(alpha: 0.5),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Row(
+                children: [
+                  Text(
+                    "${_getGreeting()}, ",
+                    style: GoogleFonts.fraunces(
+                      color: darkText.withValues(alpha: 0.75),
+                      fontSize: 24,
+                      fontWeight: FontWeight.w400,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.white,
+                  Text(
+                    widget.userName,
+                    style: GoogleFonts.fraunces(
+                      color: darkText,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  content: const Text(
-                    "Are you sure you want to logout?",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.white60),
-                      ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // 3. Bill Suggestion / Action Required Banner
+              _buildBillSuggestionBanner(),
+
+              // 4. Quick Actions Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Quick Actions",
+                    style: GoogleFonts.fraunces(
+                      color: darkText,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      fontStyle: FontStyle.italic,
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppConfig.primaryTeal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
-                        if (!context.mounted) return;
-                        Navigator.pushAndRemoveUntil(
+                  ),
+                  Text(
+                    "Shortcuts",
+                    style: GoogleFonts.ibmPlexMono(
+                      color: Colors.black45,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: horizontalChips.map((chip) {
+                  final Color color = chip["color"] as Color;
+                  final Color bg = chip["bg"] as Color;
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
+                            builder: (context) => (chip["page"] as Widget Function(BuildContext))(context),
                           ),
-                          (route) => false,
                         );
                       },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Background soft glowing teal orb 1
-          Positioned(
-            top: -80,
-            left: -80,
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.primaryTeal.withOpacity(0.1),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          // Background soft glowing blue orb 2
-          Positioned(
-            bottom: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.gradientEnd.withOpacity(0.06),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-
-          // Main content
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Greeting text
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          "Welcome back, ",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        Text(
-                          widget.userName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Premium Cardholder wallet container
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            AppConfig.darkSlate,
-                            const Color(0xFF1E293B),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: AppConfig.primaryTeal.withOpacity(0.2),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
-                            blurRadius: 15,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Icon(
-                                Icons.credit_card_rounded,
-                                color: AppConfig.primaryTeal,
-                                size: 36,
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: AppConfig.primaryTeal.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: AppConfig.primaryTeal.withOpacity(0.3),
-                                    width: 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.verified_user_rounded,
-                                      color: AppConfig.primaryTeal,
-                                      size: 14,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Text(
-                                      "SECURE",
-                                      style: TextStyle(
-                                        color: AppConfig.primaryTeal,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 28),
-                          const Text(
-                            "Manage your cards\nand reminders easily",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              height: 1.3,
-                              letterSpacing: -0.2,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                widget.userName.toUpperCase(),
-                                style: const TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                              const Text(
-                                "•••• •••• •••• 2026",
-                                style: TextStyle(
-                                  color: Colors.white38,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-
-                    // Quick Actions Title
-                    const Text(
-                      "Quick Actions",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    _buildBillSuggestionBanner(),
-
-                    // Dynamic non-overflowing Action Grid
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: items.length,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 14,
-                        mainAxisSpacing: 14,
-                        childAspectRatio: 1.15, // Non-overflow ratio
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-
-                        return InkWell(
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => (item["page"]
-                                    as Widget Function(BuildContext))(context),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              color: Colors.white.withOpacity(0.02),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                                width: 1,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 3),
-                                ),
-                              ],
+                          border: Border.all(
+                            color: color.withValues(alpha: 0.2),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: (item["color"] as Color)
-                                        .withOpacity(0.12),
-                                  ),
-                                  child: Icon(
-                                    item["icon"],
-                                    color: item["color"],
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  item["name"],
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  item["subtitle"],
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.4),
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: bg,
+                                shape: BoxShape.circle,
+                              ),
+                              child: FaIcon(chip["icon"] as dynamic, color: color, size: 20),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              chip["title"] as String,
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.inter(
+                                color: darkText,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 26),
+
+              // 5. Management Hub Sections
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Management Hub",
+                    style: GoogleFonts.fraunces(
+                      color: darkText,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                  Text(
+                    "Overview",
+                    style: GoogleFonts.ibmPlexMono(
+                      color: Colors.black45,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: mainFeatures.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 14),
+                itemBuilder: (context, index) {
+                  final feat = mainFeatures[index];
+                  final Color color = feat["color"] as Color;
+
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => (feat["page"] as Widget Function(BuildContext))(context),
                           ),
                         );
                       },
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Secure status banner
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.01),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.04),
-                          width: 1,
+                      child: Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: FaIcon(feat["icon"] as dynamic, color: color, size: 22),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    feat["title"] as String,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.inter(
+                                      color: darkText,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    feat["subtitle"] as String,
+                                    style: GoogleFonts.inter(
+                                      color: CardHomeTheme.textMuted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.04),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: CardHomeTheme.textMuted,
+                                size: 18,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.blue.withOpacity(0.1),
-                            ),
-                            child: const Icon(
-                              Icons.security_rounded,
-                              color: Colors.blueAccent,
-                              size: 26,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Your data is secured",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                SizedBox(height: 2),
-                                Text(
-                                  "100% encrypted and protected",
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppConfig.background,
-        selectedItemColor: AppConfig.primaryTeal,
-        unselectedItemColor: Colors.white54,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardHome(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewCardScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewReminderPage(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 3) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProfileScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_rounded),
-            label: "Cards",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_rounded),
-            label: "Reminder",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: "Profile",
-          ),
-        ],
+        ),
       ),
     );
   }

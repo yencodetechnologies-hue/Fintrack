@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'home_screen.dart';
-import 'card_home.dart';
-import 'view_reminder_page.dart';
-import 'view_card_screen.dart';
 // ─────────────────────────────────────────────
 //  LEND SERVICE
 // ─────────────────────────────────────────────
@@ -232,14 +230,11 @@ class LendLiabilityPage extends StatefulWidget {
 class _LendLiabilityPageState extends State<LendLiabilityPage>
     with SingleTickerProviderStateMixin {
 
-  static const Color _bg      = Color(0xFF0A0A0F);
-  static const Color _card    = Color(0xFF13131A);
-  static const Color _border  = Color(0xFF1E1E2E);
-  static const Color _cyan    = Color(0xFF00D9FF);
-  static const Color _green   = Color(0xFF00E5A0);
-  static const Color _red     = Color(0xFFFF4D6D);
-  static const Color _textPri = Colors.white;
-  static const Color _textSec = Color(0xFF8A8AA0);
+  static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
+  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
+  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
+  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
+  static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
 
   late TabController _tabController;
 
@@ -248,7 +243,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
 
   bool _lendLoading      = false;
   bool _liabilityLoading = false;
-  int _selectedIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -302,10 +297,13 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
   void _showSnack(String msg, {bool success = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: const TextStyle(color: Colors.white)),
-        backgroundColor: success ? _green : _red,
+        content: Text(
+          msg,
+          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: success ? _forestDark : _terracotta,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 2),
       ),
@@ -322,43 +320,43 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF13131A),
+        backgroundColor: _bg,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: _red.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
         ),
         title: Row(
           children: [
             Container(
-              width: 36, height: 36,
+              width: 38, height: 38,
               decoration: BoxDecoration(
-                color: _red.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _red.withValues(alpha: 0.4)),
+                color: _terracotta.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _terracotta.withValues(alpha: 0.3)),
               ),
-              child: const Icon(Icons.delete_rounded, color: _red, size: 18),
+              child: const Icon(Icons.delete_rounded, color: _terracotta, size: 20),
             ),
             const SizedBox(width: 12),
-            const Text(
-              "Delete",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 17,
+            Text(
+              "Delete Record",
+              style: GoogleFonts.fraunces(
+                color: _darkText,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
             ),
           ],
         ),
         content: RichText(
           text: TextSpan(
-            style: const TextStyle(color: Colors.white60, fontSize: 14, height: 1.5),
+            style: GoogleFonts.inter(color: Colors.black.withValues(alpha: 0.7), fontSize: 14, height: 1.5),
             children: [
               const TextSpan(text: "Are you sure you want to delete "),
               TextSpan(
                 text: name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
+                style: GoogleFonts.inter(
+                  color: _darkText,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
               const TextSpan(text: "'s record? This action cannot be undone."),
@@ -368,9 +366,9 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               "Cancel",
-              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(color: Colors.black45, fontWeight: FontWeight.w600),
             ),
           ),
           GestureDetector(
@@ -378,14 +376,13 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: _red.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _red.withValues(alpha: 0.5)),
+                color: _terracotta,
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
+              child: Text(
                 "Delete",
-                style: TextStyle(
-                  color: _red,
+                style: GoogleFonts.inter(
+                  color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 13.5,
                 ),
@@ -418,10 +415,11 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
         firstDate: DateTime(2020),
         lastDate: DateTime(2100),
         builder: (ctx, child) => Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: _cyan,
-              surface: Color(0xFF1A1A2E),
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _forestDark,
+              onPrimary: Colors.white,
+              surface: _bg,
             ),
           ),
           child: child!,
@@ -441,7 +439,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
       backgroundColor: Colors.transparent,
       builder: (_) => _BottomSheetForm(
         title: "Add Lend Entry",
-        accentColor: _cyan,
+        accentColor: _forestDark,
         formKey: formKey,
         nameCtrl: nameCtrl,
         reasonCtrl: reasonCtrl,
@@ -489,10 +487,11 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
         firstDate: DateTime(2020),
         lastDate: DateTime(2100),
         builder: (ctx, child) => Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: _cyan,
-              surface: Color(0xFF1A1A2E),
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _terracotta,
+              onPrimary: Colors.white,
+              surface: _bg,
             ),
           ),
           child: child!,
@@ -512,7 +511,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
       backgroundColor: Colors.transparent,
       builder: (_) => _BottomSheetForm(
         title: "Add Liability Entry",
-        accentColor: _cyan,
+        accentColor: _terracotta,
         formKey: formKey,
         nameCtrl: nameCtrl,
         reasonCtrl: reasonCtrl,
@@ -631,276 +630,219 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
     return Scaffold(
       backgroundColor: _bg,
 
-      appBar: AppBar(
-        elevation: 0, backgroundColor: Colors.black,
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-
-          child: CircleAvatar(
-            backgroundColor: Colors.transparent,
-
-            child: Image.asset(
-              "assets/images/logo.png",
-            ),
-          ),
-        ),
-        title: const Text(
-          "Lend & Liability",
-          style: TextStyle(
-            color: const Color(0xFF00D9FF),
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
-
-        centerTitle: true,
-
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: const Color(0xFF00D9FF),
-              size: 30,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: const Color(0xff1A1A1A),
-
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(color: Colors.white),
-                  ),
-
-                  content: const Text(
-                    "Are you sure want to logout?",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.white),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top QFin Vintage Header Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Row(
+                children: [
+                  if (Navigator.canPop(context)) ...[
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: _darkText.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: _darkText.withValues(alpha: 0.15)),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: _darkText, size: 20),
                       ),
+                      onPressed: () => Navigator.maybePop(context),
                     ),
-
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                      ),
-
-                      onPressed: () async {
-                        final prefs =
-                        await SharedPreferences.getInstance();
-
-                        await prefs.clear();
-
-                        if (!context.mounted) return;
-
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                            const HomeScreen(),
-                          ),
-                              (route) => false,
-                        );
-                      },
-
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.black),
-                      ),
-                    ),
+                    const SizedBox(width: 10),
                   ],
-                ),
-              );
-            },
-          ),
-        ],
 
-
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: AnimatedBuilder(
-            animation: _tabController,
-            builder: (context, _) {
-              final idx = _tabController.index;
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _card,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00D9FF), Color(0xFF006FFF)],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: _goldAccent,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "BALANCE LEDGER",
+                              style: GoogleFonts.ibmPlexMono(
+                                color: _goldAccent,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          "Lend & Liability",
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.fraunces(
+                            color: _darkText,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  indicatorSize: TabBarIndicatorSize.tab,
-                  dividerColor: Colors.transparent,
-                  labelColor: Colors.black,
-                  unselectedLabelColor: _cyan,
-                  labelStyle: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11.5,
+                ],
+              ),
+            ),
+
+            // QFin Custom Vintage Selector Tabs
+            AnimatedBuilder(
+              animation: _tabController,
+              builder: (context, _) {
+                final idx = _tabController.index;
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                   ),
-                  tabs: [
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("💸 Lend"),
-                          const SizedBox(width: 6),
-                          _TabIconBtn(
-                            icon: Icons.add_rounded,
-                            active: idx == 0,
-                            activeAccent: _cyan,
-                            onTap: () {
-                              if (_tabController.index != 0) _tabController.animateTo(0);
-                              Future.microtask(_showLendForm);
-                            },
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _tabController.animateTo(0),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: idx == 0 ? _forestDark : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_upward_rounded,
+                                  color: idx == 0 ? _goldAccent : Colors.black45,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Lend Records",
+                                  style: GoogleFonts.inter(
+                                    color: idx == 0 ? Colors.white : Colors.black54,
+                                    fontSize: 13,
+                                    fontWeight: idx == 0 ? FontWeight.bold : FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _TabIconBtn(
+                                  icon: Icons.add_rounded,
+                                  active: idx == 0,
+                                  activeAccent: _goldAccent,
+                                  onTap: () {
+                                    if (_tabController.index != 0) _tabController.animateTo(0);
+                                    Future.microtask(_showLendForm);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                    Tab(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("🏦 Liability"),
-                          const SizedBox(width: 6),
-                          _TabIconBtn(
-                            icon: Icons.add_rounded,
-                            active: idx == 1,
-                            activeAccent: _cyan,
-                            onTap: () {
-                              if (_tabController.index != 1) _tabController.animateTo(1);
-                              Future.microtask(_showLiabilityForm);
-                            },
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => _tabController.animateTo(1),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: idx == 1 ? _terracotta : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.arrow_downward_rounded,
+                                  color: idx == 1 ? Colors.white : Colors.black45,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  "Liabilities",
+                                  style: GoogleFonts.inter(
+                                    color: idx == 1 ? Colors.white : Colors.black54,
+                                    fontSize: 13,
+                                    fontWeight: idx == 1 ? FontWeight.bold : FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                _TabIconBtn(
+                                  icon: Icons.add_rounded,
+                                  active: idx == 1,
+                                  activeAccent: Colors.white,
+                                  onTap: () {
+                                    if (_tabController.index != 1) _tabController.animateTo(1);
+                                    Future.microtask(_showLiabilityForm);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
+                        ),
                       ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 8),
+
+            // Tab View Body
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _lendLoading
+                      ? const Center(child: CircularProgressIndicator(color: _forestDark))
+                      : RefreshIndicator(
+                    color: _forestDark,
+                    backgroundColor: Colors.white,
+                    onRefresh: _fetchLends,
+                    child: _LendTab(
+                      lendList: _lendList,
+                      totalLent: _totalLent,
+                      onToggleReceived: _toggleLendReceived,
+                      onDelete: _deleteLend,
                     ),
-                  ],
-                ),
-              );
-            },
-          ),
+                  ),
+
+                  _liabilityLoading
+                      ? const Center(child: CircularProgressIndicator(color: _terracotta))
+                      : RefreshIndicator(
+                    color: _terracotta,
+                    backgroundColor: Colors.white,
+                    onRefresh: _fetchLiabilities,
+                    child: _LiabilityTab(
+                      liabilityList: _liabilityList,
+                      totalLiability: _totalLiability,
+                      onTogglePaid: _toggleLiabilityPaid,
+                      onDelete: _deleteLiability,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _lendLoading
-              ? const Center(child: CircularProgressIndicator(color: _cyan))
-              : RefreshIndicator(
-            color: _cyan,
-            backgroundColor: _card,
-            onRefresh: _fetchLends,
-            child: _LendTab(
-              lendList: _lendList,
-              totalLent: _totalLent,
-              onToggleReceived: _toggleLendReceived,
-              onDelete: _deleteLend,
-            ),
-          ),
-
-          _liabilityLoading
-              ? const Center(child: CircularProgressIndicator(color: _cyan))
-              : RefreshIndicator(
-            color: _cyan,
-            backgroundColor: _card,
-            onRefresh: _fetchLiabilities,
-            child: _LiabilityTab(
-              liabilityList: _liabilityList,
-              totalLiability: _totalLiability,
-              onTogglePaid: _toggleLiabilityPaid,
-              onDelete: _deleteLiability,
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppConfig.background,
-        selectedItemColor: AppConfig.primaryTeal,
-        unselectedItemColor: Colors.white54,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardHome(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewCardScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewReminderPage(
-                  userId: widget.userId,userName: widget.userName,
-                ),
-              ),
-            );
-          }
-        },
-
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Home",
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card),
-            label: "Cards",
-          ),
-
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: "Reminder",
-          ),
-        ],
       ),
     );
-
   }
 }
 
@@ -1115,27 +1057,30 @@ class _LendCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  static const Color _cyan  = Color(0xFF00D9FF);
-  static const Color _green = Color(0xFF00E5A0);
-  static const Color _card  = Color(0xFF13131A);
+  static const Color _forestDark = Color(0xFF0F261C);
+  static const Color _emerald    = Color(0xFF1E7A53);
+  static const Color _goldAccent = Color(0xFFD4AF37);
+  static const Color _darkText   = Color(0xFF132A20);
 
   @override
   Widget build(BuildContext context) {
     final bool isRcv = entry.isReceived;
+    final Color activeColor = isRcv ? _emerald : _forestDark;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: _card,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isRcv ? _green.withValues(alpha: 0.5) : _cyan.withValues(alpha: 0.4),
-          width: 1.5,
+          color: Colors.black.withValues(alpha: 0.08),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: (isRcv ? _green : _cyan).withValues(alpha: 0.06),
-            blurRadius: 20,
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1145,30 +1090,24 @@ class _LendCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isRcv
-                    ? [_green.withValues(alpha: 0.12), Colors.transparent]
-                    : [_cyan.withValues(alpha: 0.10),  Colors.transparent],
-                begin: Alignment.centerLeft,
-              ),
+              color: activeColor.withValues(alpha: 0.04),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 44, height: 44,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: (isRcv ? _green : _cyan).withValues(alpha: 0.15),
+                    color: activeColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: (isRcv ? _green : _cyan).withValues(alpha: 0.4)),
                   ),
                   child: Center(
                     child: Text(
                       entry.name.isNotEmpty ? entry.name[0].toUpperCase() : "?",
-                      style: TextStyle(
-                        color: isRcv ? _green : _cyan,
-                        fontWeight: FontWeight.w800,
+                      style: GoogleFonts.fraunces(
+                        color: activeColor,
+                        fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
@@ -1179,39 +1118,42 @@ class _LendCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(entry.name,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
+                      Text(
+                        entry.name,
+                        style: GoogleFonts.inter(
+                          color: _darkText,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(entry.reason,
-                          style: const TextStyle(
-                              color: Color(0xFF8A8AA0), fontSize: 12.5),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        entry.reason,
+                        style: GoogleFonts.inter(
+                          color: Colors.black54,
+                          fontSize: 12.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: isRcv
-                        ? _green.withValues(alpha: 0.18)
-                        : _cyan.withValues(alpha: 0.18),
+                    color: isRcv ? _emerald.withValues(alpha: 0.12) : _goldAccent.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isRcv
-                          ? _green.withValues(alpha: 0.5)
-                          : _cyan.withValues(alpha: 0.5),
+                      color: isRcv ? _emerald.withValues(alpha: 0.4) : _goldAccent.withValues(alpha: 0.6),
                       width: 1,
                     ),
                   ),
                   child: Text(
                     isRcv ? "✓ Received" : "⏳ Pending",
-                    style: TextStyle(
-                      color: isRcv ? _green : _cyan,
-                      fontWeight: FontWeight.w700,
+                    style: GoogleFonts.inter(
+                      color: isRcv ? _emerald : _darkText,
+                      fontWeight: FontWeight.bold,
                       fontSize: 11,
                     ),
                   ),
@@ -1230,9 +1172,9 @@ class _LendCard extends StatelessWidget {
                     Expanded(
                       child: _InfoChip(
                         icon: Icons.currency_rupee_rounded,
-                        label: "Amount",
+                        label: "Amount Lent",
                         value: "₹${entry.amount}",
-                        color: isRcv ? _green : _cyan,
+                        color: activeColor,
                         large: true,
                       ),
                     ),
@@ -1242,7 +1184,7 @@ class _LendCard extends StatelessWidget {
                         icon: Icons.calendar_today_rounded,
                         label: "Due Date",
                         value: entry.date,
-                        color: isRcv ? _green : _cyan,
+                        color: activeColor,
                       ),
                     ),
                   ],
@@ -1252,9 +1194,9 @@ class _LendCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ActionButton(
-                        label: isRcv ? "Set to Pending" : "Received",
+                        label: isRcv ? "Move to Pending" : "Mark Received",
                         icon:  isRcv ? Icons.undo_rounded : Icons.check_circle_rounded,
-                        color: _cyan,
+                        color: activeColor,
                         onTap: onToggleReceived,
                       ),
                     ),
@@ -1286,27 +1228,29 @@ class _LiabilityCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  static const Color _cyan  = Color(0xFF00D9FF);
-  static const Color _green = Color(0xFF00E5A0);
-  static const Color _card  = Color(0xFF13131A);
+  static const Color _terracotta = Color(0xFFB8452D);
+  static const Color _emerald    = Color(0xFF1E7A53);
+  static const Color _darkText   = Color(0xFF132A20);
 
   @override
   Widget build(BuildContext context) {
     final bool paid = entry.isPaid;
+    final Color activeColor = paid ? _emerald : _terracotta;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: _card,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: paid ? _green.withValues(alpha: 0.5) : _cyan.withValues(alpha: 0.45),
-          width: 1.5,
+          color: Colors.black.withValues(alpha: 0.08),
+          width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: (paid ? _green : _cyan).withValues(alpha: 0.06),
-            blurRadius: 20,
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -1316,30 +1260,24 @@ class _LiabilityCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: paid
-                    ? [_green.withValues(alpha: 0.10), Colors.transparent]
-                    : [_cyan.withValues(alpha: 0.10),  Colors.transparent],
-                begin: Alignment.centerLeft,
-              ),
+              color: activeColor.withValues(alpha: 0.04),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 44, height: 44,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: (paid ? _green : _cyan).withValues(alpha: 0.15),
+                    color: activeColor.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                        color: (paid ? _green : _cyan).withValues(alpha: 0.4)),
                   ),
                   child: Center(
                     child: Text(
                       entry.name.isNotEmpty ? entry.name[0].toUpperCase() : "?",
-                      style: TextStyle(
-                        color: paid ? _green : _cyan,
-                        fontWeight: FontWeight.w800,
+                      style: GoogleFonts.fraunces(
+                        color: activeColor,
+                        fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
@@ -1350,39 +1288,42 @@ class _LiabilityCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(entry.name,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16)),
+                      Text(
+                        entry.name,
+                        style: GoogleFonts.inter(
+                          color: _darkText,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(entry.reason,
-                          style: const TextStyle(
-                              color: Color(0xFF8A8AA0), fontSize: 12.5),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
+                      Text(
+                        entry.reason,
+                        style: GoogleFonts.inter(
+                          color: Colors.black54,
+                          fontSize: 12.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: paid
-                        ? _green.withValues(alpha: 0.18)
-                        : _cyan.withValues(alpha: 0.18),
+                    color: activeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: paid
-                          ? _green.withValues(alpha: 0.5)
-                          : _cyan.withValues(alpha: 0.5),
+                      color: activeColor.withValues(alpha: 0.4),
                       width: 1,
                     ),
                   ),
                   child: Text(
-                    paid ? "✓ Paid" : "💰 Owes Me",
-                    style: TextStyle(
-                      color: paid ? _green : _cyan,
-                      fontWeight: FontWeight.w700,
+                    paid ? "✓ Paid" : "💸 I Owe",
+                    style: GoogleFonts.inter(
+                      color: activeColor,
+                      fontWeight: FontWeight.bold,
                       fontSize: 11,
                     ),
                   ),
@@ -1401,9 +1342,9 @@ class _LiabilityCard extends StatelessWidget {
                     Expanded(
                       child: _InfoChip(
                         icon: Icons.currency_rupee_rounded,
-                        label: "Amount",
+                        label: "Amount Owed",
                         value: "₹${entry.amount}",
-                        color: paid ? _green : _cyan,
+                        color: activeColor,
                         large: true,
                       ),
                     ),
@@ -1411,9 +1352,9 @@ class _LiabilityCard extends StatelessWidget {
                     Expanded(
                       child: _InfoChip(
                         icon: Icons.calendar_today_rounded,
-                        label: "Pay By",
+                        label: "Pay By Date",
                         value: entry.date,
-                        color: paid ? _green : _cyan,
+                        color: activeColor,
                       ),
                     ),
                   ],
@@ -1423,9 +1364,9 @@ class _LiabilityCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _ActionButton(
-                        label: paid ? "Owes Me" : "Mark Payable",
+                        label: paid ? "Move to Unpaid" : "Mark Paid",
                         icon:  paid ? Icons.undo_rounded : Icons.payments_rounded,
-                        color: _cyan,
+                        color: activeColor,
                         onTap: onTogglePaid,
                       ),
                     ),
@@ -1478,7 +1419,7 @@ class _BottomSheetForm extends StatefulWidget {
 }
 
 class _BottomSheetFormState extends State<_BottomSheetForm> {
-  static const Color _bg = Color(0xFF0F0F18);
+  static const Color _bg = Color(0xFFF6F4EB);
 
   @override
   Widget build(BuildContext context) {
@@ -1499,7 +1440,7 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
             Container(
               width: 42, height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF2E2E45),
+                color: Colors.black.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1507,17 +1448,22 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
             Row(
               children: [
                 Container(
-                  width: 36, height: 36,
+                  width: 38, height: 38,
                   decoration: BoxDecoration(
-                    color: widget.accentColor.withValues(alpha: 0.15),
+                    color: widget.accentColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(widget.buttonIcon, color: widget.accentColor, size: 20),
                 ),
                 const SizedBox(width: 12),
-                Text(widget.title,
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18)),
+                Text(
+                  widget.title,
+                  style: GoogleFonts.fraunces(
+                    color: const Color(0xFF132A20),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 19,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 22),
@@ -1539,15 +1485,16 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
                   ),
                   const SizedBox(height: 24),
                   SizedBox(
-                    width: double.infinity, height: 54,
+                    width: double.infinity, height: 52,
                     child: ElevatedButton.icon(
                       onPressed: widget.onSubmit,
-                      icon: Icon(widget.buttonIcon, size: 20),
-                      label: Text(widget.buttonLabel,
-                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, letterSpacing: 0.3)),
+                      icon: Icon(widget.buttonIcon, size: 20, color: Colors.white),
+                      label: Text(
+                        widget.buttonLabel,
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.accentColor,
-                        foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
                       ),
@@ -1588,18 +1535,30 @@ class _FormField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white, fontSize: 15),
+      style: GoogleFonts.inter(color: const Color(0xFF132A20), fontSize: 15, fontWeight: FontWeight.w600),
       validator: (v) => (v == null || v.trim().isEmpty) ? "Enter $label" : null,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF6B6B85), fontSize: 14),
+        labelStyle: GoogleFonts.inter(color: Colors.black45, fontSize: 14),
         prefixIcon: Icon(icon, color: accent, size: 20),
         filled: true,
-        fillColor: const Color(0xFF1A1A28),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: accent.withValues(alpha: 0.3), width: 1.2)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: accent, width: 1.8)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFFF4D6D), width: 1.2)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFFF4D6D), width: 1.8)),
+        fillColor: Colors.white,
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1), width: 1.2),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: accent, width: 1.8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFB8452D), width: 1.2),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFB8452D), width: 1.8),
+        ),
         contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
       ),
     );
@@ -1630,32 +1589,71 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [accentColor.withValues(alpha: 0.18), accentColor.withValues(alpha: 0.05), const Color(0xFF13131A)],
-          begin: Alignment.topLeft, end: Alignment.bottomRight,
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accentColor.withValues(alpha: 0.3), width: 1.5),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(icon, color: accentColor, size: 18),
-            const SizedBox(width: 8),
-            Text(label, style: TextStyle(color: accentColor.withValues(alpha: 0.9), fontSize: 13, fontWeight: FontWeight.w600)),
-          ]),
-          const SizedBox(height: 10),
-          Text("₹${amount.toStringAsFixed(2)}",
-              style: TextStyle(color: accentColor, fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: accentColor, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF132A20),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "₹${amount.toStringAsFixed(2)}",
+            style: GoogleFonts.fraunces(
+              color: const Color(0xFF132A20),
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              letterSpacing: -0.5,
+            ),
+          ),
           const SizedBox(height: 14),
-          Row(children: [
-            _StatPill(label: pendingLabel,  count: pendingCount,  color: const Color(0xFF00D9FF)),
-            const SizedBox(width: 10),
-            _StatPill(label: receivedLabel, count: receivedCount, color: const Color(0xFF00E5A0)),
-          ]),
+          Row(
+            children: [
+              _StatPill(
+                label: pendingLabel,
+                count: pendingCount,
+                color: const Color(0xFF0F261C),
+                textColor: const Color(0xFF0F261C),
+              ),
+              const SizedBox(width: 10),
+              _StatPill(
+                label: receivedLabel,
+                count: receivedCount,
+                color: const Color(0xFF1E7A53),
+                textColor: const Color(0xFF1E7A53),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1666,22 +1664,33 @@ class _StatPill extends StatelessWidget {
   final String label;
   final int count;
   final Color color;
-  const _StatPill({required this.label, required this.count, required this.color});
+  final Color? textColor;
+  const _StatPill({required this.label, required this.count, required this.color, this.textColor});
 
   @override
   Widget build(BuildContext context) {
+    final effectiveTextColor = textColor ?? color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text("$count", style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 14)),
-        const SizedBox(width: 5),
-        Text(label, style: TextStyle(color: color.withValues(alpha: 0.8), fontSize: 12, fontWeight: FontWeight.w500)),
-      ]),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$count",
+            style: GoogleFonts.inter(color: effectiveTextColor, fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.inter(color: effectiveTextColor, fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1699,21 +1708,35 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
-      child: Row(children: [
-        Icon(icon, color: color, size: 16),
-        const SizedBox(width: 8),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: Color(0xFF8A8AA0), fontSize: 10.5, fontWeight: FontWeight.w500)),
-          const SizedBox(height: 1),
-          Text(value,
-              style: TextStyle(color: large ? color : Colors.white, fontSize: large ? 15 : 13, fontWeight: large ? FontWeight.w800 : FontWeight.w600),
-              overflow: TextOverflow.ellipsis),
-        ])),
-      ]),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(color: Colors.black54, fontSize: 10.5, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  value,
+                  style: large
+                      ? GoogleFonts.fraunces(color: color, fontSize: 16, fontWeight: FontWeight.bold)
+                      : GoogleFonts.inter(color: const Color(0xFF132A20), fontSize: 13, fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1732,15 +1755,27 @@ class _ActionButton extends StatelessWidget {
       child: Container(
         height: 46,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: color.withValues(alpha: 0.5)),
+          color: color,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(width: 7),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13.5)),
-        ]),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1749,18 +1784,19 @@ class _ActionButton extends StatelessWidget {
 class _DeleteButton extends StatelessWidget {
   final VoidCallback onTap;
   const _DeleteButton({required this.onTap});
-  static const Color _red = Color(0xFFFF4D6D);
+  static const Color _red = Color(0xFFB8452D);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 46, width: 52,
+        height: 46,
+        width: 52,
         decoration: BoxDecoration(
-          color: _red.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(color: _red.withValues(alpha: 0.4)),
+          color: _red.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _red.withValues(alpha: 0.3)),
         ),
         child: const Icon(Icons.delete_rounded, color: _red, size: 20),
       ),
@@ -1771,19 +1807,27 @@ class _DeleteButton extends StatelessWidget {
 class _SectionHeader extends StatelessWidget {
   final String label;
   final Color color;
-  const _SectionHeader({required this.label, this.color = const Color(0xFF00D9FF)});
+  const _SectionHeader({required this.label, this.color = const Color(0xFF0F261C)});
 
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 22, 16, 10),
-        child: Row(children: [
-          Container(width: 3, height: 16,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 8),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13, letterSpacing: 0.5)),
-        ]),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 16,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(color: color, fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 0.5),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1798,21 +1842,27 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(
-          width: 80, height: 80,
-          decoration: BoxDecoration(
-            color: accentColor.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
-            border: Border.all(color: accentColor.withValues(alpha: 0.25), width: 1.5),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: accentColor.withValues(alpha: 0.25), width: 1.5),
+            ),
+            child: Icon(icon, color: accentColor, size: 36),
           ),
-          child: Icon(icon, color: accentColor.withValues(alpha: 0.6), size: 36),
-        ),
-        const SizedBox(height: 18),
-        Text(message,
+          const SizedBox(height: 18),
+          Text(
+            message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF6B6B85), fontSize: 14.5, height: 1.6)),
-      ]),
+            style: GoogleFonts.inter(color: Colors.black54, fontSize: 14.5, height: 1.6),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1830,16 +1880,13 @@ class _TabIconBtn extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: 26, height: 26,
+        width: 24,
+        height: 24,
         decoration: BoxDecoration(
-          color: active ? Colors.black.withValues(alpha: 0.22) : activeAccent.withValues(alpha: 0.15),
+          color: active ? activeAccent.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(7),
-          border: Border.all(
-            color: active ? Colors.black.withValues(alpha: 0.35) : activeAccent.withValues(alpha: 0.38),
-            width: 1,
-          ),
         ),
-        child: Icon(icon, size: 15, color: active ? Colors.black : activeAccent),
+        child: Icon(icon, size: 14, color: active ? activeAccent : Colors.black54),
       ),
     );
   }

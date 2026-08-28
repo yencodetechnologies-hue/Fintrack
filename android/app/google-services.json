@@ -12,7 +12,20 @@
           "package_name": "com.yencode.fintrack"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1097214336094-gem6c5m8d0toekr7o1hi37s9tl04scm8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yencode.fintrack",
+            "certificate_hash": "77c06a3de373631baee9b5214f37ef7336571194"
+          }
+        },
+        {
+          "client_id": "1097214336094-h00iafanm4hk5g19k08lmnt4rr43pe7k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDsUhDyM09d0uiPXTNN_4KUIUl7jIrFoAA"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1097214336094-h00iafanm4hk5g19k08lmnt4rr43pe7k.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1097214336094-8rv2614qnfnemvtrto01brs3bkbjh8sp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.yencode.fintracks"
+              }
+            }
+          ]
         }
       }
     }

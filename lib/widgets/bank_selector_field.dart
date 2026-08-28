@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-import '../config/app_config.dart';
 import '../data/indian_banks.dart';
 
 class BankSelectorField extends StatelessWidget {
@@ -17,74 +17,128 @@ class BankSelectorField extends StatelessWidget {
     required this.onCustomBankChanged,
   });
 
+  static const Color _bg         = Color(0xFFF6F4EB);
+  static const Color _forestDark = Color(0xFF0F261C);
+  static const Color _darkText   = Color(0xFF132A20);
+  static const Color _goldAccent = Color(0xFFD4AF37);
+
+  String get _selectedBankTitle {
+    if (selectedBankId == null) return "Select Bank";
+    if (selectedBankId == kCustomBankId) {
+      final custom = customBankController.text.trim();
+      return custom.isNotEmpty ? custom : kCustomBankLabel;
+    }
+    return bankOptionById(selectedBankId!)?.displayName ?? "Select Bank";
+  }
+
+  void _openBankPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _BankPickerSheet(
+        selectedBankId: selectedBankId,
+        customBankController: customBankController,
+        onBankSelected: (bankId) {
+          onBankIdChanged(bankId);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool hasSelection = selectedBankId != null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DropdownButtonFormField<String>(
-          value: selectedBankId,
-          dropdownColor: AppConfig.darkSlate,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-          ),
-          decoration: InputDecoration(
-            labelText: 'Select Bank',
-            labelStyle: const TextStyle(
-              color: AppConfig.hintColor,
-              fontSize: 14,
-            ),
-            prefixIcon: const Icon(
-              Icons.account_balance_rounded,
-              color: AppConfig.primaryTeal,
-              size: 20,
-            ),
-            filled: true,
-            fillColor: Colors.white.withOpacity(0.03),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: Colors.white.withOpacity(0.08),
-                width: 1.2,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppConfig.primaryTeal,
-                width: 1.5,
-              ),
-            ),
-          ),
-          items: [
-            ...indianBanks.map(
-              (bank) => DropdownMenuItem<String>(
-                value: bank.id,
-                child: Text(
-                  bank.displayName,
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-            const DropdownMenuItem<String>(
-              value: kCustomBankId,
-              child: Text(
-                kCustomBankLabel,
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-          onChanged: onBankIdChanged,
-        ),
-        if (selectedBankId == kCustomBankId) ...[
-          const SizedBox(height: 18),
-          Container(
+        GestureDetector(
+          onTap: () => _openBankPicker(context),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.white.withOpacity(0.08),
+                color: hasSelection ? _forestDark.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.08),
+                width: 1.2,
+              ),
+              boxShadow: [
+                if (hasSelection)
+                  BoxShadow(
+                    color: _forestDark.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _forestDark.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_rounded,
+                    color: _forestDark,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Bank Name",
+                        style: GoogleFonts.inter(
+                          color: Colors.black45,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _selectedBankTitle,
+                        style: GoogleFonts.inter(
+                          color: hasSelection ? _darkText : Colors.black38,
+                          fontSize: 15,
+                          fontWeight: hasSelection ? FontWeight.bold : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.unfold_more_rounded,
+                    color: _forestDark,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (selectedBankId == kCustomBankId) ...[
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.black.withValues(alpha: 0.08),
                 width: 1.2,
               ),
             ),
@@ -92,25 +146,21 @@ class BankSelectorField extends StatelessWidget {
             child: TextField(
               controller: customBankController,
               onChanged: (_) => onCustomBankChanged(),
-              style: const TextStyle(
-                color: Colors.white,
+              style: GoogleFonts.inter(
+                color: _darkText,
                 fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                labelText: 'Enter Bank Name',
-                labelStyle: const TextStyle(
-                  color: AppConfig.hintColor,
+                labelText: 'Enter Custom Bank Name',
+                labelStyle: GoogleFonts.inter(
+                  color: Colors.black45,
                   fontSize: 14,
-                  fontWeight: FontWeight.w400,
                 ),
-                prefixIcon: Icon(
+                prefixIcon: const Icon(
                   Icons.edit_rounded,
-                  color: AppConfig.primaryTeal.withOpacity(0.7),
+                  color: _forestDark,
                   size: 20,
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 36,
-                  minHeight: 20,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 16),
@@ -120,6 +170,254 @@ class BankSelectorField extends StatelessWidget {
         ],
         const SizedBox(height: 18),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+//  QFIN VINTAGE BANK PICKER SHEET
+// ─────────────────────────────────────────────
+
+class _BankPickerSheet extends StatefulWidget {
+  final String? selectedBankId;
+  final TextEditingController customBankController;
+  final ValueChanged<String> onBankSelected;
+
+  const _BankPickerSheet({
+    required this.selectedBankId,
+    required this.customBankController,
+    required this.onBankSelected,
+  });
+
+  @override
+  State<_BankPickerSheet> createState() => _BankPickerSheetState();
+}
+
+class _BankPickerSheetState extends State<_BankPickerSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<BankOption> _filteredBanks = indianBanks;
+
+  static const Color _bg         = Color(0xFFF6F4EB);
+  static const Color _forestDark = Color(0xFF0F261C);
+  static const Color _darkText   = Color(0xFF132A20);
+  static const Color _goldAccent = Color(0xFFD4AF37);
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(_onSearchChanged);
+  }
+
+  void _onSearchChanged() {
+    final query = _searchCtrl.text.trim().toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredBanks = indianBanks;
+      } else {
+        _filteredBanks = indianBanks.where((b) {
+          final title = b.displayName.toLowerCase();
+          final matchesKey = b.matchKeywords.any((k) => k.toLowerCase().contains(query));
+          return title.contains(query) || matchesKey;
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: const BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 12),
+          // Drag handle
+          Container(
+            width: 42,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _forestDark.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.account_balance_rounded, color: _forestDark, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  "Select Bank",
+                  style: GoogleFonts.fraunces(
+                    color: _darkText,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: Colors.black45),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Search Field
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              ),
+              child: TextField(
+                controller: _searchCtrl,
+                style: GoogleFonts.inter(color: _darkText, fontSize: 14.5),
+                decoration: InputDecoration(
+                  hintText: "Search bank by name...",
+                  hintStyle: GoogleFonts.inter(color: Colors.black38, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search_rounded, color: _forestDark, size: 20),
+                  suffixIcon: _searchCtrl.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.black45),
+                          onPressed: () => _searchCtrl.clear(),
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Bank List
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              itemCount: _filteredBanks.length + 1, // +1 for Custom Bank
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, index) {
+                if (index == _filteredBanks.length) {
+                  final bool isSelected = widget.selectedBankId == kCustomBankId;
+                  return GestureDetector(
+                    onTap: () => widget.onBankSelected(kCustomBankId),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: isSelected ? _forestDark.withValues(alpha: 0.08) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.06),
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: _goldAccent.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.add_rounded, color: _forestDark, size: 20),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Text(
+                              kCustomBankLabel,
+                              style: GoogleFonts.inter(
+                                color: _darkText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            const Icon(Icons.check_circle_rounded, color: _forestDark, size: 20),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final bank = _filteredBanks[index];
+                final bool isSelected = widget.selectedBankId == bank.id;
+
+                return GestureDetector(
+                  onTap: () => widget.onBankSelected(bank.id),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected ? _forestDark.withValues(alpha: 0.08) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.06),
+                        width: isSelected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.05),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              bank.displayName[0].toUpperCase(),
+                              style: GoogleFonts.fraunces(
+                                color: isSelected ? Colors.white : _forestDark,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            bank.displayName,
+                            style: GoogleFonts.inter(
+                              color: _darkText,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                        ),
+                        if (isSelected)
+                          const Icon(Icons.check_circle_rounded, color: _forestDark, size: 20),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

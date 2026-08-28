@@ -28,9 +28,19 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function exchangeAuthCodeFromMobile(authCode) {
-  const client = getOAuth2Client();
-  const { tokens } = await client.getToken(authCode);
-  return tokens;
+  try {
+    const client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      ""
+    );
+    const { tokens } = await client.getToken(authCode);
+    return tokens;
+  } catch (err) {
+    const client = getOAuth2Client();
+    const { tokens } = await client.getToken(authCode);
+    return tokens;
+  }
 }
 
 async function getGoogleEmail(accessToken) {

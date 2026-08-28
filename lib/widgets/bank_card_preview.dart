@@ -30,6 +30,20 @@ class BankCardPreview extends StatelessWidget {
       case CardStyle.stanchart:  return _StanChartCard(bank: bank, name: name, digits: digits);
       case CardStyle.canara:     return _CanaraCard(bank: bank, name: name, digits: digits);
       case CardStyle.tmb:        return _TmbCard(bank: bank, name: name, digits: digits);
+      case CardStyle.bob:        return _BobCard(bank: bank, name: name, digits: digits);
+      case CardStyle.aubank:     return _AuBankCard(bank: bank, name: name, digits: digits);
+      case CardStyle.amazonPay:  return _AmazonPayCard(bank: bank, name: name, digits: digits);
+      case CardStyle.onecard:    return _OneCard(bank: bank, name: name, digits: digits);
+      case CardStyle.union:      return _UnionCard(bank: bank, name: name, digits: digits);
+      case CardStyle.boi:        return _BoiCard(bank: bank, name: name, digits: digits);
+      case CardStyle.indianBank: return _IndianBankCard(bank: bank, name: name, digits: digits);
+      case CardStyle.scapia:     return _ScapiaCard(bank: bank, name: name, digits: digits);
+      case CardStyle.slice:      return _SliceCard(bank: bank, name: name, digits: digits);
+      case CardStyle.dbs:        return _DbsCard(bank: bank, name: name, digits: digits);
+      case CardStyle.sib:        return _SibCard(bank: bank, name: name, digits: digits);
+      case CardStyle.kvb:        return _KvbCard(bank: bank, name: name, digits: digits);
+      case CardStyle.centralBank:return _CentralBankCard(bank: bank, name: name, digits: digits);
+      case CardStyle.sbm:        return _SbmCard(bank: bank, name: name, digits: digits);
     }
   }
 }
@@ -378,6 +392,160 @@ class _TmbCard extends StatelessWidget {
       overlays: [Positioned.fill(child: CustomPaint(painter: _OceanPainter()))],
       child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'PLATINUM',
           text: Colors.white, subtext: const Color(0xFF88AAFF),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _BobCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _BobCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFD84315), Color(0xFFBF360C)], shadow: const Color(0xFFD84315),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _BrushPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'BOBCARD',
+          text: Colors.white, subtext: const Color(0xFFFFCCBC),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _AuBankCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _AuBankCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF311B92), Color(0xFF4527A0)], shadow: const Color(0xFF311B92),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _SunburstPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'ZENITH CARD',
+          text: Colors.white, subtext: const Color(0xFFD1C4E9),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _AmazonPayCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _AmazonPayCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1E252B), Color(0xFF232F3E)], shadow: const Color(0xFF1E252B),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _CarbonPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'AMAZON PAY ICICI',
+          text: const Color(0xFFFF9900), subtext: Colors.white54,
+          chip: _gChip(), net: const _Visa(c: Color(0xFFFF9900))));
+}
+
+class _OneCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _OneCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0F0F0F), Color(0xFF242424)], shadow: Colors.black,
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GridTexturePainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'ONE METAL',
+          text: Colors.white, subtext: Colors.white38,
+          chip: _sChip(), net: const _Visa()));
+}
+
+class _UnionCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _UnionCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0D47A1), Color(0xFFB71C1C)], shadow: const Color(0xFF0D47A1),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _RibbonPainter(c1: const Color(0xFFE53935), c2: const Color(0xFF1E88E5))))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'SIGNATURE',
+          text: Colors.white, subtext: Colors.white70,
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _BoiCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _BoiCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFE65100), Color(0xFF0D47A1)], shadow: const Color(0xFFE65100),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _MandalaPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'STAR CARD',
+          text: Colors.white, subtext: const Color(0xFFFFCC80),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _IndianBankCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _IndianBankCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF004D40), Color(0xFF00695C)], shadow: const Color(0xFF004D40),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _DotGridPainter(color: const Color(0xFF80CBC4))))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'GLOBAL CARD',
+          text: Colors.white, subtext: const Color(0xFFB2DFDB),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _ScapiaCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _ScapiaCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFFFF4081), Color(0xFF7C4DFF)], shadow: const Color(0xFFFF4081),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _NeonRibbonPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'TRAVEL VISA',
+          text: Colors.white, subtext: Colors.white70,
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _SliceCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _SliceCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1A0033), Color(0xFF2D0066)], shadow: const Color(0xFF1A0033),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GalaxyPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'SLICE CARD',
+          text: const Color(0xFF76FF03), subtext: Colors.white54,
+          chip: _sChip(), net: const _Visa()));
+}
+
+class _DbsCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _DbsCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF880000), Color(0xFF111111)], shadow: const Color(0xFF880000),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _HexPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'DIGIBANK PLATINUM',
+          text: Colors.white, subtext: const Color(0xFFFF8888),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _SibCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _SibCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF4A148C), Color(0xFF6A1B9A)], shadow: const Color(0xFF4A148C),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _AuroraPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'SIBCARD',
+          text: Colors.white, subtext: const Color(0xFFE1BEE7),
+          chip: _gChip(), net: const _MC()));
+}
+
+class _KvbCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _KvbCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1B5E20), Color(0xFF2E7D32)], shadow: const Color(0xFF1B5E20),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _SparklePainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'KVB CARD',
+          text: Colors.white, subtext: const Color(0xFFA5D6A7),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _CentralBankCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _CentralBankCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF1565C0), Color(0xFF0D47A1)], shadow: const Color(0xFF1565C0),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _GridPainter(color: const Color(0xFF90CAF9))))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'CENTRAL CARD',
+          text: Colors.white, subtext: const Color(0xFFBBDEFB),
+          chip: _gChip(), net: const _Visa()));
+}
+
+class _SbmCard extends StatelessWidget {
+  final String bank, name, digits;
+  const _SbmCard({required this.bank, required this.name, required this.digits});
+  @override Widget build(BuildContext context) => _Shell(
+      colors: const [Color(0xFF0D47A1), Color(0xFF1976D2)], shadow: const Color(0xFF0D47A1),
+      overlays: [Positioned.fill(child: CustomPaint(painter: _ShimmerPainter()))],
+      child: _BodyPreview(bank: bank, name: name, digits: digits, sub: 'GLOBAL CREDIT',
+          text: Colors.white, subtext: const Color(0xFF90CAF9),
           chip: _gChip(), net: const _Visa()));
 }
 

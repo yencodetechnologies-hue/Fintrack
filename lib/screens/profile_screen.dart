@@ -1,5 +1,5 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../config/app_config.dart';
@@ -12,6 +12,9 @@ import 'card_home.dart';
 import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'delete_card_screen.dart';
+import '../widgets/qfin_nav_bar.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -120,67 +123,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _showGmailDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppConfig.darkSlate,
-        title: const Text('Gmail Bill Sync', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              gmailConnected
-                  ? 'Connected: ${gmailEmail ?? "Gmail"}'
-                  : 'Connect Gmail to auto-fetch credit card bills (due date, amount).',
-              style: const TextStyle(color: Colors.white70),
-            ),
-            if (gmailLastSync != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Last sync: $gmailLastSync',
-                style: const TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close', style: TextStyle(color: Colors.white60)),
-          ),
-          if (gmailConnected) ...[
-            TextButton(
-              onPressed: isGmailLoading
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _handleGmailSync();
-                    },
-              child: const Text('Sync now', style: TextStyle(color: AppConfig.primaryTeal)),
-            ),
-            TextButton(
-              onPressed: isGmailLoading
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _handleGmailDisconnect();
-                    },
-              child: const Text('Disconnect', style: TextStyle(color: Colors.redAccent)),
-            ),
-          ] else
-            TextButton(
-              onPressed: isGmailLoading
-                  ? null
-                  : () {
-                      Navigator.pop(ctx);
-                      _handleGmailConnect();
-                    },
-              child: const Text('Connect', style: TextStyle(color: AppConfig.primaryTeal)),
-            ),
-        ],
-      ),
+  void _handleYahooConnect() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Yahoo Mail sync is coming soon.')),
     );
   }
 
@@ -217,11 +162,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => isDeletingAccount = true);
     try {
       final res = await ApiService.deleteAccount(widget.userId);
-      if (!context.mounted) return;
+      if (!mounted) return;
       
       if (res["success"] == true) {
         await UserStorage.clearUserId();
-        if (!context.mounted) return;
+        if (!mounted) return;
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -253,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       setState(() => isDeletingAccount = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -265,38 +210,171 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showGmailDialog() {
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color forestDark = Color(0xFF0F261C);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: creamSheet,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: darkText.withValues(alpha: 0.15)),
+        ),
+        title: Text(
+          'Gmail Bill Sync',
+          style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.w600),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              gmailConnected
+                  ? 'Connected: ${gmailEmail ?? "Gmail"}'
+                  : 'Connect Gmail to auto-fetch credit card bills (due date, amount).',
+              style: GoogleFonts.inter(color: Colors.black87),
+            ),
+            if (gmailLastSync != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Last sync: $gmailLastSync',
+                style: GoogleFonts.ibmPlexMono(color: Colors.black45, fontSize: 11),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Close', style: GoogleFonts.inter(color: darkText)),
+          ),
+          if (gmailConnected) ...[
+            TextButton(
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailSync();
+                    },
+              child: Text('Sync now', style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailDisconnect();
+                    },
+              child: Text('Disconnect', style: GoogleFonts.inter(color: const Color(0xFFB8452D), fontWeight: FontWeight.bold)),
+            ),
+          ] else
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: forestDark,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isGmailLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleGmailConnect();
+                    },
+              child: Text('Connect', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showYahooDialog() {
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color forestDark = Color(0xFF0F261C);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: creamSheet,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: darkText.withValues(alpha: 0.15)),
+        ),
+        title: Row(
+          children: [
+            Image.network(
+              "https://www.google.com/s2/favicons?domain=yahoo.com&sz=128",
+              width: 22,
+              height: 22,
+              errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: forestDark, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Yahoo Bill Sync',
+              style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        content: Text(
+          'Connect Yahoo Mail to auto-fetch credit card statements (due date, amount).',
+          style: GoogleFonts.inter(color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Close', style: GoogleFonts.inter(color: darkText)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: forestDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _handleYahooConnect();
+            },
+            child: Text('Connect Yahoo', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDeleteAccountDialog() {
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color terracotta = Color(0xFFB8452D);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppConfig.darkSlate,
+        backgroundColor: creamSheet,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(
-            color: Colors.red.withOpacity(0.2),
-            width: 1.5,
-          ),
+          side: BorderSide(color: terracotta.withValues(alpha: 0.2)),
         ),
         title: Row(
           children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
+                color: terracotta.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.warning_amber_rounded,
-                color: Colors.redAccent,
+                color: terracotta,
                 size: 24,
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               "Delete Account?",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.fraunces(
+                color: darkText,
+                fontWeight: FontWeight.w600,
                 fontSize: 18,
               ),
             ),
@@ -304,8 +382,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         content: Text(
           "Are you sure you want to permanently delete your account? All credit cards, active reminders, lend/liability entries, and personal details will be completely purged from our servers. This action is irreversible.",
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.7),
+          style: GoogleFonts.inter(
+            color: Colors.black87,
             fontSize: 14,
             height: 1.4,
           ),
@@ -316,15 +394,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () => Navigator.pop(context),
             child: Text(
               "Cancel",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+              style: GoogleFonts.inter(
+                color: darkText,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: terracotta,
               elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -335,9 +413,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(context);
               _handleDeleteAccount();
             },
-            child: const Text(
+            child: Text(
               "Delete Permanently",
-              style: TextStyle(
+              style: GoogleFonts.inter(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
@@ -349,41 +427,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showLogoutDialog() {
+    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color darkText = Color(0xFF132A20);
+    const Color terracotta = Color(0xFFB8452D);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppConfig.darkSlate,
+        backgroundColor: creamSheet,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: Colors.white.withOpacity(0.08),
-            width: 1.5,
-          ),
+          borderRadius: BorderRadius.circular(24),
         ),
-        title: const Text(
+        title: Text(
           "Logout",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+          style: GoogleFonts.fraunces(
+            color: darkText,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        content: const Text(
+        content: Text(
           "Are you sure you want to logout?",
-          style: TextStyle(color: Colors.white70),
+          style: GoogleFonts.inter(color: Colors.black87),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
+            child: Text(
               "Cancel",
-              style: TextStyle(color: Colors.white60),
+              style: GoogleFonts.inter(color: darkText),
             ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppConfig.primaryTeal,
+              backgroundColor: terracotta,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             onPressed: () async {
@@ -396,10 +474,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 (route) => false,
               );
             },
-            child: const Text(
+            child: Text(
               "Logout",
-              style: TextStyle(
-                color: Color(0xFF0F172A),
+              style: GoogleFonts.inter(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -411,433 +489,420 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color forestDark = Color(0xFF0F261C);
+    const Color creamBg    = Color(0xFFF6F4EB);
+    const Color darkText   = Color(0xFF132A20);
+    const Color goldAccent = Color(0xFFD4AF37);
+    const Color terracotta = Color(0xFFB8452D);
+
     final String initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : "U";
 
     return Scaffold(
-      backgroundColor: AppConfig.background,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        title: const Text(
-          "My Profile",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
-            fontSize: 22,
-            letterSpacing: 0.5,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: Stack(
-        children: [
-          // Background soft glowing teal orb 1
-          Positioned(
-            top: -80,
-            left: -80,
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.primaryTeal.withOpacity(0.12),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          // Background soft glowing blue orb 2
-          Positioned(
-            bottom: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.gradientEnd.withOpacity(0.08),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-
-          // Main content
-          SafeArea(
-            child: isDeletingAccount
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(AppConfig.primaryTeal),
+      backgroundColor: creamBg,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Top Executive Header Bar (Clean Inline Row)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              child: Row(
+                children: [
+                  if (Navigator.canPop(context)) ...[
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: forestDark.withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: forestDark.withValues(alpha: 0.15)),
                         ),
-                        SizedBox(height: 20),
-                        Text(
-                          "Purging account data...",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 20),
-                        
-                        // Glowing Avatar
-                        Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [AppConfig.primaryTeal, AppConfig.gradientEnd],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppConfig.primaryTeal.withOpacity(0.2),
-                                blurRadius: 20,
-                                spreadRadius: 2,
-                              ),
-                            ],
-                          ),
-                          child: CircleAvatar(
-                            radius: 50,
-                            backgroundColor: AppConfig.darkSlate,
-                            child: Text(
-                              initial,
-                              style: const TextStyle(
-                                color: AppConfig.primaryTeal,
-                                fontSize: 36,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Name and Email
-                        Text(
-                          widget.userName,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          email,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Stats Dashboard
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                title: "Total Cards",
-                                value: isLoadingStats ? "..." : "$cardCount",
-                                icon: Icons.credit_card_rounded,
-                                color: AppConfig.primaryTeal,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildStatCard(
-                                title: "Reminders",
-                                value: isLoadingStats ? "..." : "$reminderCount",
-                                icon: Icons.notifications_active_rounded,
-                                color: AppConfig.gradientEnd,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
-
-                        // Action Menu List
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.02),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.06),
-                              width: 1.2,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(24),
-                            child: BackdropFilter(
-                              filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: Column(
-                                  children: [
-                                  _buildMenuItem(
-                                    icon: Icons.credit_card_rounded,
-                                    title: "Manage Cards",
-                                    color: AppConfig.primaryTeal,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ViewCardScreen(
-                                            userId: widget.userId,
-                                            userName: widget.userName,
-                                          ),
-                                        ),
-                                      ).then((_) => _loadProfileData());
-                                    },
-                                  ),
-                                  _buildDivider(),
-                                  _buildMenuItem(
-                                    icon: Icons.delete_sweep_rounded,
-                                    title: "Delete Card Screen",
-                                    color: Colors.redAccent,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => DeleteCardScreen(
-                                            userId: widget.userId,
-                                          ),
-                                        ),
-                                      ).then((_) => _loadProfileData());
-                                    },
-                                  ),
-                                  _buildDivider(),
-                                  _buildMenuItem(
-                                    icon: Icons.mail_outline_rounded,
-                                    title: gmailConnected
-                                        ? "Gmail Connected"
-                                        : "Connect Gmail",
-                                    color: Colors.lightBlueAccent,
-                                    onTap: _showGmailDialog,
-                                  ),
-                                  _buildDivider(),
-                                  _buildMenuItem(
-                                    icon: Icons.notifications_active_rounded,
-                                    title: "Payment Reminders",
-                                    color: Colors.amberAccent,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => ViewReminderPage(
-                                            userId: widget.userId,
-                                            userName: widget.userName,
-                                          ),
-                                        ),
-                                      ).then((_) => _loadProfileData());
-                                    },
-                                  ),
-                                  _buildDivider(),
-                                  _buildMenuItem(
-                                    icon: Icons.logout_rounded,
-                                    title: "Logout Session",
-                                    color: Colors.white60,
-                                    onTap: _showLogoutDialog,
-                                  ),
-                                  _buildDivider(),
-                                  _buildMenuItem(
-                                    icon: Icons.person_remove_rounded,
-                                    title: "Delete Account",
-                                    color: Colors.red,
-                                    onTap: _showDeleteAccountDialog,
-                                    isLast: true,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                        child: const Icon(Icons.arrow_back_rounded, color: forestDark, size: 20),
                       ),
-                        const SizedBox(height: 30),
+                      onPressed: () => Navigator.maybePop(context),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "EXECUTIVE PROFILE",
+                          style: GoogleFonts.ibmPlexMono(
+                            color: forestDark,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.8,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          "Account Passport",
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.fraunces(
+                            color: darkText,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppConfig.background,
-        selectedItemColor: AppConfig.primaryTeal,
-        unselectedItemColor: Colors.white54,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardHome(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: terracotta.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: terracotta.withValues(alpha: 0.2)),
+                      ),
+                      child: const Icon(Icons.logout_rounded, color: terracotta, size: 18),
+                    ),
+                    onPressed: _showLogoutDialog,
+                  ),
+                ],
               ),
-            );
-          }
+            ),
+            const Divider(color: Color(0xFFE2DDD0), height: 1),
 
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewCardScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
+            // Scrollable Passport Content
+            Expanded(
+              child: isDeletingAccount
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(color: forestDark),
+                          SizedBox(height: 20),
+                          Text(
+                            "Purging account data...",
+                            style: TextStyle(
+                              color: darkText,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          // ── EXECUTIVE PASSPORT IDENTITY CARD ────────────────
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(22),
+                            decoration: BoxDecoration(
+                              color: forestDark,
+                              borderRadius: BorderRadius.circular(26),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: forestDark.withValues(alpha: 0.25),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned(
+                                  top: -30,
+                                  right: -30,
+                                  child: Container(
+                                    width: 130,
+                                    height: 130,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: goldAccent.withValues(alpha: 0.06),
+                                    ),
+                                  ),
+                                ),
+                                Column(
+                                  children: [
+                                    Row(
+                                      children: [
+                                        // Monogram Ring
+                                        Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: darkText,
+                                            border: Border.all(color: goldAccent, width: 2),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              initial,
+                                              style: GoogleFonts.fraunces(
+                                                color: goldAccent,
+                                                fontSize: 26,
+                                                fontWeight: FontWeight.bold,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(
+                                                  color: goldAccent.withValues(alpha: 0.15),
+                                                  borderRadius: BorderRadius.circular(20),
+                                                  border: Border.all(color: goldAccent.withValues(alpha: 0.4)),
+                                                ),
+                                                child: Text(
+                                                  "VERIFIED ACCOUNT",
+                                                  style: GoogleFonts.ibmPlexMono(
+                                                    color: goldAccent,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 1.2,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                widget.userName,
+                                                style: GoogleFonts.fraunces(
+                                                  color: Colors.white,
+                                                  fontSize: 22,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                email,
+                                                style: GoogleFonts.inter(
+                                                  color: Colors.white.withValues(alpha: 0.65),
+                                                  fontSize: 12,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 20),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(alpha: 0.06),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                        children: [
+                                          _buildPassportMetric("CREDIT CARDS", isLoadingStats ? "..." : "$cardCount", goldAccent),
+                                          Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.15)),
+                                          _buildPassportMetric("BILL ALERTS", isLoadingStats ? "..." : "$reminderCount", const Color(0xFF00E5A0)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
 
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewReminderPage(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_rounded),
-            label: "Cards",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_rounded),
-            label: "Reminder",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_rounded),
-            label: "Profile",
-          ),
-        ],
-      ),
-    );
-  }
+                          const SizedBox(height: 24),
 
-  Widget _buildStatCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.02),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.06),
-          width: 1,
+                          // ── SETTINGS & CONTROLS GRID ───────────────────────
+                          Row(
+                            children: [
+                              Text(
+                                "Settings & Preferences",
+                                style: GoogleFonts.fraunces(
+                                  color: darkText,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                _buildMenuItem(
+                                  icon: Icons.credit_card_rounded,
+                                  title: "Manage Credit Cards",
+                                  color: forestDark,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ViewCardScreen(
+                                          userId: widget.userId,
+                                          userName: widget.userName,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadProfileData());
+                                  },
+                                ),
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  icon: Icons.delete_sweep_rounded,
+                                  title: "Delete Card Screen",
+                                  color: terracotta,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => DeleteCardScreen(
+                                          userId: widget.userId,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadProfileData());
+                                  },
+                                ),
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  customLeading: Image.network(
+                                    "https://cdn-icons-png.flaticon.com/512/5968/5968534.png",
+                                    width: 20,
+                                    height: 20,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: forestDark, size: 20),
+                                  ),
+                                  title: gmailConnected ? "Gmail Connected" : "Connect Gmail",
+                                  color: forestDark,
+                                  onTap: _showGmailDialog,
+                                ),
+
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  icon: Icons.notifications_active_rounded,
+                                  title: "Payment Reminders",
+                                  color: forestDark,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ViewReminderPage(
+                                          userId: widget.userId,
+                                          userName: widget.userName,
+                                        ),
+                                      ),
+                                    ).then((_) => _loadProfileData());
+                                  },
+                                ),
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  icon: Icons.logout_rounded,
+                                  title: "Logout Session",
+                                  color: forestDark,
+                                  onTap: _showLogoutDialog,
+                                ),
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  icon: Icons.person_remove_rounded,
+                                  title: "Delete Account",
+                                  color: terracotta,
+                                  onTap: _showDeleteAccountDialog,
+                                  isLast: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withOpacity(0.12),
-                ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
+  Widget _buildPassportMetric(String label, String val, Color highlightColor) {
+    return Column(
+      children: [
+        Text(
+          val,
+          style: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: GoogleFonts.ibmPlexMono(
+            color: highlightColor,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1,
+          ),
+        ),
+      ],
+    );
+  }
+
+
+
   Widget _buildMenuItem({
-    required IconData icon,
+    IconData? icon,
+    Widget? customLeading,
     required String title,
     required Color color,
     required VoidCallback onTap,
     bool isLast = false,
   }) {
+    const Color darkText = Color(0xFF132A20);
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(
-          icon,
+        child: customLeading ?? Icon(
+          icon ?? Icons.circle,
           color: color,
           size: 20,
         ),
       ),
       title: Text(
         title,
-        style: TextStyle(
-          color: isLast ? Colors.redAccent : Colors.white,
-          fontSize: 15,
-          fontWeight: isLast ? FontWeight.bold : FontWeight.w600,
+        style: GoogleFonts.inter(
+          color: isLast ? const Color(0xFFB8452D) : darkText,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
         ),
       ),
       trailing: Icon(
-        Icons.arrow_forward_ios_rounded,
-        color: isLast ? Colors.redAccent.withOpacity(0.4) : Colors.white30,
-        size: 14,
+        Icons.chevron_right_rounded,
+        color: isLast ? const Color(0xFFB8452D) : Colors.black38,
+        size: 20,
       ),
     );
   }
@@ -845,7 +910,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildDivider() {
     return Divider(
       height: 1,
-      color: Colors.white.withOpacity(0.04),
+      color: Colors.black.withValues(alpha: 0.06),
       indent: 60,
       endIndent: 20,
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../config/app_config.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ScanCardSection extends StatelessWidget {
   final VoidCallback onScan;
@@ -11,6 +11,8 @@ class ScanCardSection extends StatelessWidget {
     this.enabled = true,
   });
 
+  static const Color _forestDark = Color(0xFF0F261C);
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -20,10 +22,10 @@ class ScanCardSection extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppConfig.primaryTeal.withOpacity(0.35),
+              color: _forestDark.withValues(alpha: 0.3),
               width: 1.5,
             ),
-            color: AppConfig.primaryTeal.withOpacity(0.08),
+            color: _forestDark.withValues(alpha: 0.06),
           ),
           child: ElevatedButton.icon(
             onPressed: enabled ? onScan : null,
@@ -38,15 +40,15 @@ class ScanCardSection extends StatelessWidget {
             ),
             icon: const Icon(
               Icons.camera_alt_rounded,
-              color: AppConfig.primaryTeal,
+              color: _forestDark,
             ),
-            label: const Text(
+            label: Text(
               'Scan Card',
-              style: TextStyle(
+              style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.3,
-                color: AppConfig.primaryTeal,
+                color: _forestDark,
               ),
             ),
           ),
@@ -55,8 +57,8 @@ class ScanCardSection extends StatelessWidget {
         Text(
           'Statement and payment due dates must be selected manually.',
           textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.55),
+          style: GoogleFonts.inter(
+            color: Colors.black54,
             fontSize: 12,
             height: 1.4,
           ),

@@ -453,22 +453,24 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
-        leading: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Container(
+        leading: IconButton(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white.withOpacity(0.03),
+              color: Colors.white.withOpacity(0.08),
               border: Border.all(
-                color: AppConfig.primaryTeal.withOpacity(0.2),
+                color: AppConfig.primaryTeal.withOpacity(0.3),
                 width: 1,
               ),
             ),
-            padding: const EdgeInsets.all(4.0),
-            child: Image.asset(
-              "assets/images/logo.png",
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              color: Colors.white,
+              size: 20,
             ),
           ),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Update Credit Card",
@@ -480,79 +482,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppConfig.primaryTeal,
-              size: 26,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: AppConfig.darkSlate,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: Colors.white.withOpacity(0.08),
-                      width: 1.5,
-                    ),
-                  ),
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  content: const Text(
-                    "Are you sure you want to logout?",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.white60),
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppConfig.primaryTeal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
-                        if (!context.mounted) return;
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HomeScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+
       ),
       body: Stack(
         children: [
@@ -733,69 +663,6 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: AppConfig.darkSlate,
-        selectedItemColor: AppConfig.primaryTeal,
-        unselectedItemColor: Colors.white54,
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == _selectedIndex) return;
-          setState(() {
-            _selectedIndex = index;
-          });
-
-          if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => CardHome(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewCardScreen(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-
-          if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ViewReminderPage(
-                  userId: widget.userId,
-                  userName: widget.userName,
-                ),
-              ),
-            );
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.credit_card_rounded),
-            label: "Cards",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_rounded),
-            label: "Reminder",
           ),
         ],
       ),

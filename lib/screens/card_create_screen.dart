@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/card_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,6 +40,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
 
   bool loading = false;
   bool scanning = false;
+
+  static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
+  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
+  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
+  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
+  static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
 
   @override
   void initState() {
@@ -100,10 +107,11 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
       lastDate: DateTime(2100),
       builder: (context, child) {
         return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppConfig.primaryTeal,
-              surface: AppConfig.darkSlate,
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _forestDark,
+              onPrimary: Colors.white,
+              surface: _bg,
             ),
           ),
           child: child!,
@@ -147,12 +155,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
       if (!fillResult.success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: AppConfig.darkSlate,
+            backgroundColor: _terracotta,
             behavior: SnackBarBehavior.floating,
             content: Text(
               fillResult.errorMessage ?? 'Could not scan card. Please try again.',
-              style: const TextStyle(
-                color: AppConfig.primaryTeal,
+              style: GoogleFonts.inter(
+                color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -166,13 +174,13 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppConfig.darkSlate,
+        SnackBar(
+          backgroundColor: _forestDark,
           behavior: SnackBarBehavior.floating,
           content: Text(
             'Card details filled from scan. Please select statement and due dates.',
-            style: TextStyle(
-              color: AppConfig.primaryTeal,
+            style: GoogleFonts.inter(
+              color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -185,12 +193,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppConfig.darkSlate,
+          backgroundColor: _terracotta,
           behavior: SnackBarBehavior.floating,
           content: Text(
             'Scan failed: $e',
-            style: const TextStyle(
-              color: AppConfig.primaryTeal,
+            style: GoogleFonts.inter(
+              color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -210,13 +218,13 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
         selectedStatementDate == null ||
         paymentDueDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppConfig.darkSlate,
+        SnackBar(
+          backgroundColor: _terracotta,
           behavior: SnackBarBehavior.floating,
           content: Text(
             "Please fill all fields",
-            style: TextStyle(
-              color: AppConfig.primaryTeal,
+            style: GoogleFonts.inter(
+              color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -233,13 +241,13 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
 
     if (digits.length < 4) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppConfig.darkSlate,
+        SnackBar(
+          backgroundColor: _terracotta,
           behavior: SnackBarBehavior.floating,
           content: Text(
             "Enter valid 4 digits",
-            style: TextStyle(
-              color: AppConfig.primaryTeal,
+            style: GoogleFonts.inter(
+              color: Colors.white,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -267,9 +275,9 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           behavior: SnackBarBehavior.floating,
           content: Text(
             res["message"] ?? "Saved",
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: Colors.white),
           ),
-          backgroundColor: res["success"] == true ? Colors.green : Colors.red,
+          backgroundColor: res["success"] == true ? _forestDark : _terracotta,
         ),
       );
 
@@ -282,7 +290,8 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
-          content: Text("Error: $e"),
+          content: Text("Error: $e", style: GoogleFonts.inter(color: Colors.white)),
+          backgroundColor: _terracotta,
         ),
       );
     } finally {
@@ -300,12 +309,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
     int? maxLength,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.black.withValues(alpha: 0.08),
           width: 1.2,
         ),
       ),
@@ -314,21 +323,22 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
         controller: controller,
         keyboardType: keyboardType,
         maxLength: maxLength,
-        style: const TextStyle(
-          color: Colors.white,
+        style: GoogleFonts.inter(
+          color: _darkText,
           fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
           counterText: "",
           labelText: label,
-          labelStyle: const TextStyle(
-            color: AppConfig.hintColor,
+          labelStyle: GoogleFonts.inter(
+            color: Colors.black45,
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
           prefixIcon: Icon(
             icon,
-            color: AppConfig.primaryTeal.withOpacity(0.7),
+            color: _forestDark,
             size: 20,
           ),
           prefixIconConstraints: const BoxConstraints(
@@ -348,60 +358,60 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 18),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.black.withValues(alpha: 0.08),
           width: 1.2,
         ),
       ),
       child: Material(
         color: Colors.transparent,
         child: ListTile(
-        onTap: onTap,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppConfig.primaryTeal.withOpacity(0.1),
-            shape: BoxShape.circle,
+          onTap: onTap,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _forestDark.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.calendar_month_rounded,
+              color: _forestDark,
+              size: 20,
+            ),
           ),
-          child: Icon(
-            Icons.calendar_month,
-            color: AppConfig.primaryTeal.withOpacity(0.8),
+          title: Text(
+            title,
+            style: GoogleFonts.inter(
+              color: Colors.black45,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              value,
+              style: GoogleFonts.inter(
+                color: _darkText,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          trailing: const Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.black38,
             size: 20,
           ),
         ),
-        title: Text(
-          title,
-          style: const TextStyle(
-            color: AppConfig.hintColor,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        trailing: const Icon(
-          Icons.arrow_forward_ios,
-          color: Colors.white30,
-          size: 16,
-        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   @override
   void dispose() {
@@ -422,287 +432,162 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
     final style = styleForBank(bankController.text);
 
     return Scaffold(
-      backgroundColor: AppConfig.background,
+      backgroundColor: _bg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: AppConfig.primaryTeal,
-            size: 26,
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+            ),
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              color: _darkText,
+              size: 20,
+            ),
           ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           "Add Credit Card",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+          style: GoogleFonts.fraunces(
+            color: _darkText,
+            fontWeight: FontWeight.bold,
             fontSize: 22,
-            letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppConfig.primaryTeal,
-              size: 26,
-            ),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: AppConfig.darkSlate,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: Colors.white.withOpacity(0.08),
-                      width: 1.5,
-                    ),
+
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            children: [
+              // Dynamic Real-time Card Preview
+              BankCardPreview(
+                bank: bankController.text,
+                name: widget.userName,
+                digits: last4Controller.text,
+                style: style,
+              ),
+              const SizedBox(height: 24),
+
+              // QFin Form Container
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    width: 1.2,
                   ),
-                  title: const Text(
-                    "Logout",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  content: const Text(
-                    "Are you sure you want to logout?",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.white60),
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppConfig.primaryTeal,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () async {
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.clear();
-                        if (!context.mounted) return;
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const HomeScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Background soft glowing teal orb 1
-          Positioned(
-            top: -80,
-            left: -80,
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.primaryTeal.withOpacity(0.12),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          // Background soft glowing blue orb 2
-          Positioned(
-            bottom: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.gradientEnd.withOpacity(0.08),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-
-          // Main form layout
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              child: Column(
-                children: [
-                  // Dynamic Real-time Card Preview
-                  BankCardPreview(
-                    bank: bankController.text,
-                    name: widget.userName,
-                    digits: last4Controller.text,
-                    style: style,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Glassmorphic Form Container
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.02),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.06),
-                        width: 1.5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      "Card Details",
+                      style: GoogleFonts.fraunces(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: _darkText,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.4),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          "Card Details",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.2,
+                    const SizedBox(height: 18),
+                    ScanCardSection(
+                      onScan: scanCard,
+                      enabled: !loading && !scanning,
+                    ),
+                    if (scanning)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 18),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            color: _forestDark,
                           ),
                         ),
-                        const SizedBox(height: 18),
-                        ScanCardSection(
-                          onScan: scanCard,
-                          enabled: !loading && !scanning,
-                        ),
-                        if (scanning)
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 18),
-                            child: Center(
-                              child: CircularProgressIndicator(
-                                color: AppConfig.primaryTeal,
+                      ),
+                    BankSelectorField(
+                      selectedBankId: selectedBankId,
+                      customBankController: customBankController,
+                      onBankIdChanged: _onBankIdChanged,
+                      onCustomBankChanged: _onCustomBankChanged,
+                    ),
+                    buildField(
+                      label: "Card Nickname",
+                      icon: Icons.credit_card_rounded,
+                      controller: cardController,
+                    ),
+                    buildField(
+                      label: "Last 4 Digits",
+                      icon: Icons.lock_outline_rounded,
+                      controller: last4Controller,
+                      keyboardType: TextInputType.number,
+                      maxLength: 4,
+                    ),
+                    buildDateTile(
+                      title: "Statement Date",
+                      value: selectedStatementDate == null
+                          ? "Select Statement Date"
+                          : dateFormat.format(selectedStatementDate!),
+                      onTap: () => pickDate(true),
+                    ),
+                    buildDateTile(
+                      title: "Payment Due Date",
+                      value: paymentDueDate == null
+                          ? "Select Payment Due Date"
+                          : dateFormat.format(paymentDueDate!),
+                      onTap: () => pickDate(false),
+                    ),
+                    const SizedBox(height: 12),
+                    loading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: _forestDark,
+                            ),
+                          )
+                        : SizedBox(
+                            height: 52,
+                            child: ElevatedButton(
+                              onPressed: saveCard,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _forestDark,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              child: Text(
+                                "Save Card",
+                                style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                           ),
-                        BankSelectorField(
-                          selectedBankId: selectedBankId,
-                          customBankController: customBankController,
-                          onBankIdChanged: _onBankIdChanged,
-                          onCustomBankChanged: _onCustomBankChanged,
-                        ),
-                        buildField(
-                          label: "Card Nickname",
-                          icon: Icons.credit_card_rounded,
-                          controller: cardController,
-                        ),
-                        buildField(
-                          label: "Last 4 Digits",
-                          icon: Icons.lock_outline_rounded,
-                          controller: last4Controller,
-                          keyboardType: TextInputType.number,
-                          maxLength: 4,
-                        ),
-                        buildDateTile(
-                          title: "Statement Date",
-                          value: selectedStatementDate == null
-                              ? "Select Statement Date"
-                              : dateFormat.format(selectedStatementDate!),
-                          onTap: () => pickDate(true),
-                        ),
-                        buildDateTile(
-                          title: "Payment Due Date",
-                          value: paymentDueDate == null
-                              ? "Select Payment Due Date"
-                              : dateFormat.format(paymentDueDate!),
-                          onTap: () => pickDate(false),
-                        ),
-                        const SizedBox(height: 12),
-                        loading
-                            ? const Center(
-                                child: CircularProgressIndicator(
-                                  color: AppConfig.primaryTeal,
-                                ),
-                              )
-                            : Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(16),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      AppConfig.gradientStart,
-                                      AppConfig.gradientEnd,
-                                    ],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppConfig.gradientStart.withOpacity(0.3),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: ElevatedButton(
-                                  onPressed: saveCard,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.transparent,
-                                    shadowColor: Colors.transparent,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "Save Card",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.3,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 24),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

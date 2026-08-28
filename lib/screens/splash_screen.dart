@@ -1,7 +1,9 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../config/app_config.dart';
+import '../services/user_storage.dart';
 import 'home_screen.dart';
+import 'main_navigation_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,7 +14,12 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   double _opacity = 0.0;
-  double _scale = 0.8;
+  double _scale = 0.85;
+
+  static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
+  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
+  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
+  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
 
   @override
   void initState() {
@@ -33,139 +40,136 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> startApp() async {
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
+    final userId = await UserStorage.getUserId();
+    final userName = await UserStorage.getUserName();
+
+    if (!mounted) return;
+
+    if (userId != null && userId.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MainNavigationScreen(
+            userId: userId,
+            userName: userName ?? "User",
+          ),
+        ),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppConfig.background,
-      body: Stack(
-        children: [
-          // Background soft glowing teal orb 1
-          Positioned(
-            top: -50,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.primaryTeal.withOpacity(0.12),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          // Background soft glowing blue orb 2
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.gradientEnd.withOpacity(0.1),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-
-          // Main contents
-          SafeArea(
-            child: Center(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 1200),
-                curve: Curves.easeOutCubic,
-                opacity: _opacity,
-                child: AnimatedScale(
-                  duration: const Duration(milliseconds: 1200),
-                  curve: Curves.easeOutBack,
-                  scale: _scale,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      // Glowing Brand Logo container
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.02),
-                          border: Border.all(
-                            color: AppConfig.primaryTeal.withOpacity(0.15),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppConfig.primaryTeal.withOpacity(0.04),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                            ),
-                          ],
-                        ),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          width: 100,
-                          height: 100,
-                        ),
+      backgroundColor: _bg,
+      body: SafeArea(
+        child: Center(
+          child: AnimatedOpacity(
+            duration: const Duration(milliseconds: 1200),
+            curve: Curves.easeOutCubic,
+            opacity: _opacity,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 1200),
+              curve: Curves.easeOutBack,
+              scale: _scale,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Vintage QFin Emblem Container
+                  Container(
+                    width: 120,
+                    height: 120,
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _goldAccent.withValues(alpha: 0.6),
+                        width: 2,
                       ),
-                      const SizedBox(height: 32),
-                      
-                      // App Name
-                      const Text(
-                        AppConfig.appName,
-                        style: TextStyle(
-                          fontSize: 36,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.5,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _forestDark.withValues(alpha: 0.08),
+                          blurRadius: 25,
+                          offset: const Offset(0, 8),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Subtitle
-                      Text(
-                        AppConfig.appSubtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.4),
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const SizedBox(height: 48),
-
-                      // Tiny loading dots / progress indicator
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppConfig.primaryTeal.withOpacity(0.8),
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 28),
+
+                  // Tagline Pill
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _forestDark.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _forestDark.withValues(alpha: 0.15)),
+                    ),
+                    child: Text(
+                      "FINANCIAL LEDGER",
+                      style: GoogleFonts.ibmPlexMono(
+                        color: _forestDark,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // App Title
+                  Text(
+                    AppConfig.appName,
+                    style: GoogleFonts.fraunces(
+                      fontSize: 38,
+                      color: _darkText,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Subtitle
+                  Text(
+                    AppConfig.appSubtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      color: Colors.black54,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+
+                  const SizedBox(height: 44),
+
+                  // Elegant Vintage Progress Indicator
+                  const SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(_forestDark),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

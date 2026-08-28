@@ -11,6 +11,7 @@ const {
 
 
 router.post("/add", createReminder);
+router.post("/", createReminder);
 
 /// ✅ GET
 router.get("/", getReminders);

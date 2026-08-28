@@ -11,6 +11,7 @@ const createReminder = async (req, res) => {
       amount,
       statementDate,
       paymentDate,
+      paymentDueDate,
       reminders,
       status,
     } = req.body;
@@ -21,14 +22,37 @@ const createReminder = async (req, res) => {
       });
     }
 
+    let resolvedBankName = bankName;
+    if (!resolvedBankName && cardId && mongoose.Types.ObjectId.isValid(cardId)) {
+      const Card = require("../models/card");
+      const card = await Card.findById(cardId);
+      if (card) resolvedBankName = card.bankName;
+    }
+    if (!resolvedBankName) resolvedBankName = "Bank";
+
+    let remindersArray = [];
+    if (Array.isArray(reminders)) {
+      remindersArray = reminders;
+    } else if (reminders && typeof reminders === "object") {
+      remindersArray = Object.keys(reminders).map((key) => ({
+        key,
+        count: reminders[key].count || 1,
+        times: reminders[key].times || [],
+      }));
+    }
+
     const newReminder = new Reminder({
       userId,
       cardId,
-      bankName,
-      amount,
-      statementDate,
-      paymentDate,
-      reminders: Array.isArray(reminders) ? reminders : [],
+      bankName: resolvedBankName,
+      amount: parseFloat(amount),
+      statementDate: statementDate ? new Date(statementDate) : null,
+      paymentDate: paymentDate
+        ? new Date(paymentDate)
+        : paymentDueDate
+        ? new Date(paymentDueDate)
+        : null,
+      reminders: remindersArray,
       status: status || "unpaid",
     });
 

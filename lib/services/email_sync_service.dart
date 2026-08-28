@@ -5,11 +5,11 @@ import '../config/app_config.dart';
 
 class EmailSyncService {
   static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId: AppConfig.googleWebClientId,
     scopes: const [
       'email',
       'https://www.googleapis.com/auth/gmail.readonly',
     ],
-    serverClientId: AppConfig.googleWebClientId,
   );
 
   static Future<Map<String, dynamic>> getStatus(String userId) async {
@@ -20,6 +20,13 @@ class EmailSyncService {
   }
 
   static Future<Map<String, dynamic>> connectGmail(String userId) async {
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+    }
     final account = await _googleSignIn.signIn();
     if (account == null) {
       return {"success": false, "message": "Sign-in cancelled"};
@@ -39,7 +46,14 @@ class EmailSyncService {
       body: jsonEncode({"userId": userId, "authCode": authCode}),
     );
 
-    return jsonDecode(res.body) as Map<String, dynamic>;
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      return {
+        "success": false,
+        "message": data["message"] ?? data["error"] ?? "Server returned ${res.statusCode}",
+      };
+    }
+    return data;
   }
 
   static Future<Map<String, dynamic>> disconnectGmail(String userId) async {

@@ -1,8 +1,8 @@
+// ignore_for_file: deprecated_member_use
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/card_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../data/indian_banks.dart';
 import '../utils/bank_card_style.dart';
@@ -10,10 +10,6 @@ import '../utils/card_scan_mapper.dart';
 import '../widgets/bank_card_preview.dart';
 import '../widgets/bank_selector_field.dart';
 import '../widgets/scan_card_section.dart';
-import 'home_screen.dart';
-import 'card_home.dart';
-import 'view_card_screen.dart';
-import 'view_reminder_page.dart';
 
 class UpdateCardScreen extends StatefulWidget {
   final Map card;
@@ -44,7 +40,6 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
 
   bool loading = false;
   bool scanning = false;
-  int _selectedIndex = 1;
 
   @override
   void initState() {

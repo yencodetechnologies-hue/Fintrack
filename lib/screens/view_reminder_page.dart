@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use, unused_element_parameter, unnecessary_to_list_in_spreads
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
@@ -5,20 +6,12 @@ import 'dart:convert';
 import 'update_reminder_page.dart';
 import '../config/app_config.dart';
 import '../utils/bank_card_style.dart';
-import 'card_home.dart';
-import 'view_card_screen.dart';
-import 'profile_screen.dart';
-import 'home_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../widgets/qfin_nav_bar.dart';
 
 // ── QFin Vintage Palette ──────────────────────────────────────────────────────
 const Color _bg        = Color(0xFFF6F4EB); // Vintage Cream Sheet
 const Color _forestDark= Color(0xFF0F261C); // Header / Accent Dark Green
 const Color _darkText  = Color(0xFF132A20); // Dark Forest Text
 const Color _terracotta= Color(0xFFB8452D); // Terracotta Primary Accent
-const Color _gold      = Color(0xFFD4AF37); // Metallic Gold Accent
-const Color _card      = Colors.white;       // White Card Containers
 const Color _green     = Color(0xFF2E7D32); // Success Status
 const Color _red       = Color(0xFFB8452D); // Alert/Error Red
 
@@ -32,7 +25,6 @@ class ViewReminderPage extends StatefulWidget {
 class _ViewReminderPageState extends State<ViewReminderPage> {
   List reminders = [];
   bool isLoading  = true;
-  int  _selectedIndex = 2;
   double get totalDueAmount {
     double total = 0;
 
@@ -727,7 +719,7 @@ class _ConfirmDlg extends StatelessWidget {
 
 class _CP extends CustomPainter {
   final Color color;
-  const _CP({this.color = const Color(0xFFB8960C)});
+  const _CP([this.color = const Color(0xFFB8960C)]);
   @override void paint(Canvas canvas, Size size) {
     final p = Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 0.8;
     canvas.drawLine(Offset(size.width/2, 0), Offset(size.width/2, size.height), p);

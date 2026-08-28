@@ -1,21 +1,17 @@
-import 'dart:ui' as ui;
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../config/app_config.dart';
 import 'add_reminder_page.dart';
 import 'card_create_screen.dart';
-import 'home_screen.dart';
 import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
-import 'profile_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../services/email_sync_service.dart';
 import '../services/fcm_service.dart';
-import '../widgets/qfin_nav_bar.dart';
 
 class CardHomeTheme {
   static const Color background = Color(0xFF0F261C); // QFin Deep Forest Green Header / Background
@@ -64,7 +60,6 @@ class GridViewPage extends StatefulWidget {
 }
 
 class _GridViewPageState extends State<GridViewPage> {
-  int _selectedIndex = 0;
   OverlayEntry? _notifOverlay;
   final List<Map<String, dynamic>> _notifLogs = [];
   final Set<int> _selectedNotifs = {};
@@ -370,7 +365,7 @@ class _GridViewPageState extends State<GridViewPage> {
                         border: Border.all(color: CardHomeTheme.borderDark),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.4),
+                            color: Colors.black.withValues(alpha: 0.4),
                             blurRadius: 25,
                             offset: const Offset(0, 10),
                           ),

@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+// ignore_for_file: deprecated_member_use, use_key_in_widget_constructors
 import 'package:flutter/material.dart';
 import '../utils/bank_card_style.dart';
 
@@ -53,16 +53,13 @@ class _Shell extends StatelessWidget {
   final Color shadow;
   final List<Widget> overlays;
   final Widget child;
-  final AlignmentGeometry begin;
-  final AlignmentGeometry end;
   const _Shell({required this.colors, required this.shadow,
-    required this.overlays, required this.child,
-    this.begin = Alignment.topLeft, this.end = Alignment.bottomRight});
+    required this.overlays, required this.child});
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity, height: 210,
     decoration: BoxDecoration(
-      gradient: LinearGradient(colors: colors, begin: begin, end: end),
+      gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
       borderRadius: BorderRadius.circular(22),
       boxShadow: [BoxShadow(color: shadow.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
     ),

@@ -1,14 +1,10 @@
+// ignore_for_file: deprecated_member_use
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:card/config/app_config.dart';
-import 'home_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'card_home.dart';
-import 'view_card_screen.dart';
-import 'view_reminder_page.dart';
 
 class UpdateReminderPage extends StatefulWidget {
   final String userId;
@@ -31,8 +27,6 @@ class _UpdateReminderPageState
     extends State<UpdateReminderPage> {
 
   List cards = [];
-
-  int _selectedIndex = 2;
 
   String? selectedBankName;
   String? selectedCardId;

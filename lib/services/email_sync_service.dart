@@ -98,4 +98,32 @@ class EmailSyncService {
     );
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
+
+  // ── Yahoo OAuth Helpers ────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getYahooStatus(String userId) async {
+    final res = await http.get(
+      Uri.parse("${AppConfig.baseUrl}/api/yahoo/status/$userId"),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  static Future<String?> getYahooConnectUrl(String userId) async {
+    final res = await http.get(
+      Uri.parse("${AppConfig.baseUrl}/api/yahoo/connect-url?userId=$userId"),
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (data["success"] == true) {
+      return data["authUrl"]?.toString();
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> disconnectYahoo(String userId) async {
+    final res = await http.post(
+      Uri.parse("${AppConfig.baseUrl}/api/yahoo/disconnect"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"userId": userId}),
+    );
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
 }

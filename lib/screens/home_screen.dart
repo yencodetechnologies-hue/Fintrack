@@ -31,8 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final _signupConfirmPasswordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _obscureSignupPassword = true;
-  bool _obscureConfirmPassword = true;
+  final bool _obscureSignupPassword = true;
+  final bool _obscureConfirmPassword = true;
   bool _isLoading = false;
 
   @override
@@ -640,19 +640,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
       ),
-    );
-  }
-
-  Widget _buildSocialButton(IconData icon, Color darkText, {double size = 20}) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.12), width: 1),
-      ),
-      child: Icon(icon, color: darkText, size: size),
     );
   }
 }

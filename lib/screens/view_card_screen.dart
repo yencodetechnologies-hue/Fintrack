@@ -1,15 +1,10 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/card_service.dart';
 import 'update_card_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'home_screen.dart';
-import 'card_home.dart';
-import 'view_reminder_page.dart';
-import 'profile_screen.dart';
 import '../config/app_config.dart';
 import '../utils/bank_card_style.dart';
-import '../widgets/qfin_nav_bar.dart';
 
 class ViewCardScreen extends StatefulWidget {
   final String userId;
@@ -23,10 +18,11 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
   @override void initState() { super.initState(); cardsFuture = CardService.getCards(widget.userId); }
   Future<void> refreshCards() async {
     final newCards = CardService.getCards(widget.userId);
-
-    setState(() {
-      cardsFuture = newCards;
-    });
+    if (mounted) {
+      setState(() {
+        cardsFuture = newCards;
+      });
+    }
 
     await newCards;
   }
@@ -244,12 +240,10 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
     );
   }
 
-  int _selectedIndex = 1;
   @override
   Widget build(BuildContext context) {
     const Color creamSheet = Color(0xFFF6F4EB);
     const Color darkText = Color(0xFF132A20);
-    const Color goldText = Color(0xFFD4AF37);
     const Color terracotta = Color(0xFFB8452D);
 
     return Scaffold(
@@ -504,16 +498,13 @@ class _Shell extends StatelessWidget {
   final Color shadow;
   final List<Widget> overlays;
   final Widget child;
-  final AlignmentGeometry begin;
-  final AlignmentGeometry end;
   const _Shell({required this.colors, required this.shadow,
-    required this.overlays, required this.child,
-    this.begin = Alignment.topLeft, this.end = Alignment.bottomRight});
+    required this.overlays, required this.child});
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity, height: 210,
     decoration: BoxDecoration(
-      gradient: LinearGradient(colors: colors, begin: begin, end: end),
+      gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
       borderRadius: BorderRadius.circular(22),
       boxShadow: [BoxShadow(color: shadow.withValues(alpha: 0.5), blurRadius: 22, offset: const Offset(0, 9))],
     ),

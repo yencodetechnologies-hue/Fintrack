@@ -1,17 +1,13 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../services/card_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../config/app_config.dart';
 import '../data/indian_banks.dart';
 import '../utils/bank_card_style.dart';
 import '../utils/card_scan_mapper.dart';
 import '../widgets/bank_card_preview.dart';
 import '../widgets/bank_selector_field.dart';
 import '../widgets/scan_card_section.dart';
-import 'home_screen.dart';
 
 class CardCreateScreen extends StatefulWidget {
   final String userId;
@@ -44,7 +40,6 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
   static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
   static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
   static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
-  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
   static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
 
   @override

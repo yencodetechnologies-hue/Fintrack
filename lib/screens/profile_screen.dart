@@ -8,12 +8,9 @@ import '../services/card_service.dart';
 import '../services/email_sync_service.dart';
 import '../services/user_storage.dart';
 import 'home_screen.dart';
-import 'card_home.dart';
 import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'delete_card_screen.dart';
-import '../widgets/qfin_nav_bar.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -31,7 +28,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final int _selectedIndex = 3;
   String email = "";
   int cardCount = 0;
   int reminderCount = 0;
@@ -41,6 +37,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? gmailEmail;
   String? gmailLastSync;
   bool isGmailLoading = false;
+
+  bool yahooConnected = false;
+  String? yahooEmail;
+  String? yahooLastSync;
+  bool isYahooLoading = false;
 
   @override
   void initState() {
@@ -78,8 +79,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SnackBar(content: Text(result['message'] ?? 'Failed to connect Gmail')),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     } finally {
       if (mounted) setState(() => isGmailLoading = false);
+    }
+  }
+
+  Future<void> _loadYahooStatus() async {
+    try {
+      final status = await EmailSyncService.getYahooStatus(widget.userId);
+      if (mounted) {
+        setState(() {
+          yahooConnected = status['connected'] == true;
+          yahooEmail = status['yahooEmail']?.toString();
+          yahooLastSync = status['lastSyncAt']?.toString();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleYahooConnect() async {
+    setState(() => isYahooLoading = true);
+    try {
+      final authUrl = await EmailSyncService.getYahooConnectUrl(widget.userId);
+      if (!mounted) return;
+      if (authUrl != null && authUrl.isNotEmpty) {
+        final uri = Uri.parse(authUrl);
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please configure YAHOO_CLIENT_ID & YAHOO_CLIENT_SECRET in backend/.env')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error connecting Yahoo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isYahooLoading = false);
     }
   }
 
@@ -123,11 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  void _handleYahooConnect() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Yahoo Mail sync is coming soon.')),
-    );
-  }
+
 
   Future<void> _loadProfileData() async {
     final storedEmail = await UserStorage.getUserEmail();
@@ -156,6 +195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     }
     await _loadGmailStatus();
+    await _loadYahooStatus();
   }
 
   Future<void> _handleDeleteAccount() async {
@@ -793,6 +833,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   title: gmailConnected ? "Gmail Connected" : "Connect Gmail",
                                   color: forestDark,
                                   onTap: _showGmailDialog,
+                                ),
+                                _buildDivider(),
+                                _buildMenuItem(
+                                  customLeading: Image.network(
+                                    "https://www.google.com/s2/favicons?domain=yahoo.com&sz=128",
+                                    width: 20,
+                                    height: 20,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: forestDark, size: 20),
+                                  ),
+                                  title: yahooConnected ? "Yahoo Connected" : "Connect Yahoo",
+                                  color: forestDark,
+                                  onTap: _showYahooDialog,
                                 ),
 
                                 _buildDivider(),

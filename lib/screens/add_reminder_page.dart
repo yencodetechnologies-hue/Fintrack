@@ -1,14 +1,13 @@
-import 'dart:ui' as ui;
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:card/config/app_config.dart';
-import 'home_screen.dart';
 import 'card_create_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/email_sync_service.dart';
+
 class AddReminderPage extends StatefulWidget {
   final String userId;
   final String userName;
@@ -45,7 +44,6 @@ class _AddReminderPageState extends State<AddReminderPage> {
   static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
   static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
   static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
-  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
   static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
 
   @override

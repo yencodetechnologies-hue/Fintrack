@@ -17,10 +17,8 @@ class BankSelectorField extends StatelessWidget {
     required this.onCustomBankChanged,
   });
 
-  static const Color _bg         = Color(0xFFF6F4EB);
   static const Color _forestDark = Color(0xFF0F261C);
   static const Color _darkText   = Color(0xFF132A20);
-  static const Color _goldAccent = Color(0xFFD4AF37);
 
   String get _selectedBankTitle {
     if (selectedBankId == null) return "Select Bank";

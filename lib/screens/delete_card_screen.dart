@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/card_service.dart';

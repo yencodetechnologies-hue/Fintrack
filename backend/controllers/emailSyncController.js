@@ -28,9 +28,14 @@ async function saveTokensForUser(userId, tokens) {
 
 exports.getConnectUrl = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, provider } = req.query;
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: "Valid userId required" });
+    }
+
+    if (provider === "yahoo") {
+      const authUrl = yahooAuthService.getConnectUrl(userId);
+      return res.status(200).json({ success: true, url: authUrl, authUrl });
     }
 
     const url = getConnectUrl(userId);
@@ -40,9 +45,11 @@ exports.getConnectUrl = async (req, res) => {
   }
 };
 
+const yahooAuthService = require("../services/yahooAuthService");
+
 exports.oauthCallback = async (req, res) => {
   try {
-    const { code, state: userId, error } = req.query;
+    const { code, state, error } = req.query;
     const successUrl = process.env.APP_OAUTH_SUCCESS_URL || "fintrack://oauth/success";
     const errorUrl = process.env.APP_OAUTH_ERROR_URL || "fintrack://oauth/error";
 
@@ -50,12 +57,19 @@ exports.oauthCallback = async (req, res) => {
       return res.redirect(`${errorUrl}?reason=${encodeURIComponent(error)}`);
     }
 
-    if (!code || !userId) {
+    if (!code || !state) {
       return res.redirect(`${errorUrl}?reason=missing_code_or_user`);
     }
 
+    // Check if this is a Yahoo OAuth callback
+    if (typeof state === "string" && state.startsWith("yahoo_")) {
+      const userId = state.replace("yahoo_", "");
+      await yahooAuthService.handleOAuthCallback(code, userId);
+      return res.redirect(`${successUrl}?connected=true&provider=yahoo`);
+    }
+
     const tokens = await exchangeCodeForTokens(code);
-    await saveTokensForUser(userId, tokens);
+    await saveTokensForUser(state, tokens);
 
     return res.redirect(`${successUrl}?connected=true`);
   } catch (err) {
@@ -95,10 +109,15 @@ exports.connectWithAuthCode = async (req, res) => {
 
 exports.getStatus = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, provider } = req.query;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: "Valid userId required" });
+    }
+
+    if (provider === "yahoo") {
+      const yahooStatus = await yahooAuthService.getYahooStatus(userId);
+      return res.status(200).json({ success: true, ...yahooStatus });
     }
 
     const user = await User.findById(userId).select("gmailConnection");
@@ -269,10 +288,16 @@ exports.dismissBill = async (req, res) => {
 
 exports.disconnect = async (req, res) => {
   try {
-    const { userId } = req.query;
+    const userId = req.query.userId || req.body.userId;
+    const provider = req.query.provider || req.body.provider;
 
     if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ success: false, message: "Valid userId required" });
+    }
+
+    if (provider === "yahoo") {
+      const result = await yahooAuthService.disconnectYahoo(userId);
+      return res.status(200).json(result);
     }
 
     const user = await User.findById(userId);

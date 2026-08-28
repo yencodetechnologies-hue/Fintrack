@@ -12,6 +12,8 @@ const {
   disconnect,
 } = require("../controllers/emailSyncController");
 
+const yahooSyncController = require("../controllers/yahooSyncController");
+
 router.get("/connect-url", getConnectUrl);
 router.get("/oauth/callback", oauthCallback);
 router.post("/connect", connectWithAuthCode);
@@ -21,5 +23,10 @@ router.get("/suggestions", getSuggestions);
 router.post("/apply", applyBill);
 router.post("/dismiss", dismissBill);
 router.delete("/disconnect", disconnect);
+
+// Yahoo Endpoints
+router.get("/yahoo-connect-url", yahooSyncController.getConnectUrl);
+router.get("/yahoo-status/:userId", yahooSyncController.getStatus);
+router.post("/yahoo-disconnect", yahooSyncController.disconnect);
 
 module.exports = router;

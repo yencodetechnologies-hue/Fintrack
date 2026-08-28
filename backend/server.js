@@ -40,9 +40,6 @@ app.use("/api/email", emailSyncRoutes);
 const notificationRoutes = require("./routes/notificationRoutes");
 app.use("/api/notifications", notificationRoutes);
 
-const yahooSyncRoutes = require("./routes/yahooSyncRoutes");
-app.use("/api/email/yahoo", yahooSyncRoutes);
-
 require("./jobs/emailSyncCron");
 
 app.listen(3009, "0.0.0.0", () => {

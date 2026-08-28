@@ -103,7 +103,7 @@ class EmailSyncService {
   static Future<Map<String, dynamic>> getYahooStatus(String userId) async {
     try {
       final res = await http.get(
-        Uri.parse("${AppConfig.baseUrl}/api/email/yahoo/status/$userId"),
+        Uri.parse("${AppConfig.baseUrl}/api/email/status?userId=$userId&provider=yahoo"),
       );
       if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
         return jsonDecode(res.body) as Map<String, dynamic>;
@@ -115,12 +115,12 @@ class EmailSyncService {
   static Future<String?> getYahooConnectUrl(String userId) async {
     try {
       final res = await http.get(
-        Uri.parse("${AppConfig.baseUrl}/api/email/yahoo/connect-url?userId=$userId"),
+        Uri.parse("${AppConfig.baseUrl}/api/email/connect-url?userId=$userId&provider=yahoo"),
       );
       if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         if (data["success"] == true) {
-          return data["authUrl"]?.toString();
+          return (data["url"] ?? data["authUrl"])?.toString();
         }
       }
     } catch (_) {}
@@ -129,10 +129,8 @@ class EmailSyncService {
 
   static Future<Map<String, dynamic>> disconnectYahoo(String userId) async {
     try {
-      final res = await http.post(
-        Uri.parse("${AppConfig.baseUrl}/api/email/yahoo/disconnect"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"userId": userId}),
+      final res = await http.delete(
+        Uri.parse("${AppConfig.baseUrl}/api/email/disconnect?userId=$userId&provider=yahoo"),
       );
       if (res.statusCode == 200 && res.body.trim().startsWith("{")) {
         return jsonDecode(res.body) as Map<String, dynamic>;

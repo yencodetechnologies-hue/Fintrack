@@ -15,8 +15,12 @@ const syncRateLimit = new Map();
 const SYNC_COOLDOWN_MS = 5 * 60 * 1000;
 
 function checkRateLimit(userId) {
-  // Disabled rate limiting for testing
-  return;
+  const last = syncRateLimit.get(userId);
+  if (last && Date.now() - last < SYNC_COOLDOWN_MS) {
+    const waitSec = Math.ceil((SYNC_COOLDOWN_MS - (Date.now() - last)) / 1000);
+    throw new Error(`Please wait ${waitSec}s before syncing again`);
+  }
+  syncRateLimit.set(userId, Date.now());
 }
 
 function decodeBase64Url(data) {

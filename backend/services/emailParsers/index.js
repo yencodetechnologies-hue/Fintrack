@@ -6,21 +6,19 @@ const parseSbi = require("./sbiParser");
 const parseKotak = require("./kotakParser");
 
 const PARSERS = [
-  { match: (from, body, subject) => from.includes("hdfcbank.com") || subject.toLowerCase().includes("hdfc"), parse: parseHdfc },
-  { match: (from, body, subject) => from.includes("icicibank.com") || subject.toLowerCase().includes("icici"), parse: parseIcici },
-  { match: (from, body, subject) => from.includes("axisbank.com") || subject.toLowerCase().includes("axis"), parse: parseAxis },
-  { match: (from, body, subject) => from.includes("paytm.com") || subject.toLowerCase().includes("paytm"), parse: parsePaytm },
-  { match: (from, body, subject) => from.includes("sbicard.com") || subject.toLowerCase().includes("sbi"), parse: parseSbi },
-  { match: (from, body, subject) => from.includes("kotak.com") || subject.toLowerCase().includes("kotak"), parse: parseKotak },
-  { match: (from, body, subject) => true, parse: parseHdfc }, // Fallback parser for testing
+  { match: (from) => from.includes("hdfcbank.com"), parse: parseHdfc },
+  { match: (from) => from.includes("icicibank.com"), parse: parseIcici },
+  { match: (from) => from.includes("axisbank.com"), parse: parseAxis },
+  { match: (from) => from.includes("paytm.com"), parse: parsePaytm },
+  { match: (from) => from.includes("sbicard.com"), parse: parseSbi },
+  { match: (from) => from.includes("kotak.com"), parse: parseKotak },
 ];
 
 function parseEmail({ from, subject, body, messageId }) {
   const fromLower = (from || "").toLowerCase();
-  const subjLower = (subject || "").toLowerCase();
 
   for (const parser of PARSERS) {
-    if (parser.match(fromLower, body, subjLower)) {
+    if (parser.match(fromLower)) {
       const res = parser.parse({ subject, body, messageId });
       if (res) return res;
     }
@@ -31,6 +29,14 @@ function parseEmail({ from, subject, body, messageId }) {
 
 const GMAIL_SEARCH_QUERY = [
   "newer_than:45d",
+  "(",
+  "from:alerts@hdfcbank.com OR",
+  "from:credit_cards@icicibank.com OR",
+  "from:axisbank.com OR",
+  "from:paytm.com OR",
+  "from:sbicard.com OR",
+  "from:kotak.com",
+  ")",
   "(",
   'subject:"credit card" OR',
   'subject:"statement" OR',

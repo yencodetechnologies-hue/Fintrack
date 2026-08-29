@@ -12,6 +12,8 @@ const {
 } = require("../services/gmailAuthService");
 const { syncUser } = require("../services/gmailSyncService");
 
+const { syncYahooUser } = require("../services/yahooSyncService");
+
 async function saveTokensForUser(userId, tokens) {
   const user = await User.findById(userId);
   if (!user) {
@@ -179,6 +181,7 @@ exports.syncEmails = async (req, res) => {
     }
 
     let gmailResult = { parsedCount: 0, newBillCount: 0 };
+    let yahooResult = { parsedCount: 0, newBillCount: 0 };
     let yahooSynced = false;
 
     if (user.gmailConnection?.refreshTokenEnc) {
@@ -190,9 +193,12 @@ exports.syncEmails = async (req, res) => {
     }
 
     if (user.yahooEmailSync?.connected) {
-      user.yahooEmailSync.lastSyncAt = new Date();
-      await user.save();
-      yahooSynced = true;
+      try {
+        yahooResult = await syncYahooUser(userId);
+        yahooSynced = true;
+      } catch (err) {
+        console.warn("Yahoo sync notice:", err.message);
+      }
     }
 
     if (!user.gmailConnection?.refreshTokenEnc && !user.yahooEmailSync?.connected) {
@@ -202,11 +208,14 @@ exports.syncEmails = async (req, res) => {
       });
     }
 
+    const totalParsed = (gmailResult.parsedCount || 0) + (yahooResult.parsedCount || 0);
+    const totalNewBills = (gmailResult.newBillCount || 0) + (yahooResult.newBillCount || 0);
+
     return res.status(200).json({
       success: true,
       message: "Email sync completed",
-      parsedCount: gmailResult.parsedCount || 0,
-      newBillCount: gmailResult.newBillCount || 0,
+      parsedCount: totalParsed,
+      newBillCount: totalNewBills,
       yahooSynced,
     });
   } catch (err) {

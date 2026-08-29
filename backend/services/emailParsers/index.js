@@ -16,9 +16,10 @@ const PARSERS = [
 
 function parseEmail({ from, subject, body, messageId }) {
   const fromLower = (from || "").toLowerCase();
+  const subjLower = (subject || "").toLowerCase();
 
   for (const parser of PARSERS) {
-    if (parser.match(fromLower)) {
+    if (parser.match(fromLower, body, subjLower)) {
       const res = parser.parse({ subject, body, messageId });
       if (res) return res;
     }

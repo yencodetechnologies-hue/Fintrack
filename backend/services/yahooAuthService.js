@@ -16,15 +16,12 @@ function getConnectUrl(userId) {
   }
 
   const redirectUri = getRedirectUri();
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    state: `yahoo_${userId}`,
-    scope: "openid email profile",
-  });
+  const encodedClientId = encodeURIComponent(clientId);
+  const encodedRedirectUri = encodeURIComponent(redirectUri);
+  const encodedState = encodeURIComponent(`yahoo_${userId}`);
+  const encodedScope = encodeURIComponent("openid email profile");
 
-  return `${YAHOO_AUTH_URL}?${params.toString()}`;
+  return `${YAHOO_AUTH_URL}?client_id=${encodedClientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
 }
 
 async function handleOAuthCallback(code, userId) {
@@ -54,6 +51,7 @@ async function handleOAuthCallback(code, userId) {
 
   const tokenData = await response.json();
   if (!response.ok || !tokenData.access_token) {
+    console.error("Yahoo Token Exchange Response:", response.status, tokenData);
     throw new Error(tokenData.error_description || tokenData.error || "Failed to retrieve access token from Yahoo");
   }
 

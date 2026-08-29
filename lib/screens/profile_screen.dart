@@ -27,7 +27,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   String email = "";
   int cardCount = 0;
   int reminderCount = 0;
@@ -46,7 +46,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadProfileData();
+    _loadGmailStatus();
+    _loadYahooStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          _loadGmailStatus();
+          _loadYahooStatus();
+        }
+      });
+    }
   }
 
   Future<void> _loadGmailStatus() async {
@@ -91,21 +112,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadYahooStatus() async {
     try {
+      debugPrint("🔍 [Yahoo Sync] Fetching status for userId: ${widget.userId}");
       final status = await EmailSyncService.getYahooStatus(widget.userId);
+      debugPrint("📊 [Yahoo Sync] Server Response: $status");
       if (mounted) {
         setState(() {
           yahooConnected = status['connected'] == true;
           yahooEmail = status['yahooEmail']?.toString();
           yahooLastSync = status['lastSyncAt']?.toString();
         });
+        debugPrint("✅ [Yahoo Sync] State updated: connected=$yahooConnected, email=$yahooEmail");
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint("❌ [Yahoo Sync] Error loading status: $e");
+    }
   }
 
   Future<void> _handleYahooConnect() async {
     setState(() => isYahooLoading = true);
     try {
+      debugPrint("🚀 [Yahoo Sync] Requesting connect URL for userId: ${widget.userId}");
       final authUrl = await EmailSyncService.getYahooConnectUrl(widget.userId);
+      debugPrint("🔗 [Yahoo Sync] Connect URL received: $authUrl");
       if (!mounted) return;
       if (authUrl != null && authUrl.isNotEmpty) {
         final uri = Uri.parse(authUrl);
@@ -116,6 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       }
     } catch (e) {
+      debugPrint("❌ [Yahoo Sync] Error connecting: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error connecting Yahoo: $e')),
@@ -329,6 +358,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _handleYahooDisconnect() async {
+    setState(() => isYahooLoading = true);
+    try {
+      final res = await EmailSyncService.disconnectYahoo(widget.userId);
+      if (!mounted) return;
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Yahoo disconnected successfully')),
+        );
+        await _loadYahooStatus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Failed to disconnect Yahoo')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error disconnecting Yahoo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isYahooLoading = false);
+    }
+  }
+
   void _showYahooDialog() {
     const Color creamSheet = Color(0xFFF6F4EB);
     const Color darkText = Color(0xFF132A20);
@@ -357,26 +412,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
-        content: Text(
-          'Connect Yahoo Mail to auto-fetch credit card statements (due date, amount).',
-          style: GoogleFonts.inter(color: Colors.black87),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              yahooConnected
+                  ? 'Connected as: ${yahooEmail ?? "Yahoo User"}'
+                  : 'Connect Yahoo Mail to auto-fetch credit card statements (due date, amount).',
+              style: GoogleFonts.inter(color: Colors.black87),
+            ),
+            if (yahooLastSync != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Last sync: $yahooLastSync',
+                style: GoogleFonts.ibmPlexMono(color: Colors.black45, fontSize: 11),
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text('Close', style: GoogleFonts.inter(color: darkText)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: forestDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          if (yahooConnected) ...[
+            TextButton(
+              onPressed: isYahooLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleYahooDisconnect();
+                    },
+              child: Text('Disconnect', style: GoogleFonts.inter(color: const Color(0xFFB8452D), fontWeight: FontWeight.bold)),
             ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _handleYahooConnect();
-            },
-            child: Text('Connect Yahoo', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
+          ] else
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: forestDark,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: isYahooLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleYahooConnect();
+                    },
+              child: Text('Connect Yahoo', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
         ],
       ),
     );

@@ -65,7 +65,31 @@ exports.oauthCallback = async (req, res) => {
     if (typeof state === "string" && state.startsWith("yahoo_")) {
       const userId = state.replace("yahoo_", "");
       await yahooAuthService.handleOAuthCallback(code, userId);
-      return res.redirect(`${successUrl}?connected=true&provider=yahoo`);
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Yahoo Connected</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 40px 20px; background: #0F172A; color: #F8FAFC; }
+            .card { background: #1E293B; border-radius: 16px; padding: 32px 24px; max-width: 400px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+            .icon { font-size: 48px; margin-bottom: 16px; }
+            h2 { color: #38BDF8; margin-top: 0; }
+            p { color: #94A3B8; font-size: 15px; line-height: 1.5; }
+            .btn { display: inline-block; background: #6366F1; color: #FFF; text-decoration: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="icon">🎉</div>
+            <h2>Yahoo Connected!</h2>
+            <p>Your Yahoo account has been successfully linked to Q Fin for bill sync.</p>
+            <a href="fintrack://oauth/success" class="btn">Return to Q Fin</a>
+          </div>
+        </body>
+        </html>
+      `);
     }
 
     const tokens = await exchangeCodeForTokens(code);
@@ -73,6 +97,7 @@ exports.oauthCallback = async (req, res) => {
 
     return res.redirect(`${successUrl}?connected=true`);
   } catch (err) {
+    console.error("OAuth Callback Failure:", err);
     const errorUrl = process.env.APP_OAUTH_ERROR_URL || "fintrack://oauth/error";
     return res.redirect(`${errorUrl}?reason=${encodeURIComponent(err.message)}`);
   }

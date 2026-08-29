@@ -49,6 +49,15 @@ const userSchema = new mongoose.Schema(
       lastSyncAt: { type: Date, default: null },
       syncEnabled: { type: Boolean, default: true },
     },
+
+    yahooEmailSync: {
+      connected: { type: Boolean, default: false },
+      yahooEmail: { type: String, default: null },
+      accessToken: { type: String, default: null },
+      refreshToken: { type: String, default: null },
+      tokenExpiry: { type: Date, default: null },
+      lastSyncAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

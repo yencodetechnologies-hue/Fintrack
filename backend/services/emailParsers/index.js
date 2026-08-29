@@ -6,12 +6,36 @@ const parseSbi = require("./sbiParser");
 const parseKotak = require("./kotakParser");
 
 const PARSERS = [
-  { match: (from) => from.includes("hdfcbank.com"), parse: parseHdfc },
-  { match: (from) => from.includes("icicibank.com"), parse: parseIcici },
-  { match: (from) => from.includes("axisbank.com"), parse: parseAxis },
-  { match: (from) => from.includes("paytm.com"), parse: parsePaytm },
-  { match: (from) => from.includes("sbicard.com"), parse: parseSbi },
-  { match: (from) => from.includes("kotak.com"), parse: parseKotak },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("hdfcbank.com") || subjLower.includes("hdfc") || (body && body.toLowerCase().includes("hdfc")),
+    parse: parseHdfc,
+  },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("icicibank.com") || subjLower.includes("icici") || (body && body.toLowerCase().includes("icici")),
+    parse: parseIcici,
+  },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("axisbank.com") || subjLower.includes("axis") || (body && body.toLowerCase().includes("axis")),
+    parse: parseAxis,
+  },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("paytm.com") || subjLower.includes("paytm") || (body && body.toLowerCase().includes("paytm")),
+    parse: parsePaytm,
+  },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("sbicard.com") || subjLower.includes("sbi") || (body && body.toLowerCase().includes("sbi")),
+    parse: parseSbi,
+  },
+  {
+    match: (fromLower, body, subjLower) =>
+      fromLower.includes("kotak.com") || subjLower.includes("kotak") || (body && body.toLowerCase().includes("kotak")),
+    parse: parseKotak,
+  },
 ];
 
 function parseEmail({ from, subject, body, messageId }) {

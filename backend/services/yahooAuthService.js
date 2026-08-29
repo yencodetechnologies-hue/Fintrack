@@ -16,12 +16,11 @@ function getConnectUrl(userId) {
   }
 
   const redirectUri = getRedirectUri();
-  const encodedClientId = encodeURIComponent(clientId);
   const encodedRedirectUri = encodeURIComponent(redirectUri);
   const encodedState = encodeURIComponent(`yahoo_${userId}`);
   const encodedScope = encodeURIComponent("openid email profile");
 
-  return `${YAHOO_AUTH_URL}?client_id=${encodedClientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
+  return `${YAHOO_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
 }
 
 async function handleOAuthCallback(code, userId) {

@@ -17,13 +17,12 @@ function getConnectUrl(userId) {
     throw new Error("YAHOO_CLIENT_ID is not configured in backend/.env");
   }
 
-  const primaryClientId = clientId.split("&")[0].split("JnM9")[0];
   const redirectUri = getRedirectUri();
   const encodedRedirectUri = encodeURIComponent(redirectUri);
   const encodedState = encodeURIComponent(`yahoo_${userId}`);
   const encodedScope = encodeURIComponent("openid email profile");
 
-  const authUrl = `${YAHOO_AUTH_URL}?client_id=${primaryClientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
+  const authUrl = `${YAHOO_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
   console.log(`🟣 [Yahoo OAuth Service] Redirect URI: ${redirectUri}`);
   console.log(`🟣 [Yahoo OAuth Service] Generated Auth URL: ${authUrl}`);
   return authUrl;

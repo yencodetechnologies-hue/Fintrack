@@ -41,25 +41,45 @@ async function handleOAuthCallback(code, stateOrUserId) {
 
   const primaryClientId = clientId.split("&")[0].split("JnM9")[0];
   const redirectUri = getRedirectUri();
-  const basicAuth = Buffer.from(`${primaryClientId}:${clientSecret}`).toString("base64");
 
   console.log(`🟣 [Yahoo OAuth Service] Exchanging authorization code for access token at Yahoo Token Endpoint...`);
+  
   const params = new URLSearchParams({
     grant_type: "authorization_code",
     redirect_uri: redirectUri,
     code: code,
+    client_id: primaryClientId,
+    client_secret: clientSecret,
   });
 
-  const response = await fetch(YAHOO_TOKEN_URL, {
+  // Attempt 1: Full clientId in Basic Auth
+  const basicAuthFull = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  let response = await fetch(YAHOO_TOKEN_URL, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${basicAuth}`,
+      Authorization: `Basic ${basicAuthFull}`,
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: params.toString(),
   });
 
-  const tokenData = await response.json();
+  let tokenData = await response.json();
+
+  // Attempt 2: Primary Client ID in Basic Auth
+  if (!response.ok || !tokenData.access_token) {
+    console.warn("⚠️ [Yahoo OAuth Service] Token exchange attempt 1 failed. Retrying with primaryClientId Basic Auth...", response.status, tokenData);
+    const basicAuthPrimary = Buffer.from(`${primaryClientId}:${clientSecret}`).toString("base64");
+    response = await fetch(YAHOO_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basicAuthPrimary}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+    tokenData = await response.json();
+  }
+
   if (!response.ok || !tokenData.access_token) {
     console.error("🔴 [Yahoo OAuth Service] Token Exchange Failed:", response.status, tokenData);
     throw new Error(tokenData.error_description || tokenData.error || "Failed to retrieve access token from Yahoo");

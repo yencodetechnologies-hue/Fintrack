@@ -30,8 +30,9 @@ async function handleOAuthCallback(code, userId) {
     throw new Error("YAHOO_CLIENT_ID or YAHOO_CLIENT_SECRET is missing in .env");
   }
 
+  const primaryClientId = clientId.split("&")[0];
   const redirectUri = getRedirectUri();
-  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const basicAuth = Buffer.from(`${primaryClientId}:${clientSecret}`).toString("base64");
 
   const params = new URLSearchParams({
     grant_type: "authorization_code",

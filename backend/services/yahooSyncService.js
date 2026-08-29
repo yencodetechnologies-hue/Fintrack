@@ -6,6 +6,56 @@ const ParsedBill = require("../models/parsedBill");
 const { decrypt } = require("../utils/tokenCrypto");
 const { parseEmail } = require("./emailParsers");
 
+const YAHOO_TOKEN_URL = "https://api.login.yahoo.com/oauth2/get_token";
+
+async function refreshYahooAccessToken(user) {
+  const clientId = process.env.YAHOO_CLIENT_ID;
+  const clientSecret = process.env.YAHOO_CLIENT_SECRET;
+  const refreshToken = decrypt(user.yahooEmailSync?.refreshToken);
+
+  if (!refreshToken) {
+    throw new Error("No refresh token available for Yahoo user");
+  }
+
+  console.log(`🟣 [Yahoo Token Refresh] Refreshing access token for ${user.yahooEmailSync.yahooEmail}...`);
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const redirectUri = process.env.YAHOO_REDIRECT_URI || "https://fintrack.yencodetechnologies.in/api/email/oauth/callback";
+
+  const params = new URLSearchParams({
+    grant_type: "refresh_token",
+    redirect_uri: redirectUri,
+    refresh_token: refreshToken,
+  });
+
+  const response = await fetch(YAHOO_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${basicAuth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: params.toString(),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.access_token) {
+    console.error("🔴 [Yahoo Token Refresh] Failed:", response.status, data);
+    throw new Error(data.error_description || data.error || "Failed to refresh Yahoo access token");
+  }
+
+  const { encrypt } = require("../utils/tokenCrypto");
+  const encryptedAccess = encrypt(data.access_token);
+  const encryptedRefresh = data.refresh_token ? encrypt(data.refresh_token) : user.yahooEmailSync.refreshToken;
+  const tokenExpiry = new Date(Date.now() + (data.expires_in || 3600) * 1000);
+
+  user.yahooEmailSync.accessToken = encryptedAccess;
+  user.yahooEmailSync.refreshToken = encryptedRefresh;
+  user.yahooEmailSync.tokenExpiry = tokenExpiry;
+  await user.save();
+
+  console.log(`🟢 [Yahoo Token Refresh] Token refreshed successfully! Expires in ${data.expires_in}s`);
+  return data.access_token;
+}
+
 async function syncYahooUser(userId) {
   const user = await User.findById(userId);
   if (!user || !user.yahooEmailSync || !user.yahooEmailSync.connected) {
@@ -13,7 +63,7 @@ async function syncYahooUser(userId) {
     return { parsedCount: 0, newBillCount: 0 };
   }
 
-  const decryptedToken = decrypt(user.yahooEmailSync.accessToken);
+  let decryptedToken = decrypt(user.yahooEmailSync.accessToken);
   const yahooEmail = user.yahooEmailSync.yahooEmail;
 
   if (!decryptedToken || !yahooEmail) {
@@ -21,9 +71,19 @@ async function syncYahooUser(userId) {
     return { parsedCount: 0, newBillCount: 0 };
   }
 
+  // Check if token is expired or close to expiry (within 5 minutes)
+  const isExpired = user.yahooEmailSync.tokenExpiry && new Date(user.yahooEmailSync.tokenExpiry).getTime() - Date.now() < 300000;
+  if (isExpired) {
+    try {
+      decryptedToken = await refreshYahooAccessToken(user);
+    } catch (rErr) {
+      console.warn("⚠️ Token refresh failed before IMAP connect:", rErr.message);
+    }
+  }
+
   console.log(`🟣 [Yahoo IMAP Sync] Connecting to imap.mail.yahoo.com for ${yahooEmail}...`);
 
-  const client = new ImapFlow({
+  let client = new ImapFlow({
     host: "imap.mail.yahoo.com",
     port: 993,
     secure: true,
@@ -37,8 +97,40 @@ async function syncYahooUser(userId) {
   let parsedCount = 0;
   let newBillCount = 0;
 
+  let connected = false;
   try {
     await client.connect();
+    connected = true;
+  } catch (cErr) {
+    console.warn(`⚠️ [Yahoo IMAP Sync] Initial IMAP connect failed: ${cErr.message}. Attempting token refresh...`);
+    try {
+      decryptedToken = await refreshYahooAccessToken(user);
+      client = new ImapFlow({
+        host: "imap.mail.yahoo.com",
+        port: 993,
+        secure: true,
+        auth: {
+          user: yahooEmail,
+          accessToken: decryptedToken,
+        },
+        logger: false,
+      });
+      await client.connect();
+      connected = true;
+      console.log(`🟢 [Yahoo IMAP Sync] Reconnected successfully after token refresh!`);
+    } catch (rfErr) {
+      console.error(`🔴 [Yahoo IMAP Sync] Reconnect after token refresh failed:`, rfErr.message);
+    }
+  }
+
+  if (!connected) {
+    console.error(`🔴 [Yahoo IMAP Sync] Could not establish IMAP connection for ${yahooEmail}`);
+    user.yahooEmailSync.lastSyncAt = new Date();
+    await user.save();
+    return { parsedCount: 0, newBillCount: 0 };
+  }
+
+  try {
     console.log(`🟢 [Yahoo IMAP Sync] Connected to Yahoo IMAP! Accessing INBOX...`);
 
     const lock = await client.getMailboxLock("INBOX");

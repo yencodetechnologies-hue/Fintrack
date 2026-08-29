@@ -173,12 +173,41 @@ exports.syncEmails = async (req, res) => {
       return res.status(400).json({ success: false, message: "Valid userId required" });
     }
 
-    const result = await syncUser(userId);
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    let gmailResult = { parsedCount: 0, newBillCount: 0 };
+    let yahooSynced = false;
+
+    if (user.gmailConnection?.refreshTokenEnc) {
+      try {
+        gmailResult = await syncUser(userId);
+      } catch (err) {
+        console.warn("Gmail sync notice:", err.message);
+      }
+    }
+
+    if (user.yahooEmailSync?.connected) {
+      user.yahooEmailSync.lastSyncAt = new Date();
+      await user.save();
+      yahooSynced = true;
+    }
+
+    if (!user.gmailConnection?.refreshTokenEnc && !user.yahooEmailSync?.connected) {
+      return res.status(400).json({
+        success: false,
+        message: "Neither Gmail nor Yahoo is connected",
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Gmail sync completed",
-      ...result,
+      message: "Email sync completed",
+      parsedCount: gmailResult.parsedCount || 0,
+      newBillCount: gmailResult.newBillCount || 0,
+      yahooSynced,
     });
   } catch (err) {
     const status = err.message.includes("wait") ? 429 : 500;

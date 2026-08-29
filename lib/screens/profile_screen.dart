@@ -358,6 +358,38 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     );
   }
 
+  Future<void> _handleYahooSync() async {
+    setState(() => isYahooLoading = true);
+    debugPrint('🔄 [Yahoo Sync] Syncing emails from Yahoo for userId: ${widget.userId}');
+    try {
+      final res = await EmailSyncService.syncBills(widget.userId);
+      debugPrint('📊 [Yahoo Sync] Response received: $res');
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final parsed = res['parsedCount'] ?? 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Synced! Parsed $parsed statements.')),
+        );
+        await _loadYahooStatus();
+        debugPrint('📧 [Yahoo Sync] Connected Email: $yahooEmail | Visible in UI: ${yahooEmail != null && yahooEmail!.isNotEmpty}');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Failed to sync Yahoo emails')),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ [Yahoo Sync] Error syncing Yahoo emails: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error syncing Yahoo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isYahooLoading = false);
+    }
+  }
+
   Future<void> _handleYahooDisconnect() async {
     setState(() => isYahooLoading = true);
     try {
@@ -437,6 +469,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             child: Text('Close', style: GoogleFonts.inter(color: darkText)),
           ),
           if (yahooConnected) ...[
+            TextButton(
+              onPressed: isYahooLoading
+                  ? null
+                  : () {
+                      Navigator.pop(ctx);
+                      _handleYahooSync();
+                    },
+              child: Text('Sync now', style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold)),
+            ),
             TextButton(
               onPressed: isYahooLoading
                   ? null

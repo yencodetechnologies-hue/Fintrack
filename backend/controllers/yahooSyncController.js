@@ -3,21 +3,26 @@ const yahooAuthService = require("../services/yahooAuthService");
 async function getConnectUrl(req, res) {
   try {
     const { userId } = req.query;
+    console.log(`📥 [Yahoo Controller] GET /yahoo-connect-url requested for userId: ${userId}`);
     if (!userId) {
+      console.warn("⚠️ [Yahoo Controller] Missing userId query parameter");
       return res.status(400).json({ success: false, message: "userId query param required" });
     }
     const authUrl = yahooAuthService.getConnectUrl(userId);
+    console.log(`📤 [Yahoo Controller] Responding with connect authUrl`);
     return res.json({ success: true, authUrl });
   } catch (err) {
+    console.error("🔴 [Yahoo Controller] Error in getConnectUrl:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }
 
 async function handleCallback(req, res) {
   const { code, state, error, error_description } = req.query;
+  console.log(`📥 [Yahoo Controller] GET /oauth/callback received. state: ${state}, code length: ${code ? code.length : 0}`);
 
   if (error) {
-    console.error("Yahoo OAuth Error:", error, error_description);
+    console.error("🔴 [Yahoo Controller] Yahoo OAuth Callback Error:", error, error_description);
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -32,11 +37,13 @@ async function handleCallback(req, res) {
   }
 
   if (!code || !state) {
+    console.warn("⚠️ [Yahoo Controller] OAuth Callback missing code or state");
     return res.status(400).send("Missing code or state in OAuth callback.");
   }
 
   try {
     const result = await yahooAuthService.handleOAuthCallback(code, state);
+    console.log(`✅ [Yahoo Controller] Callback processed successfully for Yahoo email: ${result.yahooEmail}`);
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -66,7 +73,7 @@ async function handleCallback(req, res) {
       </html>
     `);
   } catch (err) {
-    console.error("Yahoo OAuth Callback Error:", err);
+    console.error("🔴 [Yahoo Controller] OAuth Callback Exception:", err.message);
     return res.status(500).send(`
       <!DOCTYPE html>
       <html>
@@ -83,9 +90,11 @@ async function handleCallback(req, res) {
 async function getStatus(req, res) {
   try {
     const { userId } = req.params;
+    console.log(`📥 [Yahoo Controller] GET /yahoo-status/${userId}`);
     const status = await yahooAuthService.getYahooStatus(userId);
     return res.json({ success: true, ...status });
   } catch (err) {
+    console.error("🔴 [Yahoo Controller] Error in getStatus:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }
@@ -93,12 +102,14 @@ async function getStatus(req, res) {
 async function disconnect(req, res) {
   try {
     const { userId } = req.body;
+    console.log(`📥 [Yahoo Controller] POST /yahoo-disconnect for userId: ${userId}`);
     if (!userId) {
       return res.status(400).json({ success: false, message: "userId is required" });
     }
     const result = await yahooAuthService.disconnectYahoo(userId);
     return res.json(result);
   } catch (err) {
+    console.error("🔴 [Yahoo Controller] Error in disconnect:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }

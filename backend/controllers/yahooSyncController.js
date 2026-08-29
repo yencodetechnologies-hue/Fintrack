@@ -106,6 +106,14 @@ async function disconnect(req, res) {
     if (!userId) {
       return res.status(400).json({ success: false, message: "userId is required" });
     }
+    const result = await yahooAuthService.disconnectYahoo(userId);
+    return res.json(result);
+  } catch (err) {
+    console.error("🔴 [Yahoo Controller] Error in disconnect:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
 async function connectAppPassword(req, res) {
   try {
     const { userId, yahooEmail, appPassword } = req.body;

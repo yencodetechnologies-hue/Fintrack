@@ -20,7 +20,7 @@ function getConnectUrl(userId) {
   const redirectUri = getRedirectUri();
   const encodedRedirectUri = encodeURIComponent(redirectUri);
   const encodedState = encodeURIComponent(`yahoo_${userId}`);
-  const encodedScope = encodeURIComponent("openid email profile");
+  const encodedScope = encodeURIComponent("openid email profile mail-r");
 
   const authUrl = `${YAHOO_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
   console.log(`🟣 [Yahoo OAuth Service] Redirect URI: ${redirectUri}`);

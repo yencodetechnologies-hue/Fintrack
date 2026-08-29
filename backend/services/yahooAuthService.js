@@ -160,9 +160,33 @@ async function disconnectYahoo(userId) {
   return { success: true, message: "Yahoo disconnected successfully" };
 }
 
+async function connectYahooWithAppPassword(userId, yahooEmail, appPassword) {
+  console.log(`🟣 [Yahoo Service] Linking Yahoo App Password for ${yahooEmail}...`);
+  const encryptedAppPassword = encrypt(appPassword);
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    {
+      "yahooEmailSync.connected": true,
+      "yahooEmailSync.yahooEmail": yahooEmail,
+      "yahooEmailSync.appPassword": encryptedAppPassword,
+      "yahooEmailSync.lastSyncAt": new Date(),
+    },
+    { new: true }
+  );
+
+  if (!updatedUser) {
+    throw new Error("User not found");
+  }
+
+  console.log(`✅ [Yahoo Service] Yahoo App Password saved successfully for ${yahooEmail}`);
+  return { success: true, yahooEmail };
+}
+
 module.exports = {
   getConnectUrl,
   handleOAuthCallback,
   getYahooStatus,
   disconnectYahoo,
+  connectYahooWithAppPassword,
 };

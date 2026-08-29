@@ -28,5 +28,6 @@ router.delete("/disconnect", disconnect);
 router.get("/yahoo-connect-url", yahooSyncController.getConnectUrl);
 router.get("/yahoo-status/:userId", yahooSyncController.getStatus);
 router.post("/yahoo-disconnect", yahooSyncController.disconnect);
+router.post("/yahoo-connect-app-password", yahooSyncController.connectAppPassword);
 
 module.exports = router;

@@ -106,10 +106,17 @@ async function disconnect(req, res) {
     if (!userId) {
       return res.status(400).json({ success: false, message: "userId is required" });
     }
-    const result = await yahooAuthService.disconnectYahoo(userId);
+async function connectAppPassword(req, res) {
+  try {
+    const { userId, yahooEmail, appPassword } = req.body;
+    console.log(`📥 [Yahoo Controller] POST /yahoo-connect-app-password for ${yahooEmail}`);
+    if (!userId || !yahooEmail || !appPassword) {
+      return res.status(400).json({ success: false, message: "userId, yahooEmail, and appPassword are required" });
+    }
+    const result = await yahooAuthService.connectYahooWithAppPassword(userId, yahooEmail, appPassword);
     return res.json(result);
   } catch (err) {
-    console.error("🔴 [Yahoo Controller] Error in disconnect:", err.message);
+    console.error("🔴 [Yahoo Controller] Error in connectAppPassword:", err.message);
     return res.status(500).json({ success: false, message: err.message });
   }
 }
@@ -119,4 +126,5 @@ module.exports = {
   handleCallback,
   getStatus,
   disconnect,
+  connectAppPassword,
 };

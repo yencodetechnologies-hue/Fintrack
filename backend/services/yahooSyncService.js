@@ -83,14 +83,21 @@ async function syncYahooUser(userId) {
 
   console.log(`🟣 [Yahoo IMAP Sync] Connecting to imap.mail.yahoo.com for ${yahooEmail}...`);
 
+  const decryptedAppPassword = user.yahooEmailSync.appPassword ? decrypt(user.yahooEmailSync.appPassword) : null;
+
+  let authObject;
+  if (decryptedAppPassword) {
+    console.log(`🔑 [Yahoo IMAP Sync] Using Yahoo App Password for authentication...`);
+    authObject = { user: yahooEmail, pass: decryptedAppPassword };
+  } else {
+    authObject = { user: yahooEmail, accessToken: decryptedToken };
+  }
+
   let client = new ImapFlow({
     host: "imap.mail.yahoo.com",
     port: 993,
     secure: true,
-    auth: {
-      user: yahooEmail,
-      accessToken: decryptedToken,
-    },
+    auth: authObject,
     logger: false,
   });
 
@@ -102,24 +109,27 @@ async function syncYahooUser(userId) {
     await client.connect();
     connected = true;
   } catch (cErr) {
-    console.warn(`⚠️ [Yahoo IMAP Sync] Initial IMAP connect failed: ${cErr.message}. Attempting token refresh...`);
-    try {
-      decryptedToken = await refreshYahooAccessToken(user);
-      client = new ImapFlow({
-        host: "imap.mail.yahoo.com",
-        port: 993,
-        secure: true,
-        auth: {
-          user: yahooEmail,
-          accessToken: decryptedToken,
-        },
-        logger: false,
-      });
-      await client.connect();
-      connected = true;
-      console.log(`🟢 [Yahoo IMAP Sync] Reconnected successfully after token refresh!`);
-    } catch (rfErr) {
-      console.error(`🔴 [Yahoo IMAP Sync] Reconnect after token refresh failed:`, rfErr.message);
+    console.warn(`⚠️ [Yahoo IMAP Sync] Initial IMAP connect failed: ${cErr.message}`);
+    if (!decryptedAppPassword) {
+      try {
+        console.log(`🟣 [Yahoo IMAP Sync] Retrying with refreshed OAuth token...`);
+        decryptedToken = await refreshYahooAccessToken(user);
+        client = new ImapFlow({
+          host: "imap.mail.yahoo.com",
+          port: 993,
+          secure: true,
+          auth: {
+            user: yahooEmail,
+            accessToken: decryptedToken,
+          },
+          logger: false,
+        });
+        await client.connect();
+        connected = true;
+        console.log(`🟢 [Yahoo IMAP Sync] Reconnected successfully after token refresh!`);
+      } catch (rfErr) {
+        console.error(`🔴 [Yahoo IMAP Sync] Reconnect after token refresh failed:`, rfErr.message);
+      }
     }
   }
 

@@ -1,0 +1,137 @@
+name: Fintrack Backend Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy Fintrack Backend
+        uses: appleboy/ssh-action@v0.1.10
+
+        with:
+          host: 72.61.236.154
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+
+          script: |
+
+            cd ~/Fintrack/Fintrack/backend
+
+            echo "📥 Updating Fintrack project..."
+
+            git fetch origin
+            git reset --hard origin/main
+
+
+            echo "⚙️ Loading Node..."
+
+            export NVM_DIR="$HOME/.nvm"
+
+            if [ -s "$NVM_DIR/nvm.sh" ]; then
+              . "$NVM_DIR/nvm.sh"
+              nvm use 20 || nvm install 20
+
+            elif [ -s "/usr/local/nvm/nvm.sh" ]; then
+              . "/usr/local/nvm/nvm.sh"
+              nvm use 20 || nvm install 20
+
+            else
+              echo "Using system node"
+              node -v
+            fi
+
+
+            echo "📦 Installing dependencies..."
+
+            npm install
+
+
+            echo "🚀 Restarting PM2..."
+
+            PM2_APP="fintrack"
+
+
+            if pm2 describe "$PM2_APP" > /dev/null 2>&1; then
+
+                pm2 restart "$PM2_APP" --update-env
+
+            else
+
+                echo "PM2 app not found. Starting..."
+
+                pm2 start server.js --name "$PM2_APP"
+
+            fi
+
+
+            echo "💾 Saving PM2..."
+
+            pm2 save
+
+
+            echo "🔍 Checking PM2 status..."
+
+            pm2 describe "$PM2_APP" | grep -E "script path|exec cwd|node.js version|status" || true
+
+
+
+            echo "🔍 Health Check..."
+
+            ATTEMPTS=10
+            HEALTH_OK=0
+
+
+            for i in $(seq 1 $ATTEMPTS); do
+
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health || echo "000")
+
+
+              if [ "$HTTP_CODE" = "200" ]; then
+
+                echo "✅ Fintrack API healthy"
+
+                HEALTH_OK=1
+
+                break
+
+              fi
+
+
+              echo "Attempt $i/$ATTEMPTS failed HTTP $HTTP_CODE"
+
+              sleep 3
+
+            done
+
+
+
+            if [ "$HEALTH_OK" != "1" ]; then
+
+              echo "❌ Fintrack API failed"
+
+              echo "Port check:"
+
+              ss -tlnp | grep ':8000' || true
+
+
+              echo "PM2 Logs"
+
+              pm2 logs "$PM2_APP" --lines 50 --nostream || true
+
+
+              exit 1
+
+            fi
+
+
+
+            echo "🔍 Checking Fintrack API routes..."
+
+            echo "✅ Fintrack deployment completed"

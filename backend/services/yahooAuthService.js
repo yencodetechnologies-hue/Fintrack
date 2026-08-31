@@ -9,7 +9,7 @@ function getRedirectUri() {
   return process.env.YAHOO_REDIRECT_URI || "https://fintrack.yencodetechnologies.in/api/email/oauth/callback";
 }
 
-function getConnectUrl(userId) {
+function getConnectUrl(userId, useFullClientId = false) {
   console.log(`🟣 [Yahoo OAuth Service] Generating connect URL for userId: ${userId}`);
   const clientId = process.env.YAHOO_CLIENT_ID;
   if (!clientId) {
@@ -17,12 +17,14 @@ function getConnectUrl(userId) {
     throw new Error("YAHOO_CLIENT_ID is not configured in backend/.env");
   }
 
+  const encodedClientId = encodeURIComponent(clientId);
   const redirectUri = getRedirectUri();
   const encodedRedirectUri = encodeURIComponent(redirectUri);
   const encodedState = encodeURIComponent(`yahoo_${userId}`);
-  const encodedScope = encodeURIComponent("openid email profile mail-r");
+  const encodedScope = encodeURIComponent("openid email profile");
 
-  const authUrl = `${YAHOO_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
+  const authUrl = `${YAHOO_AUTH_URL}?client_id=${encodedClientId}&redirect_uri=${encodedRedirectUri}&response_type=code&state=${encodedState}&scope=${encodedScope}&prompt=consent`;
+  console.log(`🟣 [Yahoo OAuth Service] Encoded Client ID: ${encodedClientId}`);
   console.log(`🟣 [Yahoo OAuth Service] Redirect URI: ${redirectUri}`);
   console.log(`🟣 [Yahoo OAuth Service] Generated Auth URL: ${authUrl}`);
   return authUrl;

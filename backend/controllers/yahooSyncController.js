@@ -2,13 +2,13 @@ const yahooAuthService = require("../services/yahooAuthService");
 
 async function getConnectUrl(req, res) {
   try {
-    const { userId } = req.query;
-    console.log(`📥 [Yahoo Controller] GET /yahoo-connect-url requested for userId: ${userId}`);
+    const { userId, useFull } = req.query;
+    console.log(`📥 [Yahoo Controller] GET /yahoo-connect-url requested for userId: ${userId}, useFull: ${useFull}`);
     if (!userId) {
       console.warn("⚠️ [Yahoo Controller] Missing userId query parameter");
       return res.status(400).json({ success: false, message: "userId query param required" });
     }
-    const authUrl = yahooAuthService.getConnectUrl(userId);
+    const authUrl = yahooAuthService.getConnectUrl(userId, useFull === "true");
     console.log(`📤 [Yahoo Controller] Responding with connect authUrl`);
     return res.json({ success: true, authUrl });
   } catch (err) {

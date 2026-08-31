@@ -98,7 +98,7 @@ async function syncYahooUser(userId) {
     port: 993,
     secure: true,
     auth: authObject,
-    logger: false,
+    logger: true,
   });
 
   let parsedCount = 0;
@@ -122,7 +122,7 @@ async function syncYahooUser(userId) {
             user: yahooEmail,
             accessToken: decryptedToken,
           },
-          logger: false,
+          logger: true,
         });
         await client.connect();
         connected = true;

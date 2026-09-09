@@ -45,6 +45,10 @@ const expenseSchema = new mongoose.Schema(
       ref: "Expense",
       default: null,
     },
+    manuallyReopened: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

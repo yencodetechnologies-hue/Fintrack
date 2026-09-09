@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // Live Production Endpoint
-  static const String baseUrl = "https://fintrack.yencodetechnologies.in";
+  // Local Testing Endpoint (Port 3009)
+  // Android Emulator: http://10.0.2.2:3009 | iOS Simulator/Desktop: http://localhost:3009
+  // Production Endpoint: https://fintrack.yencodetechnologies.in
+  static const String baseUrl = "http://10.0.2.2:3009";
 
   static const String authBase = "$baseUrl/api/auth";
   static const String signup = "$authBase/signup";

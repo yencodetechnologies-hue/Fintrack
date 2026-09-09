@@ -47,7 +47,82 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     "Utilities",
     "Software & Tech",
     "Other",
+    "+ Add Custom Category...",
   ];
+
+  void _promptCustomCategoryDialog() {
+    final customTextController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: creamSheet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.add_circle_outline_rounded, color: forestDark),
+            const SizedBox(width: 8),
+            Text("Custom Category", style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, fontSize: 18, color: forestDark)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Enter a custom category name for this expense:",
+              style: GoogleFonts.inter(fontSize: 13, color: darkText.withValues(alpha: 0.7)),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: customTextController,
+              autofocus: true,
+              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                hintText: "e.g. Marketing, Equipment, Taxes",
+                hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: forestDark, width: 1.8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (_selectedCategory == "+ Add Custom Category...") {
+                setState(() => _selectedCategory = _categories.first);
+              }
+            },
+            child: Text("Cancel", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final customName = customTextController.text.trim();
+              if (customName.isNotEmpty) {
+                setState(() {
+                  if (!_categories.contains(customName)) {
+                    _categories.insert(_categories.length - 1, customName);
+                  }
+                  _selectedCategory = customName;
+                });
+                Navigator.pop(ctx);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: forestDark,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text("Add Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -259,13 +334,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: forestDark, width: 1.8)),
                   ),
                   items: _categories.map((cat) {
+                    final isCustomAction = cat == "+ Add Custom Category...";
                     return DropdownMenuItem(
                       value: cat,
-                      child: Text(cat, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14)),
+                      child: Row(
+                        children: [
+                          if (isCustomAction) ...[
+                            const Icon(Icons.add_circle_outline_rounded, color: forestDark, size: 18),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(
+                            cat,
+                            style: GoogleFonts.inter(
+                              color: isCustomAction ? forestDark : darkText,
+                              fontWeight: isCustomAction ? FontWeight.bold : FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   }).toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _selectedCategory = val);
+                    if (val == "+ Add Custom Category...") {
+                      _promptCustomCategoryDialog();
+                    } else if (val != null) {
+                      setState(() => _selectedCategory = val);
+                    }
                   },
                 ),
                 const SizedBox(height: 18),

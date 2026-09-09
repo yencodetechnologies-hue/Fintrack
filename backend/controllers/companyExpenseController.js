@@ -338,9 +338,9 @@ exports.getCompanyExpenses = async (req, res) => {
 
     const adminUserIds = await getCompanyAdminUserIds(companyId);
 
-    // Auto-fix: Admin-created expenses are automatically paid
+    // Auto-fix: Admin-created expenses are automatically paid unless manually reopened as unpaid
     await Expense.updateMany(
-      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding" },
+      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding", manuallyReopened: false },
       { status: "paid" }
     );
 
@@ -518,7 +518,7 @@ exports.getCompanyBalanceSummary = async (req, res) => {
 
     const adminUserIds = await getCompanyAdminUserIds(companyId);
     await Expense.updateMany(
-      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding" },
+      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding", manuallyReopened: false },
       { status: "paid" }
     );
 
@@ -564,6 +564,133 @@ exports.getCompanyBalanceSummary = async (req, res) => {
       totalPayable,
       totalCompanySpent,
       netBalance: totalReceivable - totalPayable,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 12. Change Expense Status (To Paid or Unpaid)
+exports.resetExpenseToUnpaid = async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const { userId, status } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const expense = await Expense.findById(expenseId);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    const adminUserIds = await getCompanyAdminUserIds(expense.companyId);
+    const isAdmin = adminUserIds.includes(userId.toString());
+    const isCreator = expense.createdBy.toString() === userId.toString();
+
+    const settlement = await Settlement.findOne({ expenseId: expense._id }).sort({ createdAt: -1 });
+    const isPayer = settlement && settlement.paidBy && settlement.paidBy.toString() === userId.toString();
+    const isReceiver = settlement && settlement.paidTo && settlement.paidTo.toString() === userId.toString();
+
+    if (!isAdmin && !isCreator && !isPayer && !isReceiver) {
+      return res.status(403).json({ success: false, message: "Only an Admin, Expense Creator, or Payment Settler can change expense status" });
+    }
+
+    const targetStatus = status === "paid" ? "paid" : "outstanding";
+
+    if (targetStatus === "paid") {
+      expense.status = "paid";
+      expense.manuallyReopened = true;
+      await expense.save();
+
+      if (!settlement) {
+        const newSettlement = new Settlement({
+          companyId: expense.companyId,
+          expenseId: expense._id,
+          paidBy: userId,
+          paidTo: expense.createdBy,
+          amount: expense.amount,
+          paymentMode: "cash",
+          paymentProof: "",
+          initiatedBy: "payer",
+        });
+        await newSettlement.save();
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Expense status changed to Paid / Settled",
+        expense,
+      });
+    } else {
+      expense.status = "outstanding";
+      expense.manuallyReopened = true;
+      await expense.save();
+
+      // Delete ALL settlement records for this expense to completely reset payment history
+      await Settlement.deleteMany({ expenseId: expense._id });
+
+      return res.status(200).json({
+        success: true,
+        message: "Expense status changed to Unpaid (Outstanding)",
+        expense,
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 13. Edit Payment Details (Mode / Proof)
+exports.editExpenseSettlement = async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const { userId, paymentMode, paymentProof } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const expense = await Expense.findById(expenseId);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    const adminUserIds = await getCompanyAdminUserIds(expense.companyId);
+    const isAdmin = adminUserIds.includes(userId.toString());
+    const isCreator = expense.createdBy.toString() === userId.toString();
+
+    let settlement = await Settlement.findOne({ expenseId: expense._id }).sort({ createdAt: -1 });
+    const isPayer = settlement && settlement.paidBy && settlement.paidBy.toString() === userId.toString();
+    const isReceiver = settlement && settlement.paidTo && settlement.paidTo.toString() === userId.toString();
+
+    if (!isAdmin && !isCreator && !isPayer && !isReceiver) {
+      return res.status(403).json({ success: false, message: "Only an Admin, Expense Creator, or Payment Settler can edit payment details" });
+    }
+
+    if (settlement) {
+      if (paymentMode) settlement.paymentMode = paymentMode;
+      if (paymentProof !== undefined) settlement.paymentProof = paymentProof;
+      await settlement.save();
+    } else {
+      settlement = new Settlement({
+        companyId: expense.companyId,
+        expenseId: expense._id,
+        paidBy: userId,
+        paidTo: expense.createdBy,
+        amount: expense.amount,
+        paymentMode: paymentMode || "cash",
+        paymentProof: paymentProof || "",
+        initiatedBy: "payer",
+      });
+      await settlement.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Payment details updated successfully",
+      settlement,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

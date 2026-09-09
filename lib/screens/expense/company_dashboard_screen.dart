@@ -8,6 +8,7 @@ import 'add_expense_screen.dart';
 import 'company_settings_screen.dart';
 import 'pay_expense_modal.dart';
 import 'received_expense_modal.dart';
+import 'edit_payment_modal.dart';
 import 'create_company_screen.dart';
 import 'join_company_screen.dart';
 
@@ -44,6 +45,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   bool _isLoading = true;
   List<Map<String, dynamic>> _expenses = [];
+  final Set<String> _expandedExpenseIds = {};
   double _totalReceivable = 0.0;
   double _totalPayable = 0.0;
   double _totalCompanySpent = 0.0;
@@ -158,6 +160,104 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     }
   }
 
+  Future<void> _changeExpenseStatus(Map<String, dynamic> expense, String targetStatus) async {
+    final bool isTargetPaid = targetStatus == "paid";
+    final String title = isTargetPaid ? "Mark Expense as Paid?" : "Change Status to Unpaid?";
+    final String contentMsg = isTargetPaid
+        ? "This expense will be marked as Paid (Settled).\n\nAre you sure you want to proceed?"
+        : "This expense will be reset to Outstanding (Unpaid) status, and any existing settlement history for this expense will be cleared.\n\nAre you sure you want to proceed?";
+    final String confirmBtnText = isTargetPaid ? "Mark as Paid" : "Reset to Unpaid";
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: creamSheet,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          title,
+          style: GoogleFonts.fraunces(color: forestDark, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          contentMsg,
+          style: GoogleFonts.inter(color: darkText, fontSize: 13.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              "Cancel",
+              style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isTargetPaid ? emerald : terracotta,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text(confirmBtnText, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final res = await ExpenseCompanyService.resetExpenseToUnpaid(
+      expenseId: expense["_id"].toString(),
+      userId: widget.userId,
+      status: targetStatus,
+    );
+
+    if (!mounted) return;
+
+    if (res["success"] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isTargetPaid ? "Expense status changed to Paid (Settled)" : "Expense status changed to Unpaid (Outstanding)",
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      _refreshDashboard();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res["message"] ?? "Failed to update expense status",
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _openEditPaymentModal(Map<String, dynamic> expense, Map<String, dynamic>? existingSettlement) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => EditPaymentModal(
+        expense: expense,
+        userId: widget.userId,
+        existingSettlement: existingSettlement,
+      ),
+    );
+
+    if (updated == true) {
+      _refreshDashboard();
+    }
+  }
+
+
   Widget _buildImageWidget(String imageStr) {
     if (imageStr.isEmpty) return const SizedBox.shrink();
     try {
@@ -202,13 +302,28 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   void _openExpenseAuditModal(Map<String, dynamic> expense) {
     final creator = expense["createdBy"];
-    final creatorName = creator != null ? creator["name"] ?? "Member" : "Member";
-    final creatorEmail = creator != null ? creator["email"] ?? "" : "";
+    final creatorId = creator != null ? (creator is Map ? creator["_id"]?.toString() ?? "" : creator.toString()) : "";
+    final creatorName = creator != null ? (creator is Map ? creator["name"] ?? "Member" : "Member") : "Member";
+    final creatorEmail = creator != null ? (creator is Map ? creator["email"] ?? "" : "") : "";
     final isPaid = expense["status"] == "paid";
     final amount = (expense["amount"] as num?)?.toDouble() ?? 0.0;
     final dateStr = expense["date"] != null
         ? DateFormat("dd MMM, yyyy • hh:mm a").format(DateTime.parse(expense["date"]))
         : "";
+
+    final settlementSingle = expense["settlement"];
+    final String paidById = settlementSingle != null && settlementSingle["paidBy"] != null
+        ? (settlementSingle["paidBy"] is Map ? settlementSingle["paidBy"]["_id"]?.toString() ?? "" : settlementSingle["paidBy"].toString())
+        : "";
+    final String paidToId = settlementSingle != null && settlementSingle["paidTo"] != null
+        ? (settlementSingle["paidTo"] is Map ? settlementSingle["paidTo"]["_id"]?.toString() ?? "" : settlementSingle["paidTo"].toString())
+        : "";
+
+    final bool isAdmin = _isAdmin;
+    final bool isCreator = creatorId == widget.userId;
+    final bool isPayer = paidById == widget.userId;
+    final bool isReceiver = paidToId == widget.userId;
+    final bool canManagePayment = isAdmin || isCreator || isPayer || isReceiver;
 
     final settlementsRaw = expense["settlements"] as List?;
     final List<Map<String, dynamic>> settlementList = [];
@@ -546,6 +661,59 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         }),
                         const SizedBox(height: 12),
                       ],
+
+                      // 4. Payment Actions (Edit Payment Details or Change to Unpaid)
+                      if (canManagePayment) ...[
+                        Text(
+                          "Payment Options",
+                          style: GoogleFonts.fraunces(color: darkText, fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (isPaid || settlementList.isNotEmpty) ...[
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    _openEditPaymentModal(
+                                      expense,
+                                      settlementList.isNotEmpty ? settlementList.last : null,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.edit_rounded, size: 16, color: forestDark),
+                                  label: Text("Edit Payment", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: forestDark,
+                                    side: const BorderSide(color: forestDark, width: 1.2),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _changeExpenseStatus(expense, isPaid ? "outstanding" : "paid");
+                                },
+                                icon: Icon(isPaid ? Icons.undo_rounded : Icons.check_circle_rounded, size: 16, color: isPaid ? terracotta : emerald),
+                                label: Text(
+                                  isPaid ? "Change to Unpaid" : "Mark as Paid",
+                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: isPaid ? terracotta : emerald,
+                                  side: BorderSide(color: isPaid ? terracotta : emerald, width: 1.2),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                     ],
                   ),
                 ),
@@ -822,7 +990,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: _expenses.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 14),
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
                           return _buildExpenseCard(_expenses[index]);
                         },
@@ -989,222 +1157,339 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     final settlementPayer = settlement != null && settlement["paidBy"] != null ? settlement["paidBy"]["name"] ?? "Member" : "";
     final settlementRecipient = settlement != null && settlement["paidTo"] != null ? settlement["paidTo"]["name"] ?? "Member" : creatorName;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final String paidById = settlement != null && settlement["paidBy"] != null
+        ? (settlement["paidBy"] is Map ? settlement["paidBy"]["_id"]?.toString() ?? "" : settlement["paidBy"].toString())
+        : "";
+    final String paidToId = settlement != null && settlement["paidTo"] != null
+        ? (settlement["paidTo"] is Map ? settlement["paidTo"]["_id"]?.toString() ?? "" : settlement["paidTo"].toString())
+        : "";
+
+    final bool isAdmin = _isAdmin;
+    final bool isCreator = creatorId == widget.userId;
+    final bool isPayer = paidById == widget.userId;
+    final bool isReceiver = paidToId == widget.userId;
+    final bool canManagePayment = isAdmin || isCreator || isPayer || isReceiver;
+
+    final String expenseId = expense["_id"]?.toString() ?? "";
+    final bool isExpanded = _expandedExpenseIds.contains(expenseId);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+        onTap: () {
+          setState(() {
+            if (isExpanded) {
+              _expandedExpenseIds.remove(expenseId);
+            } else {
+              _expandedExpenseIds.add(expenseId);
+            }
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.025),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: Category, Date, Status Badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              // Header: Category, Date, Status Badge, Controls & Expand Arrow
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: forestDark.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              expense["category"] ?? "General",
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(color: forestDark, fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            dateStr,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                         decoration: BoxDecoration(
-                          color: forestDark.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
+                          color: isPaid ? emerald.withValues(alpha: 0.12) : terracotta.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          expense["category"] ?? "General",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(color: forestDark, fontSize: 11, fontWeight: FontWeight.bold),
+                          isPaid ? "PAID / SETTLED" : "OUTSTANDING",
+                          style: GoogleFonts.inter(
+                            color: isPaid ? emerald : terracotta,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        dateStr,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
+                      const SizedBox(width: 2),
+                      IconButton(
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.all(2),
+                        tooltip: "View Expense Details & History",
+                        icon: const Icon(Icons.info_outline_rounded, color: forestDark, size: 18),
+                        onPressed: () => _openExpenseAuditModal(expense),
                       ),
-                    ),
-                  ],
-                ),
+                      if (canManagePayment) ...[
+                        PopupMenuButton<String>(
+                          color: Colors.white,
+                          surfaceTintColor: Colors.white,
+                          elevation: 6,
+                          shadowColor: Colors.black.withValues(alpha: 0.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(2),
+                          icon: Icon(Icons.more_vert_rounded, color: darkText.withValues(alpha: 0.7), size: 18),
+                          tooltip: "Payment Options",
+                          onSelected: (val) {
+                            if (val == "unpaid") {
+                              _changeExpenseStatus(expense, "outstanding");
+                            } else if (val == "mark_paid") {
+                              _changeExpenseStatus(expense, "paid");
+                            } else if (val == "edit") {
+                              _openEditPaymentModal(expense, settlement);
+                            }
+                          },
+                          itemBuilder: (ctx) => [
+                            if (isPaid || settlement != null)
+                              PopupMenuItem(
+                                value: "edit",
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.edit_rounded, size: 18, color: forestDark),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      "Edit Payment Details",
+                                      style: GoogleFonts.inter(fontSize: 13, color: forestDark, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            if (isPaid)
+                              PopupMenuItem(
+                                value: "unpaid",
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.undo_rounded, size: 18, color: terracotta),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      "Change to Unpaid",
+                                      style: GoogleFonts.inter(fontSize: 13, color: terracotta, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              PopupMenuItem(
+                                value: "mark_paid",
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, size: 18, color: emerald),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      "Mark as Paid / Settled",
+                                      style: GoogleFonts.inter(fontSize: 13, color: emerald, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(width: 2),
+                      Icon(
+                        isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                        color: forestDark,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
+              const SizedBox(height: 6),
+
+              // Title & Amount Row
               Row(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isPaid ? emerald.withValues(alpha: 0.12) : terracotta.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                  Expanded(
                     child: Text(
-                      isPaid ? "PAID / SETTLED" : "OUTSTANDING",
+                      expense["description"] ?? "Expense Claim",
                       style: GoogleFonts.inter(
-                        color: isPaid ? emerald : terracotta,
-                        fontSize: 10,
+                        color: darkText,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 2),
-                  IconButton(
-                    constraints: const BoxConstraints(),
-                    padding: const EdgeInsets.all(4),
-                    tooltip: "View Expense Details & History",
-                    icon: const Icon(Icons.info_outline_rounded, color: forestDark, size: 20),
-                    onPressed: () => _openExpenseAuditModal(expense),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Title & Amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  expense["description"] ?? "Expense Claim",
-                  style: GoogleFonts.inter(
-                    color: darkText,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                "₹${amount.toStringAsFixed(2)}",
-                style: GoogleFonts.fraunces(
-                  color: darkText,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-
-          // Creditor info (Who is currently owed money)
-          Row(
-            children: [
-              Icon(Icons.person_outline_rounded, size: 15, color: darkText.withValues(alpha: 0.5)),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  isPaid
-                      ? (isViewerCreator ? "Logged by You (Paid)" : "Paid by $creatorName")
-                      : (settlement != null
-                          ? (isViewerCreditor
-                              ? "Paid to $settlementRecipient by You • Owed to You"
-                              : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
-                                  ? "Paid by $settlementPayer • Owed to $creditorName"
-                                  : "$settlementPayer paid $settlementRecipient • Owed to $creditorName"))
-                          : (isViewerCreditor ? "Claimed by You • Owed to You" : "Owed to $creditorName")),
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    color: darkText.withValues(alpha: 0.7),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          // Attachment / Proof if any
-          if (expense["attachment"] != null && expense["attachment"].toString().isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.attach_file_rounded, size: 14, color: forestDark),
-                const SizedBox(width: 4),
-                Text("Receipt Attached", style: GoogleFonts.inter(color: forestDark, fontSize: 11.5, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
-
-          const SizedBox(height: 14),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-
-          // Contextual Action Buttons / Settlement Info
-          if (!isPaid) ...[
-            if (!isViewerCreditor)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _openPayModal(expense),
-                  icon: const Icon(Icons.payment_rounded, size: 18, color: Colors.white),
-                  label: Text("Pay (₹${amount.toStringAsFixed(0)})"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: forestDark,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openReceivedModal(expense),
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: forestDark),
-                  label: const Text("Mark Payment Received"),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: forestDark,
-                    side: const BorderSide(color: forestDark, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-          ],
-
-          // Settlement Summary Footer (if any payment was made)
-          if (settlement != null) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Icon(
-                  isPaid ? Icons.verified_rounded : Icons.history_rounded,
-                  size: 16,
-                  color: isPaid ? emerald : forestDark,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    isPaid
-                        ? (settlementPayer.isNotEmpty
-                            ? "Settled via ${settlement['paymentMode']?.toString().toUpperCase()} by $settlementPayer"
-                            : "Settled / Company Funded")
-                        : "Paid via ${settlement['paymentMode']?.toString().toUpperCase()} by $settlementPayer to $settlementRecipient",
-                    style: GoogleFonts.inter(
-                      color: isPaid ? emerald : darkText.withValues(alpha: 0.7),
-                      fontSize: 12,
+                  const SizedBox(width: 10),
+                  Text(
+                    "₹${amount.toStringAsFixed(2)}",
+                    style: GoogleFonts.fraunces(
+                      color: darkText,
+                      fontSize: 17.5,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 2),
+
+              // Creditor info (Who is currently owed money)
+              Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 14, color: darkText.withValues(alpha: 0.5)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      isPaid
+                          ? (isViewerCreator ? "Logged by You (Paid)" : "Paid by $creatorName")
+                          : (settlement != null
+                              ? (isViewerCreditor
+                                  ? "Paid to $settlementRecipient by You • Owed to You"
+                                  : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
+                                      ? "Paid by $settlementPayer • Owed to $creditorName"
+                                      : "$settlementPayer paid $settlementRecipient • Owed to $creditorName"))
+                              : (isViewerCreditor ? "Claimed by You • Owed to You" : "Owed to $creditorName")),
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(
+                        color: darkText.withValues(alpha: 0.65),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // EXPANDED / UNFOLDED CONTENT (Fluid AnimatedCrossFade)
+              AnimatedCrossFade(
+                firstChild: const SizedBox.shrink(),
+                secondChild: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (expense["attachment"] != null && expense["attachment"].toString().isNotEmpty) ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.attach_file_rounded, size: 14, color: forestDark),
+                            const SizedBox(width: 4),
+                            Text("Receipt Attached", style: GoogleFonts.inter(color: forestDark, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+
+                      // Contextual Action Buttons / Settlement Info
+                      if (!isPaid) ...[
+                        if (!isViewerCreditor)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _openPayModal(expense),
+                              icon: const Icon(Icons.payment_rounded, size: 18, color: Colors.white),
+                              label: Text("Pay (₹${amount.toStringAsFixed(0)})"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: forestDark,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _openReceivedModal(expense),
+                              icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: forestDark),
+                              label: const Text("Mark Payment Received"),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: forestDark,
+                                side: const BorderSide(color: forestDark, width: 1.5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                      ],
+
+                      // Settlement Summary Footer (if any payment was made)
+                      if (settlement != null) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              isPaid ? Icons.verified_rounded : Icons.history_rounded,
+                              size: 16,
+                              color: isPaid ? emerald : forestDark,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                isPaid
+                                    ? (settlementPayer.isNotEmpty
+                                        ? "Settled via ${settlement['paymentMode']?.toString().toUpperCase()} by $settlementPayer"
+                                        : "Settled / Company Funded")
+                                    : "Paid via ${settlement['paymentMode']?.toString().toUpperCase()} by $settlementPayer to $settlementRecipient",
+                                style: GoogleFonts.inter(
+                                  color: isPaid ? emerald : darkText.withValues(alpha: 0.7),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ],
-        ],
+                crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 300),
+                sizeCurve: Curves.fastOutSlowIn,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

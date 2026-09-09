@@ -16,6 +16,9 @@ router.post("/expense/create", companyExpenseController.createExpense);
 router.get("/company/:companyId/expenses", companyExpenseController.getCompanyExpenses);
 router.post("/expense/:expenseId/pay", companyExpenseController.payExpense);
 router.post("/expense/:expenseId/receive", companyExpenseController.receiveExpense);
+router.post("/expense/:expenseId/reset-unpaid", companyExpenseController.resetExpenseToUnpaid);
+router.post("/expense/:expenseId/edit-settlement", companyExpenseController.editExpenseSettlement);
 router.get("/company/:companyId/user/:userId/summary", companyExpenseController.getCompanyBalanceSummary);
 
 module.exports = router;
+

@@ -251,4 +251,46 @@ class ExpenseCompanyService {
       return {"success": false, "totalReceivable": 0.0, "totalPayable": 0.0, "netBalance": 0.0};
     }
   }
+
+  // 12. Reset Expense to Unpaid / Change Status
+  static Future<Map<String, dynamic>> resetExpenseToUnpaid({
+    required String expenseId,
+    required String userId,
+    String status = "outstanding",
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/expense/$expenseId/reset-unpaid"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"userId": userId, "status": status}),
+      ).timeout(const Duration(seconds: 10));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  // 13. Edit Expense Settlement Details
+  static Future<Map<String, dynamic>> editExpenseSettlement({
+    required String expenseId,
+    required String userId,
+    String? paymentMode,
+    String? paymentProof,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/expense/$expenseId/edit-settlement"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          if (paymentMode != null) "paymentMode": paymentMode,
+          if (paymentProof != null) "paymentProof": paymentProof,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
 }
+

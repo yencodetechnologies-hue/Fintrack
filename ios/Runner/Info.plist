@@ -60,6 +60,10 @@
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan your card and fill in card details.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access is required for the live speedometer and ride distance tracking.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location access is required for the live speedometer and ride distance tracking.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

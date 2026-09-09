@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
+  // Live Production Endpoint
   static const String baseUrl = "https://fintrack.yencodetechnologies.in";
 
   static const String authBase = "$baseUrl/api/auth";
@@ -23,6 +24,10 @@ class AppConfig {
   static const String lend = "$baseUrl/api/lend";
   static const String liability = "$baseUrl/api/liability";
   static const String cron = "$baseUrl/api/cron/notification-logs";
+  static const String trips = "$baseUrl/api/trips";
+  static const String vehicles = "$baseUrl/api/vehicles";
+  static const String companyExpense = "$baseUrl/api/company-expense";
+
 
   static const String emailBase = "$baseUrl/api/email";
   static const String emailConnect = "$emailBase/connect";

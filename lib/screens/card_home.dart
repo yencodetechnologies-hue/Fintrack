@@ -8,7 +8,11 @@ import 'card_create_screen.dart';
 import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
+import 'trips/trips_home_screen.dart';
+import 'vehicles/vehicle_dashboard_screen.dart';
+import 'expense/expense_landing_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
 import 'package:http/http.dart' as http;
 import '../services/email_sync_service.dart';
 import '../services/fcm_service.dart';
@@ -745,6 +749,34 @@ class _GridViewPageState extends State<GridViewPage> {
         "color": darkText,
         "page": (context) => LendLiabilityPage(userId: widget.userId, userName: widget.userName),
       },
+      {
+        "title": "Expense Tracker",
+        "subtitle": "Monitor daily expenses, categories & spending analytics",
+        "icon": FontAwesomeIcons.receipt,
+        "badge": "Daily Expenses",
+        "color": terracotta,
+        "page": (context) => ExpenseLandingScreen(userId: widget.userId, userName: widget.userName),
+      },
+
+
+      {
+        "title": "Trips & Group Planner",
+        "subtitle": "Group trips, budget splits & QR code invites",
+        "icon": FontAwesomeIcons.plane,
+        "badge": "Group Expenses",
+        "color": terracotta,
+        "page": (context) => TripsHomeScreen(userId: widget.userId, userName: widget.userName),
+      },
+      /*
+      {
+        "title": "Vehicle Dashboard",
+        "subtitle": "Track mileage, live speed, fuel usage & safe range",
+        "icon": FontAwesomeIcons.gaugeHigh,
+        "badge": "Live Tracking",
+        "color": const Color(0xFF10B981),
+        "page": (context) => VehicleDashboardScreen(userId: widget.userId, userName: widget.userName),
+      },
+      */
     ];
 
     final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';
@@ -856,7 +888,8 @@ class _GridViewPageState extends State<GridViewPage> {
                 ),
               ),
               const SizedBox(height: 2),
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     "${_getGreeting()}, ",

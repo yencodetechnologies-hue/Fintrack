@@ -74,11 +74,10 @@ class QFinNavBar extends StatelessWidget {
     Widget buildBar(double currentOffset) {
       final mediaWidth = MediaQuery.of(context).size.width;
       final isSmallScreen = mediaWidth < 360;
-      final isVerySmallScreen = mediaWidth < 320;
 
-      final horizontalPadding = mediaWidth < 360 ? 10.0 : (mediaWidth < 400 ? 14.0 : 18.0);
-      final iconSize = isSmallScreen ? 18.0 : 20.0;
-      final fontSize = isSmallScreen ? 11.0 : 12.5;
+      final horizontalPadding = mediaWidth < 360 ? 8.0 : (mediaWidth < 400 ? 10.0 : 12.0);
+      final iconSize = isSmallScreen ? 17.0 : 19.0;
+      final fontSize = isSmallScreen ? 10.5 : 11.5;
 
       return Container(
         color: creamBg,
@@ -86,11 +85,11 @@ class QFinNavBar extends StatelessWidget {
         child: SafeArea(
           top: false,
           child: Container(
-            height: 66,
-            padding: const EdgeInsets.all(5),
+            height: 64,
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: milkyGlass.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(33),
+              borderRadius: BorderRadius.circular(32),
               border: Border.all(color: const Color(0xFFDCD5C3), width: 1.4),
               boxShadow: [
                 BoxShadow(
@@ -174,19 +173,21 @@ class QFinNavBar extends StatelessWidget {
                                       color: isSelected ? Colors.white : unselectedGreen,
                                       size: iconSize,
                                     ),
-                                    if (isSelected && !isVerySmallScreen) ...[
-                                      SizedBox(width: isSmallScreen ? 4 : 7),
+                                    if (isSelected) ...[
+                                      const SizedBox(width: 4),
                                       Flexible(
-                                        child: Text(
-                                          item.label,
-                                          style: GoogleFonts.inter(
-                                            color: Colors.white,
-                                            fontSize: fontSize,
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 0.2,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            item.label,
+                                            style: GoogleFonts.inter(
+                                              color: Colors.white,
+                                              fontSize: fontSize,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 0.1,
+                                            ),
+                                            maxLines: 1,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],

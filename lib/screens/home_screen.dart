@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../config/app_config.dart';
 import '../services/api_service.dart';
 import '../services/user_storage.dart';
-import 'card_home.dart';
 import 'main_navigation_screen.dart';
 import '../services/fcm_service.dart';
 import 'forgot_password_page.dart';
@@ -175,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => CardHome(
+            builder: (_) => MainNavigationScreen(
               userId: userId,
               userName: userName,
             ),

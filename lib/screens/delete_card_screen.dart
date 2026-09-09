@@ -1,8 +1,16 @@
-import 'dart:ui' as ui;
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
-import '../config/app_config.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../services/card_service.dart';
+
+class DeleteCardTheme {
+  static const Color creamSheet = Color(0xFFF6F4EB);
+  static const Color forestDark = Color(0xFF0F261C);
+  static const Color darkText = Color(0xFF132A20);
+  static const Color terracotta = Color(0xFFB8452D);
+  static const Color textMuted = Color(0xFF68786E);
+  static const Color cardBg = Colors.white;
+}
 
 class DeleteCardScreen extends StatefulWidget {
   final String userId;
@@ -34,232 +42,209 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppConfig.background,
+      backgroundColor: DeleteCardTheme.creamSheet,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: DeleteCardTheme.forestDark.withValues(alpha: 0.06),
+              shape: BoxShape.circle,
+              border: Border.all(color: DeleteCardTheme.forestDark.withValues(alpha: 0.12)),
+            ),
+            child: const Icon(
+              Icons.arrow_back_rounded,
+              color: DeleteCardTheme.darkText,
+              size: 20,
+            ),
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           "Delete Card",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w900,
+          style: GoogleFonts.fraunces(
+            color: DeleteCardTheme.darkText,
+            fontWeight: FontWeight.w600,
             fontSize: 22,
-            letterSpacing: 0.5,
+            fontStyle: FontStyle.italic,
           ),
         ),
         centerTitle: true,
       ),
-      body: Stack(
-        children: [
-          // Background soft glowing teal orb 1
-          Positioned(
-            top: -80,
-            left: -80,
-            child: Container(
-              width: 320,
-              height: 320,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppConfig.primaryTeal.withOpacity(0.12),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          // Background soft glowing red orb 2
-          Positioned(
-            bottom: -100,
-            right: -100,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red.withOpacity(0.06),
-              ),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
+      body: SafeArea(
+        child: FutureBuilder<List<dynamic>>(
+          future: cardsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(DeleteCardTheme.forestDark),
+                ),
+              );
+            }
 
-          // Content
-          SafeArea(
-            child: FutureBuilder<List<dynamic>>(
-              future: cardsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(AppConfig.primaryTeal),
-                    ),
-                  );
-                }
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  "Error: ${snapshot.error}",
+                  style: GoogleFonts.karla(color: DeleteCardTheme.textMuted, fontSize: 15),
+                ),
+              );
+            }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      "Error: ${snapshot.error}",
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  );
-                }
+            final cards = snapshot.data ?? [];
 
-                final cards = snapshot.data ?? [];
-
-                if (cards.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.02),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.05),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Icon(
-                            Icons.credit_card_off_rounded,
-                            color: Colors.white.withOpacity(0.3),
-                            size: 64,
+            if (cards.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: DeleteCardTheme.forestDark.withValues(alpha: 0.06),
+                          border: Border.all(
+                            color: DeleteCardTheme.forestDark.withValues(alpha: 0.1),
+                            width: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        const Text(
-                          "No Cards Found",
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        child: const FaIcon(
+                          FontAwesomeIcons.creditCard,
+                          color: DeleteCardTheme.textMuted,
+                          size: 42,
                         ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  itemCount: cards.length,
-                  itemBuilder: (context, index) {
-                    final card = cards[index];
-                    final bankName = card['bankName'] ?? 'Unknown Bank';
-                    final last4 = card['last4digits'] ?? '0000';
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.02),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.06),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                // Circular card icon container
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: AppConfig.primaryTeal.withOpacity(0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.credit_card_rounded,
-                                    color: AppConfig.primaryTeal,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                
-                                // Card Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        bankName,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        "•••• •••• •••• $last4",
-                                        style: TextStyle(
-                                          color: Colors.white.withOpacity(0.5),
-                                          fontSize: 14,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                      const SizedBox(height: 20),
+                      Text(
+                        "No Cards Found",
+                        style: GoogleFonts.fraunces(
+                          color: DeleteCardTheme.darkText,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "You don't have any saved credit cards to delete.",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: DeleteCardTheme.textMuted,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
 
-                                // Delete button
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(12),
-                                    onTap: () => _confirmDelete(context, card, index, cards),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.red.withOpacity(0.2),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.delete_outline_rounded,
-                                        color: Colors.redAccent,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+            return ListView.separated(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+              itemCount: cards.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 14),
+              itemBuilder: (context, index) {
+                final card = cards[index];
+                final bankName = card['bankName'] ?? 'Unknown Bank';
+                final last4 = card['last4digits'] ?? '0000';
+
+                return Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: DeleteCardTheme.cardBg,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      // Card Icon
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: DeleteCardTheme.forestDark.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const FaIcon(
+                          FontAwesomeIcons.wallet,
+                          color: DeleteCardTheme.darkText,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Card Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              bankName,
+                              style: GoogleFonts.inter(
+                                color: DeleteCardTheme.darkText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "•••• •••• •••• $last4",
+                              style: GoogleFonts.ibmPlexMono(
+                                color: DeleteCardTheme.textMuted,
+                                fontSize: 13,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Delete Button
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: () => _confirmDelete(context, card, index, cards),
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: DeleteCardTheme.terracotta.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: DeleteCardTheme.terracotta.withValues(alpha: 0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.delete_outline_rounded,
+                              color: DeleteCardTheme.terracotta,
+                              size: 20,
                             ),
                           ),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 );
               },
-            ),
-          ),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -268,34 +253,30 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.6),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       isScrollControlled: true,
       builder: (sheetContext) {
         return Container(
-          decoration: BoxDecoration(
-            color: AppConfig.darkSlate,
-            borderRadius: const BorderRadius.only(
+          decoration: const BoxDecoration(
+            color: DeleteCardTheme.creamSheet,
+            borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
-            ),
-            border: Border.all(
-              color: Colors.red.withOpacity(0.15),
-              width: 1.5,
             ),
           ),
           child: SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Drag Handle
+                  // Handle Bar
                   Container(
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: DeleteCardTheme.darkText.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
@@ -306,52 +287,52 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.red.withOpacity(0.1),
+                      color: DeleteCardTheme.terracotta.withValues(alpha: 0.1),
                       border: Border.all(
-                        color: Colors.red.withOpacity(0.2),
+                        color: DeleteCardTheme.terracotta.withValues(alpha: 0.2),
                         width: 1.5,
                       ),
                     ),
                     child: const Icon(
                       Icons.delete_forever_rounded,
-                      color: Colors.redAccent,
+                      color: DeleteCardTheme.terracotta,
                       size: 32,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Title
-                  const Text(
+                  Text(
                     "Delete Credit Card",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
+                    style: GoogleFonts.fraunces(
+                      color: DeleteCardTheme.darkText,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   // Subtitle
                   Text(
                     "Are you sure you want to permanently delete this credit card from ${card['bankName'] ?? 'this bank'}? This action cannot be undone.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                    style: GoogleFonts.inter(
+                      color: DeleteCardTheme.textMuted,
                       fontSize: 14,
-                      height: 1.5,
+                      height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // Card Preview Card
+                  // Card Preview
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.02),
+                      color: DeleteCardTheme.cardBg,
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.06),
+                        color: Colors.black.withValues(alpha: 0.08),
                         width: 1,
                       ),
                     ),
@@ -361,12 +342,12 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.04),
+                            color: DeleteCardTheme.forestDark.withValues(alpha: 0.08),
                           ),
-                          child: const Icon(
-                            Icons.credit_card_rounded,
-                            color: Colors.white70,
-                            size: 20,
+                          child: const FaIcon(
+                            FontAwesomeIcons.wallet,
+                            color: DeleteCardTheme.darkText,
+                            size: 18,
                           ),
                         ),
                         const SizedBox(width: 14),
@@ -376,19 +357,18 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                             children: [
                               Text(
                                 card['bankName'] ?? 'Unknown Bank',
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: GoogleFonts.inter(
+                                  color: DeleteCardTheme.darkText,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 "•••• •••• •••• ${card['last4digits'] ?? '0000'}",
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.4),
+                                style: GoogleFonts.ibmPlexMono(
+                                  color: DeleteCardTheme.textMuted,
                                   fontSize: 13,
-                                  letterSpacing: 1.1,
                                 ),
                               ),
                             ],
@@ -397,43 +377,43 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 26),
 
-                  // Action Buttons
+                  // Buttons
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           style: OutlinedButton.styleFrom(
                             side: BorderSide(
-                              color: Colors.white.withOpacity(0.12),
+                              color: DeleteCardTheme.darkText.withValues(alpha: 0.2),
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onPressed: () => Navigator.pop(sheetContext),
                           child: Text(
                             "Cancel",
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                            style: GoogleFonts.inter(
+                              color: DeleteCardTheme.darkText,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
+                            backgroundColor: DeleteCardTheme.terracotta,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           onPressed: () async {
                             Navigator.pop(sheetContext);
@@ -448,11 +428,11 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                             ScaffoldMessenger.of(ctx).showSnackBar(
                               SnackBar(
                                 behavior: SnackBarBehavior.floating,
-                                backgroundColor: AppConfig.darkSlate,
+                                backgroundColor: DeleteCardTheme.forestDark,
                                 content: Text(
                                   res['message'] ?? 'Deleted',
-                                  style: const TextStyle(
-                                    color: AppConfig.primaryTeal,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -464,9 +444,9 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                             });
                             refreshCards();
                           },
-                          child: const Text(
+                          child: Text(
                             "Delete",
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,

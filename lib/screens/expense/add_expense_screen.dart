@@ -73,7 +73,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       }
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to pick image")),
+        SnackBar(
+          content: Text("Failed to pick image", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFB8452D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
@@ -118,12 +123,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     if (res["success"] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Expense added successfully!"), backgroundColor: forestDark),
+        SnackBar(
+          content: Text("Expense added successfully!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res["message"] ?? "Failed to add expense")),
+        SnackBar(
+          content: Text(res["message"] ?? "Failed to add expense", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFB8452D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }

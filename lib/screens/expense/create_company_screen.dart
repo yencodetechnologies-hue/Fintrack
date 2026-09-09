@@ -57,7 +57,12 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
       _showCodeSuccessModal(company, joinCode.toString());
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res["message"] ?? "Failed to create company")),
+        SnackBar(
+          content: Text(res["message"] ?? "Failed to create company", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFB8452D),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
@@ -130,7 +135,12 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: joinCode));
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text("Join code copied to clipboard!")),
+                          SnackBar(
+                            content: Text("Join code copied to clipboard!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+                            backgroundColor: forestDark,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
                         );
                       },
                       icon: const Icon(Icons.copy_rounded, size: 16),

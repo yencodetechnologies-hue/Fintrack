@@ -452,26 +452,36 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: isFinalStep ? emerald.withValues(alpha: 0.12) : forestDark.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        isFinalStep ? "Payment #$idx • Final Settlement" : "Payment #$idx",
-                                        style: GoogleFonts.inter(
-                                          color: isFinalStep ? emerald : forestDark,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
+                                    Expanded(
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: isFinalStep ? emerald.withValues(alpha: 0.12) : forestDark.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          isFinalStep ? "Payment #$idx • Final Settlement" : "Payment #$idx",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(
+                                            color: isFinalStep ? emerald : forestDark,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                    if (sDate.isNotEmpty)
-                                      Text(
-                                        sDate,
-                                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
+                                    if (sDate.isNotEmpty) ...[
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          sDate,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
+                                        ),
                                       ),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -846,52 +856,77 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _isAdmin ? "TOTAL EXPENSE SPENT" : "YOU ARE OWED (RECEIVABLE)",
-                    style: GoogleFonts.ibmPlexMono(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _isAdmin ? "TOTAL EXPENSE SPENT" : "YOU ARE OWED (RECEIVABLE)",
+                        style: GoogleFonts.ibmPlexMono(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "₹${(_isAdmin ? _totalCompanySpent : _totalReceivable).toStringAsFixed(2)}",
-                    style: GoogleFonts.fraunces(
-                      color: emerald,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "₹${(_isAdmin ? _totalCompanySpent : _totalReceivable).toStringAsFixed(2)}",
+                        style: GoogleFonts.fraunces(
+                          color: emerald,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.15)),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    "YOU OWE (PAYABLE)",
-                    style: GoogleFonts.ibmPlexMono(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                width: 1,
+                height: 40,
+                color: Colors.white.withValues(alpha: 0.15),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "YOU OWE (PAYABLE)",
+                        style: GoogleFonts.ibmPlexMono(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "₹${_totalPayable.toStringAsFixed(2)}",
-                    style: GoogleFonts.fraunces(
-                      color: terracotta,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "₹${_totalPayable.toStringAsFixed(2)}",
+                        style: GoogleFonts.fraunces(
+                          color: terracotta,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -902,20 +937,29 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Net Standing Balance",
-                style: GoogleFonts.inter(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+              Flexible(
+                child: Text(
+                  "Net Standing Balance",
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              Text(
-                "${_netBalance >= 0 ? '+' : ''}₹${_netBalance.toStringAsFixed(2)}",
-                style: GoogleFonts.fraunces(
-                  color: netColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    "${_netBalance >= 0 ? '+' : ''}₹${_netBalance.toStringAsFixed(2)}",
+                    style: GoogleFonts.fraunces(
+                      color: netColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -985,9 +1029,13 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Text(
-                      dateStr,
-                      style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
+                    Flexible(
+                      child: Text(
+                        dateStr,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
+                      ),
                     ),
                   ],
                 ),

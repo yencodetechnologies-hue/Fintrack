@@ -169,6 +169,13 @@ exports.getCompanyDetails = async (req, res) => {
       };
     });
 
+    // Sort: Admins always at the top, then alphabetically by name
+    membersList.sort((a, b) => {
+      if (a.role === "admin" && b.role !== "admin") return -1;
+      if (a.role !== "admin" && b.role === "admin") return 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    });
+
     // Determine current requesting user's role
     let currentUserRole = "member";
     if (userId) {

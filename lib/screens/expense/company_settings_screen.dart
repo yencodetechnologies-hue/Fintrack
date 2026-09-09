@@ -82,9 +82,20 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
 
     if (res["success"] == true) {
       final comp = res["company"];
+      final loadedMembers = List<Map<String, dynamic>>.from(res["members"] ?? []);
+      loadedMembers.sort((a, b) {
+        final aIsAdmin = a["role"] == "admin";
+        final bIsAdmin = b["role"] == "admin";
+        if (aIsAdmin && !bIsAdmin) return -1;
+        if (!aIsAdmin && bIsAdmin) return 1;
+        final aName = (a["name"] ?? "").toString().trim().toLowerCase();
+        final bName = (b["name"] ?? "").toString().trim().toLowerCase();
+        return aName.compareTo(bName);
+      });
+
       setState(() {
         _company = comp;
-        _members = List<Map<String, dynamic>>.from(res["members"] ?? []);
+        _members = loadedMembers;
         _currentUserRole = res["currentUserRole"] ?? "member";
         _isLoading = false;
       });
@@ -198,12 +209,22 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
 
     if (res["success"] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("$memberName removed successfully")),
+        SnackBar(
+          content: Text("$memberName removed successfully", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       _loadSettings();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res["message"] ?? "Failed to remove member")),
+        SnackBar(
+          content: Text(res["message"] ?? "Failed to remove member", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
@@ -330,15 +351,21 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  _company?["joinCode"] ?? "------",
-                                  style: GoogleFonts.ibmPlexMono(
-                                    color: _remainingSeconds > 0 ? forestDark : terracotta,
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 4,
-                                  ),
-                                ),
+                                 Expanded(
+                                   child: FittedBox(
+                                     alignment: Alignment.centerLeft,
+                                     fit: BoxFit.scaleDown,
+                                     child: Text(
+                                       _company?["joinCode"] ?? "------",
+                                       style: GoogleFonts.ibmPlexMono(
+                                         color: _remainingSeconds > 0 ? forestDark : terracotta,
+                                         fontSize: 26,
+                                         fontWeight: FontWeight.bold,
+                                         letterSpacing: 4,
+                                       ),
+                                     ),
+                                   ),
+                                 ),
                                 Row(
                                   children: [
                                     IconButton(

@@ -22,6 +22,7 @@ class _ReceivedExpenseModalState extends State<ReceivedExpenseModal> {
   static const Color creamSheet = Color(0xFFFBF9F1);
   static const Color forestDark = Color(0xFF0F261C);
   static const Color darkText = Color(0xFF1E293B);
+  static const Color terracotta = Color(0xFFB8452D);
 
   String? _selectedPayerUserId;
   String _paymentMode = "cash";
@@ -47,7 +48,12 @@ class _ReceivedExpenseModalState extends State<ReceivedExpenseModal> {
   Future<void> _submitReceived() async {
     if (_selectedPayerUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select who paid you")),
+        SnackBar(
+          content: Text("Please select who paid you", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       return;
     }
@@ -66,15 +72,22 @@ class _ReceivedExpenseModalState extends State<ReceivedExpenseModal> {
 
     if (res["success"] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Expense marked as received & settled!"),
+        SnackBar(
+          content: Text("Expense marked as received & settled!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
           backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res["message"] ?? "Failed to mark as received")),
+        SnackBar(
+          content: Text(res["message"] ?? "Failed to mark as received", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }

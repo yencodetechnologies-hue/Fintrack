@@ -23,6 +23,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
   static const Color creamSheet = Color(0xFFFBF9F1);
   static const Color forestDark = Color(0xFF0F261C);
   static const Color darkText = Color(0xFF1E293B);
+  static const Color terracotta = Color(0xFFB8452D);
 
   String _paymentMode = "cash";
   String? _base64Proof;
@@ -52,7 +53,12 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       }
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to select payment proof image")),
+        SnackBar(
+          content: Text("Failed to select payment proof image", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }
@@ -60,7 +66,12 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
   Future<void> _submitPay() async {
     if (_base64Proof == null || _base64Proof!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Payment proof screenshot/photo is required")),
+        SnackBar(
+          content: Text("Payment proof screenshot/photo is required", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
       return;
     }
@@ -79,15 +90,22 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
 
     if (res["success"] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Payment submitted successfully!"),
+        SnackBar(
+          content: Text("Payment submitted successfully!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
           backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(res["message"] ?? "Failed to submit payment")),
+        SnackBar(
+          content: Text(res["message"] ?? "Failed to submit payment", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: terracotta,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
       );
     }
   }

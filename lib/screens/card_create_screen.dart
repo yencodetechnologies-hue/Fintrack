@@ -37,10 +37,10 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
   bool loading = false;
   bool scanning = false;
 
-  static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
-  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
-  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
-  static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
+  static const Color _bg         = Color(0xFF0C5F41);
+  static const Color _forestDark = Color(0xFF0C5F41);
+  static const Color _darkText   = Color(0xFF0F261C);
+  static const Color _terracotta = Color(0xFFB8452D);
 
   @override
   void initState() {
@@ -106,7 +106,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
             colorScheme: const ColorScheme.light(
               primary: _forestDark,
               onPrimary: Colors.white,
-              surface: _bg,
+              surface: Colors.white,
             ),
           ),
           child: child!,
@@ -306,10 +306,10 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF6F8F7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.black.withValues(alpha: 0.08),
+          color: Colors.black.withValues(alpha: 0.12),
           width: 1.2,
         ),
       ),
@@ -327,7 +327,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           counterText: "",
           labelText: label,
           labelStyle: GoogleFonts.inter(
-            color: Colors.black45,
+            color: const Color(0xFF6B7280),
             fontSize: 14,
             fontWeight: FontWeight.w400,
           ),
@@ -355,10 +355,10 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF6F8F7),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: Colors.black.withValues(alpha: 0.08),
+          color: Colors.black.withValues(alpha: 0.12),
           width: 1.2,
         ),
       ),
@@ -382,7 +382,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           title: Text(
             title,
             style: GoogleFonts.inter(
-              color: Colors.black45,
+              color: const Color(0xFF6B7280),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -400,7 +400,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           ),
           trailing: const Icon(
             Icons.chevron_right_rounded,
-            color: Colors.black38,
+            color: _forestDark,
             size: 20,
           ),
         ),
@@ -435,13 +435,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+              color: Colors.white.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
-              color: _darkText,
+              color: Colors.white,
               size: 20,
             ),
           ),
@@ -450,13 +449,12 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
         title: Text(
           "Add Credit Card",
           style: GoogleFonts.fraunces(
-            color: _darkText,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
         ),
         centerTitle: true,
-
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -473,7 +471,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
               ),
               const SizedBox(height: 24),
 
-              // QFin Form Container
+              // QFin Form Container (White Card)
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -481,13 +479,13 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
                   borderRadius: BorderRadius.circular(28),
                   border: Border.all(
                     color: Colors.black.withValues(alpha: 0.08),
-                    width: 1.2,
+                    width: 1,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),

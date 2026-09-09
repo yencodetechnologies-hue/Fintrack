@@ -452,7 +452,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final m = _members[index];
-                        final memberId = m["userId"].toString();
+                        final memberId = m["userId"] != null ? m["userId"].toString() : "";
+                        final isSelf = memberId == widget.userId;
                         final isMemberAdmin = m["role"] == "admin";
 
                         return Container(
@@ -480,7 +481,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      m["name"].toString(),
+                                      isSelf ? "${m['name']} (You)" : m["name"].toString(),
                                       style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14.5),
                                     ),
                                     if (m["email"] != null && m["email"].toString().isNotEmpty)

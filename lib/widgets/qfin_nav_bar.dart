@@ -59,10 +59,11 @@ class QFinNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color forestDark = Color(0xFF0F261C);
-    const Color creamBg    = Color(0xFFF6F4EB);
-    const Color milkyGlass = Color(0xFFEDE8D8);
-    const Color unselectedGreen = Color(0xFF234433);
+    const Color outerPillBg   = Color(0xFF073523); // Balanced deep green floating container (#073523)
+    const Color activePillBg  = Color(0xFF0C5F41); // Vibrant #0C5F41 green active pill
+    const Color mintAccent    = Color(0xFF10B981); // Mint border & glow accent
+    const Color activeTextCol = Colors.white;      // Crisp white active label/icon
+    const Color unselectedCol = Color(0xFFA7F3D0); // Muted mint green for unselected icons
 
     final items = [
       _NavItemData(icon: Icons.grid_view_outlined, activeIcon: Icons.grid_view_rounded, label: "Home"),
@@ -72,37 +73,23 @@ class QFinNavBar extends StatelessWidget {
     ];
 
     Widget buildBar(double currentOffset) {
-      final mediaWidth = MediaQuery.of(context).size.width;
-      final isSmallScreen = mediaWidth < 360;
-
-      final horizontalPadding = mediaWidth < 360 ? 8.0 : (mediaWidth < 400 ? 10.0 : 12.0);
-      final iconSize = isSmallScreen ? 17.0 : 19.0;
-      final fontSize = isSmallScreen ? 10.5 : 11.5;
-
       return Container(
-        color: creamBg,
-        padding: EdgeInsets.fromLTRB(horizontalPadding, 6, horizontalPadding, 16),
+        color: Colors.transparent,
+        padding: const EdgeInsets.fromLTRB(20, 6, 20, 16),
         child: SafeArea(
           top: false,
           child: Container(
-            height: 64,
-            padding: const EdgeInsets.all(4),
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
-              color: milkyGlass.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(32),
-              border: Border.all(color: const Color(0xFFDCD5C3), width: 1.4),
+              color: outerPillBg,
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: const Color(0xFF0C5F41).withValues(alpha: 0.5), width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: forestDark.withValues(alpha: 0.12),
+                  color: Colors.black.withValues(alpha: 0.5),
                   blurRadius: 20,
-                  spreadRadius: 1,
                   offset: const Offset(0, 8),
-                ),
-                BoxShadow(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  blurRadius: 6,
-                  spreadRadius: -1,
-                  offset: const Offset(0, -2),
                 ),
               ],
             ),
@@ -111,13 +98,12 @@ class QFinNavBar extends StatelessWidget {
                 final totalWidth = constraints.maxWidth;
                 final count = items.length;
                 final itemWidth = totalWidth / count;
-
                 final activeLeft = currentOffset * itemWidth;
 
                 return Stack(
                   alignment: Alignment.centerLeft,
                   children: [
-                    // Smoothly Sliding Milky-Theme Forest Green Active Pill
+                    // Active #0C5F41 Green Pill Indicator with Glowing Mint Border
                     Positioned(
                       left: activeLeft.clamp(0.0, totalWidth - itemWidth),
                       top: 0,
@@ -125,29 +111,21 @@ class QFinNavBar extends StatelessWidget {
                       width: itemWidth,
                       child: Container(
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF163828),
-                              forestDark,
-                              Color(0xFF0A1B14),
-                            ],
-                          ),
+                          color: activePillBg,
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: const Color(0xFF1E4532), width: 1),
+                          border: Border.all(color: mintAccent, width: 1.2),
                           boxShadow: [
                             BoxShadow(
-                              color: forestDark.withValues(alpha: 0.25),
+                              color: const Color(0xFF0C5F41).withValues(alpha: 0.5),
                               blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                       ),
                     ),
 
-                    // Navigation Items Row
+                    // Items Row
                     Row(
                       children: List.generate(count, (index) {
                         final diff = (currentOffset - index).abs();
@@ -160,39 +138,33 @@ class QFinNavBar extends StatelessWidget {
                             behavior: HitTestBehavior.opaque,
                             child: Container(
                               alignment: Alignment.center,
-                              padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                              child: AnimatedOpacity(
-                                duration: const Duration(milliseconds: 200),
-                                opacity: isSelected ? 1.0 : 0.75,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isSelected ? item.activeIcon : item.icon,
-                                      color: isSelected ? Colors.white : unselectedGreen,
-                                      size: iconSize,
-                                    ),
-                                    if (isSelected) ...[
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            item.label,
-                                            style: GoogleFonts.inter(
-                                              color: Colors.white,
-                                              fontSize: fontSize,
-                                              fontWeight: FontWeight.w700,
-                                              letterSpacing: 0.1,
-                                            ),
-                                            maxLines: 1,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isSelected ? item.activeIcon : item.icon,
+                                    color: isSelected ? activeTextCol : unselectedCol.withValues(alpha: 0.75),
+                                    size: isSelected ? 18 : 20,
+                                  ),
+                                  if (isSelected) ...[
+                                    const SizedBox(width: 6),
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          item.label,
+                                          style: GoogleFonts.inter(
+                                            color: activeTextCol,
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.bold,
                                           ),
+                                          maxLines: 1,
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ],
-                                ),
+                                ],
                               ),
                             ),
                           ),

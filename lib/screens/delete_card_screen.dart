@@ -4,9 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/card_service.dart';
 
 class DeleteCardTheme {
-  static const Color creamSheet = Color(0xFFF6F4EB);
-  static const Color forestDark = Color(0xFF0F261C);
-  static const Color darkText = Color(0xFF132A20);
+  static const Color creamSheet = Color(0xFF0C5F41);
+  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color darkText = Color(0xFF0F261C);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color textMuted = Color(0xFF68786E);
   static const Color cardBg = Colors.white;
@@ -50,13 +50,12 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: DeleteCardTheme.forestDark.withValues(alpha: 0.06),
+              color: Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(color: DeleteCardTheme.forestDark.withValues(alpha: 0.12)),
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
-              color: DeleteCardTheme.darkText,
+              color: Colors.white,
               size: 20,
             ),
           ),
@@ -65,10 +64,9 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
         title: Text(
           "Delete Card",
           style: GoogleFonts.fraunces(
-            color: DeleteCardTheme.darkText,
-            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
             fontSize: 22,
-            fontStyle: FontStyle.italic,
           ),
         ),
         centerTitle: true,
@@ -258,7 +256,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
       builder: (sheetContext) {
         return Container(
           decoration: const BoxDecoration(
-            color: DeleteCardTheme.creamSheet,
+            color: Colors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),

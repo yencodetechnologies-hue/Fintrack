@@ -364,12 +364,12 @@ class _GridViewPageState extends State<GridViewPage> {
                     color: Colors.transparent,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: CardHomeTheme.cardBg,
+                        color: const Color(0xFF042217),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: CardHomeTheme.borderDark),
+                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.2),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
+                            color: Colors.black.withValues(alpha: 0.6),
                             blurRadius: 25,
                             offset: const Offset(0, 10),
                           ),
@@ -385,42 +385,37 @@ class _GridViewPageState extends State<GridViewPage> {
                                 Text(
                                   'Notifications',
                                   style: GoogleFonts.fraunces(
-                                    color: const Color(0xFF132A20),
+                                    color: Colors.white,
                                     fontSize: 20,
-                                    fontWeight: FontWeight.w500,
-                                    fontStyle: FontStyle.italic,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const Spacer(),
                                 if (_selectedNotifs.isNotEmpty) ...[
                                   Text(
                                     '${_selectedNotifs.length} selected',
-                                    style: GoogleFonts.karla(
-                                      color: CardHomeTheme.cyanGlow,
+                                    style: GoogleFonts.inter(
+                                      color: const Color(0xFF10B981),
                                       fontSize: 12,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       side: const BorderSide(
-                                        color: CardHomeTheme.cyanGlow,
+                                        color: Color(0xFFB8452D),
                                       ),
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 10,
                                         vertical: 4,
                                       ),
                                       minimumSize: Size.zero,
-                                      tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     ),
                                     onPressed: () {
                                       setPopState(() {
-                                        final sorted =
-                                        _selectedNotifs.toList()
-                                          ..sort(
-                                                (a, b) => b.compareTo(a),
-                                          );
+                                        final sorted = _selectedNotifs.toList()..sort((a, b) => b.compareTo(a));
                                         for (final i in sorted) {
                                           _notifLogs.removeAt(i);
                                         }
@@ -429,14 +424,15 @@ class _GridViewPageState extends State<GridViewPage> {
                                     },
                                     icon: const Icon(
                                       Icons.delete_outline,
-                                      color: CardHomeTheme.cyanGlow,
+                                      color: Color(0xFFB8452D),
                                       size: 14,
                                     ),
                                     label: Text(
                                       'Delete',
-                                      style: GoogleFonts.karla(
-                                        color: CardHomeTheme.cyanGlow,
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFFB8452D),
                                         fontSize: 12,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
                                   ),
@@ -447,7 +443,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                   constraints: const BoxConstraints(),
                                   icon: const Icon(
                                     Icons.close_rounded,
-                                    color: CardHomeTheme.textMuted,
+                                    color: Colors.white70,
                                     size: 22,
                                   ),
                                   onPressed: _closeNotifPopup,
@@ -464,7 +460,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                     _selectedNotifs.addAll(
                                       List.generate(
                                         _notifLogs.length,
-                                            (i) => i,
+                                        (i) => i,
                                       ),
                                     );
                                   });
@@ -472,14 +468,14 @@ class _GridViewPageState extends State<GridViewPage> {
                                 const SizedBox(width: 8),
                                 _notifChip('Clear', () {
                                   setPopState(
-                                        () => _selectedNotifs.clear(),
+                                    () => _selectedNotifs.clear(),
                                   );
                                 }),
                               ],
                             ),
                           ),
-                          const Divider(
-                            color: CardHomeTheme.borderDark,
+                          Divider(
+                            color: Colors.white.withValues(alpha: 0.12),
                             height: 1,
                           ),
                           ConstrainedBox(
@@ -488,149 +484,127 @@ class _GridViewPageState extends State<GridViewPage> {
                             ),
                             child: _notifsLoading
                                 ? const Padding(
-                              padding: EdgeInsets.all(32),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: CardHomeTheme.cyanGlow,
-                                ),
-                              ),
-                            )
-                                : _notifLogs.isEmpty
-                                ? Padding(
-                              padding: const EdgeInsets.all(32),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.notifications_off_outlined,
-                                      size: 36,
-                                      color: CardHomeTheme.textMuted,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'No notifications',
-                                      style: GoogleFonts.karla(
-                                        color: CardHomeTheme.textMuted,
-                                        fontSize: 13,
+                                    padding: EdgeInsets.all(32),
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: Color(0xFF10B981),
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            )
-                                : ListView.separated(
-                              shrinkWrap: true,
-                              physics: const ClampingScrollPhysics(),
-                              itemCount: _notifLogs.length,
-                              separatorBuilder: (_, x) =>
-                              const Divider(
-                                color: CardHomeTheme.borderDark,
-                                height: 1,
-                              ),
-                              itemBuilder: (_, i) {
-                                final log = _notifLogs[i];
-                                final isSel =
-                                _selectedNotifs.contains(i);
-                                return InkWell(
-                                  onTap: () =>
-                                      setPopState(() {
-                                        isSel
-                                            ? _selectedNotifs.remove(i)
-                                            : _selectedNotifs.add(i);
-                                      }),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        AnimatedContainer(
-                                          duration: const Duration(
-                                            milliseconds: 150,
-                                          ),
-                                          width: 20,
-                                          height: 20,
-                                          margin: const EdgeInsets.only(
-                                            right: 12,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isSel
-                                                ? CardHomeTheme.cyanGlow
-                                                : Colors.transparent,
-                                            borderRadius:
-                                            BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: isSel
-                                                  ? CardHomeTheme.cyanGlow
-                                                  : CardHomeTheme.textMuted,
-                                            ),
-                                          ),
-                                          child: isSel
-                                              ? const Icon(
-                                            Icons.check,
-                                            size: 14,
-                                            color: Colors.black,
-                                          )
-                                              : null,
-                                        ),
-                                        Expanded(
+                                  )
+                                : _notifLogs.isEmpty
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(32),
+                                        child: Center(
                                           child: Column(
-                                            crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                MainAxisAlignment
-                                                    .spaceBetween,
-                                                children: [
-                                                  Text(
-                                                    (log['title']
-                                                    as String?) ??
-                                                        'Notification',
-                                                    style: GoogleFonts.karla(
-                                                      color: const Color(
-                                                        0xFF132A20,
-                                                      ),
-                                                      fontSize: 13.5,
-                                                      fontWeight:
-                                                      FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    _formatTime(
-                                                      log['sentAt']
-                                                      as String?,
-                                                    ),
-                                                    style: GoogleFonts.karla(
-                                                      color: CardHomeTheme
-                                                          .textMuted,
-                                                      fontSize: 11,
-                                                    ),
-                                                  ),
-                                                ],
+                                              const Icon(
+                                                Icons.notifications_off_outlined,
+                                                size: 36,
+                                                color: Color(0xFF10B981),
                                               ),
-                                              const SizedBox(height: 3),
+                                              const SizedBox(height: 8),
                                               Text(
-                                                (log['message'] as String?) ??
-                                                    '',
-                                                style: GoogleFonts.karla(
-                                                  color:
-                                                  CardHomeTheme.textMuted,
-                                                  fontSize: 12.5,
+                                                'No notifications',
+                                                style: GoogleFonts.inter(
+                                                  color: Colors.white70,
+                                                  fontSize: 13.5,
                                                 ),
-                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                                      )
+                                    : ListView.separated(
+                                        shrinkWrap: true,
+                                        physics: const ClampingScrollPhysics(),
+                                        itemCount: _notifLogs.length,
+                                        separatorBuilder: (_, x) => Divider(
+                                          color: Colors.white.withValues(alpha: 0.12),
+                                          height: 1,
+                                        ),
+                                        itemBuilder: (_, i) {
+                                          final log = _notifLogs[i];
+                                          final isSel = _selectedNotifs.contains(i);
+                                          return InkWell(
+                                            onTap: () => setPopState(() {
+                                              isSel ? _selectedNotifs.remove(i) : _selectedNotifs.add(i);
+                                            }),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 20,
+                                                vertical: 12,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  AnimatedContainer(
+                                                    duration: const Duration(
+                                                      milliseconds: 150,
+                                                    ),
+                                                    width: 20,
+                                                    height: 20,
+                                                    margin: const EdgeInsets.only(
+                                                      right: 12,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: isSel ? const Color(0xFF10B981) : Colors.transparent,
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(
+                                                        color: isSel ? const Color(0xFF10B981) : Colors.white54,
+                                                      ),
+                                                    ),
+                                                    child: isSel
+                                                        ? const Icon(
+                                                            Icons.check,
+                                                            size: 14,
+                                                            color: Color(0xFF042217),
+                                                          )
+                                                        : null,
+                                                  ),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                          children: [
+                                                            Text(
+                                                              (log['title'] as String?) ?? 'Notification',
+                                                              style: GoogleFonts.inter(
+                                                                color: Colors.white,
+                                                                fontSize: 14,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              _formatTime(
+                                                                log['sentAt'] as String?,
+                                                              ),
+                                                              style: GoogleFonts.ibmPlexMono(
+                                                                color: const Color(0xFF10B981),
+                                                                fontSize: 11,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(height: 3),
+                                                        Text(
+                                                          (log['message'] as String?) ?? '',
+                                                          style: GoogleFonts.inter(
+                                                            color: Colors.white70,
+                                                            fontSize: 12.5,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
                           ),
                         ],
                       ),
@@ -654,14 +628,14 @@ class _GridViewPageState extends State<GridViewPage> {
   }
 
   Widget _notifChip(String label, VoidCallback onTap) {
-    const Color darkText = Color(0xFF132A20);
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: darkText,
+          color: const Color(0xFF0C5F41),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
         ),
         child: Text(
           label,
@@ -694,8 +668,6 @@ class _GridViewPageState extends State<GridViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color forestDark = Color(0xFF0F261C);
-    const Color creamSheet = Color(0xFFF6F4EB);
     const Color darkText = Color(0xFF132A20);
     const Color goldText = Color(0xFFD4AF37);
     const Color terracotta = Color(0xFFB8452D);
@@ -782,7 +754,7 @@ class _GridViewPageState extends State<GridViewPage> {
     final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';
 
     return Scaffold(
-      backgroundColor: creamSheet,
+      backgroundColor: const Color(0xFF0C5F41),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -803,27 +775,28 @@ class _GridViewPageState extends State<GridViewPage> {
                           icon: Container(
                             padding: const EdgeInsets.all(9),
                             decoration: BoxDecoration(
-                              color: forestDark.withValues(alpha: 0.06),
+                              color: const Color(0xFF0C3826),
                               shape: BoxShape.circle,
-                              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                             ),
-                            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+                            child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
                           ),
                           onPressed: () => Navigator.maybePop(context),
                         ),
                         const SizedBox(width: 10),
                       ],
                       Container(
-                        width: 42,
-                        height: 42,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
-                          color: forestDark,
                           shape: BoxShape.circle,
+                          color: const Color(0xFF0F3827),
+                          border: Border.all(color: const Color(0xFF10B981), width: 2.2),
                           boxShadow: [
                             BoxShadow(
-                              color: forestDark.withValues(alpha: 0.25),
+                              color: const Color(0xFF10B981).withValues(alpha: 0.25),
                               blurRadius: 10,
-                              offset: const Offset(0, 4),
+                              spreadRadius: 1,
                             ),
                           ],
                         ),
@@ -832,7 +805,7 @@ class _GridViewPageState extends State<GridViewPage> {
                             initial,
                             style: GoogleFonts.fraunces(
                               color: Colors.white,
-                              fontSize: 19,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -848,13 +821,13 @@ class _GridViewPageState extends State<GridViewPage> {
                     icon: Container(
                       padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(
-                        color: forestDark.withValues(alpha: 0.06),
+                        color: const Color(0xFF0C3826),
                         shape: BoxShape.circle,
-                        border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                       ),
                       child: Stack(
                         children: [
-                          const Icon(Icons.notifications_outlined, color: darkText, size: 20),
+                          const Icon(Icons.notifications_outlined, color: Color(0xFF10B981), size: 20),
                           if (_notifLogs.isNotEmpty)
                             Positioned(
                               right: 0,
@@ -881,7 +854,7 @@ class _GridViewPageState extends State<GridViewPage> {
               Text(
                 "FINANCIAL DASHBOARD",
                 style: GoogleFonts.ibmPlexMono(
-                  color: darkText.withValues(alpha: 0.5),
+                  color: const Color(0xFF10B981),
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.2,
@@ -894,7 +867,7 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     "${_getGreeting()}, ",
                     style: GoogleFonts.fraunces(
-                      color: darkText.withValues(alpha: 0.75),
+                      color: Colors.white.withValues(alpha: 0.75),
                       fontSize: 24,
                       fontWeight: FontWeight.w400,
                       fontStyle: FontStyle.italic,
@@ -903,7 +876,7 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     widget.userName,
                     style: GoogleFonts.fraunces(
-                      color: darkText,
+                      color: Colors.white,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
@@ -922,16 +895,15 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     "Quick Actions",
                     style: GoogleFonts.fraunces(
-                      color: darkText,
+                      color: Colors.white,
                       fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     "Shortcuts",
                     style: GoogleFonts.ibmPlexMono(
-                      color: Colors.black45,
+                      color: const Color(0xFF10B981),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -960,12 +932,12 @@ class _GridViewPageState extends State<GridViewPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: color.withValues(alpha: 0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             width: 1.2,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -1008,16 +980,15 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     "Management Hub",
                     style: GoogleFonts.fraunces(
-                      color: darkText,
+                      color: Colors.white,
                       fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     "Overview",
                     style: GoogleFonts.ibmPlexMono(
-                      color: Colors.black45,
+                      color: const Color(0xFF10B981),
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

@@ -17,9 +17,6 @@ class BankSelectorField extends StatelessWidget {
     required this.onCustomBankChanged,
   });
 
-  static const Color _forestDark = Color(0xFF0F261C);
-  static const Color _darkText   = Color(0xFF132A20);
-
   String get _selectedBankTitle {
     if (selectedBankId == null) return "Select Bank";
     if (selectedBankId == kCustomBankId) {
@@ -48,6 +45,7 @@ class BankSelectorField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasSelection = selectedBankId != null;
+    const Color greenAccent = Color(0xFF0C5F41);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -57,16 +55,16 @@ class BankSelectorField extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF6F8F7),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: hasSelection ? _forestDark.withValues(alpha: 0.4) : Colors.black.withValues(alpha: 0.08),
+                color: hasSelection ? greenAccent.withValues(alpha: 0.6) : Colors.black.withValues(alpha: 0.12),
                 width: 1.2,
               ),
               boxShadow: [
                 if (hasSelection)
                   BoxShadow(
-                    color: _forestDark.withValues(alpha: 0.04),
+                    color: greenAccent.withValues(alpha: 0.08),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -77,12 +75,12 @@ class BankSelectorField extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _forestDark.withValues(alpha: 0.08),
+                    color: greenAccent.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.account_balance_rounded,
-                    color: _forestDark,
+                    color: greenAccent,
                     size: 20,
                   ),
                 ),
@@ -94,7 +92,7 @@ class BankSelectorField extends StatelessWidget {
                       Text(
                         "Bank Name",
                         style: GoogleFonts.inter(
-                          color: Colors.black45,
+                          color: const Color(0xFF6B7280),
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -103,7 +101,7 @@ class BankSelectorField extends StatelessWidget {
                       Text(
                         _selectedBankTitle,
                         style: GoogleFonts.inter(
-                          color: hasSelection ? _darkText : Colors.black38,
+                          color: hasSelection ? const Color(0xFF0F261C) : const Color(0xFF9CA3AF),
                           fontSize: 15,
                           fontWeight: hasSelection ? FontWeight.bold : FontWeight.w500,
                         ),
@@ -116,12 +114,12 @@ class BankSelectorField extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: greenAccent.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.unfold_more_rounded,
-                    color: _forestDark,
+                    color: greenAccent,
                     size: 18,
                   ),
                 ),
@@ -133,10 +131,10 @@ class BankSelectorField extends StatelessWidget {
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF6F8F7),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: Colors.black.withValues(alpha: 0.08),
+                color: Colors.black.withValues(alpha: 0.12),
                 width: 1.2,
               ),
             ),
@@ -145,19 +143,19 @@ class BankSelectorField extends StatelessWidget {
               controller: customBankController,
               onChanged: (_) => onCustomBankChanged(),
               style: GoogleFonts.inter(
-                color: _darkText,
+                color: const Color(0xFF0F261C),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
                 labelText: 'Enter Custom Bank Name',
                 labelStyle: GoogleFonts.inter(
-                  color: Colors.black45,
+                  color: const Color(0xFF6B7280),
                   fontSize: 14,
                 ),
                 prefixIcon: const Icon(
                   Icons.edit_rounded,
-                  color: _forestDark,
+                  color: greenAccent,
                   size: 20,
                 ),
                 border: InputBorder.none,
@@ -173,7 +171,7 @@ class BankSelectorField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────
-//  QFIN VINTAGE BANK PICKER SHEET
+//  QFIN BANK PICKER SHEET
 // ─────────────────────────────────────────────
 
 class _BankPickerSheet extends StatefulWidget {
@@ -195,9 +193,9 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
   final TextEditingController _searchCtrl = TextEditingController();
   List<BankOption> _filteredBanks = indianBanks;
 
-  static const Color _bg         = Color(0xFFF6F4EB);
-  static const Color _forestDark = Color(0xFF0F261C);
-  static const Color _darkText   = Color(0xFF132A20);
+  static const Color _bg         = Colors.white;
+  static const Color _greenAccent = Color(0xFF0C5F41);
+  static const Color _darkText   = Color(0xFF0F261C);
   static const Color _goldAccent = Color(0xFFD4AF37);
 
   @override
@@ -231,9 +229,16 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.75,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: _bg,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -256,10 +261,10 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _forestDark.withValues(alpha: 0.1),
+                    color: _greenAccent.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.account_balance_rounded, color: _forestDark, size: 20),
+                  child: const Icon(Icons.account_balance_rounded, color: _greenAccent, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -273,7 +278,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Colors.black45),
+                  icon: const Icon(Icons.close_rounded, color: Color(0xFF6B7280)),
                 ),
               ],
             ),
@@ -284,7 +289,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFFF6F8F7),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
               ),
@@ -293,11 +298,11 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                 style: GoogleFonts.inter(color: _darkText, fontSize: 14.5),
                 decoration: InputDecoration(
                   hintText: "Search bank by name...",
-                  hintStyle: GoogleFonts.inter(color: Colors.black38, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search_rounded, color: _forestDark, size: 20),
+                  hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF), fontSize: 14),
+                  prefixIcon: const Icon(Icons.search_rounded, color: _greenAccent, size: 20),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.black45),
+                          icon: const Icon(Icons.clear_rounded, size: 18, color: Color(0xFF6B7280)),
                           onPressed: () => _searchCtrl.clear(),
                         )
                       : null,
@@ -322,10 +327,10 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
-                        color: isSelected ? _forestDark.withValues(alpha: 0.08) : Colors.white,
+                        color: isSelected ? _greenAccent.withValues(alpha: 0.1) : const Color(0xFFF6F8F7),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.06),
+                          color: isSelected ? _greenAccent : Colors.black.withValues(alpha: 0.06),
                           width: isSelected ? 1.5 : 1,
                         ),
                       ),
@@ -338,7 +343,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                               color: _goldAccent.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.add_rounded, color: _forestDark, size: 20),
+                            child: const Icon(Icons.add_rounded, color: _greenAccent, size: 20),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
@@ -352,7 +357,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                             ),
                           ),
                           if (isSelected)
-                            const Icon(Icons.check_circle_rounded, color: _forestDark, size: 20),
+                            const Icon(Icons.check_circle_rounded, color: _greenAccent, size: 20),
                         ],
                       ),
                     ),
@@ -367,10 +372,10 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     decoration: BoxDecoration(
-                      color: isSelected ? _forestDark.withValues(alpha: 0.08) : Colors.white,
+                      color: isSelected ? _greenAccent.withValues(alpha: 0.1) : const Color(0xFFF6F8F7),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.06),
+                        color: isSelected ? _greenAccent : Colors.black.withValues(alpha: 0.06),
                         width: isSelected ? 1.5 : 1,
                       ),
                     ),
@@ -380,14 +385,14 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: isSelected ? _forestDark : Colors.black.withValues(alpha: 0.05),
+                            color: isSelected ? _greenAccent : _greenAccent.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: Text(
                               bank.displayName[0].toUpperCase(),
                               style: GoogleFonts.fraunces(
-                                color: isSelected ? Colors.white : _forestDark,
+                                color: isSelected ? Colors.white : _greenAccent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,
                               ),
@@ -406,7 +411,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                           ),
                         ),
                         if (isSelected)
-                          const Icon(Icons.check_circle_rounded, color: _forestDark, size: 20),
+                          const Icon(Icons.check_circle_rounded, color: _greenAccent, size: 20),
                       ],
                     ),
                   ),

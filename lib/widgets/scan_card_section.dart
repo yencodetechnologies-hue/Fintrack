@@ -11,7 +11,7 @@ class ScanCardSection extends StatelessWidget {
     this.enabled = true,
   });
 
-  static const Color _forestDark = Color(0xFF0F261C);
+  static const Color _green = Color(0xFF0C5F41);
 
   @override
   Widget build(BuildContext context) {
@@ -22,10 +22,10 @@ class ScanCardSection extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: _forestDark.withValues(alpha: 0.3),
-              width: 1.5,
+              color: _green.withValues(alpha: 0.3),
+              width: 1.2,
             ),
-            color: _forestDark.withValues(alpha: 0.06),
+            color: _green.withValues(alpha: 0.08),
           ),
           child: ElevatedButton.icon(
             onPressed: enabled ? onScan : null,
@@ -40,7 +40,7 @@ class ScanCardSection extends StatelessWidget {
             ),
             icon: const Icon(
               Icons.camera_alt_rounded,
-              color: _forestDark,
+              color: _green,
             ),
             label: Text(
               'Scan Card',
@@ -48,7 +48,7 @@ class ScanCardSection extends StatelessWidget {
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.3,
-                color: _forestDark,
+                color: _green,
               ),
             ),
           ),
@@ -58,7 +58,7 @@ class ScanCardSection extends StatelessWidget {
           'Statement and payment due dates must be selected manually.',
           textAlign: TextAlign.center,
           style: GoogleFonts.inter(
-            color: Colors.black54,
+            color: const Color(0xFF6B7280),
             fontSize: 12,
             height: 1.4,
           ),

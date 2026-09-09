@@ -41,10 +41,10 @@ class _AddReminderPageState extends State<AddReminderPage> {
   bool gmailConnected = false;
   bool isFetchingGmail = false;
 
-  static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
-  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
-  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
-  static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
+  static const Color _bg         = Color(0xFF0C5F41);
+  static const Color _forestDark = Color(0xFF10B981);
+  static const Color _darkText   = Colors.white;
+  static const Color _terracotta = Color(0xFFB8452D);
 
   @override
   void initState() {
@@ -478,7 +478,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
         Radio<int>(
           value: value,
           groupValue: reminders[key]?["count"] ?? 1,
-          activeColor: _forestDark,
+          activeColor: const Color(0xFF0C5F41),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onChanged: (val) {
             if (val == null) return;
@@ -493,7 +493,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
           child: Text(
             label,
             style: GoogleFonts.inter(
-              color: _darkText,
+              color: const Color(0xFF0F261C),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -517,7 +517,9 @@ class _AddReminderPageState extends State<AddReminderPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: selected ? _forestDark : Colors.black.withValues(alpha: 0.08),
+          color: selected
+              ? const Color(0xFF0C5F41)
+              : Colors.black.withValues(alpha: 0.08),
           width: selected ? 1.5 : 1.2,
         ),
         boxShadow: [
@@ -534,11 +536,11 @@ class _AddReminderPageState extends State<AddReminderPage> {
             children: [
               Checkbox(
                 value: selected,
-                activeColor: _forestDark,
+                activeColor: const Color(0xFF0C5F41),
                 checkColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
                 side: BorderSide(
-                  color: selected ? _forestDark : Colors.black38,
+                  color: selected ? const Color(0xFF0C5F41) : Colors.black38,
                   width: 1.5,
                 ),
                 onChanged: (val) {
@@ -558,7 +560,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
               Text(
                 title,
                 style: GoogleFonts.inter(
-                  color: _darkText,
+                  color: const Color(0xFF0F261C),
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
                 ),
@@ -598,26 +600,26 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _forestDark.withValues(alpha: 0.08),
-                    foregroundColor: _forestDark,
+                    backgroundColor: const Color(0xFF0C5F41).withValues(alpha: 0.08),
+                    foregroundColor: const Color(0xFF0C5F41),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                       side: BorderSide(
-                        color: _forestDark.withValues(alpha: 0.3),
+                        color: const Color(0xFF0C5F41).withValues(alpha: 0.3),
                         width: 1,
                       ),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
-                  icon: const Icon(Icons.access_time_rounded, size: 16, color: _forestDark),
+                  icon: const Icon(Icons.access_time_rounded, size: 16, color: Color(0xFF0C5F41)),
                   onPressed: () => pickTimes(key),
                   label: Text(
                     "Select Time",
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: _forestDark,
+                      color: const Color(0xFF0C5F41),
                     ),
                   ),
                 ),
@@ -630,7 +632,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                         child: Text(
                           "${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}",
                           style: GoogleFonts.inter(
-                            color: _forestDark,
+                            color: const Color(0xFF0C5F41),
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
                           ),
@@ -670,12 +672,12 @@ class _AddReminderPageState extends State<AddReminderPage> {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _forestDark.withValues(alpha: 0.1),
+              color: const Color(0xFF0C5F41).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.calendar_month_rounded,
-              color: _forestDark,
+              color: Color(0xFF0C5F41),
               size: 20,
             ),
           ),
@@ -692,7 +694,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
             child: Text(
               value,
               style: GoogleFonts.inter(
-                color: _darkText,
+                color: const Color(0xFF0F261C),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -727,7 +729,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
-              color: _darkText,
+              color: Color(0xFF0F261C),
               size: 20,
             ),
           ),
@@ -737,12 +739,11 @@ class _AddReminderPageState extends State<AddReminderPage> {
         title: Text(
           "Add Reminder",
           style: GoogleFonts.fraunces(
-            color: _darkText,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
         ),
-
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -775,13 +776,13 @@ class _AddReminderPageState extends State<AddReminderPage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _forestDark.withValues(alpha: 0.1),
+                        color: const Color(0xFF0C5F41).withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.notifications_active_rounded,
                         size: 26,
-                        color: _forestDark,
+                        color: Color(0xFF0C5F41),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -792,7 +793,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                           Text(
                             "Smart Payment Reminder",
                             style: GoogleFonts.fraunces(
-                              color: _darkText,
+                              color: const Color(0xFF0F261C),
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -814,26 +815,29 @@ class _AddReminderPageState extends State<AddReminderPage> {
 
               const SizedBox(height: 16),
 
-              OutlinedButton.icon(
+              ElevatedButton.icon(
                 onPressed: isFetchingGmail ? null : _fetchFromGmail,
                 icon: isFetchingGmail
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _forestDark),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0C5F41)),
                       )
-                    : const Icon(Icons.mail_outline_rounded, size: 18),
+                    : const Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFF0C5F41)),
                 label: Text(
                   gmailConnected ? 'Fetch from Gmail' : 'Connect & Fetch Gmail',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF0C5F41)),
                 ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _forestDark,
-                  side: BorderSide(
-                    color: _forestDark.withValues(alpha: 0.4),
-                    width: 1.2,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      width: 1.2,
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
               ),
@@ -866,7 +870,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                       style: GoogleFonts.fraunces(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: _darkText,
+                        color: const Color(0xFF0F261C),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -888,7 +892,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                             const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2.2, color: _forestDark),
+                              child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF0C5F41)),
                             ),
                             const SizedBox(width: 14),
                             Text(
@@ -970,7 +974,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                               Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
-                                  color: _forestDark,
+                                  color: const Color(0xFF0C5F41),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(
@@ -987,9 +991,9 @@ class _AddReminderPageState extends State<AddReminderPage> {
                       DropdownButtonFormField<String>(
                         value: selectedCardId,
                         isExpanded: true,
-                        dropdownColor: _bg,
+                        dropdownColor: Colors.white,
                         style: GoogleFonts.inter(
-                          color: _darkText,
+                          color: const Color(0xFF0F261C),
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1004,7 +1008,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                           ),
                           prefixIcon: const Icon(
                             Icons.account_balance_rounded,
-                            color: _forestDark,
+                            color: Color(0xFF0C5F41),
                             size: 20,
                           ),
                           filled: true,
@@ -1019,7 +1023,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(16),
                             borderSide: const BorderSide(
-                              color: _forestDark,
+                              color: Color(0xFF0C5F41),
                               width: 1.5,
                             ),
                           ),
@@ -1031,7 +1035,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                               card["bankName"] ?? "Bank",
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.inter(
-                                color: _darkText,
+                                color: const Color(0xFF0F261C),
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1060,7 +1064,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                       controller: amountController,
                       keyboardType: TextInputType.number,
                       style: GoogleFonts.inter(
-                        color: _darkText,
+                        color: const Color(0xFF0F261C),
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1072,7 +1076,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                         ),
                         prefixIcon: const Icon(
                           Icons.currency_rupee_rounded,
-                          color: _forestDark,
+                          color: Color(0xFF0C5F41),
                           size: 20,
                         ),
                         filled: true,
@@ -1087,7 +1091,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
                           borderSide: const BorderSide(
-                            color: _forestDark,
+                            color: Color(0xFF0C5F41),
                             width: 1.5,
                           ),
                         ),
@@ -1124,7 +1128,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 style: GoogleFonts.fraunces(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: _darkText,
+                  color: Colors.white,
                 ),
               ),
 
@@ -1163,7 +1167,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 child: ElevatedButton(
                   onPressed: onSaveReminderButtonClick,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _forestDark,
+                    backgroundColor: const Color(0xFF0C5F41),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),

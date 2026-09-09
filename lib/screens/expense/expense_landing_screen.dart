@@ -20,8 +20,10 @@ class ExpenseLandingScreen extends StatefulWidget {
 }
 
 class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color bgGreen = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
 
@@ -91,85 +93,35 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: creamSheet,
+      backgroundColor: bgGreen,
       appBar: AppBar(
-        backgroundColor: creamSheet,
+        backgroundColor: bgGreen,
         elevation: 0,
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.08),
+              color: darkSurface,
               shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: forestDark, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Expense Tracker",
           style: GoogleFonts.fraunces(
-            color: forestDark,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
         ),
-        actions: [
-          // Top Right 3-Dot Popup Menu
-          PopupMenuButton<String>(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: forestDark.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.more_vert_rounded, color: forestDark, size: 20),
-            ),
-            onSelected: (val) {
-              if (val == "create") {
-                _openCreateCompany();
-              } else if (val == "join") {
-                _openJoinCompany();
-              }
-            },
-            itemBuilder: (ctx) => [
-              PopupMenuItem(
-                value: "create",
-                child: Row(
-                  children: [
-                    const Icon(Icons.add_business_rounded, color: forestDark, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      "Create Company",
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
-                    ),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: "join",
-                child: Row(
-                  children: [
-                    const Icon(Icons.group_add_rounded, color: terracotta, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      "Join Company",
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: forestDark))
+          ? const Center(child: CircularProgressIndicator(color: mintAccent))
           : RefreshIndicator(
-              color: forestDark,
+              color: mintAccent,
               onRefresh: _loadUserCompanies,
               child: SafeArea(
                 child: SingleChildScrollView(
@@ -178,58 +130,96 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Banner Card
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: forestDark,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: forestDark.withValues(alpha: 0.25),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.business_center_rounded, color: Colors.white, size: 30),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    "Company Expense Ledger",
-                                    style: GoogleFonts.fraunces(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                      // Premium Action Buttons Row (Create & Join)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _openCreateCompany,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: forestDark,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: forestDark.withValues(alpha: 0.25),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "Track company reimbursements, balances & settlements smoothly.",
-                                    style: GoogleFonts.inter(
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      fontSize: 12.5,
-                                    ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.add_business_rounded, size: 18, color: Colors.white),
+                                      const SizedBox(width: 8),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          "Create Company",
+                                          style: GoogleFonts.inter(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _openJoinCompany,
+                                borderRadius: BorderRadius.circular(16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: terracotta.withValues(alpha: 0.4), width: 1.4),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.03),
+                                        blurRadius: 10,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.group_add_rounded, size: 18, color: terracotta),
+                                      const SizedBox(width: 8),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          "Join Company",
+                                          style: GoogleFonts.inter(
+                                            color: terracotta,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
 
                       if (_userCompanies.isNotEmpty) ...[
                         // Section Header: My Companies List
@@ -239,7 +229,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             Text(
                               "My Companies",
                               style: GoogleFonts.fraunces(
-                                color: darkText,
+                                color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -247,20 +237,12 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             Text(
                               "${_userCompanies.length} Organizations",
                               style: GoogleFonts.ibmPlexMono(
-                                color: darkText.withValues(alpha: 0.5),
+                                color: Colors.white.withValues(alpha: 0.7),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Tap any company to view its expense ledger & balance summary.",
-                          style: GoogleFonts.inter(
-                            color: darkText.withValues(alpha: 0.6),
-                            fontSize: 13,
-                          ),
                         ),
                         const SizedBox(height: 16),
 
@@ -280,7 +262,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                         Text(
                           "Get Started",
                           style: GoogleFonts.fraunces(
-                            color: darkText,
+                            color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -289,7 +271,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                         Text(
                           "Create a new company ledger or join an existing company using a 6-digit code.",
                           style: GoogleFonts.inter(
-                            color: darkText.withValues(alpha: 0.6),
+                            color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 13.5,
                           ),
                         ),

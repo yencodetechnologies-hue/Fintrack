@@ -247,219 +247,242 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Amount Field
-                Text(
-                  "Amount (₹) *",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1.0),
+              boxShadow: [
+                BoxShadow(
+                  color: forestDark.withValues(alpha: 0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) return "Amount is required";
-                    final numVal = double.tryParse(val.trim());
-                    if (numVal == null || numVal <= 0) return "Enter a valid amount";
-                    return null;
-                  },
-                  style: GoogleFonts.ibmPlexMono(
-                    color: forestDark,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Category Selector
+                  Text(
+                    "Category",
+                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
                   ),
-                  decoration: InputDecoration(
-                    hintText: "0.00",
-                    hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 24),
-                    prefixIcon: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      child: Text("₹", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: forestDark)),
+                  const SizedBox(height: 3),
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedCategory,
+                    dropdownColor: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      filled: true,
+                      fillColor: creamSheet.withValues(alpha: 0.4),
+                      prefixIcon: const Icon(Icons.category_rounded, color: forestDark, size: 15),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: forestDark, width: 2)),
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Description Field
-                Text(
-                  "Description / Purpose *",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextFormField(
-                  controller: _descController,
-                  validator: (val) => val == null || val.trim().isEmpty ? "Description is required" : null,
-                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
-                  decoration: InputDecoration(
-                    hintText: "e.g. Office lunch for team, Flight tickets",
-                    hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
-                    filled: true,
-                    fillColor: Colors.white,
-                    prefixIcon: const Icon(Icons.description_rounded, color: forestDark, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: forestDark, width: 1.8)),
-                  ),
-                ),
-                const SizedBox(height: 18),
-
-                // Category Selector
-                Text(
-                  "Category",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                DropdownButtonFormField<String>(
-                  value: _selectedCategory,
-                  dropdownColor: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Colors.white,
-                    prefixIcon: const Icon(Icons.category_rounded, color: forestDark, size: 20),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: forestDark, width: 1.8)),
-                  ),
-                  items: _categories.map((cat) {
-                    final isCustomAction = cat == "+ Add Custom Category...";
-                    return DropdownMenuItem(
-                      value: cat,
-                      child: Row(
-                        children: [
-                          if (isCustomAction) ...[
-                            const Icon(Icons.add_circle_outline_rounded, color: forestDark, size: 18),
-                            const SizedBox(width: 8),
-                          ],
-                          Text(
-                            cat,
-                            style: GoogleFonts.inter(
-                              color: isCustomAction ? forestDark : darkText,
-                              fontWeight: isCustomAction ? FontWeight.bold : FontWeight.w600,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val == "+ Add Custom Category...") {
-                      _promptCustomCategoryDialog();
-                    } else if (val != null) {
-                      setState(() => _selectedCategory = val);
-                    }
-                  },
-                ),
-                const SizedBox(height: 18),
-
-                // Date Selector
-                Text(
-                  "Expense Date",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                InkWell(
-                  onTap: _selectDate,
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: forestDark.withValues(alpha: 0.2)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                    items: _categories.map((cat) {
+                      final isCustomAction = cat == "+ Add Custom Category...";
+                      return DropdownMenuItem(
+                        value: cat,
+                        child: Row(
                           children: [
-                            const Icon(Icons.calendar_today_rounded, color: forestDark, size: 18),
-                            const SizedBox(width: 12),
+                            if (isCustomAction) ...[
+                              const Icon(Icons.add_circle_outline_rounded, color: forestDark, size: 14),
+                              const SizedBox(width: 5),
+                            ],
                             Text(
-                              DateFormat('dd MMM yyyy').format(_selectedDate),
-                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
+                              cat,
+                              style: GoogleFonts.inter(
+                                color: isCustomAction ? forestDark : darkText,
+                                fontWeight: isCustomAction ? FontWeight.bold : FontWeight.w600,
+                                fontSize: 11.5,
+                              ),
                             ),
                           ],
                         ),
-                        const Icon(Icons.edit_calendar_rounded, color: forestDark, size: 18),
-                      ],
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      if (val == "+ Add Custom Category...") {
+                        _promptCustomCategoryDialog();
+                      } else if (val != null) {
+                        setState(() => _selectedCategory = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Amount Field
+                  Text(
+                    "Amount (₹) *",
+                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                  const SizedBox(height: 3),
+                  TextFormField(
+                    controller: _amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    validator: (val) {
+                      if (val == null || val.trim().isEmpty) return "Amount is required";
+                      final numVal = double.tryParse(val.trim());
+                      if (numVal == null || numVal <= 0) return "Enter a valid amount";
+                      return null;
+                    },
+                    style: GoogleFonts.ibmPlexMono(
+                      color: forestDark,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: "0.00",
+                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 15),
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        child: Text("₹", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: forestDark)),
+                      ),
+                      prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+                      filled: true,
+                      fillColor: creamSheet.withValues(alpha: 0.4),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
                     ),
                   ),
-                ),
-                const SizedBox(height: 18),
+                  const SizedBox(height: 10),
 
-                // Receipt Attachment
-                Text(
-                  "Receipt / Attachment (Optional)",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: _pickReceiptImage,
-                  child: Container(
-                    width: double.infinity,
-                    height: 110,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: forestDark.withValues(alpha: 0.25), width: 1.5),
+                  // Description Field
+                  Text(
+                    "Description / Purpose *",
+                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                  const SizedBox(height: 3),
+                  TextFormField(
+                    controller: _descController,
+                    validator: (val) => val == null || val.trim().isEmpty ? "Description is required" : null,
+                    style: GoogleFonts.inter(color: darkText, fontSize: 12, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: "e.g. Office lunch, Flight tickets",
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 11.5),
+                      filled: true,
+                      fillColor: creamSheet.withValues(alpha: 0.4),
+                      prefixIcon: const Icon(Icons.description_rounded, color: forestDark, size: 15),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
                     ),
-                    child: _base64Image != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.memory(
-                              base64Decode(_base64Image!.split(',').last),
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Date Selector
+                  Text(
+                    "Expense Date",
+                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                  const SizedBox(height: 3),
+                  InkWell(
+                    onTap: _selectDate,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: creamSheet.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
                             children: [
-                              const Icon(Icons.cloud_upload_outlined, color: forestDark, size: 30),
-                              const SizedBox(height: 6),
+                              const Icon(Icons.calendar_today_rounded, color: forestDark, size: 15),
+                              const SizedBox(width: 8),
                               Text(
-                                "Tap to upload receipt image",
-                                style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 12.5, fontWeight: FontWeight.w600),
+                                DateFormat('dd MMM yyyy').format(_selectedDate),
+                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 12),
                               ),
                             ],
                           ),
+                          const Icon(Icons.edit_calendar_rounded, color: forestDark, size: 15),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 10),
 
-                // Save Expense Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: _isSaving ? null : _submitExpense,
-                    icon: _isSaving
-                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.check_rounded, color: Colors.white),
-                    label: Text(
-                      _isSaving ? "Saving Expense..." : "Post Expense",
-                      style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: forestDark,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  // Receipt Attachment
+                  Text(
+                    "Receipt / Attachment (Optional)",
+                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                  const SizedBox(height: 3),
+                  GestureDetector(
+                    onTap: _pickReceiptImage,
+                    child: Container(
+                      width: double.infinity,
+                      height: 54,
+                      decoration: BoxDecoration(
+                        color: creamSheet.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: forestDark.withValues(alpha: 0.2), width: 1.0),
+                      ),
+                      child: _base64Image != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(9),
+                              child: Image.memory(
+                                base64Decode(_base64Image!.split(',').last),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.cloud_upload_outlined, color: forestDark, size: 18),
+                                const SizedBox(height: 2),
+                                Text(
+                                  "Tap to upload receipt image",
+                                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10.5, fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 14),
+
+                  // Save Expense Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 38,
+                    child: ElevatedButton.icon(
+                      onPressed: _isSaving ? null : _submitExpense,
+                      icon: _isSaving
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                      label: Text(
+                        _isSaving ? "Saving Expense..." : "Post Expense",
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: forestDark,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 1.5,
+                        shadowColor: forestDark.withValues(alpha: 0.2),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -61,7 +61,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F4EB),
+      backgroundColor: const Color(0xFF0C5F41),
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,

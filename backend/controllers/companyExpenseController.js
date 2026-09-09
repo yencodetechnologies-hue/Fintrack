@@ -109,11 +109,15 @@ exports.getUserCompanies = async (req, res) => {
     
     const companies = memberships
       .filter((m) => m.companyId != null)
-      .map((m) => ({
-        ...m.companyId._doc,
-        userRole: m.role,
-        joinedAt: m.joinedAt,
-      }));
+      .map((m) => {
+        const compDoc = m.companyId._doc || m.companyId;
+        const isCreator = compDoc.createdBy && compDoc.createdBy.toString() === userId.toString();
+        return {
+          ...compDoc,
+          userRole: isCreator ? "admin" : (m.role || "member"),
+          joinedAt: m.joinedAt,
+        };
+      });
 
     res.status(200).json({ success: true, companies });
   } catch (error) {
@@ -137,21 +141,53 @@ exports.getCompanyDetails = async (req, res) => {
       await company.save();
     }
 
-    const members = await CompanyMember.find({ companyId }).populate("userId", "name email");
-    const currentMember = members.find((m) => m.userId && m.userId._id.toString() === userId);
+    const rawMembers = await CompanyMember.find({ companyId }).lean();
+    
+    // Extract all member user IDs
+    const memberUserIds = rawMembers
+      .map((m) => m.userId)
+      .filter((id) => id != null);
+
+    // Query User collection directly to prevent 'Unknown' names
+    const users = await User.find({ _id: { $in: memberUserIds } }).select("name email").lean();
+    const usersMap = {};
+    users.forEach((u) => {
+      usersMap[u._id.toString()] = u;
+    });
+
+    const membersList = rawMembers.map((m) => {
+      const uIdStr = m.userId ? m.userId.toString() : "";
+      const userObj = usersMap[uIdStr] || {};
+      const isCreator = company.createdBy && company.createdBy.toString() === uIdStr;
+      return {
+        _id: m._id,
+        userId: m.userId,
+        name: userObj.name || "Member",
+        email: userObj.email || "",
+        role: isCreator ? "admin" : (m.role || "member"),
+        joinedAt: m.joinedAt,
+      };
+    });
+
+    // Determine current requesting user's role
+    let currentUserRole = "member";
+    if (userId) {
+      const creatorIdStr = company.createdBy ? company.createdBy.toString() : "";
+      if (creatorIdStr && creatorIdStr === userId.toString()) {
+        currentUserRole = "admin";
+      } else {
+        const foundMember = membersList.find((m) => m.userId && m.userId.toString() === userId.toString());
+        if (foundMember) {
+          currentUserRole = foundMember.role;
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
       company,
-      members: members.map((m) => ({
-        _id: m._id,
-        userId: m.userId ? m.userId._id : null,
-        name: m.userId ? m.userId.name : "Unknown",
-        email: m.userId ? m.userId.email : "",
-        role: m.role,
-        joinedAt: m.joinedAt,
-      })),
-      currentUserRole: currentMember ? currentMember.role : "member",
+      members: membersList,
+      currentUserRole,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

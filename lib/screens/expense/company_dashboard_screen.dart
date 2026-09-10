@@ -105,7 +105,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   DateTimeRange? _selectedDateRange;
 
   List<Map<String, dynamic>> get _filteredExpenses {
-    return _expenses.where((exp) {
+    final list = _expenses.where((exp) {
       if (_searchQuery.trim().isNotEmpty) {
         final query = _searchQuery.trim().toLowerCase();
         final desc = (exp["description"] ?? "").toString().toLowerCase();
@@ -142,6 +142,16 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
       return true;
     }).toList();
+
+    list.sort((a, b) {
+      final aDateRaw = a["createdAt"] ?? a["date"];
+      final bDateRaw = b["createdAt"] ?? b["date"];
+      final aDate = aDateRaw != null ? DateTime.tryParse(aDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
+      final bDate = bDateRaw != null ? DateTime.tryParse(bDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
+      return bDate.compareTo(aDate);
+    });
+
+    return list;
   }
 
   List<String> get _availableCategories {
@@ -1781,13 +1791,79 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         itemCount: _filteredExpenses.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, index) {
-                          return _buildExpenseCard(_filteredExpenses[index]);
+                          final exp = _filteredExpenses[index];
+                          final dateLabel = _getDateHeaderLabel(exp["date"] ?? exp["createdAt"]);
+                          final prevDateLabel = index > 0
+                              ? _getDateHeaderLabel(_filteredExpenses[index - 1]["date"] ?? _filteredExpenses[index - 1]["createdAt"])
+                              : null;
+
+                          final showHeader = index == 0 || dateLabel != prevDateLabel;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (showHeader) ...[
+                                if (index > 0) const SizedBox(height: 6),
+                                _buildDateHeader(dateLabel),
+                              ],
+                              _buildExpenseCard(exp),
+                            ],
+                          );
                         },
                       ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  String _getDateHeaderLabel(dynamic dateRaw) {
+    if (dateRaw == null) return "Other";
+    try {
+      final parsed = DateTime.parse(dateRaw.toString()).toLocal();
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final yesterday = today.subtract(const Duration(days: 1));
+      final expDay = DateTime(parsed.year, parsed.month, parsed.day);
+
+      if (expDay.isAtSameMomentAs(today)) {
+        return "Today • ${DateFormat('dd MMM, yyyy').format(parsed)}";
+      } else if (expDay.isAtSameMomentAs(yesterday)) {
+        return "Yesterday • ${DateFormat('dd MMM, yyyy').format(parsed)}";
+      } else {
+        return DateFormat("dd MMMM, yyyy").format(parsed);
+      }
+    } catch (_) {
+      return "Other";
+    }
+  }
+
+  Widget _buildDateHeader(String dateLabel) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 6, left: 2, right: 2),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_rounded, size: 14, color: Colors.white.withValues(alpha: 0.85)),
+          const SizedBox(width: 6),
+          Text(
+            dateLabel,
+            style: GoogleFonts.inter(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

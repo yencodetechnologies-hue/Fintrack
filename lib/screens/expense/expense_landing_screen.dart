@@ -47,6 +47,13 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     }
     try {
       final companies = await ExpenseCompanyService.getUserCompanies(widget.userId);
+      companies.sort((a, b) {
+        final aDateRaw = a["createdAt"] ?? a["updatedAt"];
+        final bDateRaw = b["createdAt"] ?? b["updatedAt"];
+        final aDate = aDateRaw != null ? DateTime.tryParse(aDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
+        final bDate = bDateRaw != null ? DateTime.tryParse(bDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
+        return bDate.compareTo(aDate);
+      });
       if (!mounted) return;
       setState(() {
         _userCompanies = companies;

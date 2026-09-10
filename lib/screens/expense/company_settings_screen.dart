@@ -314,7 +314,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
-      Navigator.pop(context, true);
+      int count = 0;
+      Navigator.of(context).popUntil((route) {
+        return count++ == 2 || route.isFirst;
+      });
     } else {
       ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(

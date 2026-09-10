@@ -16,6 +16,8 @@ class ExpenseCompanyService {
 
   static final Set<String> _manuallyReopenedUnpaidIds = {};
   static final Set<String> _manuallyReopenedPaidIds = {};
+  static final Set<String> _deletedExpenseIds = {};
+  static final Set<String> _deletedCompanyIds = {};
   static bool _prefsLoaded = false;
 
   static Future<void> _loadPrefs() async {
@@ -24,8 +26,12 @@ class ExpenseCompanyService {
       final prefs = await SharedPreferences.getInstance();
       final unpaidList = prefs.getStringList("fintrack_unpaid_ids") ?? [];
       final paidList = prefs.getStringList("fintrack_paid_ids") ?? [];
+      final deletedExpList = prefs.getStringList("fintrack_deleted_expense_ids") ?? [];
+      final deletedCompList = prefs.getStringList("fintrack_deleted_company_ids") ?? [];
       _manuallyReopenedUnpaidIds.addAll(unpaidList);
       _manuallyReopenedPaidIds.addAll(paidList);
+      _deletedExpenseIds.addAll(deletedExpList);
+      _deletedCompanyIds.addAll(deletedCompList);
       _prefsLoaded = true;
     } catch (_) {}
   }
@@ -35,6 +41,8 @@ class ExpenseCompanyService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList("fintrack_unpaid_ids", _manuallyReopenedUnpaidIds.toList());
       await prefs.setStringList("fintrack_paid_ids", _manuallyReopenedPaidIds.toList());
+      await prefs.setStringList("fintrack_deleted_expense_ids", _deletedExpenseIds.toList());
+      await prefs.setStringList("fintrack_deleted_company_ids", _deletedCompanyIds.toList());
     } catch (_) {}
   }
 
@@ -90,6 +98,11 @@ class ExpenseCompanyService {
   }
 
   static void _applyLocalStatusOverrides(List<Map<String, dynamic>> list) {
+    list.removeWhere((exp) {
+      final idStr = _extractId(exp["_id"]);
+      return idStr.isNotEmpty && _deletedExpenseIds.contains(idStr);
+    });
+
     for (var exp in list) {
       final idStr = _extractId(exp["_id"]);
       if (idStr.isNotEmpty) {
@@ -147,19 +160,25 @@ class ExpenseCompanyService {
 
   // 3. Get User Companies
   static Future<List<Map<String, dynamic>>> getUserCompanies(String userId) async {
+    await _loadPrefs();
     try {
       final res = await http.get(Uri.parse("$_base/user/$userId/companies")).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         final data = _parseResponse(res);
         if (data["success"] == true && data["companies"] is List) {
           final list = List<Map<String, dynamic>>.from(data["companies"]);
+          list.removeWhere((c) => _deletedCompanyIds.contains(_extractId(c["_id"])));
           _companiesCache[userId] = list;
           return list;
         }
       }
-      return _companiesCache[userId] ?? [];
+      final cached = _companiesCache[userId] ?? [];
+      cached.removeWhere((c) => _deletedCompanyIds.contains(_extractId(c["_id"])));
+      return cached;
     } catch (_) {
-      return _companiesCache[userId] ?? [];
+      final cached = _companiesCache[userId] ?? [];
+      cached.removeWhere((c) => _deletedCompanyIds.contains(_extractId(c["_id"])));
+      return cached;
     }
   }
 
@@ -406,7 +425,7 @@ class ExpenseCompanyService {
       final res = await http.get(Uri.parse("$_base/company/$companyId/user/$userId/summary")).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         final parsed = _parseResponse(res);
-        if (_manuallyReopenedUnpaidIds.isNotEmpty || _manuallyReopenedPaidIds.isNotEmpty) {
+        if (_manuallyReopenedUnpaidIds.isNotEmpty || _manuallyReopenedPaidIds.isNotEmpty || _deletedExpenseIds.isNotEmpty) {
           final computed = computeLocalBalanceSummary(companyId, userId);
           _summaryCache["${companyId}_$userId"] = computed;
           return computed;
@@ -520,8 +539,14 @@ class ExpenseCompanyService {
     required String userId,
   }) async {
     await _loadPrefs();
+    final targetCompId = _extractId(companyId);
+    _deletedCompanyIds.add(targetCompId);
+    await _savePrefs();
+
     _expensesCache.remove(companyId);
-    _companiesCache.remove(userId);
+    _companiesCache.forEach((uId, list) {
+      list.removeWhere((c) => _extractId(c["_id"]) == targetCompId);
+    });
     _detailsCache.remove("${companyId}_$userId");
     _summaryCache.remove("${companyId}_$userId");
 
@@ -552,9 +577,10 @@ class ExpenseCompanyService {
     await _loadPrefs();
     final targetId = _extractId(expenseId);
 
+    _deletedExpenseIds.add(targetId);
     _manuallyReopenedUnpaidIds.remove(targetId);
     _manuallyReopenedPaidIds.remove(targetId);
-    _savePrefs();
+    await _savePrefs();
 
     _expensesCache.forEach((compKey, list) {
       list.removeWhere((exp) => _extractId(exp["_id"]) == targetId);

@@ -129,8 +129,9 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color creamSheet = Color(0xFFF6F4EB);
-    const Color forestDark = Color(0xFF0F261C);
+    const Color scaffoldBg = Color(0xFF0C5F41);
+    const Color darkSurface = Color(0xFF0C3826);
+    const Color mintAccent = Color(0xFF10B981);
     const Color darkText = Color(0xFF132A20);
     const Color terracotta = Color(0xFFB8452D);
     const Color textMuted = Color(0xFF68786E);
@@ -138,7 +139,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     final dateFmt = DateFormat("MMM d, yyyy");
 
     return Scaffold(
-      backgroundColor: creamSheet,
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -146,18 +147,18 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.06),
+              color: darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context, _createdTrip != null),
         ),
         title: Text(
           "Create New Trip",
           style: GoogleFonts.fraunces(
-            color: darkText,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
             fontStyle: FontStyle.italic,
@@ -170,7 +171,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 40),
           child: _createdTrip != null
-              ? _buildSuccessView(forestDark, darkText, terracotta, textMuted)
+              ? _buildSuccessView(darkSurface, darkText, terracotta, textMuted, mintAccent)
               : Form(
                   key: _formKey,
                   child: Column(
@@ -178,16 +179,16 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                     children: [
                       // Form Container Card
                       Container(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.03),
-                              blurRadius: 14,
-                              offset: const Offset(0, 4),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
                             ),
                           ],
                         ),
@@ -196,14 +197,14 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                           children: [
                             // Trip Name
                             _buildLabel("Trip Name"),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 5),
                             TextFormField(
                               controller: _nameController,
-                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 15),
+                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                               decoration: _inputDeco("e.g. Goa Beach Trip, Manali Trek", prefixIcon: Icons.flight_takeoff_rounded),
                               validator: (v) => (v == null || v.trim().isEmpty) ? "Enter trip name" : null,
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 12),
 
                             // Location: From -> To
                             Row(
@@ -213,26 +214,26 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("From Location"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       TextFormField(
                                         controller: _fromController,
-                                        style: GoogleFonts.inter(color: darkText, fontSize: 14),
+                                        style: GoogleFonts.inter(color: darkText, fontSize: 13),
                                         decoration: _inputDeco("e.g. Mumbai", prefixIcon: Icons.near_me_rounded),
                                         validator: (v) => (v == null || v.trim().isEmpty) ? "Required" : null,
                                       ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("To Location"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       TextFormField(
                                         controller: _toController,
-                                        style: GoogleFonts.inter(color: darkText, fontSize: 14),
+                                        style: GoogleFonts.inter(color: darkText, fontSize: 13),
                                         decoration: _inputDeco("e.g. Goa", prefixIcon: Icons.location_on_rounded),
                                         validator: (v) => (v == null || v.trim().isEmpty) ? "Required" : null,
                                       ),
@@ -241,7 +242,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 12),
 
                             // Dates Pickers
                             Row(
@@ -251,27 +252,27 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("Start Date"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       InkWell(
                                         onTap: () => _pickDate(true),
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(12),
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                           decoration: BoxDecoration(
-                                            color: creamSheet.withValues(alpha: 0.6),
-                                            borderRadius: BorderRadius.circular(16),
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                                           ),
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.calendar_month_rounded, size: 18, color: terracotta),
-                                              const SizedBox(width: 8),
+                                              const Icon(Icons.calendar_month_rounded, size: 16, color: scaffoldBg),
+                                              const SizedBox(width: 6),
                                               Expanded(
                                                 child: Text(
                                                   _startDate != null ? dateFmt.format(_startDate!) : "Select Date",
                                                   style: GoogleFonts.inter(
                                                     color: _startDate != null ? darkText : textMuted,
-                                                    fontSize: 13,
+                                                    fontSize: 12,
                                                     fontWeight: _startDate != null ? FontWeight.bold : FontWeight.normal,
                                                   ),
                                                   overflow: TextOverflow.ellipsis,
@@ -284,33 +285,33 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("End Date"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       InkWell(
                                         onTap: () => _pickDate(false),
-                                        borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(12),
                                         child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                           decoration: BoxDecoration(
-                                            color: creamSheet.withValues(alpha: 0.6),
-                                            borderRadius: BorderRadius.circular(16),
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                                           ),
                                           child: Row(
                                             children: [
-                                              const Icon(Icons.calendar_month_rounded, size: 18, color: terracotta),
-                                              const SizedBox(width: 8),
+                                              const Icon(Icons.calendar_month_rounded, size: 16, color: scaffoldBg),
+                                              const SizedBox(width: 6),
                                               Expanded(
                                                 child: Text(
                                                   _endDate != null ? dateFmt.format(_endDate!) : "Select Date",
                                                   style: GoogleFonts.inter(
                                                     color: _endDate != null ? darkText : textMuted,
-                                                    fontSize: 13,
+                                                    fontSize: 12,
                                                     fontWeight: _endDate != null ? FontWeight.bold : FontWeight.normal,
                                                   ),
                                                   overflow: TextOverflow.ellipsis,
@@ -325,19 +326,19 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 18),
+                            const SizedBox(height: 12),
 
                             // Budget & Currency Input
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 SizedBox(
-                                  width: 110,
+                                  width: 95,
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("Currency"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       InkWell(
                                         onTap: () {
                                           _showCurrencyPickerSheet(
@@ -349,11 +350,11 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                           );
                                         },
                                         child: Container(
-                                          height: 52,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          height: 42,
+                                          padding: const EdgeInsets.symmetric(horizontal: 10),
                                           decoration: BoxDecoration(
-                                            color: creamSheet.withValues(alpha: 0.6),
-                                            borderRadius: BorderRadius.circular(16),
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(12),
                                             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                                           ),
                                           child: Row(
@@ -364,10 +365,10 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                                 style: GoogleFonts.ibmPlexMono(
                                                   color: darkText,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 15,
+                                                  fontSize: 13.5,
                                                 ),
                                               ),
-                                              const Icon(Icons.keyboard_arrow_down_rounded, color: darkText, size: 20),
+                                              const Icon(Icons.keyboard_arrow_down_rounded, color: darkText, size: 18),
                                             ],
                                           ),
                                         ),
@@ -375,20 +376,20 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildLabel("Total Estimated Budget"),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 5),
                                       TextFormField(
                                         controller: _budgetController,
                                         keyboardType: TextInputType.number,
                                         style: GoogleFonts.ibmPlexMono(
                                           color: darkText,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 17,
+                                          fontSize: 15,
                                         ),
                                         decoration: _inputDeco(
                                           "e.g. 25000",
@@ -401,23 +402,23 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 14),
 
                             // Budget Split Type
                             _buildLabel("Budget Split Method"),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 6),
                             Row(
                               children: [
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () => setState(() => _splitType = "equal"),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
                                       decoration: BoxDecoration(
-                                        color: _splitType == "equal" ? forestDark : creamSheet.withValues(alpha: 0.6),
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: _splitType == "equal" ? scaffoldBg : const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: _splitType == "equal" ? forestDark : Colors.black.withValues(alpha: 0.08),
+                                          color: _splitType == "equal" ? scaffoldBg : Colors.black.withValues(alpha: 0.08),
                                         ),
                                       ),
                                       child: Row(
@@ -425,16 +426,16 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                         children: [
                                           Icon(
                                             Icons.pie_chart_rounded,
-                                            size: 16,
-                                            color: _splitType == "equal" ? const Color(0xFFD4AF37) : textMuted,
+                                            size: 15,
+                                            color: _splitType == "equal" ? mintAccent : textMuted,
                                           ),
-                                          const SizedBox(width: 6),
+                                          const SizedBox(width: 5),
                                           Text(
                                             "Equal Split",
                                             style: GoogleFonts.inter(
                                               color: _splitType == "equal" ? Colors.white : darkText,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 13.5,
+                                              fontSize: 12.5,
                                             ),
                                           ),
                                         ],
@@ -442,17 +443,17 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () => setState(() => _splitType = "custom"),
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
                                       decoration: BoxDecoration(
-                                        color: _splitType == "custom" ? forestDark : creamSheet.withValues(alpha: 0.6),
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: _splitType == "custom" ? scaffoldBg : const Color(0xFFF8FAFC),
+                                        borderRadius: BorderRadius.circular(12),
                                         border: Border.all(
-                                          color: _splitType == "custom" ? forestDark : Colors.black.withValues(alpha: 0.08),
+                                          color: _splitType == "custom" ? scaffoldBg : Colors.black.withValues(alpha: 0.08),
                                         ),
                                       ),
                                       child: Row(
@@ -460,16 +461,16 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                         children: [
                                           Icon(
                                             Icons.tune_rounded,
-                                            size: 16,
-                                            color: _splitType == "custom" ? const Color(0xFFD4AF37) : textMuted,
+                                            size: 15,
+                                            color: _splitType == "custom" ? mintAccent : textMuted,
                                           ),
-                                          const SizedBox(width: 6),
+                                          const SizedBox(width: 5),
                                           Text(
                                             "Custom Split",
                                             style: GoogleFonts.inter(
                                               color: _splitType == "custom" ? Colors.white : darkText,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 13.5,
+                                              fontSize: 12.5,
                                             ),
                                           ),
                                         ],
@@ -482,26 +483,29 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       // Submit Button
                       SizedBox(
                         width: double.infinity,
-                        height: 56,
+                        height: 48,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: forestDark,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            elevation: 4,
-                            shadowColor: forestDark.withValues(alpha: 0.3),
+                            backgroundColor: darkSurface,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                            ),
+                            elevation: 3,
+                            shadowColor: Colors.black.withValues(alpha: 0.2),
                           ),
                           onPressed: _isLoading ? null : _handleCreate,
                           child: _isLoading
-                              ? const CircularProgressIndicator(color: Colors.white)
+                              ? const CircularProgressIndicator(color: mintAccent)
                               : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(Icons.auto_awesome_rounded, color: Color(0xFFD4AF37), size: 20),
+                                    const Icon(Icons.auto_awesome_rounded, color: mintAccent, size: 20),
                                     const SizedBox(width: 8),
                                     Text(
                                       "Create Trip & Generate Code",
@@ -523,49 +527,50 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     );
   }
 
-  Widget _buildSuccessView(Color forestDark, Color darkText, Color terracotta, Color textMuted) {
+  Widget _buildSuccessView(Color darkSurface, Color darkText, Color terracotta, Color textMuted, Color mintAccent) {
     final joinCode = _createdTrip!["joinCode"] as String;
     final tripName = _createdTrip!["name"] as String;
 
     return Column(
       children: [
-        const SizedBox(height: 10),
+        const SizedBox(height: 4),
         Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: forestDark.withValues(alpha: 0.08),
+            color: darkSurface,
+            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
-          child: Icon(Icons.check_circle_rounded, color: forestDark, size: 54),
+          child: Icon(Icons.check_circle_rounded, color: mintAccent, size: 32),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           "Trip Created Successfully!",
           style: GoogleFonts.fraunces(
-            color: darkText,
-            fontSize: 24,
+            color: Colors.white,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Text(
           "Share the 6-digit Trip Code or QR code with your friends to let them join \"$tripName\".",
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: textMuted, fontSize: 13.5),
+          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 18),
 
         // QR Code Container
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 16,
+                blurRadius: 14,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -575,42 +580,45 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
               QrImageView(
                 data: joinCode,
                 version: QrVersions.auto,
-                size: 180.0,
-                eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: forestDark),
-                dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: forestDark),
+                size: 130.0,
+                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0C5F41)),
+                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0C5F41)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
               Text(
                 "TRIP CODE",
-                style: GoogleFonts.ibmPlexMono(color: textMuted, fontSize: 11, letterSpacing: 2),
+                style: GoogleFonts.ibmPlexMono(color: textMuted, fontSize: 10, letterSpacing: 2),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               SelectableText(
                 joinCode,
                 style: GoogleFonts.ibmPlexMono(
-                  color: forestDark,
-                  fontSize: 32,
+                  color: const Color(0xFF0C5F41),
+                  fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  letterSpacing: 4,
+                  letterSpacing: 3,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
 
         SizedBox(
           width: double.infinity,
-          height: 52,
+          height: 46,
           child: ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: forestDark,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              backgroundColor: darkSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+              ),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: Text(
               "Go to Saved Trips",
-              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
         ),
@@ -653,7 +661,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFF6F4EB),
+            color: Color(0xFF0C5F41),
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -669,7 +677,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.black12,
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -678,7 +686,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
               Text(
                 "Select Trip Currency",
                 style: GoogleFonts.fraunces(
-                  color: const Color(0xFF132A20),
+                  color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -706,10 +714,10 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF0F261C) : Colors.white,
+                            color: isSelected ? const Color(0xFF0C3826) : Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isSelected ? const Color(0xFF0F261C) : Colors.black.withValues(alpha: 0.08),
+                              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.08),
                             ),
                           ),
                           child: Row(
@@ -736,7 +744,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 ),
                               ),
                               if (isSelected)
-                                const Icon(Icons.check_circle_rounded, color: Color(0xFFD4AF37), size: 20),
+                                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
                             ],
                           ),
                         ),
@@ -755,26 +763,26 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   InputDecoration _inputDeco(String hint, {String? prefix, IconData? prefixIcon}) {
     return InputDecoration(
       prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: const Color(0xFF68786E), size: 20)
+          ? Icon(prefixIcon, color: const Color(0xFF68786E), size: 18)
           : null,
       prefixText: prefix,
-      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF132A20), fontWeight: FontWeight.bold, fontSize: 17),
+      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF132A20), fontWeight: FontWeight.bold, fontSize: 15),
       hintText: hint,
-      hintStyle: GoogleFonts.inter(color: const Color(0xFF68786E).withValues(alpha: 0.5), fontSize: 13.5),
+      hintStyle: GoogleFonts.inter(color: const Color(0xFF68786E).withValues(alpha: 0.5), fontSize: 12.5),
       filled: true,
-      fillColor: const Color(0xFFF6F4EB).withValues(alpha: 0.6),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      fillColor: const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFF0F261C), width: 1.5),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF0C5F41), width: 1.5),
       ),
     );
   }

@@ -6,7 +6,9 @@ import '../../services/trip_service.dart';
 import 'trip_details_screen.dart';
 
 class TripHistoryTheme {
-  static const Color creamSheet = Color(0xFFF6F4EB);
+  static const Color scaffoldBg = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color forestDark = Color(0xFF0F261C);
   static const Color darkText = Color(0xFF132A20);
   static const Color terracotta = Color(0xFFB8452D);
@@ -72,7 +74,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TripHistoryTheme.creamSheet,
+      backgroundColor: TripHistoryTheme.scaffoldBg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -80,13 +82,13 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: TripHistoryTheme.forestDark.withValues(alpha: 0.06),
+              color: TripHistoryTheme.darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: TripHistoryTheme.forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
-              color: TripHistoryTheme.darkText,
+              color: TripHistoryTheme.mintAccent,
               size: 20,
             ),
           ),
@@ -95,7 +97,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
         title: Text(
           "Trip History",
           style: GoogleFonts.fraunces(
-            color: TripHistoryTheme.darkText,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
             fontStyle: FontStyle.italic,
@@ -105,14 +107,15 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: TripHistoryTheme.forestDark,
+          color: TripHistoryTheme.mintAccent,
+          backgroundColor: TripHistoryTheme.darkSurface,
           onRefresh: () async => _refreshTrips(),
           child: FutureBuilder<List<dynamic>>(
             future: _tripsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
-                  child: CircularProgressIndicator(color: TripHistoryTheme.forestDark),
+                  child: CircularProgressIndicator(color: TripHistoryTheme.mintAccent),
                 );
               }
 
@@ -137,11 +140,11 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: TripHistoryTheme.forestDark.withValues(alpha: 0.06),
+                            color: TripHistoryTheme.scaffoldBg.withValues(alpha: 0.08),
                           ),
                           child: const FaIcon(
                             FontAwesomeIcons.clockRotateLeft,
-                            color: TripHistoryTheme.textMuted,
+                            color: TripHistoryTheme.scaffoldBg,
                             size: 38,
                           ),
                         ),
@@ -149,7 +152,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                         Text(
                           "No Past Trips in History",
                           style: GoogleFonts.fraunces(
-                            color: TripHistoryTheme.darkText,
+                            color: TripHistoryTheme.forestDark,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -233,7 +236,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                       decoration: BoxDecoration(
                                         color: isOrganizer
-                                            ? TripHistoryTheme.forestDark
+                                            ? TripHistoryTheme.scaffoldBg
                                             : TripHistoryTheme.terracotta.withValues(alpha: 0.12),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -303,7 +306,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                               children: [
                                 const Icon(
                                   Icons.location_on_outlined,
-                                  color: TripHistoryTheme.terracotta,
+                                  color: TripHistoryTheme.scaffoldBg,
                                   size: 18,
                                 ),
                                 const SizedBox(width: 4),
@@ -339,7 +342,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                                 Text(
                                   "${trip['currencySymbol'] ?? '₹'}${NumberFormat('#,##,###').format(budget)}",
                                   style: GoogleFonts.ibmPlexMono(
-                                    color: TripHistoryTheme.forestDark,
+                                    color: TripHistoryTheme.scaffoldBg,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),

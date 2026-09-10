@@ -19,6 +19,10 @@ router.post("/expense/:expenseId/receive", companyExpenseController.receiveExpen
 router.post("/expense/:expenseId/reset-unpaid", companyExpenseController.resetExpenseToUnpaid);
 router.post("/expense/:expenseId/edit-settlement", companyExpenseController.editExpenseSettlement);
 router.get("/company/:companyId/user/:userId/summary", companyExpenseController.getCompanyBalanceSummary);
+router.delete("/company/:companyId", companyExpenseController.deleteCompany);
+router.post("/company/:companyId/delete", companyExpenseController.deleteCompany);
+router.delete("/expense/:expenseId", companyExpenseController.deleteExpense);
+router.post("/expense/:expenseId/delete", companyExpenseController.deleteExpense);
 
 module.exports = router;
 

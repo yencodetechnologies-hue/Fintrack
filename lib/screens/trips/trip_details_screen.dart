@@ -6,7 +6,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../services/trip_service.dart';
 
 class TripDetailsTheme {
-  static const Color creamSheet = Color(0xFFF6F4EB);
+  static const Color scaffoldBg = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color forestDark = Color(0xFF0F261C);
   static const Color darkText = Color(0xFF132A20);
   static const Color terracotta = Color(0xFFB8452D);
@@ -68,7 +70,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: TripDetailsTheme.creamSheet,
+            color: TripDetailsTheme.scaffoldBg,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -82,7 +84,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                  color: Colors.white24,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -91,7 +93,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               Text(
                 "Invite Members",
                 style: GoogleFonts.fraunces(
-                  color: TripDetailsTheme.darkText,
+                  color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -100,7 +102,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               Text(
                 "Let friends scan this QR code or enter the 6-digit code to join \"$tripName\".",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: TripDetailsTheme.textMuted, fontSize: 13),
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
               ),
               const SizedBox(height: 24),
 
@@ -116,14 +118,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     QrImageView(
                       data: joinCode,
                       version: QrVersions.auto,
-                      size: 170.0,
+                      size: 150.0,
                       eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
-                        color: TripDetailsTheme.forestDark,
+                        color: TripDetailsTheme.scaffoldBg,
                       ),
                       dataModuleStyle: const QrDataModuleStyle(
                         dataModuleShape: QrDataModuleShape.square,
-                        color: TripDetailsTheme.forestDark,
+                        color: TripDetailsTheme.scaffoldBg,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -139,8 +141,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     SelectableText(
                       joinCode,
                       style: GoogleFonts.ibmPlexMono(
-                        color: TripDetailsTheme.forestDark,
-                        fontSize: 30,
+                        color: TripDetailsTheme.scaffoldBg,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 4,
                       ),
@@ -152,11 +154,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 46,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: TripDetailsTheme.forestDark,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    backgroundColor: TripDetailsTheme.darkSurface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(sheetCtx),
                   child: Text(
@@ -179,7 +184,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: TripDetailsTheme.creamSheet,
+            color: TripDetailsTheme.scaffoldBg,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -193,7 +198,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                  color: Colors.white24,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -203,7 +208,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: TripDetailsTheme.terracotta.withValues(alpha: 0.1),
+                  color: TripDetailsTheme.terracotta.withValues(alpha: 0.15),
                 ),
                 child: const Icon(Icons.person_remove_rounded, color: TripDetailsTheme.terracotta, size: 32),
               ),
@@ -212,7 +217,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               Text(
                 "Remove Member",
                 style: GoogleFonts.fraunces(
-                  color: TripDetailsTheme.darkText,
+                  color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -222,7 +227,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               Text(
                 "Are you sure you want to remove \"$memberName\" from this trip?",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: TripDetailsTheme.textMuted, fontSize: 14),
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
               ),
               const SizedBox(height: 24),
 
@@ -231,14 +236,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: TripDetailsTheme.darkText.withValues(alpha: 0.2)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.pop(sheetCtx),
                       child: Text(
                         "Cancel",
-                        style: GoogleFonts.inter(color: TripDetailsTheme.darkText, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -317,7 +322,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
               child: Container(
                 decoration: const BoxDecoration(
-                  color: TripDetailsTheme.creamSheet,
+                  color: TripDetailsTheme.scaffoldBg,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
@@ -334,7 +339,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                            color: Colors.white24,
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
@@ -344,7 +349,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       Text(
                         "Edit Trip Details",
                         style: GoogleFonts.fraunces(
-                          color: TripDetailsTheme.darkText,
+                          color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
@@ -352,7 +357,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       const SizedBox(height: 16),
 
                       // Trip Name
-                      Text("Trip Name", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: TripDetailsTheme.darkText)),
+                      Text("Trip Name", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                       const SizedBox(height: 6),
                       TextField(
                         controller: nameCtrl,
@@ -373,7 +378,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("From Location", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: TripDetailsTheme.darkText)),
+                                Text("From Location", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: fromCtrl,
@@ -393,7 +398,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("To Location", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: TripDetailsTheme.darkText)),
+                                Text("To Location", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: toCtrl,
@@ -421,7 +426,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("Currency", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: TripDetailsTheme.darkText)),
+                                Text("Currency", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                                 const SizedBox(height: 6),
                                 InkWell(
                                   onTap: () {
@@ -465,7 +470,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("Total Budget", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: TripDetailsTheme.darkText)),
+                                Text("Total Budget", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
                                 const SizedBox(height: 6),
                                 TextField(
                                   controller: budgetCtrl,
@@ -524,11 +529,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                       SizedBox(
                         width: double.infinity,
-                        height: 52,
+                        height: 48,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: TripDetailsTheme.forestDark,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            backgroundColor: TripDetailsTheme.darkSurface,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                            ),
                           ),
                           onPressed: () async {
                             final b = double.tryParse(budgetCtrl.text.trim());
@@ -571,7 +579,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: TripDetailsTheme.creamSheet,
+            color: TripDetailsTheme.scaffoldBg,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -585,7 +593,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                  color: Colors.white24,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -595,16 +603,16 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: TripDetailsTheme.terracotta.withValues(alpha: 0.1),
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                 ),
-                child: const Icon(Icons.delete_forever_rounded, color: TripDetailsTheme.terracotta, size: 32),
+                child: const Icon(Icons.delete_forever_rounded, color: Color(0xFFEF4444), size: 32),
               ),
               const SizedBox(height: 16),
 
               Text(
                 isOrganizer ? "Delete Trip" : "Leave Trip",
                 style: GoogleFonts.fraunces(
-                  color: TripDetailsTheme.darkText,
+                  color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -616,7 +624,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     ? "Are you sure you want to permanently delete \"$tripName\"? This action cannot be undone."
                     : "Are you sure you want to leave \"$tripName\"?",
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(color: TripDetailsTheme.textMuted, fontSize: 14),
+                style: GoogleFonts.inter(color: Colors.white70, fontSize: 14),
               ),
               const SizedBox(height: 24),
 
@@ -625,14 +633,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                   Expanded(
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: TripDetailsTheme.darkText.withValues(alpha: 0.2)),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.pop(sheetCtx),
                       child: Text(
                         "Cancel",
-                        style: GoogleFonts.inter(color: TripDetailsTheme.darkText, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -640,7 +648,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: TripDetailsTheme.terracotta,
+                        backgroundColor: const Color(0xFFEF4444),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
@@ -753,7 +761,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               ),
               child: Container(
                 decoration: const BoxDecoration(
-                  color: TripDetailsTheme.creamSheet,
+                  color: TripDetailsTheme.scaffoldBg,
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(28),
                     topRight: Radius.circular(28),
@@ -769,7 +777,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                          color: Colors.white24,
                           borderRadius: BorderRadius.circular(10),
                         ),
                       ),
@@ -782,7 +790,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         Text(
                           "Set Custom Tally Split",
                           style: GoogleFonts.fraunces(
-                            color: TripDetailsTheme.darkText,
+                            color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
@@ -803,17 +811,18 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: TripDetailsTheme.terracotta.withValues(alpha: 0.1),
+                              color: TripDetailsTheme.darkSurface,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.auto_awesome_rounded, color: TripDetailsTheme.terracotta, size: 14),
+                                const Icon(Icons.auto_awesome_rounded, color: TripDetailsTheme.mintAccent, size: 14),
                                 const SizedBox(width: 4),
                                 Text(
                                   "Equalize",
                                   style: GoogleFonts.inter(
-                                    color: TripDetailsTheme.terracotta,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12.5,
                                   ),
@@ -830,12 +839,10 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isBalanced
-                            ? TripDetailsTheme.forestDark.withValues(alpha: 0.08)
-                            : TripDetailsTheme.terracotta.withValues(alpha: 0.08),
+                        color: TripDetailsTheme.darkSurface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: isBalanced ? TripDetailsTheme.forestDark : TripDetailsTheme.terracotta,
+                          color: isBalanced ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFEF4444),
                           width: 1.2,
                         ),
                       ),
@@ -848,7 +855,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               Text(
                                 "TOTAL BUDGET",
                                 style: GoogleFonts.ibmPlexMono(
-                                  color: TripDetailsTheme.textMuted,
+                                  color: Colors.white54,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -858,7 +865,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               Text(
                                 currencyFormatter.format(totalBudget),
                                 style: GoogleFonts.fraunces(
-                                  color: TripDetailsTheme.darkText,
+                                  color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -868,7 +875,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           Container(
                             height: 32,
                             width: 1,
-                            color: (isBalanced ? TripDetailsTheme.forestDark : TripDetailsTheme.terracotta).withValues(alpha: 0.2),
+                            color: Colors.white24,
                           ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -876,7 +883,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               Text(
                                 isPercentageMode ? "TOTAL PERCENTAGE" : "TALLY SUM",
                                 style: GoogleFonts.ibmPlexMono(
-                                  color: isBalanced ? TripDetailsTheme.forestDark : TripDetailsTheme.terracotta,
+                                  color: isBalanced ? TripDetailsTheme.mintAccent : const Color(0xFFEF4444),
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: 0.5,
@@ -890,7 +897,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                         ? "${currentSum.toStringAsFixed(1)}%"
                                         : currencyFormatter.format(currentSum),
                                     style: GoogleFonts.inter(
-                                      color: isBalanced ? TripDetailsTheme.forestDark : TripDetailsTheme.terracotta,
+                                      color: isBalanced ? Colors.white : const Color(0xFFEF4444),
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -898,7 +905,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   const SizedBox(width: 6),
                                   Icon(
                                     isBalanced ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                                    color: isBalanced ? TripDetailsTheme.forestDark : TripDetailsTheme.terracotta,
+                                    color: isBalanced ? TripDetailsTheme.mintAccent : const Color(0xFFEF4444),
                                     size: 18,
                                   ),
                                 ],
@@ -914,9 +921,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: TripDetailsTheme.darkSurface,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                       ),
                       child: Row(
                         children: [
@@ -926,14 +933,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: !isPercentageMode ? TripDetailsTheme.forestDark : Colors.transparent,
+                                  color: !isPercentageMode ? TripDetailsTheme.scaffoldBg : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
                                   child: Text(
                                     "Split by Amount ($symbol)",
                                     style: GoogleFonts.inter(
-                                      color: !isPercentageMode ? Colors.white : TripDetailsTheme.darkText,
+                                      color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12.5,
                                     ),
@@ -948,14 +955,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isPercentageMode ? TripDetailsTheme.forestDark : Colors.transparent,
+                                  color: isPercentageMode ? TripDetailsTheme.scaffoldBg : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
                                   child: Text(
                                     "Split by Percentage (%)",
                                     style: GoogleFonts.inter(
-                                      color: isPercentageMode ? Colors.white : TripDetailsTheme.darkText,
+                                      color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12.5,
                                     ),
@@ -993,7 +1000,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
                                   color: isOrg
-                                      ? TripDetailsTheme.forestDark.withValues(alpha: 0.18)
+                                      ? TripDetailsTheme.mintAccent.withValues(alpha: 0.5)
                                       : Colors.black.withValues(alpha: 0.08),
                                   width: isOrg ? 1.4 : 1,
                                 ),
@@ -1012,14 +1019,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                     height: 36,
                                     decoration: const BoxDecoration(
                                       shape: BoxShape.circle,
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Color(0xFF163828),
-                                          TripDetailsTheme.forestDark,
-                                        ],
-                                      ),
+                                      color: TripDetailsTheme.darkSurface,
                                     ),
                                     child: Center(
                                       child: Text(
@@ -1055,13 +1055,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(
-                                                  color: TripDetailsTheme.goldAccent.withValues(alpha: 0.2),
+                                                  color: TripDetailsTheme.scaffoldBg.withValues(alpha: 0.1),
                                                   borderRadius: BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   "AUTO",
                                                   style: GoogleFonts.ibmPlexMono(
-                                                    color: TripDetailsTheme.darkText,
+                                                    color: TripDetailsTheme.scaffoldBg,
                                                     fontSize: 9,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -1098,7 +1098,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                         });
                                       },
                                       style: GoogleFonts.ibmPlexMono(
-                                        color: TripDetailsTheme.forestDark,
+                                        color: TripDetailsTheme.darkText,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 15,
                                       ),
@@ -1116,7 +1116,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                         ),
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                         filled: true,
-                                        fillColor: TripDetailsTheme.creamSheet.withValues(alpha: 0.5),
+                                        fillColor: const Color(0xFFF8FAFC),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
                                           borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
@@ -1127,7 +1127,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
-                                          borderSide: const BorderSide(color: TripDetailsTheme.forestDark, width: 1.5),
+                                          borderSide: const BorderSide(color: TripDetailsTheme.scaffoldBg, width: 1.5),
                                         ),
                                       ),
                                     ),
@@ -1143,11 +1143,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: 48,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: TripDetailsTheme.forestDark,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          backgroundColor: TripDetailsTheme.darkSurface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                          ),
                         ),
                         onPressed: () async {
                           final List<Map<String, dynamic>> customSharesList = [];
@@ -1199,7 +1202,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TripDetailsTheme.creamSheet,
+      backgroundColor: TripDetailsTheme.scaffoldBg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -1207,18 +1210,18 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: TripDetailsTheme.forestDark.withValues(alpha: 0.06),
+              color: TripDetailsTheme.darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: TripDetailsTheme.forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: TripDetailsTheme.darkText, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: TripDetailsTheme.mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context, true),
         ),
         title: Text(
           "Trip Overview",
           style: GoogleFonts.fraunces(
-            color: TripDetailsTheme.darkText,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
             fontStyle: FontStyle.italic,
@@ -1238,18 +1241,21 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               if (!isOrganizer) return const SizedBox.shrink();
 
               return PopupMenuButton<String>(
-                color: TripDetailsTheme.creamSheet,
+                color: TripDetailsTheme.darkSurface,
                 elevation: 6,
                 icon: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: TripDetailsTheme.forestDark.withValues(alpha: 0.06),
+                    color: TripDetailsTheme.darkSurface,
                     shape: BoxShape.circle,
-                    border: Border.all(color: TripDetailsTheme.forestDark.withValues(alpha: 0.12)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                   ),
-                  child: const Icon(Icons.more_vert_rounded, color: TripDetailsTheme.darkText, size: 20),
+                  child: const Icon(Icons.more_vert_rounded, color: TripDetailsTheme.mintAccent, size: 20),
                 ),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                ),
                 onSelected: (val) async {
                   if (val == "edit") {
                     _showEditTripDetailsSheet(trip);
@@ -1271,16 +1277,16 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
-                            color: TripDetailsTheme.forestDark.withValues(alpha: 0.08),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Icon(Icons.edit_rounded, color: TripDetailsTheme.forestDark, size: 16),
+                          child: const Icon(Icons.edit_rounded, color: TripDetailsTheme.mintAccent, size: 16),
                         ),
                         const SizedBox(width: 12),
                         Text(
                           "Edit Details",
                           style: GoogleFonts.inter(
-                            color: TripDetailsTheme.darkText,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 13.5,
                           ),
@@ -1300,7 +1306,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           ),
                           child: Icon(
                             trip["status"] == "completed" ? Icons.replay_rounded : Icons.check_circle_outline_rounded,
-                            color: trip["status"] == "completed" ? Colors.amber.shade900 : Colors.green.shade800,
+                            color: trip["status"] == "completed" ? Colors.amber.shade400 : Colors.green.shade400,
                             size: 16,
                           ),
                         ),
@@ -1308,7 +1314,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         Text(
                           trip["status"] == "completed" ? "Reopen Trip" : "End Trip",
                           style: GoogleFonts.inter(
-                            color: TripDetailsTheme.darkText,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 13.5,
                           ),
@@ -1328,7 +1334,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
           future: _tripFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: TripDetailsTheme.forestDark));
+              return const Center(child: CircularProgressIndicator(color: TripDetailsTheme.mintAccent));
             }
 
             final trip = snapshot.data;
@@ -1336,7 +1342,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               return Center(
                 child: Text(
                   "Trip details not found.",
-                  style: GoogleFonts.inter(color: TripDetailsTheme.textMuted, fontSize: 15),
+                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 15),
                 ),
               );
             }
@@ -1366,13 +1372,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
-                      color: TripDetailsTheme.forestDark,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                       boxShadow: [
                         BoxShadow(
-                          color: TripDetailsTheme.forestDark.withValues(alpha: 0.25),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 16,
-                          offset: const Offset(0, 6),
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
@@ -1385,13 +1392,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: isOrganizer ? TripDetailsTheme.goldAccent : Colors.white24,
+                                color: isOrganizer ? TripDetailsTheme.darkSurface : Colors.black.withValues(alpha: 0.06),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
                                 isOrganizer ? "ORGANIZER" : "MEMBER",
                                 style: GoogleFonts.ibmPlexMono(
-                                  color: isOrganizer ? TripDetailsTheme.darkText : Colors.white,
+                                  color: Colors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1404,14 +1411,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.15),
+                                  color: TripDetailsTheme.darkSurface,
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const FaIcon(FontAwesomeIcons.qrcode, color: Colors.white, size: 14),
+                                    const FaIcon(FontAwesomeIcons.qrcode, color: TripDetailsTheme.mintAccent, size: 14),
                                     const SizedBox(width: 6),
                                     Text(
                                       joinCode,
@@ -1432,7 +1439,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         Text(
                           name,
                           style: GoogleFonts.fraunces(
-                            color: Colors.white,
+                            color: TripDetailsTheme.darkText,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1441,19 +1448,19 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                         Row(
                           children: [
-                            const Icon(Icons.location_on, color: TripDetailsTheme.goldAccent, size: 18),
+                            const Icon(Icons.location_on, color: TripDetailsTheme.scaffoldBg, size: 18),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 "$fromLoc ➔ $toLoc",
-                                style: GoogleFonts.inter(color: Colors.white70, fontSize: 14.5),
+                                style: GoogleFonts.inter(color: TripDetailsTheme.darkText.withValues(alpha: 0.8), fontSize: 14.5),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 16),
 
-                        const Divider(color: Colors.white24, height: 1),
+                        Divider(color: Colors.black.withValues(alpha: 0.08), height: 1),
                         const SizedBox(height: 14),
 
                         Row(
@@ -1464,12 +1471,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               children: [
                                 Text(
                                   "TOTAL BUDGET",
-                                  style: GoogleFonts.ibmPlexMono(color: Colors.white54, fontSize: 10, letterSpacing: 1.5),
+                                  style: GoogleFonts.ibmPlexMono(color: TripDetailsTheme.textMuted, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   currencyFormatter.format(budget),
-                                  style: GoogleFonts.ibmPlexMono(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.ibmPlexMono(color: TripDetailsTheme.darkText, fontSize: 17, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -1480,13 +1487,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 children: [
                                   Text(
                                     "DATES",
-                                    style: GoogleFonts.ibmPlexMono(color: Colors.white54, fontSize: 10, letterSpacing: 1.5),
+                                    style: GoogleFonts.ibmPlexMono(color: TripDetailsTheme.textMuted, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
                                     dateStr,
                                     textAlign: TextAlign.end,
-                                    style: GoogleFonts.inter(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.inter(color: TripDetailsTheme.darkText, fontSize: 11.5, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 2,
                                   ),
@@ -1507,7 +1514,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         child: Text(
                           "Budget Split Breakdown",
                           style: GoogleFonts.fraunces(
-                            color: TripDetailsTheme.darkText,
+                            color: Colors.white,
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
                             fontStyle: FontStyle.italic,
@@ -1521,8 +1528,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: isOrganizer ? TripDetailsTheme.forestDark : TripDetailsTheme.forestDark.withValues(alpha: 0.08),
+                            color: TripDetailsTheme.darkSurface,
                             borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -1530,14 +1538,14 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               Text(
                                 splitType == "equal" ? "Equal (${members.length}-way)" : "Custom Split",
                                 style: GoogleFonts.ibmPlexMono(
-                                  color: isOrganizer ? Colors.white : TripDetailsTheme.forestDark,
+                                  color: Colors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               if (isOrganizer) ...[
                                 const SizedBox(width: 4),
-                                const Icon(Icons.edit_rounded, color: Colors.white, size: 12),
+                                const Icon(Icons.edit_rounded, color: TripDetailsTheme.mintAccent, size: 12),
                               ],
                             ],
                           ),
@@ -1564,24 +1572,18 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       return Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFFFFFDF5) : TripDetailsTheme.cardBg,
+                          color: TripDetailsTheme.cardBg,
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: isMe
-                                ? TripDetailsTheme.goldAccent.withValues(alpha: 0.5)
-                                : Colors.black.withValues(alpha: 0.08),
-                            width: isMe ? 1.5 : 1,
-                          ),
                         ),
                         child: Row(
                           children: [
                             CircleAvatar(
                               radius: 18,
-                              backgroundColor: TripDetailsTheme.forestDark.withValues(alpha: 0.08),
+                              backgroundColor: TripDetailsTheme.scaffoldBg.withValues(alpha: 0.08),
                               child: Text(
                                 mName.isNotEmpty ? mName[0].toUpperCase() : "M",
                                 style: GoogleFonts.fraunces(
-                                  color: TripDetailsTheme.forestDark,
+                                  color: TripDetailsTheme.scaffoldBg,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                 ),
@@ -1631,7 +1633,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             Text(
                               currencyFormatter.format(mShare),
                               style: GoogleFonts.ibmPlexMono(
-                                color: TripDetailsTheme.forestDark,
+                                color: TripDetailsTheme.scaffoldBg,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                               ),
@@ -1663,24 +1665,26 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                   // Delete Trip (Organizer) or Leave Trip (Member, only if trip is active)
                   if (isOrganizer || trip["status"] != "completed") ...[
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: TripDetailsTheme.terracotta),
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () => _confirmDeleteOrLeave(isOrganizer, name),
                         icon: Icon(
                           isOrganizer ? Icons.delete_outline_rounded : Icons.exit_to_app_rounded,
-                          color: TripDetailsTheme.terracotta,
+                          color: const Color(0xFFEF4444),
+                          size: 18,
                         ),
                         label: Text(
                           isOrganizer ? "Delete Trip" : "Leave Trip",
                           style: GoogleFonts.inter(
-                            color: TripDetailsTheme.terracotta,
+                            color: const Color(0xFFEF4444),
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
@@ -1721,7 +1725,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: TripDetailsTheme.creamSheet,
+            color: TripDetailsTheme.scaffoldBg,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -1737,7 +1741,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: TripDetailsTheme.darkText.withValues(alpha: 0.15),
+                    color: Colors.white24,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -1746,7 +1750,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               Text(
                 "Select Trip Currency",
                 style: GoogleFonts.fraunces(
-                  color: TripDetailsTheme.darkText,
+                  color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1761,59 +1765,59 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                     shrinkWrap: true,
                     itemCount: currencies.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final c = currencies[index];
-                    final isSelected = c["code"] == currentCode;
+                    itemBuilder: (context, index) {
+                      final c = currencies[index];
+                      final isSelected = c["code"] == currentCode;
 
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () {
-                        Navigator.pop(sheetCtx);
-                        onSelect(c["code"]!, c["symbol"]!);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: isSelected ? TripDetailsTheme.forestDark : Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected ? TripDetailsTheme.forestDark : Colors.black.withValues(alpha: 0.08),
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          onSelect(c["code"]!, c["symbol"]!);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          decoration: BoxDecoration(
+                            color: isSelected ? TripDetailsTheme.darkSurface : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(c["flag"]!, style: const TextStyle(fontSize: 20)),
+                              const SizedBox(width: 12),
+                              Text(
+                                "${c["code"]} (${c["symbol"]})",
+                                style: GoogleFonts.ibmPlexMono(
+                                  color: isSelected ? Colors.white : TripDetailsTheme.darkText,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  c["name"]!,
+                                  style: GoogleFonts.inter(
+                                    color: isSelected ? Colors.white70 : TripDetailsTheme.textMuted,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(Icons.check_circle_rounded, color: TripDetailsTheme.mintAccent, size: 20),
+                            ],
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Text(c["flag"]!, style: const TextStyle(fontSize: 20)),
-                            const SizedBox(width: 12),
-                            Text(
-                              "${c["code"]} (${c["symbol"]})",
-                              style: GoogleFonts.ibmPlexMono(
-                                color: isSelected ? Colors.white : TripDetailsTheme.darkText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                c["name"]!,
-                                style: GoogleFonts.inter(
-                                  color: isSelected ? Colors.white70 : TripDetailsTheme.textMuted,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isSelected)
-                              const Icon(Icons.check_circle_rounded, color: TripDetailsTheme.goldAccent, size: 20),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
           ),
         );
       },

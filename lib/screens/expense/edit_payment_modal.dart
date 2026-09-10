@@ -22,10 +22,10 @@ class EditPaymentModal extends StatefulWidget {
 }
 
 class _EditPaymentModalState extends State<EditPaymentModal> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color sheetBg = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
-  static const Color terracotta = Color(0xFFB8452D);
 
   late String _paymentMode;
   String? _base64Proof;
@@ -73,7 +73,7 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
             "Failed to select payment proof image",
             style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -101,7 +101,7 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
             "Payment details updated successfully!",
             style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: forestDark,
+          backgroundColor: sheetBg,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -114,7 +114,7 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
             res["message"] ?? "Failed to update payment details",
             style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
           ),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -135,9 +135,9 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) => Container(
           height: 120,
-          color: Colors.black.withValues(alpha: 0.05),
+          color: Colors.white.withValues(alpha: 0.1),
           alignment: Alignment.center,
-          child: Text("Image unable to load", style: GoogleFonts.inter(color: darkText)),
+          child: Text("Image unable to load", style: GoogleFonts.inter(color: Colors.white)),
         ),
       );
     } else if (proof.isNotEmpty) {
@@ -148,9 +148,9 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
     }
     return Container(
       height: 120,
-      color: Colors.black.withValues(alpha: 0.05),
+      color: Colors.white.withValues(alpha: 0.1),
       alignment: Alignment.center,
-      child: Text("Proof Attached", style: GoogleFonts.inter(color: darkText)),
+      child: Text("Proof Attached", style: GoogleFonts.inter(color: Colors.white)),
     );
   }
 
@@ -160,13 +160,13 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
 
     return Container(
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       decoration: const BoxDecoration(
-        color: creamSheet,
+        color: sheetBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: SingleChildScrollView(
@@ -176,26 +176,34 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.15),
+                  color: Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   "Edit Payment Details",
-                  style: GoogleFonts.fraunces(color: forestDark, fontSize: 20, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.fraunces(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: forestDark),
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                    ),
+                    child: const Icon(Icons.close_rounded, color: mintAccent, size: 18),
+                  ),
                 ),
               ],
             ),
@@ -208,18 +216,24 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42,
+                    height: 42,
                     decoration: BoxDecoration(
-                      color: forestDark.withValues(alpha: 0.1),
+                      color: darkSurface,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.edit_note_rounded, color: forestDark),
+                    child: const Icon(Icons.edit_note_rounded, color: mintAccent),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -240,12 +254,12 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             // Mode Picker
             Text(
               "Payment Mode",
-              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
             const SizedBox(height: 8),
             Container(
@@ -253,12 +267,13 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
+                border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: _paymentMode,
                   isExpanded: true,
+                  dropdownColor: Colors.white,
                   items: _modeOptions.entries.map((e) {
                     return DropdownMenuItem(
                       value: e.key,
@@ -271,12 +286,12 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             // Proof Upload / Preview
             Text(
               "Proof of Payment Image",
-              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
             const SizedBox(height: 8),
 
@@ -294,13 +309,14 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: forestDark.withValues(alpha: 0.85),
+                            color: darkSurface.withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.change_circle_rounded, color: Colors.white, size: 16),
+                              const Icon(Icons.change_circle_rounded, color: mintAccent, size: 16),
                               const SizedBox(width: 4),
                               Text("Change Image", style: GoogleFonts.inter(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                             ],
@@ -316,43 +332,45 @@ class _EditPaymentModalState extends State<EditPaymentModal> {
                 onTap: _pickProofImage,
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  padding: const EdgeInsets.symmetric(vertical: 20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: forestDark.withValues(alpha: 0.3), style: BorderStyle.solid),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.add_a_photo_rounded, color: forestDark, size: 32),
+                      const Icon(Icons.add_a_photo_rounded, color: mintAccent, size: 30),
                       const SizedBox(height: 8),
                       Text(
                         "Tap to upload proof screenshot / photo (Optional)",
-                        style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ],
                   ),
                 ),
               ),
             ],
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
             // Submit Button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 46,
               child: ElevatedButton(
                 onPressed: _isSubmitting ? null : _submitEdit,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: forestDark,
+                  backgroundColor: darkSurface,
                   foregroundColor: Colors.white,
+                  elevation: 0,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 child: _isSubmitting
-                    ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                    ? const CircularProgressIndicator(color: mintAccent, strokeWidth: 2)
                     : Text(
                         "Update Payment Details",
-                        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold),
                       ),
               ),
             ),

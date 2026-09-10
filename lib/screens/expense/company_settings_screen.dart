@@ -21,10 +21,11 @@ class CompanySettingsScreen extends StatefulWidget {
 }
 
 class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color creamSheet = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
-  static const Color terracotta = Color(0xFFB8452D);
 
   bool _isLoading = true;
   Map<String, dynamic>? _company;
@@ -100,20 +101,24 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         _isLoading = false;
       });
 
-      // Calculate exact remaining time using UTC timestamps
+      // Calculate exact remaining time using local session memory or server timestamps
       if (comp != null) {
-        final dateRaw = comp["joinCodeCreatedAt"] ?? comp["createdAt"];
-        if (dateRaw != null) {
-          final createdUtc = DateTime.tryParse(dateRaw.toString())?.toUtc();
-          if (createdUtc != null) {
-            final nowUtc = DateTime.now().toUtc();
-            final elapsed = nowUtc.difference(createdUtc).inSeconds;
-            final remaining = 300 - elapsed;
-            if (remaining > 0) {
-              _startCountdownTimer(remaining);
-            } else {
-              setState(() => _remainingSeconds = 0);
-            }
+        DateTime? createdUtc = ExpenseCompanyService.getCodeTimestamp(widget.companyId);
+        if (createdUtc == null) {
+          final dateRaw = comp["joinCodeUpdatedAt"] ?? comp["joinCodeCreatedAt"] ?? comp["updatedAt"] ?? comp["createdAt"];
+          if (dateRaw != null) {
+            createdUtc = DateTime.tryParse(dateRaw.toString())?.toUtc();
+          }
+        }
+        if (createdUtc != null) {
+          final nowUtc = DateTime.now().toUtc();
+          final elapsed = nowUtc.difference(createdUtc).inSeconds;
+          final validElapsed = elapsed < 0 ? 0 : elapsed;
+          final remaining = 300 - validElapsed;
+          if (remaining > 0 && remaining <= 300) {
+            _startCountdownTimer(remaining);
+          } else {
+            setState(() => _remainingSeconds = 0);
           }
         }
       }
@@ -133,6 +138,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       if (!mounted) return;
 
       if (res["success"] == true) {
+        ExpenseCompanyService.setCodeTimestamp(widget.companyId, DateTime.now().toUtc());
         setState(() {
           if (_company != null) {
             _company!["joinCode"] = res["joinCode"];
@@ -160,7 +166,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
               res["message"] ?? "Failed to regenerate code",
               style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
             ),
-            backgroundColor: terracotta,
+            backgroundColor: const Color(0xFFC53030),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -171,7 +177,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Error: $e", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: terracotta,
+            backgroundColor: const Color(0xFFC53030),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -188,11 +194,21 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Remove Member", style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
-        content: Text("Are you sure you want to remove $memberName from the company?"),
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Remove Member", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Text("Are you sure you want to remove $memberName from the company?", style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Remove", style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text("Cancel", style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text("Remove", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
@@ -202,7 +218,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
     final res = await ExpenseCompanyService.removeMember(
       companyId: widget.companyId,
       memberUserId: memberUserId,
-      userId: widget.userId,
+      adminUserId: widget.userId,
     );
 
     if (!mounted) return;
@@ -221,7 +237,93 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(res["message"] ?? "Failed to remove member", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteCompany() async {
+    final companyName = _company?["name"] ?? "this company";
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 26),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Delete Company Ledger",
+                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          "Are you sure you want to permanently delete \"$companyName\"? This action will remove all expenses, settlements, and member records. THIS ACTION CANNOT BE UNDONE.",
+          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text("Cancel", style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text("Delete Ledger", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Deleting company ledger...")),
+      );
+    }
+
+    final res = await ExpenseCompanyService.deleteCompany(
+      companyId: widget.companyId,
+      userId: widget.userId,
+    );
+
+    if (!mounted) return;
+
+    if (res["success"] == true) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Company ledger deleted successfully",
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: forestDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            res["message"] ?? "Failed to delete company",
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -242,17 +344,18 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.08),
+              color: darkSurface,
               shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: forestDark, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Company Settings",
           style: GoogleFonts.fraunces(
-            color: forestDark,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
@@ -271,8 +374,9 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: forestDark,
+                        color: darkSurface,
                         borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,111 +430,155 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                     if (isAdmin) ...[
                       Text(
                         "Company Join Code",
-                        style: GoogleFonts.fraunces(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Share this 6-digit code with team members to join. (Valid for 5 minutes)",
-                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 12.5),
+                        style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
 
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: _remainingSeconds > 0 ? forestDark.withValues(alpha: 0.2) : terracotta.withValues(alpha: 0.4),
-                            width: 1.5,
-                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.06),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                 Expanded(
-                                   child: FittedBox(
-                                     alignment: Alignment.centerLeft,
-                                     fit: BoxFit.scaleDown,
-                                     child: Text(
-                                       _company?["joinCode"] ?? "------",
-                                       style: GoogleFonts.ibmPlexMono(
-                                         color: _remainingSeconds > 0 ? forestDark : terracotta,
-                                         fontSize: 26,
-                                         fontWeight: FontWeight.bold,
-                                         letterSpacing: 4,
-                                       ),
-                                     ),
-                                   ),
-                                 ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      tooltip: "Copy Code",
-                                      icon: const Icon(Icons.copy_rounded, color: forestDark),
-                                      onPressed: () {
-                                        Clipboard.setData(ClipboardData(text: _company?["joinCode"] ?? ""));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              "Join code copied to clipboard!",
-                                              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
-                                            ),
-                                            backgroundColor: forestDark,
-                                            behavior: SnackBarBehavior.floating,
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                          ),
-                                        );
-                                      },
+                                // Code Display Box
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
                                     ),
-                                    if (isAdmin)
-                                      IconButton(
-                                        tooltip: "Regenerate Code",
-                                        icon: _isRegenerating
-                                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: forestDark))
-                                            : const Icon(Icons.refresh_rounded, color: terracotta),
-                                        onPressed: _isRegenerating ? null : _regenerateCode,
+                                    child: FittedBox(
+                                      alignment: Alignment.centerLeft,
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        _company?["joinCode"] ?? "------",
+                                        style: GoogleFonts.ibmPlexMono(
+                                          color: const Color(0xFF0F261C),
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 4,
+                                        ),
                                       ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Divider(color: Colors.black.withValues(alpha: 0.08)),
-                            const SizedBox(height: 6),
-                            GestureDetector(
-                              onTap: (_remainingSeconds == 0 && isAdmin && !_isRegenerating) ? _regenerateCode : null,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _remainingSeconds > 0 ? Icons.timer_outlined : Icons.timer_off_rounded,
-                                    size: 16,
-                                    color: _remainingSeconds > 0 ? forestDark : terracotta,
+                                    ),
                                   ),
+                                ),
+                                const SizedBox(width: 8),
+                                
+                                // Copy Button
+                                Material(
+                                  color: darkSurface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(10),
+                                    onTap: () {
+                                      Clipboard.setData(ClipboardData(text: _company?["joinCode"] ?? ""));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            "Join code copied to clipboard!",
+                                            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+                                          ),
+                                          backgroundColor: forestDark,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
+                                      );
+                                    },
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(9),
+                                      child: Icon(Icons.copy_rounded, color: mintAccent, size: 18),
+                                    ),
+                                  ),
+                                ),
+
+                                // Regenerate Button (Admin)
+                                if (isAdmin) ...[
                                   const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      _remainingSeconds > 0
-                                          ? "Timer: ${_formatTime(_remainingSeconds)} remaining"
-                                          : "Code Expired (00:00) — Tap here to regenerate",
-                                      style: GoogleFonts.ibmPlexMono(
-                                        color: _remainingSeconds > 0 ? forestDark : terracotta,
-                                        fontSize: 12.5,
-                                        fontWeight: FontWeight.bold,
-                                        decoration: (_remainingSeconds == 0 && isAdmin) ? TextDecoration.underline : TextDecoration.none,
+                                  Material(
+                                    color: _remainingSeconds == 0 ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(10),
+                                      onTap: _isRegenerating ? null : _regenerateCode,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(9),
+                                        child: _isRegenerating
+                                            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: forestDark))
+                                            : Icon(
+                                                Icons.refresh_rounded,
+                                                color: _remainingSeconds == 0 ? const Color(0xFFDC2626) : forestDark,
+                                                size: 18,
+                                              ),
                                       ),
                                     ),
                                   ),
                                 ],
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Status Banner
+                            GestureDetector(
+                              onTap: (_remainingSeconds == 0 && isAdmin && !_isRegenerating) ? _regenerateCode : null,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _remainingSeconds > 0 ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _remainingSeconds > 0
+                                        ? const Color(0xFFA7F3D0).withValues(alpha: 0.6)
+                                        : const Color(0xFFFCA5A5).withValues(alpha: 0.6),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _remainingSeconds > 0 ? Icons.timer_outlined : Icons.error_outline_rounded,
+                                      size: 16,
+                                      color: _remainingSeconds > 0 ? const Color(0xFF059669) : const Color(0xFFDC2626),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        _remainingSeconds > 0
+                                            ? "Valid for ${_formatTime(_remainingSeconds)}"
+                                            : "Code Expired (00:00) • Tap to regenerate",
+                                        style: GoogleFonts.inter(
+                                          color: _remainingSeconds > 0 ? const Color(0xFF047857) : const Color(0xFFDC2626),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    if (_remainingSeconds == 0 && isAdmin) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFFDC2626)),
+                                    ],
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
                     ],
 
                     // Members List Section
@@ -439,7 +587,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       children: [
                         Text(
                           "Members (${_members.length})",
-                          style: GoogleFonts.fraunces(color: darkText, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -466,11 +614,11 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           child: Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: isMemberAdmin ? forestDark : terracotta.withValues(alpha: 0.15),
+                                backgroundColor: isMemberAdmin ? forestDark : darkSurface.withValues(alpha: 0.1),
                                 child: Text(
                                   m["name"].toString().isNotEmpty ? m["name"][0].toUpperCase() : "M",
                                   style: TextStyle(
-                                    color: isMemberAdmin ? Colors.white : terracotta,
+                                    color: isMemberAdmin ? Colors.white : forestDark,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -509,7 +657,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               ),
                               if (isAdmin && !isMemberAdmin && memberId != widget.userId)
                                 IconButton(
-                                  icon: const Icon(Icons.person_remove_rounded, color: Colors.red, size: 20),
+                                  icon: Icon(Icons.person_remove_rounded, color: Colors.red.shade400, size: 20),
                                   onPressed: () => _removeMember(memberId, m["name"].toString()),
                                 ),
                             ],
@@ -517,6 +665,57 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                         );
                       },
                     ),
+
+                    if (isAdmin) ...[
+                      const SizedBox(height: 32),
+                      Text(
+                        "Danger Zone",
+                        style: GoogleFonts.fraunces(color: const Color(0xFFFCA5A5), fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.6)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Delete Company Ledger",
+                              style: GoogleFonts.inter(color: const Color(0xFF991B1B), fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "Permanently remove this company, all recorded expenses, member records, and settlements.",
+                              style: GoogleFonts.inter(color: const Color(0xFFB91C1C), fontSize: 12.5),
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _deleteCompany,
+                                icon: const Icon(Icons.delete_forever_rounded, color: Colors.white, size: 18),
+                                label: Text(
+                                  "Delete Company Ledger",
+                                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

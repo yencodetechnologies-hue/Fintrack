@@ -20,10 +20,10 @@ class PayExpenseModal extends StatefulWidget {
 }
 
 class _PayExpenseModalState extends State<PayExpenseModal> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color sheetBg = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
-  static const Color terracotta = Color(0xFFB8452D);
 
   String _paymentMode = "cash";
   String? _base64Proof;
@@ -55,7 +55,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to select payment proof image", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -68,7 +68,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Payment proof screenshot/photo is required", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -92,7 +92,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Payment submitted successfully!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: forestDark,
+          backgroundColor: sheetBg,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -102,7 +102,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(res["message"] ?? "Failed to submit payment", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: terracotta,
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -119,10 +119,15 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: creamSheet,
+        color: sheetBg,
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -130,37 +135,54 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
           children: [
             Center(
               child: Container(
-                width: 40,
+                width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: darkText.withValues(alpha: 0.2),
+                  color: Colors.white.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Pay Expense",
-              style: GoogleFonts.fraunces(
-                color: forestDark,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Pay Expense",
+                  style: GoogleFonts.fraunces(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: darkSurface,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                    ),
+                    child: const Icon(Icons.close_rounded, color: mintAccent, size: 18),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               "Paying ₹$amount to $creatorName for '${widget.expense['description']}'.",
               style: GoogleFonts.inter(
-                color: darkText.withValues(alpha: 0.7),
+                color: Colors.white.withValues(alpha: 0.75),
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             // Payment Mode Selector
             Text(
               "Payment Mode *",
-              style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
@@ -170,9 +192,9 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
               decoration: InputDecoration(
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
               ),
               items: _modeOptions.entries.map((e) {
                 return DropdownMenuItem(
@@ -191,13 +213,13 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
               children: [
                 Text(
                   "Payment Proof Screenshot *",
-                  style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
                 ),
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                  child: Text("Required", style: GoogleFonts.inter(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+                  decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(6)),
+                  child: Text("Required", style: GoogleFonts.inter(color: const Color(0xFFDC2626), fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -208,10 +230,10 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
                 width: double.infinity,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: darkSurface,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: _base64Proof == null ? Colors.red.withValues(alpha: 0.4) : forestDark.withValues(alpha: 0.3),
+                    color: _base64Proof == null ? const Color(0xFFFCA5A5) : Colors.white.withValues(alpha: 0.15),
                     width: 1.5,
                   ),
                 ),
@@ -226,34 +248,36 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
                     : Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.add_a_photo_rounded, color: forestDark, size: 28),
+                          const Icon(Icons.add_a_photo_rounded, color: mintAccent, size: 28),
                           const SizedBox(height: 6),
                           Text(
                             "Tap to upload UPI/Bank receipt screenshot",
-                            style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 12.5, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
 
             // Submit Button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 46,
               child: ElevatedButton.icon(
                 onPressed: _isSubmitting ? null : _submitPay,
                 icon: _isSubmitting
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.payment_rounded, color: Colors.white),
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: mintAccent, strokeWidth: 2))
+                    : const Icon(Icons.payment_rounded, color: Colors.white, size: 18),
                 label: Text(
                   _isSubmitting ? "Submitting Payment..." : "Confirm & Pay ₹$amount",
                   style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: forestDark,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  backgroundColor: darkSurface,
+                  elevation: 0,
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             ),

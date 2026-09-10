@@ -696,3 +696,62 @@ exports.editExpenseSettlement = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 14. Delete Company (Admin Only)
+exports.deleteCompany = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const userId = req.body.userId || req.query.userId;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    const isAdmin = adminUserIds.includes(userId.toString());
+
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: "Only an Admin can delete the company ledger" });
+    }
+
+    await Company.findByIdAndDelete(companyId);
+    await CompanyMember.deleteMany({ companyId });
+    await Expense.deleteMany({ companyId });
+    await Settlement.deleteMany({ companyId });
+
+    res.status(200).json({ success: true, message: "Company ledger deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 15. Delete Expense (Admin Only)
+exports.deleteExpense = async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const userId = req.body.userId || req.query.userId;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const expense = await Expense.findById(expenseId);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    const adminUserIds = await getCompanyAdminUserIds(expense.companyId);
+    const isAdmin = adminUserIds.includes(userId.toString());
+
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: "Only an Admin can delete expenses" });
+    }
+
+    await Expense.findByIdAndDelete(expenseId);
+    await Settlement.deleteMany({ expenseId });
+
+    res.status(200).json({ success: true, message: "Expense deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

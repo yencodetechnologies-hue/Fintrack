@@ -9,7 +9,9 @@ import 'trip_details_screen.dart';
 import 'trip_history_screen.dart';
 
 class TripsTheme {
-  static const Color creamSheet = Color(0xFFF6F4EB);
+  static const Color scaffoldBg = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color forestDark = Color(0xFF0F261C);
   static const Color darkText = Color(0xFF132A20);
   static const Color terracotta = Color(0xFFB8452D);
@@ -76,7 +78,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: TripsTheme.creamSheet,
+      backgroundColor: TripsTheme.scaffoldBg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -84,13 +86,13 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: TripsTheme.forestDark.withValues(alpha: 0.06),
+              color: TripsTheme.darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: TripsTheme.forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: const Icon(
               Icons.arrow_back_rounded,
-              color: TripsTheme.darkText,
+              color: TripsTheme.mintAccent,
               size: 20,
             ),
           ),
@@ -99,7 +101,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
         title: Text(
           "Trips & Group Expenses",
           style: GoogleFonts.fraunces(
-            color: TripsTheme.darkText,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 21,
             fontStyle: FontStyle.italic,
@@ -112,13 +114,13 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
             icon: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: TripsTheme.forestDark.withValues(alpha: 0.06),
+                color: TripsTheme.darkSurface,
                 shape: BoxShape.circle,
-                border: Border.all(color: TripsTheme.forestDark.withValues(alpha: 0.12)),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
               child: const Icon(
                 Icons.history_rounded,
-                color: TripsTheme.darkText,
+                color: TripsTheme.mintAccent,
                 size: 20,
               ),
             ),
@@ -140,7 +142,8 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: TripsTheme.forestDark,
+          color: TripsTheme.mintAccent,
+          backgroundColor: TripsTheme.darkSurface,
           onRefresh: () async => _refreshTrips(),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -166,15 +169,16 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                           if (res == true) _refreshTrips();
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
                           decoration: BoxDecoration(
-                            color: TripsTheme.forestDark,
-                            borderRadius: BorderRadius.circular(20),
+                            color: TripsTheme.darkSurface,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
                             boxShadow: [
                               BoxShadow(
-                                color: TripsTheme.forestDark.withValues(alpha: 0.25),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
@@ -183,16 +187,16 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                             children: [
                               const FaIcon(
                                 FontAwesomeIcons.circlePlus,
-                                color: Colors.white,
-                                size: 18,
+                                color: TripsTheme.mintAccent,
+                                size: 15,
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               Text(
                                 "Add Trip",
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 13.5,
                                 ),
                               ),
                             ],
@@ -200,7 +204,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: GestureDetector(
                         onTap: () async {
@@ -216,18 +220,18 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                           if (res == true) _refreshTrips();
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 14),
                           decoration: BoxDecoration(
-                            color: TripsTheme.cardBg,
-                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: TripsTheme.forestDark.withValues(alpha: 0.15),
+                              color: Colors.white.withValues(alpha: 0.15),
                               width: 1.2,
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 10,
+                                color: Colors.black.withValues(alpha: 0.12),
+                                blurRadius: 8,
                                 offset: const Offset(0, 3),
                               ),
                             ],
@@ -237,16 +241,16 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                             children: [
                               const FaIcon(
                                 FontAwesomeIcons.qrcode,
-                                color: TripsTheme.darkText,
-                                size: 18,
+                                color: TripsTheme.forestDark,
+                                size: 15,
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 8),
                               Text(
                                 "Join Trip",
                                 style: GoogleFonts.inter(
-                                  color: TripsTheme.darkText,
+                                  color: TripsTheme.forestDark,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 13.5,
                                 ),
                               ),
                             ],
@@ -262,7 +266,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                 Text(
                   "Saved Trips",
                   style: GoogleFonts.fraunces(
-                    color: TripsTheme.darkText,
+                    color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     fontStyle: FontStyle.italic,
@@ -279,7 +283,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                         padding: EdgeInsets.symmetric(vertical: 40),
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: TripsTheme.forestDark,
+                            color: TripsTheme.mintAccent,
                           ),
                         ),
                       );
@@ -303,11 +307,11 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: TripsTheme.forestDark.withValues(alpha: 0.06),
+                                color: TripsTheme.scaffoldBg.withValues(alpha: 0.08),
                               ),
                               child: const FaIcon(
                                 FontAwesomeIcons.planeDeparture,
-                                color: TripsTheme.textMuted,
+                                color: TripsTheme.scaffoldBg,
                                 size: 36,
                               ),
                             ),
@@ -315,7 +319,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                             Text(
                               "No Active Trips",
                               style: GoogleFonts.fraunces(
-                                color: TripsTheme.darkText,
+                                color: TripsTheme.forestDark,
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -396,7 +400,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: isOrganizer
-                                              ? TripsTheme.forestDark
+                                              ? TripsTheme.scaffoldBg
                                               : TripsTheme.terracotta.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(12),
                                         ),
@@ -447,7 +451,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                     children: [
                                       const Icon(
                                         Icons.location_on_outlined,
-                                        color: TripsTheme.terracotta,
+                                        color: TripsTheme.scaffoldBg,
                                         size: 18,
                                       ),
                                       const SizedBox(width: 4),
@@ -483,7 +487,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                       Text(
                                         "${trip['currencySymbol'] ?? '₹'}${NumberFormat('#,##,###').format(budget)}",
                                         style: GoogleFonts.ibmPlexMono(
-                                          color: TripsTheme.forestDark,
+                                          color: TripsTheme.scaffoldBg,
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
                                         ),

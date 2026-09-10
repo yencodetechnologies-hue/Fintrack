@@ -33,11 +33,18 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserCompanies();
+    final cached = ExpenseCompanyService.getCachedCompanies(widget.userId);
+    if (cached != null && cached.isNotEmpty) {
+      _userCompanies = List.from(cached);
+      _isLoading = false;
+    }
+    _loadUserCompanies(showLoading: _userCompanies.isEmpty);
   }
 
-  Future<void> _loadUserCompanies() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadUserCompanies({bool showLoading = false}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
       final companies = await ExpenseCompanyService.getUserCompanies(widget.userId);
       if (!mounted) return;
@@ -118,19 +125,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
           ),
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: mintAccent))
-          : RefreshIndicator(
-              color: mintAccent,
-              onRefresh: _loadUserCompanies,
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Premium Action Buttons Row (Create & Join)
+      body: RefreshIndicator(
+        color: mintAccent,
+        onRefresh: _loadUserCompanies,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Premium Action Buttons Row (Create & Join)
                       Row(
                         children: [
                           Expanded(
@@ -140,15 +145,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 onTap: _openCreateCompany,
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  height: 46,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
                                   decoration: BoxDecoration(
-                                    color: forestDark,
+                                    color: darkSurface,
                                     borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: forestDark.withValues(alpha: 0.25),
-                                        blurRadius: 10,
-                                        offset: const Offset(0, 4),
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
                                       ),
                                     ],
                                   ),
@@ -184,15 +191,16 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 onTap: _openJoinCompany,
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                                  height: 42,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: terracotta.withValues(alpha: 0.4), width: 1.4),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.03),
-                                        blurRadius: 10,
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 8,
                                         offset: const Offset(0, 3),
                                       ),
                                     ],
@@ -225,7 +233,9 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                       ),
                       const SizedBox(height: 24),
 
-                      if (_userCompanies.isNotEmpty) ...[
+                      if (_isLoading) ...[
+                        const _CompanyListShimmer(),
+                      ] else if (_userCompanies.isNotEmpty) ...[
                         // Section Header: My Companies List
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -318,40 +328,40 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
         borderRadius: BorderRadius.circular(20),
         onTap: () => _openCompanyDashboard(company),
         child: Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: forestDark,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : "C",
                     style: GoogleFonts.fraunces(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,23 +374,23 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: darkText,
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                           decoration: BoxDecoration(
                             color: isAdmin ? forestDark.withValues(alpha: 0.1) : terracotta.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             userRole,
                             style: GoogleFonts.inter(
                               color: isAdmin ? forestDark : terracotta,
-                              fontSize: 10.5,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -388,14 +398,14 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                       ],
                     ),
                     if (details.toString().isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         details.toString(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
-                          color: darkText.withValues(alpha: 0.6),
-                          fontSize: 12.5,
+                          color: darkText.withValues(alpha: 0.5),
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -476,6 +486,99 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CompanyListShimmer extends StatefulWidget {
+  const _CompanyListShimmer({Key? key}) : super(key: key);
+
+  @override
+  State<_CompanyListShimmer> createState() => _CompanyListShimmerState();
+}
+
+class _CompanyListShimmerState extends State<_CompanyListShimmer>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.3, end: 0.8).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _animation.value,
+          child: Column(
+            children: List.generate(2, (index) {
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 120,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 80,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: Colors.grey[300],
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        );
+      },
     );
   }
 }

@@ -25,8 +25,10 @@ class AddExpenseScreen extends StatefulWidget {
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color creamSheet = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
   final _formKey = GlobalKey<FormState>();
@@ -50,76 +52,150 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     "+ Add Custom Category...",
   ];
 
+  final Map<String, IconData> _categoryIcons = {
+    "General": Icons.category_rounded,
+    "Food & Dining": Icons.restaurant_rounded,
+    "Travel & Transport": Icons.directions_car_rounded,
+    "Office Supplies": Icons.inventory_2_rounded,
+    "Utilities": Icons.bolt_rounded,
+    "Software & Tech": Icons.laptop_mac_rounded,
+    "Other": Icons.more_horiz_rounded,
+  };
+
+  final List<IconData> _selectableIcons = [
+    Icons.shopping_cart_rounded,
+    Icons.campaign_rounded,
+    Icons.build_rounded,
+    Icons.medical_services_rounded,
+    Icons.school_rounded,
+    Icons.fitness_center_rounded,
+    Icons.local_shipping_rounded,
+    Icons.receipt_rounded,
+    Icons.phonelink_rounded,
+    Icons.local_cafe_rounded,
+    Icons.flight_takeoff_rounded,
+    Icons.home_work_rounded,
+  ];
+
+  IconData _selectedCustomIcon = Icons.shopping_cart_rounded;
+
+  IconData _getCategoryIcon(String category) {
+    return _categoryIcons[category] ?? Icons.label_rounded;
+  }
+
   void _promptCustomCategoryDialog() {
     final customTextController = TextEditingController();
+    IconData tempSelectedIcon = _selectedCustomIcon;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: creamSheet,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            const Icon(Icons.add_circle_outline_rounded, color: forestDark),
-            const SizedBox(width: 8),
-            Text("Custom Category", style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, fontSize: 18, color: forestDark)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Enter a custom category name for this expense:",
-              style: GoogleFonts.inter(fontSize: 13, color: darkText.withValues(alpha: 0.7)),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: customTextController,
-              autofocus: true,
-              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                hintText: "e.g. Marketing, Equipment, Taxes",
-                hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: forestDark.withValues(alpha: 0.2))),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: forestDark, width: 1.8)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: creamSheet,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.add_circle_outline_rounded, color: mintAccent),
+              const SizedBox(width: 8),
+              Text("Custom Category", style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Enter custom category name:",
+                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.75)),
               ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: customTextController,
+                autofocus: true,
+                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: "e.g. Marketing, Equipment",
+                  hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: darkSurface, width: 1.8)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Choose Category Icon:",
+                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.75), fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: _selectableIcons.map((iconData) {
+                  final isSelected = tempSelectedIcon == iconData;
+                  return GestureDetector(
+                    onTap: () {
+                      setDialogState(() {
+                        tempSelectedIcon = iconData;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? mintAccent : Colors.white.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Icon(
+                        iconData,
+                        size: 20,
+                        color: isSelected ? darkSurface : Colors.white,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                if (_selectedCategory == "+ Add Custom Category...") {
+                  setState(() => _selectedCategory = _categories.first);
+                }
+              },
+              child: Text("Cancel", style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.7))),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final customName = customTextController.text.trim();
+                if (customName.isNotEmpty) {
+                  setState(() {
+                    _categoryIcons[customName] = tempSelectedIcon;
+                    if (!_categories.contains(customName)) {
+                      _categories.insert(_categories.length - 1, customName);
+                    }
+                    _selectedCategory = customName;
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: darkSurface,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text("Add Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (_selectedCategory == "+ Add Custom Category...") {
-                setState(() => _selectedCategory = _categories.first);
-              }
-            },
-            child: Text("Cancel", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6))),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final customName = customTextController.text.trim();
-              if (customName.isNotEmpty) {
-                setState(() {
-                  if (!_categories.contains(customName)) {
-                    _categories.insert(_categories.length - 1, customName);
-                  }
-                  _selectedCategory = customName;
-                });
-                Navigator.pop(ctx);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: forestDark,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text("Add Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-          ),
-        ],
       ),
     );
   }
@@ -150,7 +226,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to pick image", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFB8452D),
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -210,7 +286,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(res["message"] ?? "Failed to add expense", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFB8452D),
+          backgroundColor: const Color(0xFFC53030),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
@@ -229,17 +305,18 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.08),
+              color: darkSurface,
               shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: forestDark, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Add Expense",
           style: GoogleFonts.fraunces(
-            color: forestDark,
+            color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
           ),
@@ -248,17 +325,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 17),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(17),
               border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 1.0),
               boxShadow: [
                 BoxShadow(
-                  color: forestDark.withValues(alpha: 0.03),
-                  blurRadius: 10,
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 9,
                   offset: const Offset(0, 3),
                 ),
               ],
@@ -271,39 +348,41 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Category Selector
                   Text(
                     "Category",
-                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedCategory,
                     dropdownColor: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(11),
                     decoration: InputDecoration(
                       isDense: true,
                       filled: true,
-                      fillColor: creamSheet.withValues(alpha: 0.4),
-                      prefixIcon: const Icon(Icons.category_rounded, color: forestDark, size: 15),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: darkSurface, width: 1.4)),
                     ),
                     items: _categories.map((cat) {
                       final isCustomAction = cat == "+ Add Custom Category...";
+                      final iconData = isCustomAction ? Icons.add_circle_outline_rounded : _getCategoryIcon(cat);
                       return DropdownMenuItem(
                         value: cat,
                         child: Row(
                           children: [
-                            if (isCustomAction) ...[
-                              const Icon(Icons.add_circle_outline_rounded, color: forestDark, size: 14),
-                              const SizedBox(width: 5),
-                            ],
+                            Icon(
+                              iconData,
+                              color: isCustomAction ? forestDark : darkText,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 9),
                             Text(
                               cat,
                               style: GoogleFonts.inter(
                                 color: isCustomAction ? forestDark : darkText,
                                 fontWeight: isCustomAction ? FontWeight.bold : FontWeight.w600,
-                                fontSize: 11.5,
+                                fontSize: 14,
                               ),
                             ),
                           ],
@@ -318,14 +397,14 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       }
                     },
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
                   // Amount Field
                   Text(
                     "Amount (₹) *",
-                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   TextFormField(
                     controller: _amountController,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -336,68 +415,68 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       return null;
                     },
                     style: GoogleFonts.ibmPlexMono(
-                      color: forestDark,
-                      fontSize: 15,
+                      color: darkText,
+                      fontSize: 16.5,
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: "0.00",
-                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 15),
+                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 16.5),
                       prefixIcon: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        child: Text("₹", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: forestDark)),
+                        padding: EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                        child: Text("₹", style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: darkText)),
                       ),
                       prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                       filled: true,
-                      fillColor: creamSheet.withValues(alpha: 0.4),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: darkSurface, width: 1.4)),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
                   // Description Field
                   Text(
                     "Description / Purpose *",
-                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   TextFormField(
                     controller: _descController,
                     validator: (val) => val == null || val.trim().isEmpty ? "Description is required" : null,
-                    style: GoogleFonts.inter(color: darkText, fontSize: 12, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.inter(color: darkText, fontSize: 14, fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: "e.g. Office lunch, Flight tickets",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 11.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
                       filled: true,
-                      fillColor: creamSheet.withValues(alpha: 0.4),
-                      prefixIcon: const Icon(Icons.description_rounded, color: forestDark, size: 15),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: forestDark, width: 1.4)),
+                      fillColor: const Color(0xFFF8FAFC),
+                      prefixIcon: const Icon(Icons.description_rounded, color: darkSurface, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: darkSurface, width: 1.4)),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
                   // Date Selector
                   Text(
                     "Expense Date",
-                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   InkWell(
                     onTap: _selectDate,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(11),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
                       decoration: BoxDecoration(
-                        color: creamSheet.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(10),
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(11),
                         border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
                       ),
                       child: Row(
@@ -405,40 +484,40 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.calendar_today_rounded, color: forestDark, size: 15),
-                              const SizedBox(width: 8),
+                              const Icon(Icons.calendar_today_rounded, color: darkSurface, size: 18),
+                              const SizedBox(width: 9),
                               Text(
                                 DateFormat('dd MMM yyyy').format(_selectedDate),
-                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 12),
+                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
                               ),
                             ],
                           ),
-                          const Icon(Icons.edit_calendar_rounded, color: forestDark, size: 15),
+                          const Icon(Icons.edit_calendar_rounded, color: darkSurface, size: 18),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 14),
 
                   // Receipt Attachment
                   Text(
                     "Receipt / Attachment (Optional)",
-                    style: GoogleFonts.inter(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   GestureDetector(
                     onTap: _pickReceiptImage,
                     child: Container(
                       width: double.infinity,
-                      height: 54,
+                      height: 58,
                       decoration: BoxDecoration(
-                        color: creamSheet.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: forestDark.withValues(alpha: 0.2), width: 1.0),
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.0),
                       ),
                       child: _base64Image != null
                           ? ClipRRect(
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(10),
                               child: Image.memory(
                                 base64Decode(_base64Image!.split(',').last),
                                 fit: BoxFit.cover,
@@ -447,37 +526,37 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           : Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.cloud_upload_outlined, color: forestDark, size: 18),
-                                const SizedBox(height: 2),
+                                const Icon(Icons.cloud_upload_outlined, color: darkSurface, size: 19),
+                                const SizedBox(height: 3),
                                 Text(
                                   "Tap to upload receipt image",
-                                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10.5, fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12.5, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 17),
 
                   // Save Expense Button
                   SizedBox(
                     width: double.infinity,
-                    height: 38,
+                    height: 47,
                     child: ElevatedButton.icon(
                       onPressed: _isSaving ? null : _submitExpense,
                       icon: _isSaving
-                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: mintAccent, strokeWidth: 2.2))
+                          : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                       label: Text(
                         _isSaving ? "Saving Expense..." : "Post Expense",
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: forestDark,
+                        backgroundColor: darkSurface,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 1.5,
-                        shadowColor: forestDark.withValues(alpha: 0.2),
+                        elevation: 0,
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),

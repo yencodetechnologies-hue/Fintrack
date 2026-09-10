@@ -80,13 +80,14 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    const Color creamSheet = Color(0xFFF6F4EB);
+    const Color scaffoldBg = Color(0xFF0C5F41);
+    const Color darkSurface = Color(0xFF0C3826);
+    const Color mintAccent = Color(0xFF10B981);
     const Color forestDark = Color(0xFF0F261C);
-    const Color darkText = Color(0xFF132A20);
     const Color textMuted = Color(0xFF68786E);
 
     return Scaffold(
-      backgroundColor: creamSheet,
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.transparent,
@@ -94,18 +95,18 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.06),
+              color: darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Join a Trip",
           style: GoogleFonts.fraunces(
-            color: darkText,
+            color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
             fontStyle: FontStyle.italic,
@@ -114,9 +115,9 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: forestDark,
-          labelColor: forestDark,
-          unselectedLabelColor: textMuted,
+          indicatorColor: mintAccent,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
           labelStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14),
           tabs: const [
             Tab(icon: Icon(Icons.pin_rounded, size: 18), text: "6-Digit Code"),
@@ -129,97 +130,113 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
         children: [
           // Tab 1: Enter 6-Digit Code
           SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: forestDark.withValues(alpha: 0.08),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
                   ),
-                  child: const FaIcon(FontAwesomeIcons.ticket, color: forestDark, size: 36),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  "Enter 6-Digit Trip Code",
-                  style: GoogleFonts.fraunces(
-                    color: darkText,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                ],
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: scaffoldBg.withValues(alpha: 0.08),
+                    ),
+                    child: const FaIcon(FontAwesomeIcons.ticket, color: scaffoldBg, size: 22),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Ask the trip organizer for their 6-digit trip code (e.g. TRP892) and enter it below.",
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(color: textMuted, fontSize: 13.5),
-                ),
-                const SizedBox(height: 30),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Enter 6-Digit Trip Code",
+                    style: GoogleFonts.fraunces(
+                      color: forestDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "Ask the trip organizer for their 6-digit trip code (e.g. TRP892) and enter it below.",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(color: textMuted, fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 20),
 
-                // Code Input Field
-                TextField(
-                  controller: _codeController,
-                  textCapitalization: TextCapitalization.characters,
-                  textAlign: TextAlign.center,
-                  maxLength: 6,
-                  style: GoogleFonts.ibmPlexMono(
-                    color: forestDark,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 8,
+                  // Code Input Field
+                  TextField(
+                    controller: _codeController,
+                    textCapitalization: TextCapitalization.characters,
+                    textAlign: TextAlign.center,
+                    maxLength: 6,
+                    style: GoogleFonts.ibmPlexMono(
+                      color: forestDark,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                    ),
+                    decoration: InputDecoration(
+                      counterText: "",
+                      hintText: "TRP892",
+                      hintStyle: GoogleFonts.ibmPlexMono(
+                        color: textMuted.withValues(alpha: 0.4),
+                        fontSize: 20,
+                        letterSpacing: 6,
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 13, horizontal: 16),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: scaffoldBg, width: 1.5),
+                      ),
+                    ),
                   ),
-                  decoration: InputDecoration(
-                    counterText: "",
-                    hintText: "TRP892",
-                    hintStyle: GoogleFonts.ibmPlexMono(
-                      color: textMuted.withValues(alpha: 0.4),
-                      fontSize: 28,
-                      letterSpacing: 8,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.1)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      borderSide: const BorderSide(color: forestDark, width: 2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
+                  const SizedBox(height: 20),
 
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: forestDark,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      elevation: 0,
-                    ),
-                    onPressed: _isLoading ? null : () => _handleJoin(_codeController.text),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : Text(
-                            "Join Trip Now",
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: scaffoldBg,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _isLoading ? null : () => _handleJoin(_codeController.text),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : Text(
+                              "Join Trip Now",
+                              style: GoogleFonts.inter(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -249,7 +266,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
                         ),
                         Container(
                           decoration: BoxDecoration(
-                            border: Border.all(color: forestDark.withValues(alpha: 0.5), width: 3),
+                            border: Border.all(color: mintAccent.withValues(alpha: 0.8), width: 3),
                             borderRadius: BorderRadius.circular(24),
                           ),
                         ),
@@ -263,7 +280,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
                 child: Text(
                   "Point camera at the organizer's Trip QR code to join automatically.",
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(color: textMuted, fontSize: 13),
+                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
                 ),
               ),
             ],

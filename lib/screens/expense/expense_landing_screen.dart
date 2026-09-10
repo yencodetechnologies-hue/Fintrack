@@ -22,7 +22,7 @@ class ExpenseLandingScreen extends StatefulWidget {
 class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   static const Color bgGreen = Color(0xFF0C5F41);
   static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C5F41);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
@@ -156,15 +156,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       const Icon(Icons.add_business_rounded, size: 18, color: Colors.white),
-                                      const SizedBox(width: 8),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          "Create Company",
-                                          style: GoogleFonts.inter(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13.5,
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            "Create Company",
+                                            style: GoogleFonts.inter(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -174,7 +176,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Material(
                               color: Colors.transparent,
@@ -182,7 +184,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 onTap: _openJoinCompany,
                                 borderRadius: BorderRadius.circular(16),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(16),
@@ -199,15 +201,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       const Icon(Icons.group_add_rounded, size: 18, color: terracotta),
-                                      const SizedBox(width: 8),
-                                      FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          "Join Company",
-                                          style: GoogleFonts.inter(
-                                            color: terracotta,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13.5,
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            "Join Company",
+                                            style: GoogleFonts.inter(
+                                              color: terracotta,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
                                       ),

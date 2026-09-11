@@ -13,12 +13,12 @@ class AddExpenseScreen extends StatefulWidget {
   final String userName;
 
   const AddExpenseScreen({
-    Key? key,
+    super.key,
     required this.companyId,
     required this.companyName,
     required this.userId,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -200,6 +200,132 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  void _showCategoryBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: darkText.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Select Category",
+                  style: GoogleFonts.fraunces(
+                    fontSize: 19,
+                    fontWeight: FontWeight.bold,
+                    color: darkText,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: darkText, size: 22),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Flexible(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.1,
+                  ),
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final cat = _categories[index];
+                    final isCustomAction = cat == "+ Add Custom Category...";
+                    final isSelected = _selectedCategory == cat;
+                    final iconData = isCustomAction ? Icons.add_circle_outline_rounded : _getCategoryIcon(cat);
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        if (isCustomAction) {
+                          _promptCustomCategoryDialog();
+                        } else {
+                          setState(() => _selectedCategory = cat);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? darkSurface
+                                  : (isCustomAction ? forestDark.withValues(alpha: 0.1) : const Color(0xFFF1F5F9)),
+                              shape: BoxShape.circle,
+                              boxShadow: isSelected
+                                  ? [
+                                      BoxShadow(
+                                        color: darkSurface.withValues(alpha: 0.25),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Icon(
+                              iconData,
+                              size: 22,
+                              color: isSelected ? Colors.white : (isCustomAction ? forestDark : darkText),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            isCustomAction ? "+ Custom" : cat,
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5,
+                              fontWeight: isSelected || isCustomAction ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected ? darkSurface : (isCustomAction ? forestDark : darkText),
+                              height: 1.15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
@@ -351,51 +477,33 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
                   ),
                   const SizedBox(height: 5),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    dropdownColor: Colors.white,
+                  InkWell(
+                    onTap: _showCategoryBottomSheet,
                     borderRadius: BorderRadius.circular(11),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(11), borderSide: const BorderSide(color: darkSurface, width: 1.4)),
-                    ),
-                    items: _categories.map((cat) {
-                      final isCustomAction = cat == "+ Add Custom Category...";
-                      final iconData = isCustomAction ? Icons.add_circle_outline_rounded : _getCategoryIcon(cat);
-                      return DropdownMenuItem(
-                        value: cat,
-                        child: Row(
-                          children: [
-                            Icon(
-                              iconData,
-                              color: isCustomAction ? forestDark : darkText,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 9),
-                            Text(
-                              cat,
-                              style: GoogleFonts.inter(
-                                color: isCustomAction ? forestDark : darkText,
-                                fontWeight: isCustomAction ? FontWeight.bold : FontWeight.w600,
-                                fontSize: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(_getCategoryIcon(_selectedCategory), color: darkSurface, size: 18),
+                              const SizedBox(width: 9),
+                              Text(
+                                _selectedCategory,
+                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (val) {
-                      if (val == "+ Add Custom Category...") {
-                        _promptCustomCategoryDialog();
-                      } else if (val != null) {
-                        setState(() => _selectedCategory = val);
-                      }
-                    },
+                            ],
+                          ),
+                          const Icon(Icons.keyboard_arrow_down_rounded, color: darkSurface, size: 20),
+                        ],
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
 

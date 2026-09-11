@@ -10,10 +10,10 @@ class ExpenseLandingScreen extends StatefulWidget {
   final String userName;
 
   const ExpenseLandingScreen({
-    Key? key,
+    super.key,
     required this.userId,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
   State<ExpenseLandingScreen> createState() => _ExpenseLandingScreenState();
@@ -142,103 +142,105 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Premium Action Buttons Row (Create & Join)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _openCreateCompany,
+                // Premium Action Buttons Row (Create & Join - Shown only when companies exist)
+                if (_userCompanies.isNotEmpty) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openCreateCompany,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 46,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: darkSurface,
                                 borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  height: 46,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: darkSurface,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
                                   ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.add_business_rounded, size: 18, color: Colors.white),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            "Create Company",
-                                            style: GoogleFonts.inter(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.add_business_rounded, size: 18, color: Colors.white),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        "Create Company",
+                                        style: GoogleFonts.inter(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: _openJoinCompany,
-                                borderRadius: BorderRadius.circular(16),
-                                child: Container(
-                                  height: 42,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 3),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.group_add_rounded, size: 18, color: terracotta),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            "Join Company",
-                                            style: GoogleFonts.inter(
-                                              color: terracotta,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _openJoinCompany,
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              height: 42,
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.group_add_rounded, size: 18, color: terracotta),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      child: Text(
+                                        "Join Company",
+                                        style: GoogleFonts.inter(
+                                          color: terracotta,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                       if (_isLoading) ...[
                         const _CompanyListShimmer(),
@@ -498,7 +500,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
 }
 
 class _CompanyListShimmer extends StatefulWidget {
-  const _CompanyListShimmer({Key? key}) : super(key: key);
+  const _CompanyListShimmer();
 
   @override
   State<_CompanyListShimmer> createState() => _CompanyListShimmerState();

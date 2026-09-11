@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -11,18 +12,19 @@ class VehicleDetailsScreen extends StatefulWidget {
   final String userId;
 
   const VehicleDetailsScreen({
-    Key? key,
+    super.key,
     required this.vehicleId,
     required this.userId,
-  }) : super(key: key);
+  });
 
   @override
   State<VehicleDetailsScreen> createState() => _VehicleDetailsScreenState();
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color creamSheet = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C3826);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color emeraldGreen = Color(0xFF10B981);
@@ -219,7 +221,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: creamSheet,
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Row(
           children: [
@@ -280,7 +282,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetCtx).viewInsets.bottom),
         child: Container(
           decoration: const BoxDecoration(
-            color: creamSheet,
+            color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 28),
@@ -422,22 +424,22 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.06),
+              color: darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: emeraldGreen.withValues(alpha: 0.3)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: emeraldGreen, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           name,
-          style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.w600, fontSize: 20),
+          style: GoogleFonts.fraunces(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 20),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: darkText),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: _fetchVehicleDetails,
           ),
         ],
@@ -550,92 +552,16 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 2. LIVE SPEEDOMETER & RIDE DASHBOARD
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: _isRideActive ? emeraldGreen : Colors.black.withValues(alpha: 0.08), width: _isRideActive ? 2 : 1),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 4))],
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: _isRideActive ? emeraldGreen : Colors.grey,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _isRideActive ? "LIVE RIDE ACTIVE" : "RIDE DASHBOARD",
-                              style: GoogleFonts.ibmPlexMono(
-                                color: _isRideActive ? emeraldGreen : darkText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                letterSpacing: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // START / STOP RIDE TOGGLE SWITCH
-                        Switch(
-                          value: _isRideActive,
-                          activeThumbColor: emeraldGreen,
-                          onChanged: (val) => _toggleRideState(val),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // LIVE SPEEDOMETER DISPLAY
-                    Center(
-                      child: Column(
-                        children: [
-                          Text(
-                            _isRideActive ? _currentSpeedKmh.toStringAsFixed(0) : "0",
-                            style: GoogleFonts.fraunces(
-                              color: forestDark,
-                              fontSize: 54,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            "KM / H",
-                            style: GoogleFonts.ibmPlexMono(
-                              color: darkText.withValues(alpha: 0.5),
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Divider(),
-                    const SizedBox(height: 12),
-
-                    // Running Ride Stats Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _buildLiveStatColumn("TRIP DISTANCE", "${_liveDistanceKm.toStringAsFixed(2)} km"),
-                        Container(width: 1, height: 30, color: Colors.black12),
-                        _buildLiveStatColumn("EST. FUEL USED", "${_liveFuelUsed.toStringAsFixed(2)} $fuelUnit"),
-                      ],
-                    ),
-                  ],
-                ),
+              // 2. FUTURISTIC E-BIKE SPEEDOMETER & RIDE DASHBOARD
+              FuturisticSpeedometerDashboard(
+                isRideActive: _isRideActive,
+                currentSpeed: _currentSpeedKmh,
+                liveDistanceKm: _liveDistanceKm,
+                liveFuelUsed: _liveFuelUsed,
+                fuelUnit: fuelUnit,
+                fuelPct: fuelPct,
+                vehicleName: name,
+                onToggleRide: (val) => _toggleRideState(val),
               ),
               const SizedBox(height: 20),
 
@@ -662,7 +588,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               const SizedBox(height: 24),
 
               // 4. Ride History Section
-              Text("Recent Rides", style: GoogleFonts.fraunces(color: darkText, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("Recent Rides", style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
 
               if ((_vehicle!["rideHistory"] as List<dynamic>?) == null || (_vehicle!["rideHistory"] as List<dynamic>).isEmpty)
@@ -733,14 +659,490 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildLiveStatColumn(String title, String val) {
-    return Column(
-      children: [
-        Text(title, style: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(val, style: GoogleFonts.inter(color: forestDark, fontSize: 15, fontWeight: FontWeight.bold)),
-      ],
+// ============================================================================
+// FUTURISTIC CYBER E-BIKE SPEEDOMETER DASHBOARD WIDGET & CUSTOM PAINTERS
+// ============================================================================
+
+class FuturisticSpeedometerDashboard extends StatelessWidget {
+  final bool isRideActive;
+  final double currentSpeed;
+  final double liveDistanceKm;
+  final double liveFuelUsed;
+  final String fuelUnit;
+  final double fuelPct;
+  final String vehicleName;
+  final ValueChanged<bool> onToggleRide;
+
+  static const Color cyanGlow = Color(0xFF06ECEC);
+
+  const FuturisticSpeedometerDashboard({
+    super.key,
+    required this.isRideActive,
+    required this.currentSpeed,
+    required this.liveDistanceKm,
+    required this.liveFuelUsed,
+    required this.fuelUnit,
+    required this.fuelPct,
+    required this.vehicleName,
+    required this.onToggleRide,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final List<double> speedLineOpacities = [1.0, 0.8, 0.6, 0.4, 0.3, 0.2, 0.15, 0.1];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isRideActive ? cyanGlow : cyanGlow.withValues(alpha: 0.4),
+          width: isRideActive ? 2 : 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: cyanGlow.withValues(alpha: isRideActive ? 0.35 : 0.15),
+            blurRadius: 16,
+            spreadRadius: 1,
+          ),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double w = constraints.maxWidth;
+          final double h = w / 1.85; // Responsive aspect ratio
+
+          return SizedBox(
+            height: h,
+            width: w,
+            child: CustomPaint(
+              painter: PathPainter(accentColor: isRideActive ? cyanGlow : cyanGlow.withValues(alpha: 0.6)),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Top Row: Time, Indicators, Ride Toggle Switch
+                  Positioned(
+                    top: 10,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left: Indicators
+                        Row(
+                          children: [
+                            Icon(Icons.turn_left_rounded, color: isRideActive ? Colors.redAccent : Colors.white24, size: 16),
+                            const SizedBox(width: 6),
+                            Icon(Icons.headset_mic_rounded, color: isRideActive ? Colors.yellowAccent : Colors.white24, size: 16),
+                            const SizedBox(width: 6),
+                            Icon(Icons.turn_right_rounded, color: Colors.white24, size: 16),
+                          ],
+                        ),
+                        // Center: Time & Temp
+                        Row(
+                          children: [
+                            Text(
+                              _formattedTime(),
+                              style: GoogleFonts.ibmPlexMono(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.wb_sunny_rounded, color: Colors.amber, size: 13),
+                            const SizedBox(width: 4),
+                            Text(
+                              "28°C",
+                              style: GoogleFonts.ibmPlexMono(color: Colors.white70, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        // Right: Live Switch
+                        Row(
+                          children: [
+                            Text(
+                              isRideActive ? "LIVE" : "OFF",
+                              style: GoogleFonts.ibmPlexMono(
+                                color: isRideActive ? cyanGlow : Colors.white38,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Transform.scale(
+                              scale: 0.75,
+                              child: Switch(
+                                value: isRideActive,
+                                activeThumbColor: cyanGlow,
+                                activeTrackColor: cyanGlow.withValues(alpha: 0.3),
+                                inactiveTrackColor: Colors.white12,
+                                onChanged: onToggleRide,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Side Speed Lines (Left)
+                  ...List.generate(
+                    speedLineOpacities.length,
+                    (index) => Positioned(
+                      bottom: h * 0.12 + (1.5 * index),
+                      left: w * 0.10 - (18 * index),
+                      height: h * 0.65,
+                      width: w * 0.28,
+                      child: Opacity(
+                        opacity: speedLineOpacities[index] * (isRideActive ? 1.0 : 0.4),
+                        child: CustomPaint(painter: SpeedLinePainter(color: cyanGlow)),
+                      ),
+                    ),
+                  ),
+
+                  // Side Speed Lines (Right - Flipped)
+                  ...List.generate(
+                    speedLineOpacities.length,
+                    (index) => Positioned(
+                      bottom: h * 0.12 + (1.5 * index),
+                      right: w * 0.10 - (18 * index),
+                      height: h * 0.65,
+                      width: w * 0.28,
+                      child: Transform.scale(
+                        scaleX: -1,
+                        child: Opacity(
+                          opacity: speedLineOpacities[index] * (isRideActive ? 1.0 : 0.4),
+                          child: CustomPaint(painter: SpeedLinePainter(color: cyanGlow)),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Center: Speedometer Number Display
+                  Positioned(
+                    top: h * 0.22,
+                    left: 0,
+                    right: 0,
+                    child: Column(
+                      children: [
+                        ShaderMask(
+                          blendMode: BlendMode.srcIn,
+                          shaderCallback: (bounds) => LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.white,
+                              Colors.white.withValues(alpha: 0.15),
+                            ],
+                          ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+                          child: Text(
+                            isRideActive ? currentSpeed.toStringAsFixed(0) : "0",
+                            style: GoogleFonts.fraunces(
+                              fontSize: h * 0.32,
+                              fontWeight: FontWeight.bold,
+                              height: 0.95,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          "KM / H",
+                          style: GoogleFonts.ibmPlexMono(
+                            fontSize: 10,
+                            color: cyanGlow.withValues(alpha: 0.8),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Bottom: Gears, Range & Battery Gauges
+                  Positioned(
+                    bottom: 8,
+                    left: w * 0.08,
+                    right: w * 0.08,
+                    height: h * 0.30,
+                    child: CustomPaint(
+                      painter: GearPrinter(color: cyanGlow),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Compact Gears Display (Tucked neatly inside bracket lines)
+                          SizedBox(
+                            width: w * 0.25,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: ["S", "D", "N", "R", "P"].map((g) {
+                                final bool isSelected = isRideActive ? (g == "D") : (g == "P");
+                                return Text(
+                                  g,
+                                  style: GoogleFonts.ibmPlexMono(
+                                    fontSize: 10.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected ? cyanGlow : Colors.white24,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+
+                          // Trip Distance Stats Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text.rich(
+                                TextSpan(
+                                  text: "TRIP ",
+                                  style: GoogleFonts.ibmPlexMono(fontSize: 9.5, color: Colors.white38),
+                                  children: [
+                                    TextSpan(
+                                      text: "${liveDistanceKm.toStringAsFixed(2)} km",
+                                      style: GoogleFonts.ibmPlexMono(color: cyanGlow, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text.rich(
+                                TextSpan(
+                                  text: "USED ",
+                                  style: GoogleFonts.ibmPlexMono(fontSize: 9.5, color: Colors.white38),
+                                  children: [
+                                    TextSpan(
+                                      text: "${liveFuelUsed.toStringAsFixed(2)} $fuelUnit",
+                                      style: GoogleFonts.ibmPlexMono(color: cyanGlow, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Battery / Fuel Bar Gauge (Symmetrically Centered Below)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 42,
+                                  child: Text(
+                                    "E",
+                                    style: GoogleFonts.ibmPlexMono(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white38),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 6,
+                                    child: ClipPath(
+                                      clipper: BatteryStatusCliper(),
+                                      child: CustomPaint(
+                                        painter: DashLinePainter(progress: fuelPct.clamp(0.05, 1.0), color: cyanGlow),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 42,
+                                  child: Text(
+                                    "${(fuelPct * 100).toStringAsFixed(0)}%",
+                                    textAlign: TextAlign.right,
+                                    style: GoogleFonts.ibmPlexMono(fontSize: 11, fontWeight: FontWeight.bold, color: cyanGlow),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
+
+  static String _formattedTime() {
+    final now = DateTime.now();
+    final h = now.hour % 12 == 0 ? 12 : now.hour % 12;
+    final m = now.minute.toString().padLeft(2, '0');
+    final ampm = now.hour >= 12 ? 'PM' : 'AM';
+    return "$h:$m $ampm";
+  }
 }
+
+// ----------------------------------------------------------------------------
+// CUSTOM PAINTERS & CLIPPERS FOR FUTURISTIC SPEEDOMETER
+// ----------------------------------------------------------------------------
+
+class PathPainter extends CustomPainter {
+  final Color accentColor;
+  PathPainter({required this.accentColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..shader = ui.Gradient.linear(
+        const Offset(0, 0),
+        Offset(size.width, size.height),
+        [accentColor, accentColor.withValues(alpha: 0.75)],
+      )
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5;
+
+    final Path path = Path();
+    path.moveTo(0, size.height / 2);
+    path.lineTo(size.width * 0.13, size.height * 0.05);
+    path.lineTo(size.width * 0.31, 0);
+    path.lineTo(size.width * 0.39, size.height * 0.11);
+    path.lineTo(size.width * 0.60, size.height * 0.11);
+    path.lineTo(size.width * 0.69, 0);
+    path.lineTo(size.width * 0.87, size.height * 0.05);
+    path.lineTo(size.width, size.height / 2);
+    path.lineTo(size.width * 0.87, size.height);
+    path.lineTo(size.width * 0.13, size.height);
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant PathPainter oldDelegate) => oldDelegate.accentColor != accentColor;
+}
+
+class SpeedLinePainter extends CustomPainter {
+  final Color color;
+  SpeedLinePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const double strokeWidth = 5;
+    final Path path0 = Path()
+      ..moveTo(size.width * 0.76, 0)
+      ..lineTo(size.width, size.height * 0.30)
+      ..lineTo(size.width - strokeWidth, size.height * 0.30)
+      ..close();
+
+    final Path path1 = Path()
+      ..moveTo(size.width, size.height * 0.30)
+      ..lineTo(30, size.height - 15)
+      ..lineTo(size.width - strokeWidth, size.height * 0.30)
+      ..close();
+
+    final Paint paint0Fill = Paint()..style = PaintingStyle.fill;
+    paint0Fill.shader = ui.Gradient.linear(
+      Offset(size.width * 0.9, 0),
+      Offset(size.width * 0.8, size.height * 1.5),
+      [color, color.withValues(alpha: 0.75)],
+    );
+
+    canvas.drawPath(path0, paint0Fill);
+    canvas.drawPath(path1, paint0Fill);
+  }
+
+  @override
+  bool shouldRepaint(covariant SpeedLinePainter oldDelegate) => oldDelegate.color != color;
+}
+
+class GearPrinter extends CustomPainter {
+  final Color color;
+  GearPrinter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    const double strokeWidth = 1.8;
+    final Path path = Path();
+    path.moveTo(size.width * 0.12, size.height);
+    path.lineTo(size.width * 0.22, size.height * 0.5);
+    path.lineTo(size.width * 0.31, size.height * 0.5);
+    path.lineTo(size.width * 0.38, 0);
+    path.lineTo(size.width * 0.47, 0);
+    path.lineTo(size.width * 0.47, strokeWidth);
+    path.lineTo(size.width * 0.38, strokeWidth);
+    path.lineTo(size.width * 0.31, size.height * 0.5 + strokeWidth);
+    path.lineTo(size.width * 0.22, size.height * 0.5 + strokeWidth);
+    path.close();
+    canvas.drawPath(path, paint);
+
+    final Path path2 = Path();
+    path2.moveTo(size.width * 0.53, 0);
+    path2.lineTo(size.width * 0.62, 0);
+    path2.lineTo(size.width * 0.69, size.height * 0.5);
+    path2.lineTo(size.width * 0.78, size.height * 0.5);
+    path2.lineTo(size.width * 0.88, size.height);
+    path2.lineTo(size.width * 0.78, size.height * 0.5 + strokeWidth);
+    path2.lineTo(size.width * 0.69, size.height * 0.5 + strokeWidth);
+    path2.lineTo(size.width * 0.62, strokeWidth);
+    path2.lineTo(size.width * 0.53, strokeWidth);
+    path2.close();
+    canvas.drawPath(path2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant GearPrinter oldDelegate) => oldDelegate.color != color;
+}
+
+class BatteryStatusCliper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final Path path = Path()
+      ..moveTo(0, size.height)
+      ..lineTo(size.width * 0.05, 0)
+      ..lineTo(size.width * 0.95, 0)
+      ..lineTo(size.width, size.height);
+    return path;
+  }
+
+  @override
+  bool shouldReclip(CustomClipper<Path> oldClipper) => true;
+}
+
+class DashLinePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  DashLinePainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..strokeWidth = 8.0
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
+
+    final Path path = Path()
+      ..moveTo(0, size.height / 2)
+      ..lineTo(size.width * progress, size.height / 2);
+
+    final Path dashPath = Path();
+    double dashWidth = 16.0;
+    double dashSpace = 2.0;
+    double distance = 0.0;
+
+    for (ui.PathMetric pathMetric in path.computeMetrics()) {
+      while (distance < pathMetric.length) {
+        dashPath.addPath(
+          pathMetric.extractPath(distance, distance + dashWidth),
+          Offset.zero,
+        );
+        distance += dashWidth + dashSpace;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(DashLinePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
+  }
+}
+

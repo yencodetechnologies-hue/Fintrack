@@ -725,7 +725,7 @@ exports.deleteCompany = async (req, res) => {
   }
 };
 
-// 15. Delete Expense (Admin Only)
+// 15. Delete Expense (Admin or Expense Creator before status/settlement change)
 exports.deleteExpense = async (req, res) => {
   try {
     const { expenseId } = req.params;
@@ -742,9 +742,19 @@ exports.deleteExpense = async (req, res) => {
 
     const adminUserIds = await getCompanyAdminUserIds(expense.companyId);
     const isAdmin = adminUserIds.includes(userId.toString());
+    const isCreator = expense.createdBy.toString() === userId.toString();
 
-    if (!isAdmin) {
-      return res.status(403).json({ success: false, message: "Only an Admin can delete expenses" });
+    const settlements = await Settlement.find({ expenseId: expense._id });
+    const hasSettlement = settlements.length > 0;
+    const isPaid = expense.status === "paid";
+
+    const canDelete = isAdmin || (isCreator && !isPaid && !hasSettlement);
+
+    if (!canDelete) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to delete this expense once status is changed or settled.",
+      });
     }
 
     await Expense.findByIdAndDelete(expenseId);

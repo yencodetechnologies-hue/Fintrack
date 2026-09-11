@@ -945,10 +945,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       final s = expense["settlement"];
       if (s is Map<String, dynamic>) {
         settlementList.add(s);
-      } else {
-        settlementList.add(Map<String, dynamic>.from(s));
       }
     }
+
+    final bool canDeleteExpense = isAdmin || (isCreator && !isPaid && settlementList.isEmpty);
 
     showModalBottomSheet(
       context: context,
@@ -1339,7 +1339,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        if (isAdmin) ...[
+                        if (canDeleteExpense) ...[
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(

@@ -10,18 +10,19 @@ class VehicleDashboardScreen extends StatefulWidget {
   final String userName;
 
   const VehicleDashboardScreen({
-    Key? key,
+    super.key,
     required this.userId,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
   State<VehicleDashboardScreen> createState() => _VehicleDashboardScreenState();
 }
 
 class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
-  static const Color creamSheet = Color(0xFFFBF9F1);
-  static const Color forestDark = Color(0xFF0F261C);
+  static const Color creamSheet = Color(0xFF0C5F41);
+  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color forestDark = Color(0xFF0C5F41);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color emeraldGreen = Color(0xFF10B981);
@@ -73,14 +74,14 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: creamSheet,
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Delete Vehicle?", style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold)),
-        content: Text("Are you sure you want to remove '$vehicleName'?", style: GoogleFonts.inter(color: darkText)),
+        title: Text("Delete Vehicle?", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Text("Are you sure you want to remove '$vehicleName'?", style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569))),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text("Cancel", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6))),
+            child: Text("Cancel", style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: terracotta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -102,40 +103,40 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
       backgroundColor: creamSheet,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: creamSheet,
         leading: IconButton(
           icon: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: forestDark.withValues(alpha: 0.06),
+              color: darkSurface,
               shape: BoxShape.circle,
-              border: Border.all(color: forestDark.withValues(alpha: 0.12)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: darkText, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: emeraldGreen, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Vehicle Dashboard",
           style: GoogleFonts.fraunces(
-            color: darkText,
-            fontWeight: FontWeight.w600,
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
             fontSize: 22,
-            fontStyle: FontStyle.italic,
           ),
         ),
         centerTitle: true,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: forestDark,
-        elevation: 4,
+        backgroundColor: darkSurface,
+        foregroundColor: Colors.white,
+        elevation: 6,
         onPressed: _navigateToAddVehicle,
-        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        icon: const Icon(Icons.add_rounded, color: emeraldGreen),
         label: Text("Add Vehicle", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: forestDark,
+          color: emeraldGreen,
           onRefresh: _fetchVehicles,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -148,10 +149,11 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: forestDark,
+                    color: darkSurface,
                     borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                     boxShadow: [
-                      BoxShadow(color: forestDark.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4)),
+                      BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4)),
                     ],
                   ),
                   child: Row(
@@ -160,7 +162,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("MY GARAGE", style: GoogleFonts.ibmPlexMono(color: Colors.white60, fontSize: 10, letterSpacing: 1.5)),
+                          Text("MY GARAGE", style: GoogleFonts.ibmPlexMono(color: Colors.white60, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text(
                             "${_vehicles.length} Vehicles Managed",
@@ -170,8 +172,8 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), shape: BoxShape.circle),
-                        child: const FaIcon(FontAwesomeIcons.gaugeHigh, color: Colors.white, size: 22),
+                        decoration: BoxDecoration(color: emeraldGreen.withValues(alpha: 0.15), shape: BoxShape.circle),
+                        child: const FaIcon(FontAwesomeIcons.gaugeHigh, color: emeraldGreen, size: 22),
                       ),
                     ],
                   ),
@@ -182,11 +184,11 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("My Vehicles", style: GoogleFonts.fraunces(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text("My Vehicles", style: GoogleFonts.fraunces(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                     TextButton.icon(
                       onPressed: _navigateToAddVehicle,
-                      icon: const Icon(Icons.add_circle_outline_rounded, color: terracotta, size: 18),
-                      label: Text("Add New", style: GoogleFonts.inter(color: terracotta, fontWeight: FontWeight.bold, fontSize: 13)),
+                      icon: const Icon(Icons.add_circle_outline_rounded, color: emeraldGreen, size: 18),
+                      label: Text("Add New", style: GoogleFonts.inter(color: emeraldGreen, fontWeight: FontWeight.bold, fontSize: 13)),
                     ),
                   ],
                 ),

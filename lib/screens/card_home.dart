@@ -9,7 +9,7 @@ import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
 import 'trips/trips_home_screen.dart';
-// import 'vehicles/vehicle_dashboard_screen.dart';
+import 'vehicles/vehicle_dashboard_screen.dart';
 import 'expense/expense_landing_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -739,7 +739,6 @@ class _GridViewPageState extends State<GridViewPage> {
         "color": terracotta,
         "page": (context) => TripsHomeScreen(userId: widget.userId, userName: widget.userName),
       },
-      /*
       {
         "title": "Vehicle Dashboard",
         "subtitle": "Track mileage, live speed, fuel usage & safe range",
@@ -748,7 +747,6 @@ class _GridViewPageState extends State<GridViewPage> {
         "color": const Color(0xFF10B981),
         "page": (context) => VehicleDashboardScreen(userId: widget.userId, userName: widget.userName),
       },
-      */
     ];
 
     final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';

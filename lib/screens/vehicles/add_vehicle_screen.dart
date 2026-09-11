@@ -3,10 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/brand_model_service.dart';
 import '../../services/vehicle_service.dart';
 
-// Color palette — matches QFin cream + deep forest green look
-const kBackground = Color(0xFFFBF9F1);
+// Color palette — matches QFin deep forest green executive look
+const kBackground = Color(0xFF0C5F41);
 const kCard = Colors.white;
-const kGreen = Color(0xFF0F261C);
+const kGreen = Color(0xFF0C5F41);
 const kMutedText = Color(0xFF6B7280);
 const kBodyText = Color(0xFF1E293B);
 const kBorder = Color(0xFFE2DDD0);
@@ -37,10 +37,10 @@ class AddVehicleScreen extends StatefulWidget {
   final String userName;
 
   const AddVehicleScreen({
-    Key? key,
+    super.key,
     required this.userId,
     required this.userName,
-  }) : super(key: key);
+  });
 
   @override
   State<AddVehicleScreen> createState() => _AddVehicleScreenState();
@@ -347,7 +347,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       _isLoadingBrands
                           ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: kGreen)))
                           : DropdownButtonFormField<String>(
-                              value: _brandsList.contains(_selectedBrand) ? _selectedBrand : null,
+                              initialValue: _brandsList.contains(_selectedBrand) ? _selectedBrand : null,
                               isExpanded: true,
                               dropdownColor: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -409,7 +409,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       _isLoadingModels
                           ? const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(color: kGreen)))
                           : DropdownButtonFormField<String>(
-                              value: _modelsList.contains(_selectedModel) ? _selectedModel : null,
+                              initialValue: _modelsList.contains(_selectedModel) ? _selectedModel : null,
                               isExpanded: true,
                               dropdownColor: Colors.white,
                               borderRadius: BorderRadius.circular(16),
@@ -531,21 +531,19 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         GestureDetector(
           onTap: () => Navigator.pop(context),
           child: Container(
-            width: 36,
-            height: 36,
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: kCard,
+              color: const Color(0xFF0C3826),
               shape: BoxShape.circle,
-              border: Border.all(color: kGreen, width: 1.5),
+              border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back, size: 18, color: kGreen),
+            child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
           ),
         ),
         const SizedBox(width: 12),
         Text(
-          'Add a vehicle',
+          'Add a Vehicle',
           style: GoogleFonts.fraunces(
-            fontStyle: FontStyle.italic,
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: kGreen,
@@ -795,12 +793,11 @@ class _SearchablePickerSheet extends StatefulWidget {
   final Function(String) onSelected;
 
   const _SearchablePickerSheet({
-    Key? key,
     required this.title,
     required this.items,
     required this.selectedValue,
     required this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<_SearchablePickerSheet> createState() => _SearchablePickerSheetState();

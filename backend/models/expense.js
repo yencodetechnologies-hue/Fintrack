@@ -40,6 +40,11 @@ const expenseSchema = new mongoose.Schema(
       enum: ["outstanding", "paid"],
       default: "outstanding",
     },
+    logAs: {
+      type: String,
+      enum: ["company", "self"],
+      default: "self",
+    },
     parentExpenseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Expense",
@@ -49,6 +54,12 @@ const expenseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    visibleTo: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );

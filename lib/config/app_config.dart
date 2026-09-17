@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // Local Testing Endpoint (Port 3009)
+  // Local Testing Endpoint (Port 3009) - Works for BOTH Android Emulator & Physical Mobile Phone on same Wi-Fi
   // Production Endpoint: https://fintrack.yencodetechnologies.in
   static const String baseUrl = "https://fintrack.yencodetechnologies.in";
 

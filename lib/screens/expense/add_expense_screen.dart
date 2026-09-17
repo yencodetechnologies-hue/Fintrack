@@ -11,6 +11,9 @@ class AddExpenseScreen extends StatefulWidget {
   final String companyName;
   final String userId;
   final String userName;
+  final bool isAdmin;
+
+  final List<Map<String, dynamic>> companyMembers;
 
   const AddExpenseScreen({
     super.key,
@@ -18,6 +21,8 @@ class AddExpenseScreen extends StatefulWidget {
     required this.companyName,
     required this.userId,
     required this.userName,
+    this.isAdmin = false,
+    this.companyMembers = const [],
   });
 
   @override
@@ -38,8 +43,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _selectedCategory = "General";
   DateTime _selectedDate = DateTime.now();
   String? _base64Image;
+  String _logAs = "company";
 
+  Set<String> _selectedVisibleUserIds = {};
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _logAs = widget.isAdmin ? "company" : "self";
+
+    // Initialize selected members (default: all members selected)
+    _selectedVisibleUserIds = widget.companyMembers
+        .map((m) => (m["userId"] ?? m["_id"])?.toString() ?? "")
+        .where((id) => id.isNotEmpty)
+        .toSet();
+  }
 
   final List<String> _categories = [
     "General",
@@ -326,6 +345,151 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
+  void _showVisibleToBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final allIds = widget.companyMembers
+              .map((m) => (m["userId"] ?? m["_id"])?.toString() ?? "")
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          final isAllSelected = _selectedVisibleUserIds.length == allIds.length;
+
+          return Container(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: darkText.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Visible To Members",
+                      style: GoogleFonts.fraunces(
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                        color: darkText,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          if (isAllSelected) {
+                            _selectedVisibleUserIds = {widget.userId};
+                          } else {
+                            _selectedVisibleUserIds = Set.from(allIds);
+                          }
+                        });
+                        setModalState(() {});
+                      },
+                      child: Text(
+                        isAllSelected ? "Deselect All" : "Select All",
+                        style: GoogleFonts.inter(
+                          color: forestDark,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  "Choose members who can view this expense in their ledger until settled.",
+                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: widget.companyMembers.length,
+                    separatorBuilder: (_, __) => Divider(height: 1, color: Colors.black.withValues(alpha: 0.06)),
+                    itemBuilder: (context, index) {
+                      final member = widget.companyMembers[index];
+                      final uId = (member["userId"] ?? member["_id"])?.toString() ?? "";
+                      final name = member["name"]?.toString() ?? "Member";
+                      final isSelf = uId == widget.userId;
+                      final isChecked = _selectedVisibleUserIds.contains(uId) || isSelf;
+
+                      return CheckboxListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        activeColor: forestDark,
+                        checkColor: Colors.white,
+                        title: Text(
+                          isSelf ? "$name (You)" : name,
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
+                            color: darkText,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isSelf ? "Expense Creator (Always visible)" : (isChecked ? "Can view expense" : "Hidden until settled"),
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5,
+                            color: isChecked ? forestDark : darkText.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        value: isChecked,
+                        onChanged: isSelf
+                            ? null
+                            : (val) {
+                                setState(() {
+                                  if (val == true) {
+                                    _selectedVisibleUserIds.add(uId);
+                                  } else {
+                                    _selectedVisibleUserIds.remove(uId);
+                                  }
+                                });
+                                setModalState(() {});
+                              },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: forestDark,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text("Done", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
@@ -393,6 +557,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       category: _selectedCategory,
       date: _selectedDate,
       attachment: _base64Image ?? "",
+      logAs: widget.isAdmin ? _logAs : "self",
+      visibleTo: _selectedVisibleUserIds.toList(),
     );
 
     if (!mounted) return;
@@ -471,6 +637,104 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (widget.isAdmin) ...[
+                    Text(
+                      "Log Expense As *",
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _logAs = "company"),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _logAs == "company" ? darkSurface : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.business_rounded,
+                                      size: 16,
+                                      color: _logAs == "company" ? mintAccent : darkText.withValues(alpha: 0.6),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        "Company (${widget.companyName})",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: _logAs == "company" ? Colors.white : darkText,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => setState(() => _logAs = "self"),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: _logAs == "self" ? darkSurface : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.person_rounded,
+                                      size: 16,
+                                      color: _logAs == "self" ? mintAccent : darkText.withValues(alpha: 0.6),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        "Self (${widget.userName.split(' ').first})",
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          color: _logAs == "self" ? Colors.white : darkText,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _logAs == "company"
+                          ? "• Logged directly as official company expense (Settled)."
+                          : "• Logged as individual member expense (Outstanding). Requires settlement.",
+                      style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Category Selector
                   Text(
                     "Category",
@@ -606,6 +870,79 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
+
+                  const SizedBox(height: 14),
+
+                  // Visible To Member Selector Dropdown Trigger (Only when logged as Self/User expense)
+                  if (!widget.isAdmin || _logAs == "self") ...[
+                    Text(
+                      "Visible To (Select Members)",
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 5),
+                    InkWell(
+                      onTap: _showVisibleToBottomSheet,
+                      borderRadius: BorderRadius.circular(11),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.people_alt_rounded, color: darkSurface, size: 18),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedVisibleUserIds.length == widget.companyMembers.length
+                                          ? "All Members (${widget.companyMembers.length})"
+                                          : "${_selectedVisibleUserIds.length} of ${widget.companyMembers.length} Members Selected",
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color: darkText,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: darkSurface.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _selectedVisibleUserIds.length == widget.companyMembers.length ? "All" : "${_selectedVisibleUserIds.length}",
+                                    style: GoogleFonts.inter(color: darkSurface, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                  const SizedBox(width: 3),
+                                  const Icon(Icons.keyboard_arrow_down_rounded, color: darkSurface, size: 18),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      "• Selected members can view this expense. Restriction automatically unlocks for everyone once paid/settled.",
+                      style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
 
                   // Receipt Attachment
                   Text(

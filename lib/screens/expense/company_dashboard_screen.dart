@@ -187,7 +187,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       final results = await Future.wait([
         ExpenseCompanyService.getUserCompanies(widget.userId),
         ExpenseCompanyService.getCompanyDetails(_selectedCompanyId, widget.userId),
-        ExpenseCompanyService.getCompanyExpenses(_selectedCompanyId),
+        ExpenseCompanyService.getCompanyExpenses(_selectedCompanyId, userId: widget.userId),
         ExpenseCompanyService.getCompanyBalanceSummary(
           companyId: _selectedCompanyId,
           userId: widget.userId,
@@ -651,6 +651,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           child: PayExpenseModal(
             expense: expense,
             userId: widget.userId,
+            isAdmin: _isAdmin,
           ),
         );
       },
@@ -1563,6 +1564,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 companyName: companyName,
                 userId: widget.userId,
                 userName: widget.userName,
+                isAdmin: _isAdmin,
+                companyMembers: _companyMembers,
               ),
             ),
           );
@@ -2299,22 +2302,36 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                   Icon(Icons.person_outline_rounded, size: 14, color: darkText.withValues(alpha: 0.5)),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(
-                      isPaid
-                          ? (isViewerCreator ? "Logged by You (Paid)" : "Paid by $creatorName")
-                          : (settlement != null
-                              ? (isViewerCreditor
-                                  ? "Paid to $settlementRecipient by You • Owed to You"
-                                  : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
-                                      ? "Paid by $settlementPayer • Owed to $creditorName"
-                                      : "$settlementPayer paid $settlementRecipient • Owed to $creditorName"))
-                              : (isViewerCreditor ? "Claimed by You • Owed to You" : "Owed to $creditorName")),
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(
-                        color: darkText.withValues(alpha: 0.65),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Builder(
+                      builder: (_) {
+                        final String companyName = _currentCompany?["name"] ?? "Company";
+                        final String logAsType = expense["logAs"] ?? (isPaid ? "company" : "self");
+                        final bool isCompanyLogged = logAsType == "company";
+
+                        final String subtext = isPaid
+                            ? (isCompanyLogged
+                                ? "Logged by $companyName (Company)"
+                                : (isViewerCreator ? "Logged by $creatorName (You • Paid)" : "Paid by $creatorName"))
+                            : (settlement != null
+                                ? (isViewerCreditor
+                                    ? "Paid to $settlementRecipient by You • Owed to You"
+                                    : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
+                                        ? "Paid by $settlementPayer • Owed to $creditorName"
+                                        : "$settlementPayer paid $settlementRecipient • Owed to $creditorName"))
+                                : (isViewerCreditor
+                                    ? "Logged by $creatorName (You) • Owed to You"
+                                    : "Logged by $creatorName • Owed to $creditorName"));
+
+                        return Text(
+                          subtext,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: darkText.withValues(alpha: 0.65),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],

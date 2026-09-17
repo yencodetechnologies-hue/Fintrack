@@ -25,12 +25,20 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
   static const Color darkText = Color(0xFF1E293B);
 
   final _formKey = GlobalKey<FormState>();
+  late TextEditingController _userNameController;
   final _codeController = TextEditingController();
 
   bool _isJoining = false;
 
   @override
+  void initState() {
+    super.initState();
+    _userNameController = TextEditingController(text: widget.userName);
+  }
+
+  @override
   void dispose() {
+    _userNameController.dispose();
     _codeController.dispose();
     super.dispose();
   }
@@ -42,6 +50,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
 
     final res = await ExpenseCompanyService.joinCompany(
       userId: widget.userId,
+      userName: _userNameController.text.trim(),
       joinCode: _codeController.text.trim(),
     );
 
@@ -68,12 +77,14 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
 
       if (!mounted) return;
 
+      final updatedName = _userNameController.text.trim().isNotEmpty ? _userNameController.text.trim() : widget.userName;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => CompanyDashboardScreen(
             userId: widget.userId,
-            userName: widget.userName,
+            userName: updatedName,
             companies: companies.isNotEmpty ? companies : [company],
             initialCompanyId: company["_id"].toString(),
           ),
@@ -159,7 +170,31 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
                       fontSize: 13,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+
+                  // User Name Field
+                  Text(
+                    "Your Name *",
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  TextFormField(
+                    controller: _userNameController,
+                    validator: (val) => val == null || val.trim().isEmpty ? "Your name is required" : null,
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: "Enter your full name",
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      prefixIcon: const Icon(Icons.person_rounded, color: darkSurface, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: darkSurface, width: 1.6)),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
 
                   // Join Code Field
                   Text(

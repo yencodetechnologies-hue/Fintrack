@@ -124,6 +124,7 @@ class ExpenseCompanyService {
     required String userId,
     required String name,
     String? details,
+    String? userName,
   }) async {
     try {
       final res = await http.post(
@@ -133,6 +134,7 @@ class ExpenseCompanyService {
           "userId": userId,
           "name": name,
           "details": details ?? "",
+          if (userName != null) "userName": userName,
         }),
       ).timeout(const Duration(seconds: 15));
       return _parseResponse(res);
@@ -145,12 +147,17 @@ class ExpenseCompanyService {
   static Future<Map<String, dynamic>> joinCompany({
     required String userId,
     required String joinCode,
+    String? userName,
   }) async {
     try {
       final res = await http.post(
         Uri.parse("$_base/company/join"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"userId": userId, "joinCode": joinCode}),
+        body: jsonEncode({
+          "userId": userId,
+          "joinCode": joinCode,
+          if (userName != null) "userName": userName,
+        }),
       ).timeout(const Duration(seconds: 15));
       return _parseResponse(res);
     } catch (e) {
@@ -258,6 +265,8 @@ class ExpenseCompanyService {
     String? category,
     DateTime? date,
     String? attachment,
+    String? logAs,
+    List<String>? visibleTo,
   }) async {
     try {
       final res = await http.post(
@@ -271,6 +280,8 @@ class ExpenseCompanyService {
           "category": category ?? "General",
           "date": (date ?? DateTime.now()).toIso8601String(),
           "attachment": attachment ?? "",
+          if (logAs != null) "logAs": logAs,
+          if (visibleTo != null) "visibleTo": visibleTo,
         }),
       ).timeout(const Duration(seconds: 15));
       return _parseResponse(res);
@@ -280,10 +291,13 @@ class ExpenseCompanyService {
   }
 
   // 8. Get Company Expenses (Feed)
-  static Future<List<Map<String, dynamic>>> getCompanyExpenses(String companyId) async {
+  static Future<List<Map<String, dynamic>>> getCompanyExpenses(String companyId, {String? userId}) async {
     await _loadPrefs();
     try {
-      final res = await http.get(Uri.parse("$_base/company/$companyId/expenses")).timeout(const Duration(seconds: 15));
+      final url = userId != null && userId.isNotEmpty
+          ? "$_base/company/$companyId/expenses?userId=$userId"
+          : "$_base/company/$companyId/expenses";
+      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         final data = _parseResponse(res);
         if (data["success"] == true && data["expenses"] is List) {
@@ -309,6 +323,7 @@ class ExpenseCompanyService {
     required String userId,
     required String paymentMode,
     required String paymentProof,
+    String? payAs,
   }) async {
     await _loadPrefs();
     try {
@@ -319,6 +334,7 @@ class ExpenseCompanyService {
           "userId": userId,
           "paymentMode": paymentMode,
           "paymentProof": paymentProof,
+          if (payAs != null) "payAs": payAs,
         }),
       ).timeout(const Duration(seconds: 15));
 

@@ -8,11 +8,13 @@ import '../../services/expense_company_service.dart';
 class PayExpenseModal extends StatefulWidget {
   final Map<String, dynamic> expense;
   final String userId;
+  final bool isAdmin;
 
   const PayExpenseModal({
     Key? key,
     required this.expense,
     required this.userId,
+    this.isAdmin = false,
   }) : super(key: key);
 
   @override
@@ -27,7 +29,14 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
 
   String _paymentMode = "cash";
   String? _base64Proof;
+  String _payAs = "company";
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _payAs = widget.isAdmin ? "company" : "self";
+  }
 
   final Map<String, String> _modeOptions = {
     "cash": "Cash 💵",
@@ -83,6 +92,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       userId: widget.userId,
       paymentMode: _paymentMode,
       paymentProof: _base64Proof!,
+      payAs: widget.isAdmin ? _payAs : "self",
     );
 
     if (!mounted) return;
@@ -178,6 +188,110 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
               ),
             ),
             const SizedBox(height: 18),
+
+            if (widget.isAdmin) ...[
+              Text(
+                "Pay As *",
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: darkSurface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _payAs = "company"),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _payAs == "company" ? sheetBg : Colors.transparent,
+                            borderRadius: BorderRadius.circular(11),
+                            border: _payAs == "company"
+                                ? Border.all(color: mintAccent.withValues(alpha: 0.5))
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.business_rounded,
+                                size: 16,
+                                color: _payAs == "company" ? mintAccent : Colors.white.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  "Company",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _payAs = "self"),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _payAs == "self" ? sheetBg : Colors.transparent,
+                            borderRadius: BorderRadius.circular(11),
+                            border: _payAs == "self"
+                                ? Border.all(color: mintAccent.withValues(alpha: 0.5))
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.person_rounded,
+                                size: 16,
+                                color: _payAs == "self" ? mintAccent : Colors.white.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  "Self (as Member)",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _payAs == "company"
+                    ? "• Company: Settles the expense permanently for the Company."
+                    : "• Self: Paid from your personal pocket. Claim transfers to you until settled by Company.",
+                style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.65), fontSize: 11, fontStyle: FontStyle.italic),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Payment Mode Selector
             Text(

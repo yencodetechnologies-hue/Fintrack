@@ -19,9 +19,13 @@ const generateJoinCode = async () => {
 // 1. Create Company
 exports.createCompany = async (req, res) => {
   try {
-    const { name, details, userId } = req.body;
+    const { name, details, userId, userName } = req.body;
     if (!name || !userId) {
       return res.status(400).json({ success: false, message: "Company Name and User ID are required" });
+    }
+
+    if (userName && userName.trim().length > 0) {
+      await User.findByIdAndUpdate(userId, { name: userName.trim() });
     }
 
     const joinCode = await generateJoinCode();
@@ -55,9 +59,13 @@ exports.createCompany = async (req, res) => {
 // 2. Join Company via 6-digit Code
 exports.joinCompany = async (req, res) => {
   try {
-    const { joinCode, userId } = req.body;
+    const { joinCode, userId, userName } = req.body;
     if (!joinCode || !userId) {
       return res.status(400).json({ success: false, message: "Join Code and User ID are required" });
+    }
+
+    if (userName && userName.trim().length > 0) {
+      await User.findByIdAndUpdate(userId, { name: userName.trim() });
     }
 
     const company = await Company.findOne({ joinCode: joinCode.trim() });
@@ -299,15 +307,24 @@ const getCompanyAdminUserIds = async (companyId) => {
 // 7. Create Expense
 exports.createExpense = async (req, res) => {
   try {
-    const { companyId, userId, amount, description, category, date, attachment } = req.body;
+    const { companyId, userId, amount, description, category, date, attachment, logAs, visibleTo } = req.body;
     if (!companyId || !userId || !amount || !description) {
       return res.status(400).json({ success: false, message: "Company ID, User ID, Amount and Description are required" });
     }
 
-    // Check caller's role in the company: if Admin, expense is not outstanding (marked as paid)
     const adminUserIds = await getCompanyAdminUserIds(companyId);
     const isAdmin = adminUserIds.includes(userId.toString());
-    const initialStatus = isAdmin ? "paid" : "outstanding";
+
+    // If logAs is 'company' (and creator is Admin), marked as 'paid' (Company expense).
+    // If logAs is 'self', marked as 'outstanding' (User/Self expense).
+    const isCompanyExpense = logAs ? (logAs === "company") : false;
+    const initialStatus = (isAdmin && isCompanyExpense) ? "paid" : "outstanding";
+
+    // Format visibleTo array (defaults to empty array if all members are selected/not restricted)
+    let visibleToUsers = [];
+    if (Array.isArray(visibleTo)) {
+      visibleToUsers = visibleTo.map((id) => id.toString());
+    }
 
     const expense = new Expense({
       companyId,
@@ -318,12 +335,14 @@ exports.createExpense = async (req, res) => {
       date: date ? new Date(date) : new Date(),
       attachment: attachment || "",
       status: initialStatus,
+      logAs: isCompanyExpense ? "company" : "self",
+      visibleTo: visibleToUsers,
     });
     await expense.save();
 
     res.status(201).json({
       success: true,
-      message: isAdmin ? "Expense logged and settled (Admin)" : "Expense created successfully",
+      message: (isAdmin && isCompanyExpense) ? "Expense logged and settled (Company)" : "Expense created successfully",
       expense,
     });
   } catch (error) {
@@ -335,14 +354,7 @@ exports.createExpense = async (req, res) => {
 exports.getCompanyExpenses = async (req, res) => {
   try {
     const { companyId } = req.params;
-
-    const adminUserIds = await getCompanyAdminUserIds(companyId);
-
-    // Auto-fix: Admin-created expenses are automatically paid unless manually reopened as unpaid
-    await Expense.updateMany(
-      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding", manuallyReopened: false },
-      { status: "paid" }
-    );
+    const { userId } = req.query;
 
     // Fetch all settlements for company in chronological order
     const settlements = await Settlement.find({ companyId })
@@ -359,24 +371,66 @@ exports.getCompanyExpenses = async (req, res) => {
       settlementsMap[key].push(s);
     });
 
-    const expenses = await Expense.find({ companyId, parentExpenseId: null })
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    const requestingUserIdStr = userId ? userId.toString() : "";
+    const isRequestingAdmin = adminUserIds.includes(requestingUserIdStr);
+
+    const expenses = await Expense.find({
+      companyId,
+      parentExpenseId: null,
+      $or: [
+        { logAs: "self" },
+        { logAs: { $ne: "company" }, createdBy: { $nin: adminUserIds } }
+      ]
+    })
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 });
 
-    const enrichedExpenses = expenses.map((exp) => {
+    const enrichedExpenses = [];
+
+    for (const exp of expenses) {
       const expSettlements = settlementsMap[exp._id.toString()] || [];
       const latestSettlement = expSettlements.length > 0 ? expSettlements[expSettlements.length - 1] : null;
       let currentCreditor = exp.createdBy;
       if (latestSettlement && latestSettlement.paidBy) {
         currentCreditor = latestSettlement.paidBy;
       }
-      return {
-        ...exp._doc,
-        settlements: expSettlements,
-        settlement: latestSettlement,
-        currentCreditor,
-      };
-    });
+
+      const isPaidOrSettled = exp.status === "paid" || expSettlements.length > 0;
+      const creatorIdStr = exp.createdBy ? exp.createdBy._id.toString() : "";
+
+      // Visibility Rule:
+      // 1. Admin can see ALL expenses without restrictions.
+      // 2. Creator can see their own expense.
+      // 3. Once ANY settlement / payment happens (isPaidOrSettled), restriction lock is disabled & everyone can see it.
+      // 4. If visibleTo is empty/not specified, everyone can see it.
+      // 5. Otherwise, only users explicitly listed in visibleTo can see it.
+      let isVisibleToUser = false;
+
+      if (isRequestingAdmin || !requestingUserIdStr) {
+        isVisibleToUser = true;
+      } else if (creatorIdStr === requestingUserIdStr) {
+        isVisibleToUser = true;
+      } else if (isPaidOrSettled) {
+        isVisibleToUser = true;
+      } else if (!exp.visibleTo || exp.visibleTo.length === 0) {
+        isVisibleToUser = true;
+      } else {
+        const visibleToStrs = exp.visibleTo.map((id) => id.toString());
+        if (visibleToStrs.includes(requestingUserIdStr)) {
+          isVisibleToUser = true;
+        }
+      }
+
+      if (isVisibleToUser) {
+        enrichedExpenses.push({
+          ...exp._doc,
+          settlements: expSettlements,
+          settlement: latestSettlement,
+          currentCreditor,
+        });
+      }
+    }
 
     res.status(200).json({ success: true, expenses: enrichedExpenses });
   } catch (error) {
@@ -388,7 +442,7 @@ exports.getCompanyExpenses = async (req, res) => {
 exports.payExpense = async (req, res) => {
   try {
     const { expenseId } = req.params;
-    const { userId, paymentMode, paymentProof } = req.body;
+    const { userId, paymentMode, paymentProof, payAs } = req.body;
 
     if (!userId || !paymentMode || !paymentProof) {
       return res.status(400).json({ success: false, message: "Payment mode and proof of payment image are required" });
@@ -415,6 +469,7 @@ exports.payExpense = async (req, res) => {
 
     const adminUserIds = await getCompanyAdminUserIds(originalExpense.companyId);
     const isPayerAdmin = adminUserIds.includes(userId.toString());
+    const isCompanyPayment = payAs ? (payAs === "company") : isPayerAdmin;
 
     // Create NEW Settlement history record (preserves full history)
     const settlement = new Settlement({
@@ -429,17 +484,20 @@ exports.payExpense = async (req, res) => {
     });
     await settlement.save();
 
-    // Mark original expense as paid ONLY if payer is Admin
-    if (isPayerAdmin) {
+    // Mark original expense as paid ONLY if payer is Admin and pays as Company
+    if (isPayerAdmin && isCompanyPayment) {
       originalExpense.status = "paid";
+      await originalExpense.save();
+    } else {
+      originalExpense.status = "outstanding";
       await originalExpense.save();
     }
 
     res.status(200).json({
       success: true,
-      message: isPayerAdmin
-        ? "Payment completed. Expense settled by Admin."
-        : "Payment recorded. Claim transferred to you until Admin settles it.",
+      message: (isPayerAdmin && isCompanyPayment)
+        ? "Payment completed. Expense settled by Company."
+        : "Payment recorded. Claim transferred to you until settled by Company.",
       settlement,
       expense: originalExpense,
     });
@@ -517,10 +575,6 @@ exports.getCompanyBalanceSummary = async (req, res) => {
     const { companyId, userId } = req.params;
 
     const adminUserIds = await getCompanyAdminUserIds(companyId);
-    await Expense.updateMany(
-      { companyId, createdBy: { $in: adminUserIds }, status: "outstanding", manuallyReopened: false },
-      { status: "paid" }
-    );
 
     const outstandingExpenses = await Expense.find({
       companyId,

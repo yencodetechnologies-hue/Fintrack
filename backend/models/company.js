@@ -29,8 +29,13 @@ const companySchema = new mongoose.Schema(
         accountHolder: { type: String, trim: true, default: "" },
         accountNumber: { type: String, required: true, trim: true },
         ifsc: { type: String, trim: true, default: "" },
+        balance: { type: Number, default: 0 },
       },
     ],
+    cashBalance: {
+      type: Number,
+      default: 0,
+    },
     customCategories: {
       type: [String],
       default: [],

@@ -15,6 +15,8 @@ router.delete("/company/:companyId/member/:memberUserId", companyExpenseControll
 router.post("/company/:companyId/category", companyExpenseController.addCustomCategory);
 router.post("/company/:companyId/bank-accounts", companyExpenseController.addBankAccount);
 router.post("/company/:companyId/bank-accounts/:accountId/delete", companyExpenseController.deleteBankAccount);
+router.post("/company/:companyId/income", companyExpenseController.addIncome);
+router.get("/company/:companyId/income", companyExpenseController.getIncomeHistory);
 router.post("/expense/create", companyExpenseController.createExpense);
 router.get("/company/:companyId/expenses", companyExpenseController.getCompanyExpenses);
 router.post("/expense/:expenseId/update", companyExpenseController.updateExpense);

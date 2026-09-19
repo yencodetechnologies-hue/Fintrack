@@ -1,6 +1,7 @@
 const Company = require("../models/company");
 const CompanyMember = require("../models/companyMember");
 const Expense = require("../models/expense");
+const CompanyIncome = require("../models/companyIncome");
 const Settlement = require("../models/settlement");
 const User = require("../models/user");
 
@@ -124,6 +125,7 @@ exports.getUserCompanies = async (req, res) => {
         return {
           ...compDoc,
           bankAccounts: canSeeBank ? (compDoc.bankAccounts || []) : [],
+          cashBalance: canSeeBank ? (compDoc.cashBalance || 0) : 0,
           userRole: isCreator ? "admin" : (m.role || "member"),
           joinedAt: m.joinedAt,
         };
@@ -201,7 +203,10 @@ exports.getCompanyDetails = async (req, res) => {
     }
 
     const companyOut = company.toObject();
-    if (currentUserRole !== "admin") companyOut.bankAccounts = [];
+    if (currentUserRole !== "admin") {
+      companyOut.bankAccounts = [];
+      companyOut.cashBalance = 0;
+    }
 
     res.status(200).json({
       success: true,
@@ -312,7 +317,7 @@ const getCompanyAdminUserIds = async (companyId) => {
 // 7. Create Expense
 exports.createExpense = async (req, res) => {
   try {
-    const { companyId, userId, amount, description, category, date, attachment, logAs, visibleTo } = req.body;
+    const { companyId, userId, amount, description, category, date, attachment, logAs, visibleTo, fundId } = req.body;
     if (!companyId || !userId || !amount || !description) {
       return res.status(400).json({ success: false, message: "Company ID, User ID, Amount and Description are required" });
     }
@@ -331,7 +336,19 @@ exports.createExpense = async (req, res) => {
       visibleToUsers = visibleTo.map((id) => id.toString());
     }
 
+    let fund = null;
+    if (isAdmin && isCompanyExpense) {
+      try {
+        fund = await resolveFund(companyId, fundId, parseFloat(amount));
+      } catch (e) {
+        return res.status(e.status || 400).json({ success: false, message: e.message });
+      }
+    }
+
     const expense = new Expense({
+      fundType: fund ? fund.type : "",
+      fundBankAccountId: fund ? fund.bankAccountId : null,
+      fundName: fund ? fund.name : "",
       companyId,
       createdBy: userId,
       amount: parseFloat(amount),
@@ -343,6 +360,7 @@ exports.createExpense = async (req, res) => {
       logAs: isCompanyExpense ? "company" : "self",
       visibleTo: visibleToUsers,
     });
+    if (fund) await applyFund(companyId, fund, -expense.amount);
     await expense.save();
     await rememberCategory(companyId, expense.category);
 
@@ -449,7 +467,7 @@ exports.getCompanyExpenses = async (req, res) => {
 exports.payExpense = async (req, res) => {
   try {
     const { expenseId } = req.params;
-    const { userId, paymentMode, paymentProof, payAs, bankAccountId } = req.body;
+    const { userId, paymentMode, paymentProof, payAs, fundId } = req.body;
 
     if (!userId || !paymentMode || !paymentProof) {
       return res.status(400).json({ success: false, message: "Payment mode and proof of payment image are required" });
@@ -481,22 +499,20 @@ exports.payExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: "You are currently owed this payment and cannot pay yourself" });
     }
 
-    let bankName = "";
-    let bankAccountRef = null;
+    let fund = null;
     if (isPayerAdmin && isCompanyPayment) {
-      const company = await Company.findById(originalExpense.companyId);
-      const account = company && company.bankAccounts.id(bankAccountId);
-      if (!account) {
-        return res.status(400).json({ success: false, message: "Select the company bank account used for this payment" });
+      try {
+        fund = await resolveFund(originalExpense.companyId, fundId, originalExpense.amount);
+      } catch (e) {
+        return res.status(e.status || 400).json({ success: false, message: e.message });
       }
-      bankName = account.bankName;
-      bankAccountRef = account._id;
     }
 
     // Create NEW Settlement history record (preserves full history)
     const settlement = new Settlement({
-      bankAccountId: bankAccountRef,
-      bankName,
+      fundType: fund ? fund.type : "",
+      bankAccountId: fund ? fund.bankAccountId : null,
+      bankName: fund ? fund.name : "",
       paidAs: (isPayerAdmin && isCompanyPayment) ? "company" : "self",
       companyId: originalExpense.companyId,
       expenseId: originalExpense._id,
@@ -507,6 +523,7 @@ exports.payExpense = async (req, res) => {
       paymentProof,
       initiatedBy: "payer",
     });
+    if (fund) await applyFund(originalExpense.companyId, fund, -originalExpense.amount);
     await settlement.save();
 
     // Mark original expense as paid ONLY if payer is Admin and pays as Company
@@ -708,6 +725,12 @@ exports.resetExpenseToUnpaid = async (req, res) => {
       await expense.save();
 
       // Delete ALL settlement records for this expense to completely reset payment history
+      const oldSettlements = await Settlement.find({ expenseId: expense._id });
+      await refundExpenseFunds(expense, oldSettlements);
+      expense.fundType = "";
+      expense.fundBankAccountId = null;
+      expense.fundName = "";
+      await expense.save();
       await Settlement.deleteMany({ expenseId: expense._id });
 
       return res.status(200).json({
@@ -836,6 +859,7 @@ exports.deleteExpense = async (req, res) => {
       });
     }
 
+    await refundExpenseFunds(expense, settlements);
     await Expense.findByIdAndDelete(expenseId);
     await Settlement.deleteMany({ expenseId });
 
@@ -958,9 +982,127 @@ exports.deleteBankAccount = async (req, res) => {
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can manage bank accounts" });
     }
+    const existing = await Company.findById(companyId);
+    const acct = existing && existing.bankAccounts.id(accountId);
+    if (acct && acct.balance !== 0) {
+      return res.status(400).json({ success: false, message: "Move or spend the remaining balance before removing this bank account" });
+    }
     await Company.updateOne({ _id: companyId }, { $pull: { bankAccounts: { _id: accountId } } });
     const company = await Company.findById(companyId);
     res.status(200).json({ success: true, bankAccounts: company ? company.bankAccounts : [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ---------- Company funds (bank accounts + InCash) ----------
+// fundId is either "cash" (InCash) or a bank account _id.
+async function resolveFund(companyId, fundId, amount) {
+  const fail = (msg) => { const e = new Error(msg); e.status = 400; return e; };
+  if (!fundId) throw fail("Select the bank account or InCash used for this payment");
+  const company = await Company.findById(companyId);
+  if (!company) throw fail("Company not found");
+  if (fundId === "cash") {
+    if ((company.cashBalance || 0) < amount) throw fail("Insufficient InCash balance (₹" + (company.cashBalance || 0) + ")");
+    return { type: "cash", bankAccountId: null, name: "InCash" };
+  }
+  const account = company.bankAccounts.id(fundId);
+  if (!account) throw fail("Selected bank account was not found");
+  if ((account.balance || 0) < amount) throw fail("Insufficient balance in " + account.bankName + " (₹" + (account.balance || 0) + ")");
+  return { type: "bank", bankAccountId: account._id, name: account.bankName };
+}
+
+async function applyFund(companyId, fund, delta) {
+  if (fund.type === "cash") {
+    await Company.updateOne({ _id: companyId }, { $inc: { cashBalance: delta } });
+  } else if (fund.bankAccountId) {
+    await Company.updateOne(
+      { _id: companyId, "bankAccounts._id": fund.bankAccountId },
+      { $inc: { "bankAccounts.$.balance": delta } }
+    );
+  }
+}
+
+async function refundExpenseFunds(expense, settlements) {
+  if (expense.fundType) {
+    await applyFund(expense.companyId, { type: expense.fundType, bankAccountId: expense.fundBankAccountId }, expense.amount);
+  }
+  for (const s of settlements) {
+    if (s.fundType) {
+      await applyFund(s.companyId, { type: s.fundType, bankAccountId: s.bankAccountId }, s.amount);
+    }
+  }
+}
+
+// 17. Add Income (admin only)
+// destination "cash": money moves from an existing bank account into InCash.
+// destination <bankId>: money is added to that bank account.
+exports.addIncome = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { userId, amount, destination, sourceBankAccountId } = req.body;
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    if (!userId || !adminUserIds.includes(userId.toString())) {
+      return res.status(403).json({ success: false, message: "Only Admin can add income" });
+    }
+    const value = parseFloat(amount);
+    if (!(value > 0)) {
+      return res.status(400).json({ success: false, message: "Enter a valid amount" });
+    }
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+
+    const record = { companyId, createdBy: userId, amount: value };
+    if (destination === "cash") {
+      const source = company.bankAccounts.id(sourceBankAccountId);
+      if (!source) {
+        return res.status(400).json({ success: false, message: "Select the bank account the cash is coming from" });
+      }
+      if ((source.balance || 0) < value) {
+        return res.status(400).json({ success: false, message: "Insufficient balance in " + source.bankName + " (₹" + (source.balance || 0) + ")" });
+      }
+      await applyFund(companyId, { type: "bank", bankAccountId: source._id }, -value);
+      await applyFund(companyId, { type: "cash" }, value);
+      Object.assign(record, {
+        destinationType: "cash",
+        destinationName: "InCash",
+        sourceBankAccountId: source._id,
+        sourceName: source.bankName,
+      });
+    } else {
+      const target = company.bankAccounts.id(destination);
+      if (!target) {
+        return res.status(400).json({ success: false, message: "Select a bank account or InCash" });
+      }
+      await applyFund(companyId, { type: "bank", bankAccountId: target._id }, value);
+      Object.assign(record, {
+        destinationType: "bank",
+        destinationBankAccountId: target._id,
+        destinationName: target.bankName,
+      });
+    }
+    await new CompanyIncome(record).save();
+
+    const updated = await Company.findById(companyId);
+    res.status(200).json({ success: true, bankAccounts: updated.bankAccounts, cashBalance: updated.cashBalance });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 18. Income history (admin only)
+exports.getIncomeHistory = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { userId } = req.query;
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    if (!userId || !adminUserIds.includes(userId.toString())) {
+      return res.status(403).json({ success: false, message: "Only Admin can view income" });
+    }
+    const income = await CompanyIncome.find({ companyId }).sort({ createdAt: -1 }).limit(30);
+    res.status(200).json({ success: true, income });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

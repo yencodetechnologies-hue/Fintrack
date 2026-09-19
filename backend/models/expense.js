@@ -40,6 +40,19 @@ const expenseSchema = new mongoose.Schema(
       enum: ["outstanding", "paid"],
       default: "outstanding",
     },
+    fundType: {
+      type: String,
+      enum: ["bank", "cash", ""],
+      default: "",
+    },
+    fundBankAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    fundName: {
+      type: String,
+      default: "",
+    },
     logAs: {
       type: String,
       enum: ["company", "self"],

@@ -375,14 +375,15 @@ exports.getCompanyExpenses = async (req, res) => {
     const requestingUserIdStr = userId ? userId.toString() : "";
     const isRequestingAdmin = adminUserIds.includes(requestingUserIdStr);
 
-    const expenses = await Expense.find({
-      companyId,
-      parentExpenseId: null,
-      $or: [
+    const expenseQuery = { companyId, parentExpenseId: null };
+    if (!isRequestingAdmin) {
+      expenseQuery.$or = [
         { logAs: "self" },
         { logAs: { $ne: "company" }, createdBy: { $nin: adminUserIds } }
-      ]
-    })
+      ];
+    }
+
+    const expenses = await Expense.find(expenseQuery)
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 });
 

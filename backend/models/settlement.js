@@ -35,6 +35,14 @@ const settlementSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    bankAccountId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+    },
+    bankName: {
+      type: String,
+      default: "",
+    },
     initiatedBy: {
       type: String,
       enum: ["payer", "receiver"],

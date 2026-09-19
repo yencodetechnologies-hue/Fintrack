@@ -23,6 +23,14 @@ const companySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    bankAccounts: [
+      {
+        bankName: { type: String, required: true, trim: true },
+        accountHolder: { type: String, trim: true, default: "" },
+        accountNumber: { type: String, required: true, trim: true },
+        ifsc: { type: String, trim: true, default: "" },
+      },
+    ],
     customCategories: {
       type: [String],
       default: [],

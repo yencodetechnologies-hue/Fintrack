@@ -120,8 +120,10 @@ exports.getUserCompanies = async (req, res) => {
       .map((m) => {
         const compDoc = m.companyId._doc || m.companyId;
         const isCreator = compDoc.createdBy && compDoc.createdBy.toString() === userId.toString();
+        const canSeeBank = isCreator || m.role === "admin";
         return {
           ...compDoc,
+          bankAccounts: canSeeBank ? (compDoc.bankAccounts || []) : [],
           userRole: isCreator ? "admin" : (m.role || "member"),
           joinedAt: m.joinedAt,
         };
@@ -198,9 +200,12 @@ exports.getCompanyDetails = async (req, res) => {
       }
     }
 
+    const companyOut = company.toObject();
+    if (currentUserRole !== "admin") companyOut.bankAccounts = [];
+
     res.status(200).json({
       success: true,
-      company,
+      company: companyOut,
       members: membersList,
       currentUserRole,
     });
@@ -444,7 +449,7 @@ exports.getCompanyExpenses = async (req, res) => {
 exports.payExpense = async (req, res) => {
   try {
     const { expenseId } = req.params;
-    const { userId, paymentMode, paymentProof, payAs } = req.body;
+    const { userId, paymentMode, paymentProof, payAs, bankAccountId } = req.body;
 
     if (!userId || !paymentMode || !paymentProof) {
       return res.status(400).json({ success: false, message: "Payment mode and proof of payment image are required" });
@@ -473,8 +478,22 @@ exports.payExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: "You are currently owed this payment and cannot pay yourself" });
     }
 
+    let bankName = "";
+    let bankAccountRef = null;
+    if (isPayerAdmin && isCompanyPayment && paymentMode !== "cash") {
+      const company = await Company.findById(originalExpense.companyId);
+      const account = company && company.bankAccounts.id(bankAccountId);
+      if (!account) {
+        return res.status(400).json({ success: false, message: "Select the company bank account used for this payment" });
+      }
+      bankName = account.bankName;
+      bankAccountRef = account._id;
+    }
+
     // Create NEW Settlement history record (preserves full history)
     const settlement = new Settlement({
+      bankAccountId: bankAccountRef,
+      bankName,
       companyId: originalExpense.companyId,
       expenseId: originalExpense._id,
       paidBy: userId,
@@ -893,6 +912,51 @@ exports.addCustomCategory = async (req, res) => {
     await rememberCategory(companyId, name);
     const company = await Company.findById(companyId);
     res.status(200).json({ success: true, customCategories: company ? company.customCategories : [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 16. Company bank accounts (admin only)
+exports.addBankAccount = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { userId, bankName, accountHolder, accountNumber, ifsc } = req.body;
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    if (!userId || !adminUserIds.includes(userId.toString())) {
+      return res.status(403).json({ success: false, message: "Only Admin can manage bank accounts" });
+    }
+    if (!bankName || !String(bankName).trim() || !accountNumber || !String(accountNumber).trim()) {
+      return res.status(400).json({ success: false, message: "Bank name and account number are required" });
+    }
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+    company.bankAccounts.push({
+      bankName: String(bankName).trim(),
+      accountHolder: accountHolder ? String(accountHolder).trim() : "",
+      accountNumber: String(accountNumber).trim(),
+      ifsc: ifsc ? String(ifsc).trim().toUpperCase() : "",
+    });
+    await company.save();
+    res.status(200).json({ success: true, bankAccounts: company.bankAccounts });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteBankAccount = async (req, res) => {
+  try {
+    const { companyId, accountId } = req.params;
+    const { userId } = req.body;
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    if (!userId || !adminUserIds.includes(userId.toString())) {
+      return res.status(403).json({ success: false, message: "Only Admin can manage bank accounts" });
+    }
+    await Company.updateOne({ _id: companyId }, { $pull: { bankAccounts: { _id: accountId } } });
+    const company = await Company.findById(companyId);
+    res.status(200).json({ success: true, bankAccounts: company ? company.bankAccounts : [] });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

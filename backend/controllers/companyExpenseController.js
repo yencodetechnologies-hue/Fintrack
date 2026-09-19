@@ -497,6 +497,7 @@ exports.payExpense = async (req, res) => {
     const settlement = new Settlement({
       bankAccountId: bankAccountRef,
       bankName,
+      paidAs: (isPayerAdmin && isCompanyPayment) ? "company" : "self",
       companyId: originalExpense.companyId,
       expenseId: originalExpense._id,
       paidBy: userId,

@@ -39,6 +39,11 @@ const settlementSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       default: null,
     },
+    paidAs: {
+      type: String,
+      enum: ["company", "self"],
+      default: "self",
+    },
     bankName: {
       type: String,
       default: "",

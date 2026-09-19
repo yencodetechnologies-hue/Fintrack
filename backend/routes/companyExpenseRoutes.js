@@ -12,6 +12,7 @@ router.post("/company/:companyId/touch-code", companyExpenseController.touchJoin
 router.delete("/company/:companyId/member/:memberUserId", companyExpenseController.removeMember);
 
 // Expense Endpoints
+router.post("/company/:companyId/category", companyExpenseController.addCustomCategory);
 router.post("/expense/create", companyExpenseController.createExpense);
 router.get("/company/:companyId/expenses", companyExpenseController.getCompanyExpenses);
 router.post("/expense/:expenseId/update", companyExpenseController.updateExpense);

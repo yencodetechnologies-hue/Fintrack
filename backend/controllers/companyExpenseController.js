@@ -339,6 +339,7 @@ exports.createExpense = async (req, res) => {
       visibleTo: visibleToUsers,
     });
     await expense.save();
+    await rememberCategory(companyId, expense.category);
 
     res.status(201).json({
       success: true,
@@ -862,7 +863,36 @@ exports.updateExpense = async (req, res) => {
     if (date) expense.date = new Date(date);
 
     await expense.save();
+    await rememberCategory(expense.companyId, expense.category);
     res.status(200).json({ success: true, message: "Expense updated successfully", expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Custom categories are stored on the company and are never removed.
+const BASE_CATEGORIES = ["General", "Food & Dining", "Travel & Transport", "Office Supplies", "Utilities", "Software & Tech", "Other"];
+const rememberCategory = async (companyId, category) => {
+  const name = category ? String(category).trim() : "";
+  if (!name || BASE_CATEGORIES.includes(name)) return;
+  await Company.updateOne({ _id: companyId }, { $addToSet: { customCategories: name } });
+};
+
+// 15. Add Custom Category
+exports.addCustomCategory = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { userId, name } = req.body;
+    const member = await CompanyMember.findOne({ companyId, userId });
+    if (!member) {
+      return res.status(403).json({ success: false, message: "Only company members can add categories" });
+    }
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ success: false, message: "Category name is required" });
+    }
+    await rememberCategory(companyId, name);
+    const company = await Company.findById(companyId);
+    res.status(200).json({ success: true, customCategories: company ? company.customCategories : [] });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

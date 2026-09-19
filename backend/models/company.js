@@ -23,6 +23,10 @@ const companySchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    customCategories: {
+      type: [String],
+      default: [],
+    },
     joinCodeCreatedAt: {
       type: Date,
     },

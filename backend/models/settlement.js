@@ -28,7 +28,7 @@ const settlementSchema = new mongoose.Schema(
     },
     paymentMode: {
       type: String,
-      enum: ["cash", "upi", "bank_transfer", "other"],
+      enum: ["cash", "card", "upi", "bank_transfer", "other"],
       default: "cash",
     },
     paymentProof: {

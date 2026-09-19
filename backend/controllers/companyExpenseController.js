@@ -454,6 +454,9 @@ exports.payExpense = async (req, res) => {
     if (!userId || !paymentMode || !paymentProof) {
       return res.status(400).json({ success: false, message: "Payment mode and proof of payment image are required" });
     }
+    if (!["cash", "card", "upi"].includes(paymentMode)) {
+      return res.status(400).json({ success: false, message: "Payment mode must be Cash, Card or UPI" });
+    }
 
     const originalExpense = await Expense.findById(expenseId);
     if (!originalExpense) {
@@ -480,7 +483,7 @@ exports.payExpense = async (req, res) => {
 
     let bankName = "";
     let bankAccountRef = null;
-    if (isPayerAdmin && isCompanyPayment && paymentMode !== "cash") {
+    if (isPayerAdmin && isCompanyPayment) {
       const company = await Company.findById(originalExpense.companyId);
       const account = company && company.bankAccounts.id(bankAccountId);
       if (!account) {

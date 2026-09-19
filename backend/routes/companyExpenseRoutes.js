@@ -14,6 +14,7 @@ router.delete("/company/:companyId/member/:memberUserId", companyExpenseControll
 // Expense Endpoints
 router.post("/expense/create", companyExpenseController.createExpense);
 router.get("/company/:companyId/expenses", companyExpenseController.getCompanyExpenses);
+router.post("/expense/:expenseId/update", companyExpenseController.updateExpense);
 router.post("/expense/:expenseId/pay", companyExpenseController.payExpense);
 router.post("/expense/:expenseId/receive", companyExpenseController.receiveExpense);
 router.post("/expense/:expenseId/reset-unpaid", companyExpenseController.resetExpenseToUnpaid);

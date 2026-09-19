@@ -820,3 +820,50 @@ exports.deleteExpense = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// 14. Edit Expense (creator only, and only until any payment/settlement happens)
+exports.updateExpense = async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const { userId, amount, description, category, date } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ success: false, message: "User ID is required" });
+    }
+
+    const expense = await Expense.findById(expenseId);
+    if (!expense) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+
+    if (expense.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: "Only the expense creator can edit this expense" });
+    }
+
+    const settlementCount = await Settlement.countDocuments({ expenseId: expense._id });
+    if (expense.status === "paid" || settlementCount > 0) {
+      return res.status(400).json({ success: false, message: "This expense can no longer be edited because a payment has been made" });
+    }
+
+    if (amount !== undefined) {
+      const parsed = parseFloat(amount);
+      if (!(parsed > 0)) {
+        return res.status(400).json({ success: false, message: "Amount must be greater than zero" });
+      }
+      expense.amount = parsed;
+    }
+    if (description !== undefined) {
+      if (!String(description).trim()) {
+        return res.status(400).json({ success: false, message: "Description is required" });
+      }
+      expense.description = String(description).trim();
+    }
+    if (category !== undefined && String(category).trim()) expense.category = String(category).trim();
+    if (date) expense.date = new Date(date);
+
+    await expense.save();
+    res.status(200).json({ success: true, message: "Expense updated successfully", expense });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

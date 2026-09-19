@@ -464,13 +464,13 @@ exports.payExpense = async (req, res) => {
       ? latestSettlement.paidBy.toString()
       : originalExpense.createdBy.toString();
 
-    if (currentCreditorId === userId.toString()) {
-      return res.status(400).json({ success: false, message: "You are currently owed this payment and cannot pay yourself" });
-    }
-
     const adminUserIds = await getCompanyAdminUserIds(originalExpense.companyId);
     const isPayerAdmin = adminUserIds.includes(userId.toString());
     const isCompanyPayment = payAs ? (payAs === "company") : isPayerAdmin;
+
+    if (currentCreditorId === userId.toString() && !(isPayerAdmin && isCompanyPayment)) {
+      return res.status(400).json({ success: false, message: "You are currently owed this payment and cannot pay yourself" });
+    }
 
     // Create NEW Settlement history record (preserves full history)
     const settlement = new Settlement({

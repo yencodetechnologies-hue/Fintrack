@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io' show Platform;
 import '../config/app_config.dart';
 import '../services/api_service.dart';
 import '../services/card_service.dart';
@@ -969,18 +970,21 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               ).then((_) => _loadProfileData());
                             },
                           ),
-                          _buildDivider(),
-                          _buildMenuItem(
-                            customLeading: Image.network(
-                              "https://cdn-icons-png.flaticon.com/512/5968/5968534.png",
-                              width: 20,
-                              height: 20,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF0C5F41), size: 20),
+                          // Temporary: Gmail sign-in is disabled on iOS until an OAuth client exists.
+                          if (!Platform.isIOS) ...[
+                            _buildDivider(),
+                            _buildMenuItem(
+                              customLeading: Image.network(
+                                "https://cdn-icons-png.flaticon.com/512/5968/5968534.png",
+                                width: 20,
+                                height: 20,
+                                errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF0C5F41), size: 20),
+                              ),
+                              title: gmailConnected ? "Gmail Connected (${gmailEmail ?? ''})" : "Connect Gmail",
+                              color: const Color(0xFF0C5F41),
+                              onTap: _showGmailDialog,
                             ),
-                            title: gmailConnected ? "Gmail Connected (${gmailEmail ?? ''})" : "Connect Gmail",
-                            color: const Color(0xFF0C5F41),
-                            onTap: _showGmailDialog,
-                          ),
+                          ],
                           _buildDivider(),
                           _buildMenuItem(
                             customLeading: Image.network(

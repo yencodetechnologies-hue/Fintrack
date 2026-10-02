@@ -1,16 +1,26 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
 class EmailSyncService {
-  static final GoogleSignIn _googleSignIn = GoogleSignIn(
-    serverClientId: AppConfig.googleWebClientId,
-    scopes: const [
-      'email',
-      'https://www.googleapis.com/auth/gmail.readonly',
-    ],
-  );
+  // Temporary: do not construct GoogleSignIn on iOS until an iOS OAuth
+  // client exists. A missing GIDClientID crashes the native plugin.
+  static GoogleSignIn? _googleSignIn;
+
+  static GoogleSignIn get _signIn {
+    if (Platform.isIOS) {
+      throw UnsupportedError('Google Sign-In is temporarily disabled on iOS.');
+    }
+    return _googleSignIn ??= GoogleSignIn(
+      serverClientId: AppConfig.googleWebClientId,
+      scopes: const [
+        'email',
+        'https://www.googleapis.com/auth/gmail.readonly',
+      ],
+    );
+  }
 
   static Future<Map<String, dynamic>> getStatus(String userId) async {
     final res = await http.get(
@@ -20,14 +30,19 @@ class EmailSyncService {
   }
 
   static Future<Map<String, dynamic>> connectGmail(String userId) async {
+    if (Platform.isIOS) {
+      // TODO: remove once an iOS OAuth client is configured (GIDClientID missing
+      // from Info.plist causes GoogleSignIn to crash natively on iOS).
+      return {"success": false, "message": "Gmail sync is coming soon on iOS."};
+    }
     try {
-      await _googleSignIn.disconnect();
+      await _signIn.disconnect();
     } catch (_) {
       try {
-        await _googleSignIn.signOut();
+        await _signIn.signOut();
       } catch (_) {}
     }
-    final account = await _googleSignIn.signIn();
+    final account = await _signIn.signIn();
     if (account == null) {
       return {"success": false, "message": "Sign-in cancelled"};
     }
@@ -57,7 +72,9 @@ class EmailSyncService {
   }
 
   static Future<Map<String, dynamic>> disconnectGmail(String userId) async {
-    await _googleSignIn.signOut();
+    if (!Platform.isIOS) {
+      await _signIn.signOut();
+    }
     final res = await http.delete(
       Uri.parse("${AppConfig.emailDisconnect}?userId=$userId"),
     );

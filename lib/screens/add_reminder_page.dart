@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:card/config/app_config.dart';
 import 'card_create_screen.dart';
 import '../services/email_sync_service.dart';
@@ -813,34 +814,36 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 ),
               ),
 
-              const SizedBox(height: 16),
-
-              ElevatedButton.icon(
-                onPressed: isFetchingGmail ? null : _fetchFromGmail,
-                icon: isFetchingGmail
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0C5F41)),
-                      )
-                    : const Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFF0C5F41)),
-                label: Text(
-                  gmailConnected ? 'Fetch from Gmail' : 'Connect & Fetch Gmail',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF0C5F41)),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      width: 1.2,
-                    ),
+              // Temporary: Gmail sign-in is disabled on iOS until an OAuth client exists.
+              if (!Platform.isIOS) ...[
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: isFetchingGmail ? null : _fetchFromGmail,
+                  icon: isFetchingGmail
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0C5F41)),
+                        )
+                      : const Icon(Icons.mail_outline_rounded, size: 18, color: Color(0xFF0C5F41)),
+                  label: Text(
+                    gmailConnected ? 'Fetch from Gmail' : 'Connect & Fetch Gmail',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: const Color(0xFF0C5F41)),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        width: 1.2,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
                 ),
-              ),
+              ],
 
               const SizedBox(height: 24),
 

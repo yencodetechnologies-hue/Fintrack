@@ -9,12 +9,18 @@ class PayExpenseModal extends StatefulWidget {
   final Map<String, dynamic> expense;
   final String userId;
   final bool isAdmin;
+  final String? lockedPayAs;
+  final List<Map<String, dynamic>> bankAccounts;
+  final num cashBalance;
 
   const PayExpenseModal({
     Key? key,
     required this.expense,
     required this.userId,
     this.isAdmin = false,
+    this.lockedPayAs,
+    this.bankAccounts = const [],
+    this.cashBalance = 0,
   }) : super(key: key);
 
   @override
@@ -27,22 +33,22 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
-  String _paymentMode = "cash";
+  String? _paymentMode;
   String? _base64Proof;
+  String? _fundId;
   String _payAs = "company";
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
-    _payAs = widget.isAdmin ? "company" : "self";
+    _payAs = widget.lockedPayAs ?? (widget.isAdmin ? "company" : "self");
   }
 
   final Map<String, String> _modeOptions = {
     "cash": "Cash 💵",
-    "upi": "UPI / GPay / PhonePe 📲",
-    "bank_transfer": "Bank Transfer 🏦",
-    "other": "Other 💳",
+    "card": "Card 💳",
+    "upi": "UPI 📲",
   };
 
   Future<void> _pickProofImage() async {
@@ -85,14 +91,41 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
       return;
     }
 
+    if (_paymentMode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Select a payment mode (Cash, Card or UPI)", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFC53030),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    final needsBank = widget.isAdmin && _payAs == "company";
+    if (needsBank && _fundId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Select the bank account or InCash this payment is made from",
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: const Color(0xFFC53030),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final res = await ExpenseCompanyService.payExpense(
       expenseId: widget.expense["_id"].toString(),
       userId: widget.userId,
-      paymentMode: _paymentMode,
+      paymentMode: _paymentMode!,
       paymentProof: _base64Proof!,
       payAs: widget.isAdmin ? _payAs : "self",
+      fundId: (widget.isAdmin && _payAs == "company") ? _fundId : null,
     );
 
     if (!mounted) return;
@@ -189,7 +222,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
             ),
             const SizedBox(height: 18),
 
-            if (widget.isAdmin) ...[
+            if (widget.isAdmin && widget.lockedPayAs == null) ...[
               Text(
                 "Pay As *",
                 style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
@@ -301,6 +334,7 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _paymentMode,
+              hint: Text("Select payment mode", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 14)),
               dropdownColor: Colors.white,
               borderRadius: BorderRadius.circular(16),
               decoration: InputDecoration(
@@ -321,6 +355,56 @@ class _PayExpenseModalState extends State<PayExpenseModal> {
               },
             ),
             const SizedBox(height: 18),
+
+            if (widget.isAdmin && _payAs == "company") ...[
+              Text(
+                "Pay From *",
+                style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: _fundId,
+                isExpanded: true,
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                hint: Text(
+                  "Select bank account or InCash",
+                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 14),
+                ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                ),
+                items: [
+                  DropdownMenuItem<String>(
+                    value: "cash",
+                    child: Text(
+                      "InCash (₹${widget.cashBalance.toStringAsFixed(2)})",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  ...widget.bankAccounts.map((b) {
+                    final number = (b["accountNumber"] ?? "").toString();
+                    final last4 = number.length > 4 ? number.substring(number.length - 4) : number;
+                    final bal = ((b["balance"] as num?) ?? 0).toStringAsFixed(2);
+                    return DropdownMenuItem<String>(
+                      value: b["_id"].toString(),
+                      child: Text(
+                        "${b["bankName"]} •••• $last4 (₹$bal)",
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    );
+                  }),
+                ],
+                onChanged: (val) => setState(() => _fundId = val),
+              ),
+              const SizedBox(height: 18),
+            ],
 
             // Payment Proof Upload (REQUIRED)
             Row(

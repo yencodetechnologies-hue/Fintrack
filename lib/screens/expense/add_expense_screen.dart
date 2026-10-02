@@ -12,6 +12,10 @@ class AddExpenseScreen extends StatefulWidget {
   final String userId;
   final String userName;
   final bool isAdmin;
+  final String? lockedLogAs;
+  final List<String> customCategories;
+  final List<Map<String, dynamic>> bankAccounts;
+  final num cashBalance;
 
   final List<Map<String, dynamic>> companyMembers;
 
@@ -22,6 +26,10 @@ class AddExpenseScreen extends StatefulWidget {
     required this.userId,
     required this.userName,
     this.isAdmin = false,
+    this.lockedLogAs,
+    this.customCategories = const [],
+    this.bankAccounts = const [],
+    this.cashBalance = 0,
     this.companyMembers = const [],
   });
 
@@ -45,13 +53,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String? _base64Image;
   String _logAs = "company";
 
+  String? _fundId;
   Set<String> _selectedVisibleUserIds = {};
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _logAs = widget.isAdmin ? "company" : "self";
+    _logAs = widget.lockedLogAs ?? (widget.isAdmin ? "company" : "self");
+    for (final c in widget.customCategories) {
+      if (!_categories.contains(c)) _categories.insert(_categories.length - 1, c);
+    }
 
     // Initialize selected members (default: all members selected)
     _selectedVisibleUserIds = widget.companyMembers
@@ -200,6 +212,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       _categories.insert(_categories.length - 1, customName);
                     }
                     _selectedCategory = customName;
+                    ExpenseCompanyService.addCustomCategory(companyId: widget.companyId, userId: widget.userId, name: customName);
                   });
                   Navigator.pop(ctx);
                 }
@@ -547,6 +560,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   Future<void> _submitExpense() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (widget.isAdmin && _logAs == "company" && _fundId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Select the bank account or InCash this expense is paid from")),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final res = await ExpenseCompanyService.createExpense(
@@ -559,6 +579,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       attachment: _base64Image ?? "",
       logAs: widget.isAdmin ? _logAs : "self",
       visibleTo: _selectedVisibleUserIds.toList(),
+      fundId: (widget.isAdmin && _logAs == "company") ? _fundId : null,
     );
 
     if (!mounted) return;
@@ -637,7 +658,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.isAdmin) ...[
+                  if (widget.isAdmin && widget.lockedLogAs == null) ...[
                     Text(
                       "Log Expense As *",
                       style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
@@ -731,6 +752,48 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           ? "• Logged directly as official company expense (Settled)."
                           : "• Logged as individual member expense (Outstanding). Requires settlement.",
                       style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 11, fontStyle: FontStyle.italic),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  if (widget.isAdmin && _logAs == "company") ...[
+                    Text(
+                      "Paid From *",
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: _fundId,
+                      isExpanded: true,
+                      dropdownColor: Colors.white,
+                      hint: Text("Select bank account or InCash", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 14)),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08))),
+                      ),
+                      items: [
+                        DropdownMenuItem<String>(
+                          value: "cash",
+                          child: Text("InCash (₹${widget.cashBalance.toStringAsFixed(2)})",
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14)),
+                        ),
+                        ...widget.bankAccounts.map((b) {
+                          final number = (b["accountNumber"] ?? "").toString();
+                          final last4 = number.length > 4 ? number.substring(number.length - 4) : number;
+                          final bal = ((b["balance"] as num?) ?? 0).toStringAsFixed(2);
+                          return DropdownMenuItem<String>(
+                            value: b["_id"].toString(),
+                            child: Text("${b["bankName"]} •••• $last4 (₹$bal)",
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14)),
+                          );
+                        }),
+                      ],
+                      onChanged: (v) => setState(() => _fundId = v),
                     ),
                     const SizedBox(height: 16),
                   ],

@@ -257,6 +257,130 @@ class ExpenseCompanyService {
   }
 
   // 7. Create Expense
+  static Future<Map<String, dynamic>> addBankAccount({
+    required String companyId,
+    required String userId,
+    required String bankName,
+    required String accountHolder,
+    required String accountNumber,
+    required String ifsc,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/company/$companyId/bank-accounts"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "bankName": bankName,
+          "accountHolder": accountHolder,
+          "accountNumber": accountNumber,
+          "ifsc": ifsc,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteBankAccount({
+    required String companyId,
+    required String userId,
+    required String accountId,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/company/$companyId/bank-accounts/$accountId/delete"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"userId": userId}),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> addIncome({
+    required String companyId,
+    required String userId,
+    required double amount,
+    required String destination,
+    String? sourceBankAccountId,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/company/$companyId/income"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "amount": amount,
+          "destination": destination,
+          if (sourceBankAccountId != null) "sourceBankAccountId": sourceBankAccountId,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getIncomeHistory({
+    required String companyId,
+    required String userId,
+  }) async {
+    try {
+      final res = await http
+          .get(Uri.parse("$_base/company/$companyId/income?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> addCustomCategory({
+    required String companyId,
+    required String userId,
+    required String name,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/company/$companyId/category"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"userId": userId, "name": name}),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateExpense({
+    required String expenseId,
+    required String userId,
+    required double amount,
+    required String description,
+    required String category,
+    required DateTime date,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/expense/$expenseId/update"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "amount": amount,
+          "description": description,
+          "category": category,
+          "date": date.toIso8601String(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
   static Future<Map<String, dynamic>> createExpense({
     required String companyId,
     required String userId,
@@ -267,6 +391,7 @@ class ExpenseCompanyService {
     String? attachment,
     String? logAs,
     List<String>? visibleTo,
+    String? fundId,
   }) async {
     try {
       final res = await http.post(
@@ -282,6 +407,7 @@ class ExpenseCompanyService {
           "attachment": attachment ?? "",
           if (logAs != null) "logAs": logAs,
           if (visibleTo != null) "visibleTo": visibleTo,
+          if (fundId != null) "fundId": fundId,
         }),
       ).timeout(const Duration(seconds: 15));
       return _parseResponse(res);
@@ -324,6 +450,7 @@ class ExpenseCompanyService {
     required String paymentMode,
     required String paymentProof,
     String? payAs,
+    String? fundId,
   }) async {
     await _loadPrefs();
     try {
@@ -335,6 +462,7 @@ class ExpenseCompanyService {
           "paymentMode": paymentMode,
           "paymentProof": paymentProof,
           if (payAs != null) "payAs": payAs,
+          if (fundId != null) "fundId": fundId,
         }),
       ).timeout(const Duration(seconds: 15));
 

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/expense_company_service.dart';
 import 'add_expense_screen.dart';
+import 'company_bank_accounts_sheet.dart';
 import 'company_settings_screen.dart';
 import 'pay_expense_modal.dart';
 import 'received_expense_modal.dart';
@@ -43,6 +44,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   Map<String, dynamic>? _currentCompany;
   List<Map<String, dynamic>> _companyMembers = [];
   String _currentUserRole = "member";
+  String _viewMode = "company"; // admin only: "company" or "self"
 
   bool _isLoading = true;
   List<Map<String, dynamic>> _expenses = [];
@@ -104,8 +106,20 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   DateTimeRange? _selectedDateRange;
 
+  bool get _showCompanyTotals => _isAdmin && _viewMode == "company";
+
+  List<String> get _savedCustomCategories =>
+      ((_currentCompany?["customCategories"] as List?) ?? const []).map((e) => e.toString()).toList();
+
   List<Map<String, dynamic>> get _filteredExpenses {
     final list = _expenses.where((exp) {
+      if (_isAdmin && _viewMode == "self") {
+        final logAs = (exp["logAs"] ?? (exp["status"] == "paid" ? "company" : "self")).toString();
+        final creator = exp["createdBy"];
+        final creatorId = creator is Map ? creator["_id"]?.toString() : creator?.toString();
+        if (logAs != "self" || creatorId != widget.userId) return false;
+      }
+
       if (_searchQuery.trim().isNotEmpty) {
         final query = _searchQuery.trim().toLowerCase();
         final desc = (exp["description"] ?? "").toString().toLowerCase();
@@ -640,6 +654,182 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     );
   }
 
+  Widget _editFieldLabel(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(text, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13)),
+      );
+
+  InputDecoration _editFieldDecoration(IconData icon) => InputDecoration(
+        prefixIcon: Icon(icon, size: 18, color: forestDark),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: forestDark, width: 1.5),
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+      );
+
+  Future<void> _openEditExpenseDialog(Map<String, dynamic> expense) async {
+    final amountCtrl = TextEditingController(text: (expense["amount"] as num?)?.toString() ?? "");
+    final descCtrl = TextEditingController(text: expense["description"]?.toString() ?? "");
+    const baseCategories = ["General", "Food & Dining", "Travel & Transport", "Office Supplies", "Utilities", "Software & Tech", "Other"];
+    String category = expense["category"]?.toString() ?? "General";
+    final categoryOptions = <String>{...baseCategories, ..._savedCustomCategories, category}.toList();
+    DateTime date = DateTime.tryParse((expense["date"] ?? "").toString())?.toLocal() ?? DateTime.now();
+    bool saving = false;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text("Edit Expense", style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _editFieldLabel("Amount (₹)"),
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                  decoration: _editFieldDecoration(Icons.currency_rupee_rounded),
+                ),
+                const SizedBox(height: 14),
+                _editFieldLabel("Description"),
+                TextField(
+                  controller: descCtrl,
+                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                  decoration: _editFieldDecoration(Icons.notes_rounded),
+                ),
+                const SizedBox(height: 14),
+                _editFieldLabel("Category"),
+                DropdownButtonFormField<String>(
+                  initialValue: category,
+                  isExpanded: true,
+                  dropdownColor: Colors.white,
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: forestDark),
+                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
+                  decoration: _editFieldDecoration(Icons.category_rounded),
+                  items: categoryOptions
+                      .map((c) => DropdownMenuItem<String>(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => category = v);
+                  },
+                ),
+                const SizedBox(height: 14),
+                _editFieldLabel("Date"),
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) setDialogState(() => date = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: _editFieldDecoration(Icons.calendar_today_rounded),
+                    child: Text(
+                      DateFormat("dd MMM yyyy").format(date),
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: darkText.withValues(alpha: 0.7)),
+              onPressed: saving ? null : () => Navigator.pop(ctx, false),
+              child: Text("Cancel", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: forestDark, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              onPressed: saving
+                  ? null
+                  : () async {
+                      final amount = double.tryParse(amountCtrl.text.trim());
+                      if (amount == null || amount <= 0 || descCtrl.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Enter a valid amount and description")),
+                        );
+                        return;
+                      }
+                      setDialogState(() => saving = true);
+                      final res = await ExpenseCompanyService.updateExpense(
+                        expenseId: expense["_id"].toString(),
+                        userId: widget.userId,
+                        amount: amount,
+                        description: descCtrl.text.trim(),
+                        category: category,
+                        date: date,
+                      );
+                      if (!ctx.mounted) return;
+                      if (res["success"] == true) {
+                        Navigator.pop(ctx, true);
+                      } else {
+                        setDialogState(() => saving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(res["message"]?.toString() ?? "Failed to update expense")),
+                        );
+                      }
+                    },
+              child: Text("Save", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    amountCtrl.dispose();
+    descCtrl.dispose();
+    if (saved == true) _refreshDashboard(showLoading: false);
+  }
+
+  String _settlementPayerName(dynamic s) {
+    if (s == null) return "";
+    if (s["paidAs"] == "company") return _currentCompany?["name"]?.toString() ?? "Company";
+    return s["paidBy"] != null ? s["paidBy"]["name"] ?? "Member" : "Member";
+  }
+
+  num get _cashBalance => (_currentCompany?["cashBalance"] as num?) ?? 0;
+
+  List<Map<String, dynamic>> get _bankAccounts =>
+      ((_currentCompany?["bankAccounts"] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+  Future<void> _openBankAccountsSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CompanyBankAccountsSheet(
+        companyId: _selectedCompanyId,
+        userId: widget.userId,
+        initialAccounts: _bankAccounts,
+        initialCashBalance: _cashBalance,
+      ),
+    );
+    _refreshDashboard(showLoading: false);
+  }
+
   void _openPayModal(Map<String, dynamic> expense) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -652,6 +842,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
             expense: expense,
             userId: widget.userId,
             isAdmin: _isAdmin,
+            lockedPayAs: _showCompanyTotals ? "company" : null,
+            bankAccounts: _bankAccounts,
+            cashBalance: _cashBalance,
           ),
         );
       },
@@ -1164,7 +1357,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         ...settlementList.asMap().entries.map((entry) {
                           final idx = entry.key + 1;
                           final s = entry.value;
-                          final sPayer = s["paidBy"] != null ? s["paidBy"]["name"] ?? "Member" : "Member";
+                          final sPayer = _settlementPayerName(s);
                           final sPayerEmail = s["paidBy"] != null ? s["paidBy"]["email"] ?? "" : "";
                           final sReceiver = s["paidTo"] != null ? s["paidTo"]["name"] ?? "Member" : "";
                           final sMode = s["paymentMode"]?.toString().toUpperCase() ?? "CASH";
@@ -1374,6 +1567,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
+          width: double.infinity,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1399,81 +1593,43 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 style: GoogleFonts.fraunces(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 14),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const BouncingScrollPhysics(),
-                itemCount: _userCompanies.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (context, index) {
-                  final c = _userCompanies[index];
-                  final isSelected = c["_id"].toString() == _selectedCompanyId;
-                  return Container(
+              for (final opt in [
+                {"mode": "company", "label": _currentCompany?["name"]?.toString() ?? "Company", "sub": "Company expenses only", "icon": Icons.business_rounded},
+                {"mode": "self", "label": "Self (${widget.userName})", "sub": "Your personal expenses only", "icon": Icons.person_rounded},
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: isSelected ? forestDark.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                      color: _viewMode == opt["mode"] ? forestDark.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? forestDark : const Color(0xFFE2E8F0),
-                        width: isSelected ? 1.5 : 1.0,
+                        color: _viewMode == opt["mode"] ? forestDark : const Color(0xFFE2E8F0),
+                        width: _viewMode == opt["mode"] ? 1.5 : 1.0,
                       ),
                     ),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      leading: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: isSelected ? forestDark : Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: isSelected ? null : Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Icon(
-                          Icons.business_rounded,
-                          color: isSelected ? Colors.white : forestDark,
-                          size: 20,
-                        ),
-                      ),
+                      leading: Icon(opt["icon"] as IconData, color: forestDark),
                       title: Text(
-                        c["name"],
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? forestDark : darkText,
-                          fontSize: 14.5,
-                        ),
+                        opt["label"] as String,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: darkText, fontSize: 14.5),
                       ),
-                      subtitle: (c["details"] != null && c["details"].toString().isNotEmpty)
-                          ? Text(
-                              c["details"].toString(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(
-                                color: darkText.withValues(alpha: 0.5),
-                                fontSize: 12,
-                              ),
-                            )
-                          : null,
-                      trailing: isSelected
-                          ? Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                color: forestDark,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
-                            )
-                          : null,
+                      subtitle: Text(
+                        opt["sub"] as String,
+                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12),
+                      ),
+                      trailing: _viewMode == opt["mode"] ? const Icon(Icons.check_circle_rounded, color: forestDark) : null,
                       onTap: () {
                         Navigator.pop(ctx);
-                        setState(() {
-                          _selectedCompanyId = c["_id"].toString();
-                        });
-                        _refreshDashboard();
+                        setState(() => _viewMode = opt["mode"] as String);
                       },
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
+                  ),
+                ),
+              const SizedBox(height: 10),
             ],
           ),
         );
@@ -1483,7 +1639,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final companyName = _currentCompany?["name"] ?? "Company Dashboard";
+    final companyName =_currentCompany?["name"] ?? "Company Dashboard";
 
     return Scaffold(
       backgroundColor: creamSheet,
@@ -1503,13 +1659,13 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: GestureDetector(
-          onTap: _openCompanyMenu,
+          onTap: _isAdmin ? _openCompanyMenu : null,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
                 child: Text(
-                  companyName,
+                  (_isAdmin && _viewMode == "self") ? "Self (${widget.userName.split(' ').first})" : companyName,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.fraunces(
                     color: Colors.white,
@@ -1518,12 +1674,28 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF10B981), size: 22),
+              if (_isAdmin) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF10B981), size: 22),
+              ],
             ],
           ),
         ),
         actions: [
+          if (_showCompanyTotals)
+            IconButton(
+              tooltip: "Bank Accounts",
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0C3826),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                ),
+                child: const Icon(Icons.account_balance_rounded, color: Color(0xFF10B981), size: 20),
+              ),
+              onPressed: _openBankAccountsSheet,
+            ),
           IconButton(
             tooltip: "Company Settings",
             icon: Container(
@@ -1565,6 +1737,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 userId: widget.userId,
                 userName: widget.userName,
                 isAdmin: _isAdmin,
+                lockedLogAs: _isAdmin ? _viewMode : null,
+                customCategories: _savedCustomCategories,
+                bankAccounts: _bankAccounts,
+                cashBalance: _cashBalance,
                 companyMembers: _companyMembers,
               ),
             ),
@@ -1932,7 +2108,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        _isAdmin ? "TOTAL EXPENSE SPENT" : "YOU ARE OWED (RECEIVABLE)",
+                        _showCompanyTotals ? "TOTAL EXPENSE SPENT" : "YOU ARE OWED (RECEIVABLE)",
                         style: GoogleFonts.ibmPlexMono(
                           color: const Color(0xFF6B7280),
                           fontSize: 9.5,
@@ -1946,7 +2122,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "₹${(_isAdmin ? _totalCompanySpent : _totalReceivable).toStringAsFixed(2)}",
+                        "₹${(_showCompanyTotals ? _totalCompanySpent : _totalReceivable).toStringAsFixed(2)}",
                         style: GoogleFonts.fraunces(
                           color: const Color(0xFF0C5F41),
                           fontSize: 19,
@@ -2054,7 +2230,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         : "";
 
     final settlement = expense["settlement"];
-    final settlementPayer = settlement != null && settlement["paidBy"] != null ? settlement["paidBy"]["name"] ?? "Member" : "";
+    final settlementPayer = settlement != null && settlement["paidBy"] != null ? _settlementPayerName(settlement) : "";
     final settlementRecipient = settlement != null && settlement["paidTo"] != null ? settlement["paidTo"]["name"] ?? "Member" : creatorName;
 
     final String paidById = settlement != null && settlement["paidBy"] != null
@@ -2190,11 +2366,27 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                 _changeExpenseStatus(expense, "paid");
                               } else if (val == "edit") {
                                 _openEditPaymentModal(expense, settlement);
+                              } else if (val == "edit_expense") {
+                                _openEditExpenseDialog(expense);
                               } else if (val == "delete") {
                                 _confirmDeleteExpense(expense);
                               }
                             },
                             itemBuilder: (ctx) => [
+                              if (isCreator && !isPaid && settlement == null && ((expense["settlements"] as List?)?.isEmpty ?? true))
+                                PopupMenuItem(
+                                  value: "edit_expense",
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.edit_note_rounded, size: 18, color: forestDark),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        "Edit Expense",
+                                        style: GoogleFonts.inter(fontSize: 13, color: forestDark, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               if (isPaid || settlement != null)
                                 PopupMenuItem(
                                   value: "edit",
@@ -2360,7 +2552,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
                       // Contextual Action Buttons / Settlement Info
                       if (!isPaid) ...[
-                        if (!isViewerCreditor)
+                        if (!isViewerCreditor || _showCompanyTotals)
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton.icon(

@@ -7,6 +7,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../firebase_options.dart';
 import '../screens/view_reminder_page.dart';
 import 'api_service.dart';
+import 'ledger_events.dart';
 import 'user_storage.dart';
 
 const String _paymentReminderChannelId = 'payment_reminder';
@@ -182,6 +183,7 @@ class FCMService {
       debugPrint(
         'Foreground notification: ${message.notification?.title} - ${message.notification?.body}',
       );
+      if (message.data["type"] == "ledger") notifyLedgerChanged();
       // Android does not auto-display FCM banners while foregrounded.
       if (Platform.isAndroid) {
         _showForegroundNotification(message);

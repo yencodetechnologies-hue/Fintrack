@@ -28,6 +28,7 @@ class AppConfig {
   static const String trips = "$baseUrl/api/trips";
   static const String vehicles = "$baseUrl/api/vehicles";
   static const String companyExpense = "$baseUrl/api/company-expense";
+  static const String ledger = "$baseUrl/api/ledger";
 
 
   static const String emailBase = "$baseUrl/api/email";

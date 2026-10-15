@@ -7,6 +7,10 @@ const Liability = require("../models/liability");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 
+// A device token belongs to one account at a time, so a shared phone never gets the previous user's pushes.
+const releaseTokenFromOthers = (userId, token) =>
+  User.updateMany({ _id: { $ne: userId }, fcmTokens: token }, { $pull: { fcmTokens: token } });
+
 
   exports.signup = async (req, res) => {
     try {
@@ -73,6 +77,7 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 
       if (fcmToken) {
+        await releaseTokenFromOthers(user._id, fcmToken);
         user.fcmTokens = [fcmToken, ...user.fcmTokens.filter((t) => t !== fcmToken)]
           .slice(0, 5);
         await user.save();
@@ -277,6 +282,7 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
         });
       }
 
+      await releaseTokenFromOthers(user._id, fcmToken);
       user.fcmTokens = [fcmToken, ...user.fcmTokens.filter((t) => t !== fcmToken)]
         .slice(0, 5);
       await user.save();
@@ -316,3 +322,74 @@ const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
       });
     }
   };
+// Passwordless sign-in: email a 6-digit code, then exchange it for the same user payload as /login.
+exports.requestLoginOtp = async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, message: "Email not registered" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpiry = Date.now() + 5 * 60 * 1000;
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: user.email,
+      subject: "Your Q Fin sign-in code",
+      html: `<h2>Your sign-in code is: ${otp}</h2><p>Valid for 5 minutes. If you didn't request this, ignore this email.</p>`,
+    });
+    res.json({ success: true, message: "Sign-in code sent to your email" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: "Error sending sign-in code" });
+  }
+};
+
+exports.verifyLoginOtp = async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim();
+    const { otp, fcmToken } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || !user.otp || user.otp !== String(otp || "").trim()) {
+      return res.status(400).json({ success: false, message: "Invalid code" });
+    }
+    if (!user.otpExpiry || user.otpExpiry < Date.now()) {
+      return res.status(400).json({ success: false, message: "Code expired. Request a new one." });
+    }
+    user.otp = null;
+    user.otpExpiry = null;
+    if (fcmToken) await releaseTokenFromOthers(user._id, fcmToken);
+    if (fcmToken) user.fcmTokens = [fcmToken, ...(user.fcmTokens || []).filter((t) => t !== fcmToken)].slice(0, 5);
+    await user.save();
+    res.json({
+      success: true,
+      message: "Login successful",
+      user: { id: user._id, name: user.name, email: user.email, fcmTokens: fcmToken ? [fcmToken] : [] },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// Called on logout so this device stops receiving the signed-out user's notifications.
+exports.removeFcmToken = async (req, res) => {
+  try {
+    const fcmToken = String(req.body.fcmToken || "").trim();
+    if (!fcmToken) return res.status(400).json({ success: false, message: "fcmToken is required" });
+    // the device is signed out of everyone, so drop it from every account (also clears older shared tokens)
+    await User.updateMany({ fcmTokens: fcmToken }, { $pull: { fcmTokens: fcmToken } });
+    res.json({ success: true, message: "Device unregistered" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

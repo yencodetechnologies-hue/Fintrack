@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../ledger/ledger_common.dart' show toast;
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
-import 'company_dashboard_screen.dart';
+import '../ledger/ledger_home_screen.dart';
 
 class JoinCompanyScreen extends StatefulWidget {
   final String userId;
@@ -20,7 +21,6 @@ class JoinCompanyScreen extends StatefulWidget {
 class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
   static const Color creamSheet = Color(0xFF0C5F41);
   static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C5F41);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
@@ -60,17 +60,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
     if (res["success"] == true) {
       final company = res["company"];
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "Joined ${company['name']} successfully!",
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: forestDark,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      toast(context, "Joined ${company['name']} successfully!");
 
       // Fetch all user companies and route to dashboard
       final companies = await ExpenseCompanyService.getUserCompanies(widget.userId);
@@ -82,7 +72,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => CompanyDashboardScreen(
+          builder: (_) => LedgerHomeScreen(
             userId: widget.userId,
             userName: updatedName,
             companies: companies.isNotEmpty ? companies : [company],
@@ -91,17 +81,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
         ),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            res["message"] ?? "Invalid Company Code",
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: const Color(0xFFC53030),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      toast(context, res["message"] ?? "Invalid Company Code", error: true);
     }
   }
 

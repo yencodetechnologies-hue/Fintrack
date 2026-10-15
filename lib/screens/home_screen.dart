@@ -96,7 +96,17 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (!mounted) return;
+      await _finishLogin(res);
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar("Error: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
+  Future<void> _finishLogin(Map<String, dynamic> res) async {
+    {
       if (res["success"] == true) {
         final userId = UserStorage.parseMongoId(res["user"]?["id"]);
         if (userId == null) throw Exception("userId is NULL");
@@ -122,12 +132,69 @@ class _HomeScreenState extends State<HomeScreen> {
       } else {
         _showSnackBar(res["message"] ?? "Login failed");
       }
-    } catch (e) {
-      if (!mounted) return;
-      _showSnackBar("Error: $e");
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _openEmailCodeLogin() async {
+    final emailCtrl = TextEditingController(text: _emailController.text.trim());
+    final codeCtrl = TextEditingController();
+    bool codeSent = false;
+    bool busy = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: Text("Sign in with email code", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailCtrl,
+                enabled: !codeSent,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: "Email address"),
+              ),
+              if (codeSent)
+                TextField(
+                  controller: codeCtrl,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration: const InputDecoration(labelText: "6-digit code from your email"),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: busy ? null : () => Navigator.pop(ctx), child: const Text("Cancel")),
+            TextButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      setDialog(() => busy = true);
+                      if (!codeSent) {
+                        final res = await ApiService.requestLoginOtp(emailCtrl.text.trim());
+                        if (!ctx.mounted) return;
+                        setDialog(() {
+                          busy = false;
+                          codeSent = res["success"] == true;
+                        });
+                        _showSnackBar(res["message"]?.toString() ?? "Could not send code");
+                        return;
+                      }
+                      final token = await FCMService.getToken();
+                      final res = await ApiService.verifyLoginOtp(emailCtrl.text.trim(), codeCtrl.text.trim(), token);
+                      if (!ctx.mounted) return;
+                      setDialog(() => busy = false);
+                      if (res["success"] == true) Navigator.pop(ctx);
+                      if (!mounted) return;
+                      await _finishLogin(res);
+                    },
+              child: Text(codeSent ? "Sign in" : "Send code"),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _handleSignup() async {
@@ -475,6 +542,16 @@ class _HomeScreenState extends State<HomeScreen> {
           isLoading: _isLoading,
           onTap: _handleLogin,
           terracotta: terracotta,
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: TextButton(
+            onPressed: _isLoading ? null : _openEmailCodeLogin,
+            child: Text(
+              "Sign in with email code instead",
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: terracotta),
+            ),
+          ),
         ),
       ],
     );

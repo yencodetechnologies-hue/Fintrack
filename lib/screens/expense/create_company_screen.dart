@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../ledger/ledger_common.dart' show toast;
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
-import 'company_dashboard_screen.dart';
+import '../ledger/ledger_home_screen.dart';
 
 class CreateCompanyScreen extends StatefulWidget {
   final String userId;
@@ -21,7 +22,6 @@ class CreateCompanyScreen extends StatefulWidget {
 class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
   static const Color creamSheet = Color(0xFF0C5F41);
   static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C5F41);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
@@ -67,14 +67,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
 
       _showCodeSuccessModal(company, joinCode.toString());
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res["message"] ?? "Failed to create company", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFFC53030),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      toast(context, res["message"] ?? "Failed to create company", error: true);
     }
   }
 
@@ -151,14 +144,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     ElevatedButton.icon(
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: joinCode));
-                        ScaffoldMessenger.of(ctx).showSnackBar(
-                          SnackBar(
-                            content: Text("Join code copied to clipboard!", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
-                            backgroundColor: forestDark,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                        );
+                        toast(ctx, "Join code copied to clipboard!");
                       },
                       icon: const Icon(Icons.copy_rounded, size: 16),
                       label: const Text("Copy"),
@@ -182,7 +168,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => CompanyDashboardScreen(
+                        builder: (_) => LedgerHomeScreen(
                           userId: widget.userId,
                           userName: _userNameController.text.trim().isNotEmpty ? _userNameController.text.trim() : widget.userName,
                           companies: [company],

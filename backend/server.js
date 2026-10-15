@@ -50,6 +50,9 @@ app.use("/api/vehicles", vehicleRoutes);
 const companyExpenseRoutes = require("./routes/companyExpenseRoutes");
 app.use("/api/company-expense", companyExpenseRoutes);
 
+const ledgerRoutes = require("./routes/ledgerRoutes");
+app.use("/api/ledger", ledgerRoutes);
+
 
 // Public Privacy Policy Endpoint
 app.get("/privacy", (req, res) => {
@@ -110,6 +113,7 @@ app.get("/privacy", (req, res) => {
 const PORT = process.env.PORT || 3009;
 
 require("./jobs/emailSyncCron");
+require("./jobs/ledgerDayCloseCron");
 
 app.listen(3009, "0.0.0.0", () => {
   console.log("Server running on port 3009");

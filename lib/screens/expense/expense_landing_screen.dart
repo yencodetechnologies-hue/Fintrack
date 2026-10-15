@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
-import 'company_dashboard_screen.dart';
+import '../ledger/ledger_home_screen.dart';
 import 'create_company_screen.dart';
 import 'join_company_screen.dart';
 
@@ -39,6 +40,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       _isLoading = false;
     }
     _loadUserCompanies(showLoading: _userCompanies.isEmpty);
+    _poll = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _loadUserCompanies();
+    });
+  }
+
+  Timer? _poll;
+
+  @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadUserCompanies({bool showLoading = false}) async {
@@ -94,7 +106,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => CompanyDashboardScreen(
+        builder: (_) => LedgerHomeScreen(
           userId: widget.userId,
           userName: widget.userName,
           companies: _userCompanies,

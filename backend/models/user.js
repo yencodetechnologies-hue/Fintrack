@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    platformRole: { type: String, enum: ["user", "super_admin"], default: "user" },
     name: {
       type: String,
       required: true,

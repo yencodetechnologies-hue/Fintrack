@@ -53,6 +53,16 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    lifecycle: {
+      type: String,
+      enum: ["submitted", "approved", "rejected", "paid_by_admin", "paid_by_company", "reimbursed"],
+      default: null,
+    },
+    verification: { type: String, enum: [null, "pending", "verified"], default: null },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    paidByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "LedgerTransaction", default: null },
+    groupId: { type: mongoose.Schema.Types.ObjectId, default: null },
     logAs: {
       type: String,
       enum: ["company", "self"],

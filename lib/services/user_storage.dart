@@ -1,4 +1,24 @@
+import 'dart:convert';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../config/app_config.dart';
+
+/// Stops this device getting pushes for the account that is signing out.
+/// Never blocks logout: if the server can't be reached, the next login re-claims the token anyway.
+Future<void> _unregisterDevice() async {
+  try {
+    final token = await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 5));
+    if (token == null || token.isEmpty) return;
+    await http
+        .post(
+          Uri.parse("${AppConfig.authBase}/remove-fcm-token"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"fcmToken": token}),
+        )
+        .timeout(const Duration(seconds: 5));
+  } catch (_) {}
+}
 
 class UserStorage {
   /// Normalizes MongoDB ids returned as strings or nested JSON maps.
@@ -86,6 +106,7 @@ class UserStorage {
   }
 
   static Future<void> clearUserId() async {
+    await _unregisterDevice();
 
     final prefs =
     await SharedPreferences.getInstance();

@@ -54,6 +54,36 @@ class ApiService {
   }
 
 
+  static Future<Map<String, dynamic>> requestLoginOtp(String email) async {
+    try {
+      final res = await http.post(
+        Uri.parse("${AppConfig.authBase}/login-otp/request"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      );
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {"success": false, "message": "Connection error"};
+    }
+  }
+
+  static Future<Map<String, dynamic>> verifyLoginOtp(String email, String otp, String? token) async {
+    try {
+      final res = await http.post(
+        Uri.parse("${AppConfig.authBase}/login-otp/verify"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": email,
+          "otp": otp,
+          if (token != null && token.isNotEmpty) "fcmToken": token,
+        }),
+      );
+      return jsonDecode(res.body);
+    } catch (e) {
+      return {"success": false, "message": "Connection error"};
+    }
+  }
+
   static Future<Map<String, dynamic>> validateSession(String userId) async {
     try {
       final res = await http.get(

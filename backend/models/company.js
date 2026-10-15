@@ -32,6 +32,10 @@ const companySchema = new mongoose.Schema(
         balance: { type: Number, default: 0 },
       },
     ],
+    gstin: { type: String, trim: true, default: "" },
+    currency: { type: String, default: "INR" },
+    verificationThreshold: { type: Number, default: null },
+    external: { type: Boolean, default: false },
     cashBalance: {
       type: Number,
       default: 0,

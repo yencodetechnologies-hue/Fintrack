@@ -9,6 +9,14 @@ const expenseGroupSchema = new mongoose.Schema(
     createdBy: { type: ObjectId, ref: "User", required: true },
     active: { type: Boolean, default: true },
     members: [{ type: ObjectId, ref: "User" }],
+    settlementStatus: { type: String, enum: ["active", "settled"], default: "active" },
+    settledAmount: { type: Number, default: 0 },
+    settlementType: { type: String, enum: [null, "own_company", "other_company"], default: null },
+    settlementCompanyId: { type: ObjectId, ref: "Company", default: null },
+    settlementLoanId: { type: ObjectId, ref: "CompanyLoan", default: null },
+    settledBy: { type: ObjectId, ref: "User", default: null },
+    settledAt: { type: Date, default: null },
+    settlementLock: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

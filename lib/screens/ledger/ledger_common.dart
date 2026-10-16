@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import '../../services/ledger_events.dart';
 export '../../services/ledger_events.dart';
 
 const Color kForest = Color(0xFF0C5F41);
@@ -60,7 +59,9 @@ const Map<String, String> kLifecycleLabels = {
   "approved": "Approved",
   "rejected": "Rejected",
   "paid_by_admin": "Paid by admin",
+  "paid_by_person": "Paid by person",
   "paid_by_company": "Paid by company",
+  "awaiting_confirmation": "Awaiting confirmation",
   "reimbursed": "Reimbursed",
 };
 
@@ -74,6 +75,7 @@ Color lifecycleColor(String? s) {
       return kTerracotta;
     case "reimbursed":
     case "paid_by_company":
+    case "paid_by_person":
       return kMint;
     default:
       return const Color(0xFF2563EB);
@@ -208,7 +210,6 @@ class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMi
 bool handleResult(BuildContext context, Map<String, dynamic> res, String okMessage) {
   final ok = res["success"] == true;
   toast(context, ok ? okMessage : (res["message"]?.toString() ?? "Something went wrong"), error: !ok);
-  if (ok) notifyLedgerChanged();
   return ok;
 }
 

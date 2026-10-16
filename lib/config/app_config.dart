@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // Local Testing Endpoint (Port 3009) - Works for BOTH Android Emulator & Physical Mobile Phone on same Wi-Fi
-  // Production Endpoint: https://fintrack.yencodetechnologies.in
-  static const String baseUrl = "https://fintrack.yencodetechnologies.in";
+  // Override with:
+  // flutter run --dart-define=FINTRACK_API_BASE_URL=https://fintrack.yencodetechnologies.in
+  static const String baseUrl = String.fromEnvironment(
+    "FINTRACK_API_BASE_URL",
+    defaultValue: "http://192.168.100.247:3009",
+  );
 
   static const String authBase = "$baseUrl/api/auth";
   static const String signup = "$authBase/signup";

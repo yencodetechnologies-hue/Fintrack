@@ -12,6 +12,7 @@ const expenseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    isAdminCreated: { type: Boolean, default: undefined, index: true },
     amount: {
       type: Number,
       required: true,
@@ -35,6 +36,10 @@ const expenseSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    hasAttachment: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ["outstanding", "paid"],
@@ -55,14 +60,22 @@ const expenseSchema = new mongoose.Schema(
     },
     lifecycle: {
       type: String,
-      enum: ["submitted", "approved", "rejected", "paid_by_admin", "paid_by_company", "reimbursed"],
+      enum: ["submitted", "approved", "rejected", "paid_by_admin", "paid_by_company", "paid_by_person", "awaiting_confirmation", "reimbursed"],
       default: null,
     },
     verification: { type: String, enum: [null, "pending", "verified"], default: null },
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     paidByAdminId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    paidByUserId: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    payerType: { type: String, enum: [null, "person", "company", "other_company", "unpaid"], default: null },
+    payerCompanyId: { type: mongoose.Schema.Types.ObjectId, ref: "Company", default: null },
+    payerConfirmation: { type: String, enum: [null, "pending", "processing", "accepted", "rejected"], default: null },
+    payerMethod: { type: String, default: "" },
+    payerReference: { type: String, default: "" },
+    paymentReceipt: { type: String, default: "" },
+    hasPaymentReceipt: { type: Boolean, default: false },
     transactionId: { type: mongoose.Schema.Types.ObjectId, ref: "LedgerTransaction", default: null },
-    groupId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    groupId: { type: mongoose.Schema.Types.ObjectId, ref: "ExpenseGroup", default: null, index: true },
     logAs: {
       type: String,
       enum: ["company", "self"],
@@ -87,4 +100,13 @@ const expenseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+expenseSchema.pre("save", function () {
+  this.hasAttachment = Boolean(this.attachment && this.attachment.length > 0);
+  this.hasPaymentReceipt = Boolean(this.paymentReceipt && this.paymentReceipt.length > 0);
+});
+
+expenseSchema.index({ companyId: 1, createdAt: -1 });
+expenseSchema.index({ companyId: 1, parentExpenseId: 1, lifecycle: 1 });
+
 module.exports = mongoose.model("Expense", expenseSchema);
+

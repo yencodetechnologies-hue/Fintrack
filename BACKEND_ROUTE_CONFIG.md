@@ -9,27 +9,29 @@ This document records the backend route configuration for the Fintrack Flutter a
 
 ---
 
-## ⚙️ Current Active Environment: LOCAL TESTING
+## ⚙️ API Environment Selection
 
 ```dart
 class AppConfig {
-  // Local Testing Endpoint (Port 3009)
-  // Android Emulator: http://10.0.2.2:3009 | iOS Simulator/Desktop: http://localhost:3009
-  // Production Endpoint: https://fintrack.yencodetechnologies.in
-  static const String baseUrl = "http://10.0.2.2:3009";
+  static const String baseUrl = String.fromEnvironment(
+    "FINTRACK_API_BASE_URL",
+    defaultValue: "https://fintrack.yencodetechnologies.in",
+  );
 ```
 
 ---
 
 ## 🔄 Quick Reversion Snippets
 
-### 1. Revert to Live Production Environment 🚀
-To switch the app back to the live production server, edit `lib/config/app_config.dart`:
+### 1. Use the Live Production Environment 🚀
+Production is the default; no additional setting is required.
 
 ```dart
 class AppConfig {
-  // Live Production Endpoint
-  static const String baseUrl = "https://fintrack.yencodetechnologies.in";
+  static const String baseUrl = String.fromEnvironment(
+    "FINTRACK_API_BASE_URL",
+    defaultValue: "https://fintrack.yencodetechnologies.in",
+  );
 ```
 
 ---
@@ -38,10 +40,10 @@ class AppConfig {
 
 | Environment | `baseUrl` Setting |
 | :--- | :--- |
-| **Android Emulator (Local Backend)** | `static const String baseUrl = "http://10.0.2.2:3009";` |
-| **iOS Simulator / Web / Windows Desktop** | `static const String baseUrl = "http://localhost:3009";` |
-| **Physical Phone (via Local Wi-Fi)** | `static const String baseUrl = "http://<YOUR_LOCAL_IP>:3009";` |
-| **Live Production** | `static const String baseUrl = "https://fintrack.yencodetechnologies.in";` |
+| **Android Emulator (Local Backend)** | `flutter run --dart-define=FINTRACK_API_BASE_URL=http://10.0.2.2:3009` |
+| **iOS Simulator / Web / Windows Desktop** | `flutter run --dart-define=FINTRACK_API_BASE_URL=http://localhost:3009` |
+| **Physical Phone (via Local Wi-Fi)** | `flutter run --dart-define=FINTRACK_API_BASE_URL=http://<YOUR_LOCAL_IP>:3009` |
+| **Live Production** | Default: `https://fintrack.yencodetechnologies.in` |
 
 ---
 

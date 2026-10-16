@@ -1,8 +1,9 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
 import '../ledger/ledger_home_screen.dart';
+import 'create_expense_group_screen.dart';
+import 'group_expenses_screen.dart';
 import 'create_company_screen.dart';
 import 'join_company_screen.dart';
 
@@ -29,7 +30,12 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   static const Color terracotta = Color(0xFFB8452D);
 
   bool _isLoading = true;
+  bool _showGroups = false;
+  bool _refreshInProgress = false;
   List<Map<String, dynamic>> _userCompanies = [];
+  List<Map<String, dynamic>> _userGroups = [];
+  bool _loadingGroups = false;
+  String? _groupsError;
 
   @override
   void initState() {
@@ -40,20 +46,11 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       _isLoading = false;
     }
     _loadUserCompanies(showLoading: _userCompanies.isEmpty);
-    _poll = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) _loadUserCompanies();
-    });
-  }
-
-  Timer? _poll;
-
-  @override
-  void dispose() {
-    _poll?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadUserCompanies({bool showLoading = false}) async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
     if (showLoading) {
       setState(() => _isLoading = true);
     }
@@ -72,6 +69,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       });
     } catch (_) {
     } finally {
+      _refreshInProgress = false;
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -116,6 +114,62 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     ).then((_) => _loadUserCompanies());
   }
 
+  Future<void> _openCreateGroup() async {
+    final group = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateExpenseGroupScreen(
+          userId: widget.userId,
+        ),
+      ),
+    );
+    if (!mounted || group == null) return;
+    await _loadUserGroups();
+    if (!mounted) return;
+    final name = (group["name"] ?? "Group").toString();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("$name created")),
+    );
+  }
+
+  Future<void> _openGroup(Map<String, dynamic> group) async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroupExpensesScreen(
+          group: group,
+          userId: widget.userId,
+          userName: widget.userName,
+        ),
+      ),
+    );
+    if (mounted) _loadUserGroups();
+  }
+
+  Future<void> _loadUserGroups() async {
+    if (_loadingGroups) return;
+    setState(() {
+      _loadingGroups = true;
+      _groupsError = null;
+    });
+    final response = await ExpenseCompanyService.getUserExpenseGroups(widget.userId);
+    if (!mounted) return;
+    setState(() {
+      _loadingGroups = false;
+      if (response["success"] == true && response["groups"] is List) {
+        _userGroups = List<Map<String, dynamic>>.from(response["groups"]);
+      } else {
+        _groupsError = (response["message"] ?? "Could not load groups").toString();
+      }
+    });
+  }
+
+  void _selectPage(bool groups) {
+    if (_showGroups == groups) return;
+    setState(() => _showGroups = groups);
+    if (groups) _loadUserGroups();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -154,6 +208,60 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _buildPageToggle(),
+                const SizedBox(height: 20),
+                if (_showGroups) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: _userCompanies.isEmpty ? null : _openCreateGroup,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: darkSurface,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: darkSurface.withValues(alpha: 0.55),
+                      ),
+                      icon: const Icon(Icons.group_add_rounded, color: mintAccent),
+                      label: Text("Create Group", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  if (_userCompanies.isEmpty && !_isLoading) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      "Join or create a company before creating a group.",
+                      style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.75)),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  if (_loadingGroups)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20),
+                        child: CircularProgressIndicator(color: mintAccent),
+                      ),
+                    )
+                  else if (_groupsError != null)
+                    Center(
+                      child: TextButton.icon(
+                        onPressed: _loadUserGroups,
+                        icon: const Icon(Icons.refresh, color: mintAccent),
+                        label: Text("Retry loading groups", style: GoogleFonts.inter(color: Colors.white70)),
+                      ),
+                    )
+                  else if (_userGroups.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          "No groups yet",
+                          style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.72)),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._userGroups.map(_buildGroupCard),
+                ],
+                if (!_showGroups) ...[
                 // Premium Action Buttons Row (Create & Join - Shown only when companies exist)
                 if (_userCompanies.isNotEmpty) ...[
                   Row(
@@ -329,11 +437,105 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                           onTap: _openJoinCompany,
                         ),
                       ],
+                ],
                     ],
                   ),
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildPageToggle() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: darkSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          _buildToggleOption("Company", false),
+          _buildToggleOption("Group", true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption(String label, bool groups) {
+    final selected = _showGroups == groups;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _selectPage(groups),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 11),
+          decoration: BoxDecoration(
+            color: selected ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              color: selected ? forestDark : Colors.white.withValues(alpha: 0.75),
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupCard(Map<String, dynamic> group) {
+    final company = group["companyId"] is Map ? group["companyId"]["name"] : null;
+    final creator = group["createdBy"] is Map ? group["createdBy"]["name"] : null;
+    final memberCount = group["members"] is List ? (group["members"] as List).length : 0;
+    final settled = group["settlementStatus"] == "settled";
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          onTap: () => _openGroup(group),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: forestDark, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.groups_rounded, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(children: [
+                        Expanded(child: Text((group["name"] ?? "Group").toString(), style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold))),
+                        if (settled) const Icon(Icons.check_circle_rounded, color: mintAccent, size: 18),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text(
+                        "${company ?? "Company"} · ${memberCount == 1 ? "1 member" : "$memberCount members"}${creator == null ? "" : " · Admin: $creator"}",
+                        style: GoogleFonts.inter(color: const Color(0xFF64748B), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -603,3 +805,8 @@ class _CompanyListShimmerState extends State<_CompanyListShimmer>
     );
   }
 }
+
+
+
+
+

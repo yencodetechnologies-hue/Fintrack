@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
-import 'ledger_groups_tab.dart';
 
 class LedgerMoreTab extends StatelessWidget {
   final LedgerScope scope;
@@ -27,7 +26,6 @@ class LedgerMoreTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
       children: [
         if (scope.isAdmin) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
-        if (scope.isAdmin) item(Icons.groups_rounded, "Expense groups", "Staff groups and their shared expenses", _page("Expense groups", LedgerGroupsTab(scope: scope))),
         if (scope.isAdmin) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),
         item(Icons.settings_rounded, "Settings", "Company details and members", _SettingsPage(scope: scope)),
       ],
@@ -115,39 +113,52 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
       _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 if (_txs.isEmpty) emptyState("No transactions yet"),
                 ..._txs.map((t) {
                   final reversed = t["reversedBy"] != null;
-                  return ledgerCard(
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Expanded(child: Text(_txLabels[t["type"]] ?? t["type"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark))),
+                            Expanded(child: Text(_txLabels[t["type"]] ?? t["type"].toString(), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: kDark))),
                             if (reversed) statusPill("Reversed", kTerracotta),
                             if (t["verification"] == "pending") statusPill("Pending verification", kAmber),
                           ],
                         ),
+                        const SizedBox(height: 2),
                         Text("${t["memo"]} · ${dateLabel(t["createdAt"])} · ${nameOf(t["createdBy"])}",
-                            style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
-                        const Divider(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(fontSize: 11, height: 1.2, color: kDark.withValues(alpha: 0.6))),
+                        const Divider(height: 8, thickness: 0.7),
                         ...(t["entries"] as List? ?? const []).map((e) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              padding: const EdgeInsets.symmetric(vertical: 1),
                               child: Row(
                                 children: [
-                                  Expanded(child: Text(nameOf(e["accountId"], "Account"), style: GoogleFonts.inter(fontSize: 12.5, color: kDark))),
-                                  SizedBox(width: 80, child: Text((e["debit"] ?? 0) > 0 ? "Dr ${inr(e["debit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12))),
-                                  SizedBox(width: 80, child: Text((e["credit"] ?? 0) > 0 ? "Cr ${inr(e["credit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12))),
+                                  Expanded(child: Text(nameOf(e["accountId"], "Account"), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11.5, color: kDark))),
+                                  SizedBox(width: 80, child: Text((e["debit"] ?? 0) > 0 ? "Dr ${inr(e["debit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5))),
+                                  SizedBox(width: 80, child: Text((e["credit"] ?? 0) > 0 ? "Cr ${inr(e["credit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5))),
                                 ],
                               ),
                             )),
                         if (widget.scope.isSuperAdmin && !reversed && t["type"] != "reversal")
                           Align(
                             alignment: Alignment.centerRight,
-                            child: TextButton(onPressed: () => _reverse(t), child: const Text("Reverse", style: TextStyle(color: kTerracotta))),
+                            child: TextButton(
+                              style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8), tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                              onPressed: () => _reverse(t),
+                              child: const Text("Reverse", style: TextStyle(color: kTerracotta)),
+                            ),
                           ),
                       ],
                     ),
@@ -173,6 +184,7 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
 
   List<Map<String, dynamic>> _logs = [];
   bool _loading = true;
+  String? _error;
   String _action = "All";
 
   @override
@@ -182,10 +194,20 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     final res = await LedgerService.auditLog(widget.scope.companyId, widget.scope.userId);
     if (!mounted) return;
     setState(() {
-      _logs = List<Map<String, dynamic>>.from(res["logs"] ?? const []);
+      if (res["success"] == false && res["logs"] == null) {
+        _error = res["message"]?.toString() ?? "Failed to load audit logs";
+        _logs = [];
+      } else {
+        _error = null;
+        _logs = List<Map<String, dynamic>>.from(res["logs"] ?? const []);
+      }
       _loading = false;
     });
   }
@@ -198,45 +220,79 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
       "Audit log",
       _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _action,
-                  isExpanded: true,
-                  decoration: fieldDecoration("Filter by action", icon: Icons.filter_list_rounded).copyWith(fillColor: Colors.white),
-                  items: actions
-                      .map((a) => DropdownMenuItem(
-                            value: a,
-                            child: Text(a == "All" ? "All actions" : a.replaceAll("_", " ")),
-                          ))
-                      .toList(),
-                  onChanged: (v) => setState(() => _action = v ?? "All"),
-                ),
-                const SizedBox(height: 10),
-                if (shown.isEmpty) emptyState("No activity recorded"),
-                ...shown.map((l) {
-                  final at = DateTime.tryParse(l["at"]?.toString() ?? "")?.toLocal();
-                  final flagged = l["action"] == "reverse" || l["action"] == "verify";
-                  return ledgerCard(
-                    child: Row(
+          : _error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("${nameOf(l["userId"], "Someone")} · ${l["action"]} ${l["object"]}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                              Text(at == null ? "" : DateFormat("dd MMM yyyy, hh:mm a").format(at), style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
-                            ],
-                          ),
+                        const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.white70),
+                        const SizedBox(height: 12),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
                         ),
-                        if (flagged) statusPill(l["action"].toString(), l["action"] == "reverse" ? kTerracotta : kMint),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: kForest,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text("Retry"),
+                          onPressed: _load,
+                        ),
                       ],
                     ),
-                  );
-                }),
-              ],
-            ),
+                  ),
+                )
+              : RefreshIndicator(
+                  color: kForest,
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _action,
+                        isExpanded: true,
+                        decoration: fieldDecoration("Filter by action", icon: Icons.filter_list_rounded).copyWith(fillColor: Colors.white),
+                        items: actions
+                            .map((a) => DropdownMenuItem(
+                                  value: a,
+                                  child: Text(a == "All" ? "All actions" : a.replaceAll("_", " ")),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(() => _action = v ?? "All"),
+                      ),
+                      const SizedBox(height: 10),
+                      if (shown.isEmpty) emptyState("No activity recorded"),
+                      ...shown.map((l) {
+                        final at = DateTime.tryParse(l["at"]?.toString() ?? "")?.toLocal();
+                        final flagged = l["action"] == "reverse" || l["action"] == "verify";
+                        return ledgerCard(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text("${nameOf(l["userId"], "Someone")} · ${l["action"]} ${l["object"]}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
+                                    Text(at == null ? "" : DateFormat("dd MMM yyyy, hh:mm a").format(at), style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
+                                  ],
+                                ),
+                              ),
+                              if (flagged) statusPill(l["action"].toString(), l["action"] == "reverse" ? kTerracotta : kMint),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
     );
   }
 }
@@ -283,6 +339,66 @@ class _SettingsPageState extends State<_SettingsPage> with LedgerAutoRefresh {
         _codeCreated = DateTime.now();
       });
     }
+  }
+
+  Future<void> _setRole(Map<String, dynamic> m, String role) async {
+    final name = m["name"]?.toString() ?? "this member";
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Theme(
+        data: sheetTheme,
+        child: AlertDialog(
+          title: Text(role == "admin" ? "Make $name an admin?" : "Make $name staff?"),
+          content: Text(role == "admin"
+              ? "They will be able to approve, pay and reimburse expenses, and see all company data."
+              : "They will see staff expenses and admin expenses shared with them."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Confirm")),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final res = await LedgerService.setMemberRole(widget.scope.companyId, widget.scope.userId, m["userId"].toString(), role);
+    if (!mounted) return;
+    if (handleResult(context, res, role == "admin" ? "$name is now an admin" : "$name is now staff")) widget.scope.reload();
+  }
+
+  void _openAddMember() {
+    final email = TextEditingController();
+    String role = "admin";
+    showLedgerSheet(context, "Add member", (ctx) => StatefulBuilder(
+          builder: (ctx, set) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("They must already have a Q Fin account. No join code needed.",
+                  style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+              const SizedBox(height: 12),
+              TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: fieldDecoration("Their account email", icon: Icons.email_rounded)),
+              const SizedBox(height: 12),
+              Text("Role", style: labelStyle),
+              const SizedBox(height: 6),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: "admin", label: Text("Admin")),
+                  ButtonSegment(value: "member", label: Text("Staff")),
+                ],
+                selected: {role},
+                onSelectionChanged: (v) => set(() => role = v.first),
+              ),
+              const SizedBox(height: 16),
+              primaryButton("Add to ${widget.scope.companyName}", () async {
+                final res = await LedgerService.addMember(widget.scope.companyId, widget.scope.userId, email.text.trim(), role);
+                if (!ctx.mounted) return;
+                if (handleResult(ctx, res, "${res["member"]?["name"] ?? "Member"} added as ${role == "admin" ? "admin" : "staff"}")) {
+                  Navigator.pop(ctx);
+                  widget.scope.reload();
+                }
+              }),
+            ],
+          ),
+        ));
   }
 
   Future<void> _save() async {
@@ -368,14 +484,30 @@ class _SettingsPageState extends State<_SettingsPage> with LedgerAutoRefresh {
             ),
           ),
           sectionTitle("Members (${_members.length})"),
-          ..._members.map((m) => ledgerCard(
-                padding: EdgeInsets.zero,
-                child: ListTile(
-                  leading: CircleAvatar(backgroundColor: kForest, child: Text((m["name"]?.toString() ?? "M")[0].toUpperCase(), style: const TextStyle(color: Colors.white))),
-                  title: Text(m["name"]?.toString() ?? "Member", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                  subtitle: Text(m["role"] == "admin" ? "Admin" : "Employee"),
-                ),
-              )),
+          if (s.isAdmin) ...[
+            primaryButton("+ Add member", _openAddMember, color: kForestDark),
+            const SizedBox(height: 10),
+          ],
+          ..._members.map((m) {
+            final memberId = m["userId"].toString();
+            final isAdminRole = m["role"] == "admin";
+            final isCreator = idOf(s.company["createdBy"]) == memberId;
+            return ledgerCard(
+              padding: EdgeInsets.zero,
+              child: ListTile(
+                leading: CircleAvatar(backgroundColor: kForest, child: Text((m["name"]?.toString() ?? "M")[0].toUpperCase(), style: const TextStyle(color: Colors.white))),
+                title: Text(m["name"]?.toString() ?? "Member", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
+                subtitle: Text(isCreator ? "Admin · Creator" : (isAdminRole ? "Admin" : "Staff")),
+                trailing: s.isAdmin && !isCreator
+                    ? TextButton(
+                        onPressed: () => _setRole(m, isAdminRole ? "member" : "admin"),
+                        child: Text(isAdminRole ? "Make staff" : "Make admin",
+                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: isAdminRole ? kTerracotta : kForest)),
+                      )
+                    : null,
+              ),
+            );
+          }),
         ],
       ),
     );

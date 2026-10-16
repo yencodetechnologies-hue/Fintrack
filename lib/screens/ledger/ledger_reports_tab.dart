@@ -96,7 +96,7 @@ class _LedgerReportsTabState extends State<LedgerReportsTab> with LedgerAutoRefr
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 decoration: fieldDecoration("Category", icon: Icons.category_rounded),
-                items: ["All", ...kCategories].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                items: <String>{"All", ...kCategories, ...List<String>.from(s.company["customCategories"] ?? const [])}.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (v) {
                   setState(() => _category = v ?? "All");
                   _load();

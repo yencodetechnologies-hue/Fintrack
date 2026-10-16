@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:card/services/expense_company_service.dart';
 import '../config/app_config.dart';
 
 class LedgerService {
@@ -21,7 +22,7 @@ class LedgerService {
     try {
       final res = await http
           .post(Uri.parse(url), headers: {"Content-Type": "application/json"}, body: jsonEncode(body))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 45));
       return _parse(res);
     } catch (e) {
       return {"success": false, "message": "Network error. Check your connection."};
@@ -44,7 +45,13 @@ class LedgerService {
 
   // ---- company context (members, bank accounts) from the existing API ----
   static Future<Map<String, dynamic>> companyDetails(String companyId, String userId) =>
-      _get("$_company/company/$companyId?userId=$userId");
+      ExpenseCompanyService.getCompanyDetails(companyId, userId);
+
+  static Future<Map<String, dynamic>> addMember(String companyId, String userId, String email, String role) =>
+      _post("$_base/companies/$companyId/members", {"userId": userId, "email": email, "role": role});
+
+  static Future<Map<String, dynamic>> setMemberRole(String companyId, String userId, String memberUserId, String role) =>
+      _post("$_base/companies/$companyId/members/$memberUserId/role", {"userId": userId, "role": role});
 
   static Future<Map<String, dynamic>> regenerateJoinCode(String companyId, String userId) =>
       _post("$_company/company/$companyId/regenerate-code", {"userId": userId});
@@ -54,7 +61,13 @@ class LedgerService {
 
   // ---- expenses ----
   static Future<Map<String, dynamic>> expenses(String companyId, String userId) =>
-      _get("$_base/companies/$companyId/expenses?userId=$userId");
+      ExpenseCompanyService.fetchCompanyExpenses(companyId, userId: userId, summary: true, ledgerOnly: true);
+
+  static Future<Map<String, dynamic>> expenseReceipts(String expenseId, String userId) =>
+      _get("$_company/expense/$expenseId/receipts?userId=$userId");
+
+  static Future<Map<String, dynamic>> dashboardExpenses(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/expenses?userId=$userId&summary=1");
 
   static Future<Map<String, dynamic>> createExpense(Map<String, dynamic> body) => _post("$_base/expenses", body);
 
@@ -73,7 +86,6 @@ class LedgerService {
   // ---- money movements ----
   static Future<Map<String, dynamic>> reimburse(Map<String, dynamic> body) => _post("$_base/reimbursements", body);
   static Future<Map<String, dynamic>> lend(Map<String, dynamic> body) => _post("$_base/lend", body);
-  static Future<Map<String, dynamic>> intercompany(Map<String, dynamic> body) => _post("$_base/intercompany", body);
   static Future<Map<String, dynamic>> routed(Map<String, dynamic> body) => _post("$_base/routed-payments", body);
 
   static Future<Map<String, dynamic>> verify(String txId, String userId) =>
@@ -81,6 +93,26 @@ class LedgerService {
 
   static Future<Map<String, dynamic>> reverse(String txId, String userId) =>
       _post("$_base/transactions/$txId/reverse", {"userId": userId});
+
+  static Future<Map<String, dynamic>> loans(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/loans?userId=$userId");
+
+  static Future<Map<String, dynamic>> payerConfirmations(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/payer-confirmations?userId=$userId");
+
+  static Future<Map<String, dynamic>> createLoan(Map<String, dynamic> body) => _post("$_base/loans", body);
+
+  static Future<Map<String, dynamic>> repayLoan(String loanId, Map<String, dynamic> body) =>
+      _post("$_base/loans/$loanId/repay", body);
+
+  static Future<Map<String, dynamic>> settleExpenseGroup(String groupId, Map<String, dynamic> body) =>
+      _post("$_base/groups/$groupId/settle", body);
+
+  static Future<Map<String, dynamic>> confirmPayer(String expenseId, String userId, bool accept, {String? fundId}) =>
+      _post("$_base/expenses/$expenseId/payer-confirmation", {"userId": userId, "accept": accept, if (fundId != null) "fundId": fundId});
+
+  static Future<Map<String, dynamic>> setExpenseVisibility(String expenseId, String userId, List<String> visibleTo) =>
+      _post("$_base/expenses/$expenseId/visibility", {"userId": userId, "visibleTo": visibleTo});
 
   // ---- reads ----
   static Future<Map<String, dynamic>> balances(String companyId, String userId) =>
@@ -107,18 +139,4 @@ class LedgerService {
   static Future<Map<String, dynamic>> updateSettings(String companyId, Map<String, dynamic> body) =>
       _post("$_base/companies/$companyId/settings", body);
 
-  // ---- groups ----
-  static Future<Map<String, dynamic>> groups(String companyId, String userId) =>
-      _get("$_base/companies/$companyId/groups?userId=$userId");
-
-  static Future<Map<String, dynamic>> createGroup(Map<String, dynamic> body) => _post("$_base/groups", body);
-
-  static Future<Map<String, dynamic>> groupDetail(String groupId, String userId) =>
-      _get("$_base/groups/$groupId?userId=$userId");
-
-  static Future<Map<String, dynamic>> addGroupMember(String groupId, String userId, String memberUserId) =>
-      _post("$_base/groups/$groupId/members", {"userId": userId, "memberUserId": memberUserId});
-
-  static Future<Map<String, dynamic>> addGroupNote(String groupId, String userId, String text) =>
-      _post("$_base/groups/$groupId/notes", {"userId": userId, "text": text});
 }

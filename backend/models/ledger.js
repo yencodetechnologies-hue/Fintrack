@@ -20,12 +20,13 @@ accountSchema.index({ companyId: 1, type: 1, bankAccountId: 1, category: 1, user
 const transactionSchema = new Schema(
   {
     companyId: { type: ObjectId, ref: "Company", required: true },
-    type: { type: String, enum: ["admin_paid", "company_paid", "borrowed", "reimburse", "lend", "intercompany", "routed", "reversal"], required: true },
+    type: { type: String, enum: ["admin_paid", "company_paid", "borrowed", "reimburse", "lend", "intercompany", "routed", "loan_repayment", "reversal"], required: true },
     date: { type: Date, default: Date.now },
     memo: { type: String, default: "" },
     method: { type: String, default: "" },
     reference: { type: String, default: "" },
     expenseId: { type: ObjectId, ref: "Expense", default: null },
+    loanId: { type: ObjectId, ref: "CompanyLoan", default: null },
     routeId: { type: String, default: null },
     createdBy: { type: ObjectId, ref: "User", required: true },
     approvedBy: { type: ObjectId, ref: "User", default: null },
@@ -61,6 +62,8 @@ const auditSchema = new Schema(
   },
   { timestamps: { createdAt: "at", updatedAt: false } }
 );
+auditSchema.index({ companyId: 1, at: -1 });
+auditSchema.index({ userId: 1, at: -1 });
 
 module.exports = {
   LedgerAccount: mongoose.model("LedgerAccount", accountSchema),

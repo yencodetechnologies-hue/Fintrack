@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
@@ -106,7 +107,7 @@ class UserStorage {
   }
 
   static Future<void> clearUserId() async {
-    await _unregisterDevice();
+    unawaited(_unregisterDevice());
 
     final prefs =
     await SharedPreferences.getInstance();

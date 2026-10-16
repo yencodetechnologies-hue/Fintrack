@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
+import '../../services/expense_company_service.dart';
 import 'ledger_common.dart';
 import 'ledger_dashboard_tab.dart';
 import 'ledger_expenses_tab.dart';
 import 'ledger_interco_tab.dart';
 import 'ledger_reports_tab.dart';
 import 'ledger_more_tab.dart';
-import 'ledger_groups_tab.dart';
 
 class LedgerHomeScreen extends StatefulWidget {
   final String userId;
@@ -35,19 +35,40 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
   LedgerScope? _scope;
   String? _error;
   int _tab = 0;
-  final _poller = LedgerPoller();
 
   @override
   void initState() {
     super.initState();
+    _hydrateScope();
     _load();
-    _poller.start();
   }
 
-  @override
-  void dispose() {
-    _poller.stop();
-    super.dispose();
+  void _hydrateScope() {
+    final initialCompany = widget.companies.firstWhere(
+      (c) => c["_id"]?.toString() == _companyId,
+      orElse: () => widget.companies.isNotEmpty ? widget.companies.first : <String, dynamic>{},
+    );
+    final cachedDetails = ExpenseCompanyService.getCachedDetails(_companyId, widget.userId);
+    final companyMap = cachedDetails?["company"] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(cachedDetails!["company"])
+        : (initialCompany.isNotEmpty ? Map<String, dynamic>.from(initialCompany) : null);
+
+    if (companyMap != null) {
+      final role = cachedDetails?["currentUserRole"]?.toString() ??
+          initialCompany["userRole"]?.toString() ??
+          "admin";
+      final members = cachedDetails?["members"] is List
+          ? List<Map<String, dynamic>>.from(cachedDetails!["members"])
+          : <Map<String, dynamic>>[];
+      _scope = LedgerScope(
+        userId: widget.userId,
+        userName: widget.userName,
+        company: companyMap,
+        role: role,
+        members: members,
+        reload: _reloadAll,
+      );
+    }
   }
 
   Future<void> _reloadAll() async {
@@ -64,7 +85,9 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
     final details = results[0];
     final balances = results[1];
     if (details["success"] != true) {
-      setState(() => _error = details["message"]?.toString() ?? "Could not load company");
+      if (_scope == null) {
+        setState(() => _error = details["message"]?.toString() ?? "Could not load company");
+      }
       return;
     }
     setState(() {
@@ -83,11 +106,12 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
   void _switchCompany(String id) {
     setState(() {
       _companyId = id;
-      _scope = null;
       _tab = 0;
+      _hydrateScope();
     });
     _load();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -96,8 +120,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
     final tabs = <({IconData icon, String label, Widget Function(LedgerScope) build})>[
       (icon: Icons.home_rounded, label: "Home", build: (s) => LedgerDashboardTab(scope: s, onOpenExpenses: () => setState(() => _tab = 1))),
       (icon: Icons.receipt_long_rounded, label: "Expenses", build: (s) => LedgerExpensesTab(scope: s)),
-      if (adminTabs) (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
-      if (!adminTabs) (icon: Icons.groups_rounded, label: "Groups", build: (s) => LedgerGroupsTab(scope: s)),
+      (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
       if (adminTabs) (icon: Icons.bar_chart_rounded, label: "Reports", build: (s) => LedgerReportsTab(scope: s)),
       (icon: Icons.more_horiz_rounded, label: "More", build: (s) => LedgerMoreTab(scope: s)),
     ];
@@ -124,10 +147,26 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         ),
       ),
       body: _error != null
-          ? Center(child: Text(_error!, style: GoogleFonts.inter(color: Colors.white)))
+          ? Center(child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(_error!, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white)),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text("Try again"),
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white70)),
+                ),
+              ]),
+            ))
           : scope == null
               ? const Center(child: CircularProgressIndicator(color: Colors.white))
-              : KeyedSubtree(key: ValueKey("$_companyId-$tab"), child: tabs[tab].build(scope)),
+              : IndexedStack(
+                  key: ValueKey(_companyId),
+                  index: tab,
+                  children: tabs.map((t) => t.build(scope)).toList(),
+                ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: tab,
         type: BottomNavigationBarType.fixed,

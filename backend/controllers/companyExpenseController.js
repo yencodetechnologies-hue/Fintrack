@@ -1,9 +1,11 @@
+const mongoose = require("mongoose");
 const Company = require("../models/company");
 const CompanyMember = require("../models/companyMember");
 const Expense = require("../models/expense");
 const CompanyIncome = require("../models/companyIncome");
 const Settlement = require("../models/settlement");
 const User = require("../models/user");
+const { ExpenseGroup } = require("../models/expenseGroup");
 
 // Helper to generate a unique 6-digit numeric join code
 const generateJoinCode = async () => {
@@ -17,6 +19,238 @@ const generateJoinCode = async () => {
   return code;
 };
 
+exports.createExpenseGroup = async (req, res) => {
+  try {
+    const { companyId, userId, name, memberIds = [] } = req.body;
+    if (!companyId || !userId || !name || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Company, group name, and creator are required" });
+    }
+
+    const company = await Company.findById(companyId).select("_id");
+    if (!company) return res.status(404).json({ success: false, message: "Company not found" });
+
+    const creatorMembership = await CompanyMember.findOne({ companyId, userId });
+    if (!creatorMembership) return res.status(403).json({ success: false, message: "Only company members can create a group" });
+
+    const selectedIds = [...new Set([userId.toString(), ...(Array.isArray(memberIds) ? memberIds.map(String) : [])])];
+    const validMembers = await CompanyMember.find({ companyId, userId: { $in: selectedIds } }).select("userId").lean();
+    if (validMembers.length !== selectedIds.length) {
+      return res.status(400).json({ success: false, message: "Every group member must belong to the selected company" });
+    }
+
+    const group = await ExpenseGroup.create({
+      companyId,
+      name: name.trim(),
+      createdBy: userId,
+      members: selectedIds,
+    });
+    const created = await ExpenseGroup.findById(group._id)
+      .populate("companyId", "name")
+      .populate("createdBy", "name email")
+      .populate("members", "name email");
+    return res.status(201).json({ success: true, group: created, message: "Group created" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getUserExpenseGroups = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await User.exists({ _id: userId }))) {
+      return res.status(401).json({ success: false, message: "A valid signed-in user is required" });
+    }
+
+    const memberships = await CompanyMember.find({ userId }).select("companyId").lean();
+    const companyIds = memberships.map((membership) => membership.companyId);
+    const groups = await ExpenseGroup.find({
+      $or: [
+        { createdBy: userId },
+        ...(companyIds.length ? [{ companyId: { $in: companyIds }, members: userId }] : []),
+      ],
+    })
+      .populate("companyId", "name")
+      .populate("createdBy", "name")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({ success: true, groups });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+async function getGroupForMember(groupId, userId) {
+  const group = await ExpenseGroup.findById(groupId).lean();
+  if (!group) return { error: { status: 404, message: "Group not found" } };
+  const isMember = String(group.createdBy) === String(userId) || (group.members || []).some((id) => String(id) === String(userId));
+  if (!isMember) return { error: { status: 403, message: "You are not a member of this group" } };
+  return { group };
+}
+
+exports.getGroupExpenses = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: "User ID is required" });
+    const result = await getGroupForMember(req.params.groupId, userId);
+    if (result.error) return res.status(result.error.status).json({ success: false, message: result.error.message });
+    const [group, expenses] = await Promise.all([
+      ExpenseGroup.findById(req.params.groupId)
+        .populate("companyId", "name")
+        .populate("createdBy", "name")
+        .populate("members", "name email")
+        .populate("settlementCompanyId", "name")
+        .populate("settledBy", "name")
+        .lean(),
+      Expense.find({ groupId: req.params.groupId })
+        .select("-attachment -paymentReceipt")
+        .populate("createdBy", "name")
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
+    return res.json({
+      success: true,
+      group,
+      expenses: expenses.map((expense) => ({ ...expense, hasAttachment: Boolean(expense.hasAttachment) })),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getGroupMembers = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: "User ID is required" });
+    const { group, error } = await getGroupForMember(req.params.groupId, userId);
+    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    const currentIds = (group.members || []).map(String);
+    const isGroupAdmin = String(group.createdBy) === String(userId);
+    const [members, admin] = await Promise.all([
+      User.find({ _id: { $in: currentIds } }).select("name email").lean(),
+      User.findById(group.createdBy).select("name email").lean(),
+    ]);
+    let candidates = [];
+    if (isGroupAdmin) {
+      const memberships = await CompanyMember.find({
+        companyId: group.companyId,
+        userId: { $nin: currentIds },
+      }).select("userId role").lean();
+      const candidateUsers = await User.find({ _id: { $in: memberships.map((member) => member.userId) } })
+        .select("name email")
+        .lean();
+      const roleById = new Map(memberships.map((member) => [String(member.userId), member.role]));
+      candidates = candidateUsers.map((candidate) => ({ ...candidate, companyRole: roleById.get(String(candidate._id)) || "member" }));
+    }
+    return res.json({
+      success: true,
+      members,
+      candidates,
+      admin,
+      group: { _id: group._id, name: group.name, createdBy: group.createdBy, settlementStatus: group.settlementStatus },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.addGroupMember = async (req, res) => {
+  try {
+    const { userId, memberId } = req.body;
+    if (!userId || !memberId) return res.status(400).json({ success: false, message: "User and member IDs are required" });
+    const { group, error } = await getGroupForMember(req.params.groupId, userId);
+    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (String(group.createdBy) !== String(userId)) return res.status(403).json({ success: false, message: "Only the group admin can manage members" });
+    if (group.settlementStatus === "settled") return res.status(409).json({ success: false, message: "Members cannot be changed after the group is settled" });
+    if (!(await CompanyMember.exists({ companyId: group.companyId, userId: memberId }))) {
+      return res.status(400).json({ success: false, message: "The person must be a member of the group's company" });
+    }
+    const updated = await ExpenseGroup.findByIdAndUpdate(
+      req.params.groupId,
+      { $addToSet: { members: memberId } },
+      { new: true }
+    ).populate("members", "name email");
+    return res.json({ success: true, group: updated, message: "Member added to group" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.removeGroupMember = async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const { memberId } = req.params;
+    if (!userId) return res.status(400).json({ success: false, message: "User ID is required" });
+    const { group, error } = await getGroupForMember(req.params.groupId, userId);
+    if (error) return res.status(error.status).json({ success: false, message: error.message });
+    if (String(group.createdBy) !== String(userId)) return res.status(403).json({ success: false, message: "Only the group admin can manage members" });
+    if (group.settlementStatus === "settled") return res.status(409).json({ success: false, message: "Members cannot be changed after the group is settled" });
+    if (String(group.createdBy) === String(memberId)) return res.status(400).json({ success: false, message: "The group admin must remain a member" });
+    if (!(group.members || []).some((id) => String(id) === String(memberId))) {
+      return res.status(404).json({ success: false, message: "Group member not found" });
+    }
+    const updated = await ExpenseGroup.findByIdAndUpdate(
+      req.params.groupId,
+      { $pull: { members: memberId } },
+      { new: true }
+    ).populate("members", "name email");
+    return res.json({ success: true, group: updated, message: "Member removed from group" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.createGroupExpense = async (req, res) => {
+  try {
+    const { userId, amount, description, category, date, attachment } = req.body;
+    const value = Number(amount);
+    if (!userId || !(value > 0) || !String(description || "").trim()) {
+      return res.status(400).json({ success: false, message: "User, a positive amount, and description are required" });
+    }
+    const result = await getGroupForMember(req.params.groupId, userId);
+    if (result.error) return res.status(result.error.status).json({ success: false, message: result.error.message });
+    const { group } = result;
+    if (group.settlementStatus === "settled") {
+      return res.status(409).json({ success: false, message: "This group is already settled" });
+    }
+
+    const expense = await Expense.create({
+      companyId: group.companyId,
+      groupId: group._id,
+      createdBy: userId,
+      isAdminCreated: false,
+      amount: value,
+      description: String(description).trim(),
+      category: category || "General",
+      date: date ? new Date(date) : new Date(),
+      attachment: attachment || "",
+      visibleTo: group.members,
+      lifecycle: null,
+      status: "outstanding",
+      logAs: "self",
+      payerType: "unpaid",
+    });
+    return res.status(201).json({
+      success: true,
+      expense: { ...expense.toObject(), attachment: undefined, hasAttachment: Boolean(expense.hasAttachment) },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getGroupExpenseReceipt = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    const result = await getGroupForMember(req.params.groupId, userId);
+    if (result.error) return res.status(result.error.status).json({ success: false, message: result.error.message });
+    const expense = await Expense.findOne({ _id: req.params.expenseId, groupId: req.params.groupId }).select("attachment");
+    if (!expense) return res.status(404).json({ success: false, message: "Group expense not found" });
+    return res.json({ success: true, attachment: expense.attachment || "" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 // 1. Create Company
 exports.createCompany = async (req, res) => {
   try {
@@ -110,6 +344,21 @@ exports.joinCompany = async (req, res) => {
   }
 };
 
+exports.getAllAvailableCompanies = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId || !(await User.exists({ _id: userId }))) {
+      return res.status(401).json({ success: false, message: "A valid signed-in user is required" });
+    }
+    const companies = await Company.find({})
+      .select("name external gstin")
+      .sort({ name: 1 })
+      .lean();
+    return res.status(200).json({ success: true, companies });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 // 3. Get User Companies
 exports.getUserCompanies = async (req, res) => {
   try {
@@ -236,7 +485,7 @@ exports.regenerateJoinCode = async (req, res) => {
     const company = await Company.findByIdAndUpdate(
       companyId,
       { joinCode: newCode, joinCodeCreatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({
@@ -264,7 +513,7 @@ exports.touchJoinCodeTimer = async (req, res) => {
     const company = await Company.findByIdAndUpdate(
       companyId,
       { joinCodeCreatedAt: new Date() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({
@@ -302,8 +551,10 @@ exports.removeMember = async (req, res) => {
 
 // Helper to get all Admin user IDs for a company
 const getCompanyAdminUserIds = async (companyId) => {
-  const company = await Company.findById(companyId);
-  const adminMembers = await CompanyMember.find({ companyId, role: "admin" });
+  const [company, adminMembers] = await Promise.all([
+    Company.findById(companyId).select("createdBy").lean(),
+    CompanyMember.find({ companyId, role: "admin" }).select("userId").lean(),
+  ]);
   const adminUserIds = adminMembers.map((m) => m.userId.toString());
   if (company && company.createdBy) {
     const creatorIdStr = company.createdBy.toString();
@@ -378,78 +629,70 @@ exports.createExpense = async (req, res) => {
 exports.getCompanyExpenses = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { userId } = req.query;
+    const { userId, summary, ledgerOnly } = req.query;
 
-    // Fetch all settlements for company in chronological order
-    const settlements = await Settlement.find({ companyId })
-      .populate("paidBy", "name email")
-      .populate("paidTo", "name email")
-      .sort({ createdAt: 1 });
+    const isLedgerOnly = ledgerOnly === "1";
+    const expenseQuery = { companyId, parentExpenseId: null, groupId: null };
+    if (ledgerOnly === "1") expenseQuery.lifecycle = { $ne: null };
+    const compObjectId = new mongoose.Types.ObjectId(companyId);
+
+    // Parallelize all lookups simultaneously across MongoDB Atlas
+    const [settlements, adminUserIds, requestingUser, expenses] = await Promise.all([
+      isLedgerOnly
+        ? []
+        : Settlement.find({ companyId })
+            .populate("paidBy", "name email")
+            .populate("paidTo", "name email")
+            .sort({ createdAt: 1 })
+            .lean(),
+      getCompanyAdminUserIds(companyId),
+      userId ? User.findById(userId).select("platformRole").lean() : null,
+      Expense.find(expenseQuery)
+        .select("-attachment -paymentReceipt")
+        .populate("createdBy", "name email")
+        .populate("approvedBy", "name email")
+        .populate("paidByAdminId", "name email")
+        .populate("paidByUserId", "name email")
+        .sort({ createdAt: -1 })
+        .lean(),
+    ]);
 
     const settlementsMap = {};
-    settlements.forEach((s) => {
-      const key = s.expenseId.toString();
-      if (!settlementsMap[key]) {
-        settlementsMap[key] = [];
-      }
-      settlementsMap[key].push(s);
-    });
-
-    const adminUserIds = await getCompanyAdminUserIds(companyId);
-    const requestingUserIdStr = userId ? userId.toString() : "";
-    const isRequestingAdmin = adminUserIds.includes(requestingUserIdStr);
-
-    const expenseQuery = { companyId, parentExpenseId: null };
-    if (!isRequestingAdmin) {
-      expenseQuery.$or = [
-        { logAs: "self" },
-        { logAs: { $ne: "company" }, createdBy: { $nin: adminUserIds } }
-      ];
+    if (!isLedgerOnly) {
+      settlements.forEach((s) => {
+        const key = s.expenseId.toString();
+        if (!settlementsMap[key]) {
+          settlementsMap[key] = [];
+        }
+        settlementsMap[key].push(s);
+      });
     }
 
-    const expenses = await Expense.find(expenseQuery)
-      .populate("createdBy", "name email")
-      .sort({ createdAt: -1 });
+    const requestingUserIdStr = userId ? userId.toString() : "";
+    const isRequestingAdmin = adminUserIds.includes(requestingUserIdStr) || requestingUser?.platformRole === "super_admin";
 
     const enrichedExpenses = [];
 
     for (const exp of expenses) {
-      const expSettlements = settlementsMap[exp._id.toString()] || [];
+      const expIdStr = exp._id.toString();
+      const expSettlements = isLedgerOnly ? [] : (settlementsMap[expIdStr] || []);
       const latestSettlement = expSettlements.length > 0 ? expSettlements[expSettlements.length - 1] : null;
       let currentCreditor = exp.createdBy;
       if (latestSettlement && latestSettlement.paidBy) {
         currentCreditor = latestSettlement.paidBy;
       }
 
-      const isPaidOrSettled = exp.status === "paid" || expSettlements.length > 0;
-      const creatorIdStr = exp.createdBy ? exp.createdBy._id.toString() : "";
-
-      // Visibility Rule:
-      // 1. Admin can see ALL expenses without restrictions.
-      // 2. Creator can see their own expense.
-      // 3. Once ANY settlement / payment happens (isPaidOrSettled), restriction lock is disabled & everyone can see it.
-      // 4. If visibleTo is empty/not specified, everyone can see it.
-      // 5. Otherwise, only users explicitly listed in visibleTo can see it.
-      let isVisibleToUser = false;
-
-      if (isRequestingAdmin || !requestingUserIdStr) {
-        isVisibleToUser = true;
-      } else if (creatorIdStr === requestingUserIdStr) {
-        isVisibleToUser = true;
-      } else if (isPaidOrSettled) {
-        isVisibleToUser = true;
-      } else if (!exp.visibleTo || exp.visibleTo.length === 0) {
-        isVisibleToUser = true;
-      } else {
-        const visibleToStrs = exp.visibleTo.map((id) => id.toString());
-        if (visibleToStrs.includes(requestingUserIdStr)) {
-          isVisibleToUser = true;
-        }
-      }
+      const creatorIdStr = exp.createdBy ? (exp.createdBy._id ? exp.createdBy._id.toString() : exp.createdBy.toString()) : "";
+      const adminCreated = exp.isAdminCreated === true ||
+        (exp.isAdminCreated !== false && adminUserIds.includes(creatorIdStr));
+      const isVisibleToUser = isRequestingAdmin || !adminCreated ||
+        (exp.visibleTo || []).some((id) => id.toString() === requestingUserIdStr);
 
       if (isVisibleToUser) {
         enrichedExpenses.push({
-          ...exp._doc,
+          ...exp,
+          hasAttachment: Boolean(exp.hasAttachment),
+          hasPaymentReceipt: Boolean(exp.hasPaymentReceipt),
           settlements: expSettlements,
           settlement: latestSettlement,
           currentCreditor,
@@ -458,6 +701,36 @@ exports.getCompanyExpenses = async (req, res) => {
     }
 
     res.status(200).json({ success: true, expenses: enrichedExpenses });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getExpenseReceipts = async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) return res.status(400).json({ success: false, message: "User ID is required" });
+    const expense = await Expense.findById(req.params.expenseId)
+      .select("companyId createdBy isAdminCreated visibleTo attachment paymentReceipt");
+    if (!expense) return res.status(404).json({ success: false, message: "Expense not found" });
+
+    const company = await Company.findById(expense.companyId).select("createdBy");
+    if (!company) return res.status(404).json({ success: false, message: "Company not found" });
+    const user = await User.findById(userId).select("platformRole");
+    if (!user) return res.status(403).json({ success: false, message: "Not authorized" });
+    const admins = await getCompanyAdminUserIds(expense.companyId);
+    const isAdmin = user.platformRole === "super_admin" || admins.includes(String(userId));
+    const isMember = isAdmin || String(company.createdBy || "") === String(userId) ||
+      !!(await CompanyMember.exists({ companyId: expense.companyId, userId }));
+    if (!isMember) return res.status(403).json({ success: false, message: "Not authorized" });
+
+    const creatorId = String(expense.createdBy);
+    const adminCreated = expense.isAdminCreated === true ||
+      (expense.isAdminCreated !== false && admins.includes(creatorId));
+    if (!isAdmin && adminCreated && !(expense.visibleTo || []).some((id) => id.toString() === String(userId))) {
+      return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+    res.json({ success: true, attachment: expense.attachment, paymentReceipt: expense.paymentReceipt });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -479,6 +752,9 @@ exports.payExpense = async (req, res) => {
     const originalExpense = await Expense.findById(expenseId);
     if (!originalExpense) {
       return res.status(404).json({ success: false, message: "Expense not found" });
+    }
+    if (originalExpense.groupId) {
+      return res.status(403).json({ success: false, message: "Group expenses are settled only when the group is closed" });
     }
 
     if (originalExpense.status === "paid") {
@@ -1107,3 +1383,5 @@ exports.getIncomeHistory = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+

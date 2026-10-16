@@ -11,6 +11,7 @@ class AddExpenseScreen extends StatefulWidget {
   final String companyName;
   final String userId;
   final String userName;
+  final String? groupId;
   final bool isAdmin;
   final String? lockedLogAs;
   final List<String> customCategories;
@@ -25,6 +26,7 @@ class AddExpenseScreen extends StatefulWidget {
     required this.companyName,
     required this.userId,
     required this.userName,
+    this.groupId,
     this.isAdmin = false,
     this.lockedLogAs,
     this.customCategories = const [],
@@ -569,18 +571,29 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     setState(() => _isSaving = true);
 
-    final res = await ExpenseCompanyService.createExpense(
-      companyId: widget.companyId,
-      userId: widget.userId,
-      amount: double.parse(_amountController.text.trim()),
-      description: _descController.text.trim(),
-      category: _selectedCategory,
-      date: _selectedDate,
-      attachment: _base64Image ?? "",
-      logAs: widget.isAdmin ? _logAs : "self",
-      visibleTo: _selectedVisibleUserIds.toList(),
-      fundId: (widget.isAdmin && _logAs == "company") ? _fundId : null,
-    );
+    final amount = double.parse(_amountController.text.trim());
+    final res = widget.groupId == null
+        ? await ExpenseCompanyService.createExpense(
+            companyId: widget.companyId,
+            userId: widget.userId,
+            amount: amount,
+            description: _descController.text.trim(),
+            category: _selectedCategory,
+            date: _selectedDate,
+            attachment: _base64Image ?? "",
+            logAs: widget.isAdmin ? _logAs : "self",
+            visibleTo: _selectedVisibleUserIds.toList(),
+            fundId: (widget.isAdmin && _logAs == "company") ? _fundId : null,
+          )
+        : await ExpenseCompanyService.createGroupExpense(
+            groupId: widget.groupId!,
+            userId: widget.userId,
+            amount: amount,
+            description: _descController.text.trim(),
+            category: _selectedCategory,
+            date: _selectedDate,
+            attachment: _base64Image ?? "",
+          );
 
     if (!mounted) return;
     setState(() => _isSaving = false);
@@ -937,7 +950,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   const SizedBox(height: 14),
 
                   // Visible To Member Selector Dropdown Trigger (Only when logged as Self/User expense)
-                  if (!widget.isAdmin || _logAs == "self") ...[
+                  if (widget.groupId == null && (!widget.isAdmin || _logAs == "self")) ...[
                     Text(
                       "Visible To (Select Members)",
                       style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),

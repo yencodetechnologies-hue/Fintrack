@@ -9,6 +9,7 @@ class ExpenseCompanyService {
   // In-memory cache for instant UI rendering
   static final Map<String, List<Map<String, dynamic>>> _companiesCache = {};
   static final Map<String, List<Map<String, dynamic>>> _expensesCache = {};
+  static final Map<String, List<Map<String, dynamic>>> _ledgerExpensesCache = {};
   static final Map<String, Map<String, dynamic>> _summaryCache = {};
   static final Map<String, Map<String, dynamic>> _detailsCache = {};
 
@@ -65,6 +66,50 @@ class ExpenseCompanyService {
 
   static List<Map<String, dynamic>>? getCachedExpenses(String companyId) =>
       _expensesCache[companyId];
+
+  static List<Map<String, dynamic>>? getCachedLedgerExpenses(String companyId) =>
+      _ledgerExpensesCache[companyId];
+
+  static void updateCachedExpenseLifecycle(
+    String companyId,
+    String expenseId,
+    dynamic lifecycle, {
+    dynamic approvedBy,
+  }) {
+    for (final cache in [_ledgerExpensesCache, _expensesCache]) {
+      final list = cache[companyId];
+      if (list != null) {
+        for (var exp in list) {
+          if (_extractId(exp["_id"]) == expenseId) {
+            exp["lifecycle"] = lifecycle;
+            if (approvedBy != null) exp["approvedBy"] = approvedBy;
+          }
+        }
+      }
+    }
+  }
+
+  static void removeCachedExpense(String companyId, String expenseId) {
+    for (final cache in [_ledgerExpensesCache, _expensesCache]) {
+      final list = cache[companyId];
+      if (list != null) {
+        list.removeWhere((exp) => _extractId(exp["_id"]) == expenseId);
+      }
+    }
+  }
+
+  static void insertCachedExpense(String companyId, int index, Map<String, dynamic> item) {
+    for (final cache in [_ledgerExpensesCache, _expensesCache]) {
+      final list = cache[companyId];
+      if (list != null) {
+        if (index >= 0 && index <= list.length) {
+          list.insert(index, item);
+        } else {
+          list.add(item);
+        }
+      }
+    }
+  }
 
   static List<Map<String, dynamic>>? getCachedCompanies(String userId) =>
       _companiesCache[userId];
@@ -189,6 +234,19 @@ class ExpenseCompanyService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getAllAvailableCompanies(String userId) async {
+    try {
+      final res = await http.get(Uri.parse("$_base/companies?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = _parseResponse(res);
+        if (data["success"] == true && data["companies"] is List) {
+          return List<Map<String, dynamic>>.from(data["companies"]);
+        }
+      }
+    } catch (_) {}
+    return <Map<String, dynamic>>[];
+  }
   // 4. Get Company Details & Members
   static Future<Map<String, dynamic>> getCompanyDetails(String companyId, String userId) async {
     try {
@@ -416,31 +474,193 @@ class ExpenseCompanyService {
     }
   }
 
-  // 8. Get Company Expenses (Feed)
-  static Future<List<Map<String, dynamic>>> getCompanyExpenses(String companyId, {String? userId}) async {
-    await _loadPrefs();
+  static Future<Map<String, dynamic>> createExpenseGroup({
+    required String companyId,
+    required String userId,
+    required String name,
+    required List<String> memberIds,
+  }) async {
     try {
-      final url = userId != null && userId.isNotEmpty
-          ? "$_base/company/$companyId/expenses?userId=$userId"
-          : "$_base/company/$companyId/expenses";
+      final res = await http.post(
+        Uri.parse("$_base/groups"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "companyId": companyId,
+          "userId": userId,
+          "name": name,
+          "memberIds": memberIds,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getUserExpenseGroups(String userId) async {
+    try {
+      final res = await http
+          .get(Uri.parse("$_base/groups?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getGroupExpenses({
+    required String groupId,
+    required String userId,
+  }) async {
+    try {
+      final res = await http
+          .get(Uri.parse("$_base/groups/$groupId/expenses?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getGroupMembers({
+    required String groupId,
+    required String userId,
+  }) async {
+    try {
+      final res = await http
+          .get(Uri.parse("$_base/groups/$groupId/members?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> addGroupMember({
+    required String groupId,
+    required String userId,
+    required String memberId,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse("$_base/groups/$groupId/members"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"userId": userId, "memberId": memberId}),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> removeGroupMember({
+    required String groupId,
+    required String userId,
+    required String memberId,
+  }) async {
+    try {
+      final res = await http
+          .delete(
+            Uri.parse("$_base/groups/$groupId/members/$memberId"),
+            headers: {"Content-Type": "application/json"},
+            body: jsonEncode({"userId": userId}),
+          )
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> createGroupExpense({
+    required String groupId,
+    required String userId,
+    required double amount,
+    required String description,
+    required String category,
+    required DateTime date,
+    String? attachment,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$_base/groups/$groupId/expenses"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "amount": amount,
+          "description": description,
+          "category": category,
+          "date": date.toIso8601String(),
+          "attachment": attachment ?? "",
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getGroupExpenseReceipt({
+    required String groupId,
+    required String expenseId,
+    required String userId,
+  }) async {
+    try {
+      final res = await http
+          .get(Uri.parse("$_base/groups/$groupId/expenses/$expenseId/receipt?userId=$userId"))
+          .timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  // 8. Get Company Expenses (Feed)
+  static Future<Map<String, dynamic>> fetchCompanyExpenses(
+    String companyId, {
+    String? userId,
+    bool summary = false,
+    bool ledgerOnly = false,
+  }) async {
+    await _loadPrefs();
+    final cache = summary ? _ledgerExpensesCache : _expensesCache;
+    try {
+      final params = <String>[];
+      if (userId != null && userId.isNotEmpty) params.add("userId=$userId");
+      if (summary) params.add("summary=1");
+      if (ledgerOnly) params.add("ledgerOnly=1");
+      final query = params.isEmpty ? "" : "?${params.join("&")}";
+      final url = "$_base/company/$companyId/expenses$query";
       final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200) {
         final data = _parseResponse(res);
         if (data["success"] == true && data["expenses"] is List) {
           final list = List<Map<String, dynamic>>.from(data["expenses"]);
           _applyLocalStatusOverrides(list);
-          _expensesCache[companyId] = list;
-          return list;
+          cache[companyId] = list;
+          return {...data, "expenses": list};
         }
+        if (data["success"] != true) return data;
       }
-      final cached = _expensesCache[companyId] ?? [];
+      final cached = cache[companyId] ?? [];
       _applyLocalStatusOverrides(cached);
-      return cached;
-    } catch (_) {
-      final cached = _expensesCache[companyId] ?? [];
+      if (cached.isNotEmpty) return {"success": true, "expenses": cached, "fromCache": true};
+      return {"success": false, "message": "Could not load company expenses"};
+    } catch (e) {
+      final cached = cache[companyId] ?? [];
       _applyLocalStatusOverrides(cached);
-      return cached;
+      if (cached.isNotEmpty) return {"success": true, "expenses": cached, "fromCache": true};
+      return {"success": false, "message": "Network error while loading expenses: $e"};
     }
+  }
+
+  static Future<List<Map<String, dynamic>>> getCompanyExpenses(String companyId, {String? userId}) async {
+    final response = await fetchCompanyExpenses(companyId, userId: userId);
+    return response["expenses"] is List
+        ? List<Map<String, dynamic>>.from(response["expenses"])
+        : <Map<String, dynamic>>[];
   }
 
   // 9. Pay Expense Flow (§7.1)
@@ -612,6 +832,18 @@ class ExpenseCompanyService {
         }
       }
     });
+    _ledgerExpensesCache.forEach((companyId, list) {
+      for (var exp in list) {
+        if (_extractId(exp["_id"]) == expenseId) {
+          exp["status"] = newStatus;
+          exp["manuallyReopened"] = true;
+          if (newStatus == "outstanding") {
+            exp["settlements"] = [];
+            exp["settlement"] = null;
+          }
+        }
+      }
+    });
   }
 
   // 12. Reset Expense to Unpaid / Change Status
@@ -688,6 +920,7 @@ class ExpenseCompanyService {
     await _savePrefs();
 
     _expensesCache.remove(companyId);
+    _ledgerExpensesCache.remove(companyId);
     _companiesCache.forEach((uId, list) {
       list.removeWhere((c) => _extractId(c["_id"]) == targetCompId);
     });
@@ -729,6 +962,9 @@ class ExpenseCompanyService {
     _expensesCache.forEach((compKey, list) {
       list.removeWhere((exp) => _extractId(exp["_id"]) == targetId);
     });
+    _ledgerExpensesCache.forEach((compKey, list) {
+      list.removeWhere((exp) => _extractId(exp["_id"]) == targetId);
+    });
 
     try {
       final res = await http.post(
@@ -748,3 +984,5 @@ class ExpenseCompanyService {
     }
   }
 }
+
+

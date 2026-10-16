@@ -1,7 +1,6 @@
-import 'dart:async';
 import 'package:flutter/widgets.dart';
 
-/// Fires whenever ledger data may have changed (poll tick, push notification, or a local action).
+/// Fires when the server sends a ledger change event.
 final ValueNotifier<int> ledgerChanged = ValueNotifier<int>(0);
 
 void notifyLedgerChanged() => ledgerChanged.value++;
@@ -25,16 +24,4 @@ mixin LedgerAutoRefresh<T extends StatefulWidget> on State<T> {
     ledgerChanged.removeListener(_listener);
     super.dispose();
   }
-}
-
-/// Polls while a ledger screen is open; the home screen owns one of these.
-class LedgerPoller {
-  Timer? _timer;
-
-  void start({Duration every = const Duration(seconds: 5)}) {
-    _timer?.cancel();
-    _timer = Timer.periodic(every, (_) => notifyLedgerChanged());
-  }
-
-  void stop() => _timer?.cancel();
 }

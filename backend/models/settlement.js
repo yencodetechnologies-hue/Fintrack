@@ -62,4 +62,8 @@ const settlementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+settlementSchema.index({ companyId: 1 });
+settlementSchema.index({ expenseId: 1 });
+
 module.exports = mongoose.model("Settlement", settlementSchema);
+

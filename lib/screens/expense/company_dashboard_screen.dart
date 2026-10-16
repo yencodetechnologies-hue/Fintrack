@@ -47,6 +47,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   String _viewMode = "company"; // admin only: "company" or "self"
 
   bool _isLoading = true;
+  bool _refreshInProgress = false;
   List<Map<String, dynamic>> _expenses = [];
   final Set<String> _expandedExpenseIds = {};
   double _totalReceivable = 0.0;
@@ -67,30 +68,37 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     _selectedCompanyId = widget.initialCompanyId;
 
     // Hydrate cached data synchronously for instantaneous 0ms display
-    final cachedExpenses = ExpenseCompanyService.getCachedExpenses(_selectedCompanyId);
+    final cachedExpenses =
+        ExpenseCompanyService.getCachedExpenses(_selectedCompanyId);
     if (cachedExpenses != null && cachedExpenses.isNotEmpty) {
       _expenses = List.from(cachedExpenses);
       _isLoading = false;
     }
-    final cachedSummary = ExpenseCompanyService.getCachedSummary(_selectedCompanyId, widget.userId);
+    final cachedSummary = ExpenseCompanyService.getCachedSummary(
+        _selectedCompanyId, widget.userId);
     if (cachedSummary != null) {
-      _totalReceivable = (cachedSummary["totalReceivable"] as num?)?.toDouble() ?? 0.0;
-      _totalPayable = (cachedSummary["totalPayable"] as num?)?.toDouble() ?? 0.0;
-      _totalCompanySpent = (cachedSummary["totalCompanySpent"] as num?)?.toDouble() ?? 0.0;
+      _totalReceivable =
+          (cachedSummary["totalReceivable"] as num?)?.toDouble() ?? 0.0;
+      _totalPayable =
+          (cachedSummary["totalPayable"] as num?)?.toDouble() ?? 0.0;
+      _totalCompanySpent =
+          (cachedSummary["totalCompanySpent"] as num?)?.toDouble() ?? 0.0;
       _netBalance = (cachedSummary["netBalance"] as num?)?.toDouble() ?? 0.0;
       _isLoading = false;
     }
-    final cachedDetails = ExpenseCompanyService.getCachedDetails(_selectedCompanyId, widget.userId);
+    final cachedDetails = ExpenseCompanyService.getCachedDetails(
+        _selectedCompanyId, widget.userId);
     if (cachedDetails != null && cachedDetails["success"] == true) {
       _currentCompany = cachedDetails["company"];
-      _companyMembers = List<Map<String, dynamic>>.from(cachedDetails["members"] ?? []);
+      _companyMembers =
+          List<Map<String, dynamic>>.from(cachedDetails["members"] ?? []);
       _currentUserRole = cachedDetails["currentUserRole"] ?? "member";
     }
 
     _refreshDashboard(showLoading: _expenses.isEmpty);
 
-    // Auto-refresh silently every 5 seconds in background so changes from backend update immediately
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+    // Refresh periodically without stacking requests if the connection is slow.
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted && !_isLoading) {
         _refreshDashboard(showLoading: false);
       }
@@ -109,14 +117,19 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   bool get _showCompanyTotals => _isAdmin && _viewMode == "company";
 
   List<String> get _savedCustomCategories =>
-      ((_currentCompany?["customCategories"] as List?) ?? const []).map((e) => e.toString()).toList();
+      ((_currentCompany?["customCategories"] as List?) ?? const [])
+          .map((e) => e.toString())
+          .toList();
 
   List<Map<String, dynamic>> get _filteredExpenses {
     final list = _expenses.where((exp) {
       if (_isAdmin && _viewMode == "self") {
-        final logAs = (exp["logAs"] ?? (exp["status"] == "paid" ? "company" : "self")).toString();
+        final logAs =
+            (exp["logAs"] ?? (exp["status"] == "paid" ? "company" : "self"))
+                .toString();
         final creator = exp["createdBy"];
-        final creatorId = creator is Map ? creator["_id"]?.toString() : creator?.toString();
+        final creatorId =
+            creator is Map ? creator["_id"]?.toString() : creator?.toString();
         if (logAs != "self" || creatorId != widget.userId) return false;
       }
 
@@ -124,9 +137,14 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         final query = _searchQuery.trim().toLowerCase();
         final desc = (exp["description"] ?? "").toString().toLowerCase();
         final cat = (exp["category"] ?? "").toString().toLowerCase();
-        final creator = exp["createdBy"] != null ? (exp["createdBy"]["name"] ?? "").toString().toLowerCase() : "";
+        final creator = exp["createdBy"] != null
+            ? (exp["createdBy"]["name"] ?? "").toString().toLowerCase()
+            : "";
         final amountStr = exp["amount"] != null ? exp["amount"].toString() : "";
-        if (!desc.contains(query) && !cat.contains(query) && !creator.contains(query) && !amountStr.contains(query)) {
+        if (!desc.contains(query) &&
+            !cat.contains(query) &&
+            !creator.contains(query) &&
+            !amountStr.contains(query)) {
           return false;
         }
       }
@@ -146,8 +164,15 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         final expDateRaw = exp["date"] ?? exp["createdAt"];
         if (expDateRaw != null) {
           final expDate = DateTime.parse(expDateRaw.toString());
-          final start = DateTime(_selectedDateRange!.start.year, _selectedDateRange!.start.month, _selectedDateRange!.start.day);
-          final end = DateTime(_selectedDateRange!.end.year, _selectedDateRange!.end.month, _selectedDateRange!.end.day, 23, 59, 59);
+          final start = DateTime(_selectedDateRange!.start.year,
+              _selectedDateRange!.start.month, _selectedDateRange!.start.day);
+          final end = DateTime(
+              _selectedDateRange!.end.year,
+              _selectedDateRange!.end.month,
+              _selectedDateRange!.end.day,
+              23,
+              59,
+              59);
           if (expDate.isBefore(start) || expDate.isAfter(end)) {
             return false;
           }
@@ -160,8 +185,12 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     list.sort((a, b) {
       final aDateRaw = a["createdAt"] ?? a["date"];
       final bDateRaw = b["createdAt"] ?? b["date"];
-      final aDate = aDateRaw != null ? DateTime.tryParse(aDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
-      final bDate = bDateRaw != null ? DateTime.tryParse(bDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
+      final aDate = aDateRaw != null
+          ? DateTime.tryParse(aDateRaw.toString()) ?? DateTime(1970)
+          : DateTime(1970);
+      final bDate = bDateRaw != null
+          ? DateTime.tryParse(bDateRaw.toString()) ?? DateTime(1970)
+          : DateTime(1970);
       return bDate.compareTo(aDate);
     });
 
@@ -184,7 +213,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     if (_currentCompany != null) {
       final creatorId = _currentCompany!["createdBy"];
       if (creatorId != null) {
-        if (creatorId is Map && creatorId["_id"]?.toString() == widget.userId) return true;
+        if (creatorId is Map && creatorId["_id"]?.toString() == widget.userId)
+          return true;
         if (creatorId.toString() == widget.userId) return true;
       }
     }
@@ -192,6 +222,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   }
 
   Future<void> _refreshDashboard({bool showLoading = false}) async {
+    if (_refreshInProgress) return;
+    _refreshInProgress = true;
     if (showLoading) {
       setState(() => _isLoading = true);
     }
@@ -200,8 +232,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       // Execute all dashboard requests concurrently in parallel using Future.wait
       final results = await Future.wait([
         ExpenseCompanyService.getUserCompanies(widget.userId),
-        ExpenseCompanyService.getCompanyDetails(_selectedCompanyId, widget.userId),
-        ExpenseCompanyService.getCompanyExpenses(_selectedCompanyId, userId: widget.userId),
+        ExpenseCompanyService.getCompanyDetails(
+            _selectedCompanyId, widget.userId),
+        ExpenseCompanyService.getCompanyExpenses(_selectedCompanyId,
+            userId: widget.userId),
         ExpenseCompanyService.getCompanyBalanceSummary(
           companyId: _selectedCompanyId,
           userId: widget.userId,
@@ -215,14 +249,16 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
       if (updatedCompanies.isNotEmpty) {
         _userCompanies = updatedCompanies;
-        if (!_userCompanies.any((c) => c["_id"].toString() == _selectedCompanyId)) {
+        if (!_userCompanies
+            .any((c) => c["_id"].toString() == _selectedCompanyId)) {
           _selectedCompanyId = _userCompanies.first["_id"].toString();
         }
       }
 
       if (detailsRes["success"] == true) {
         _currentCompany = detailsRes["company"];
-        _companyMembers = List<Map<String, dynamic>>.from(detailsRes["members"] ?? []);
+        _companyMembers =
+            List<Map<String, dynamic>>.from(detailsRes["members"] ?? []);
         _currentUserRole = detailsRes["currentUserRole"] ?? "member";
       }
 
@@ -230,14 +266,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
       setState(() {
         _expenses = expensesList;
-        _totalReceivable = (summaryRes["totalReceivable"] as num?)?.toDouble() ?? 0.0;
+        _totalReceivable =
+            (summaryRes["totalReceivable"] as num?)?.toDouble() ?? 0.0;
         _totalPayable = (summaryRes["totalPayable"] as num?)?.toDouble() ?? 0.0;
-        _totalCompanySpent = (summaryRes["totalCompanySpent"] as num?)?.toDouble() ?? 0.0;
+        _totalCompanySpent =
+            (summaryRes["totalCompanySpent"] as num?)?.toDouble() ?? 0.0;
         _netBalance = (summaryRes["netBalance"] as num?)?.toDouble() ?? 0.0;
       });
     } catch (_) {
       // Ignore exception to let finally block clear loading indicator
     } finally {
+      _refreshInProgress = false;
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -285,7 +324,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.tune_rounded, color: forestDark, size: 20),
+                          const Icon(Icons.tune_rounded,
+                              color: forestDark, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             "Filter Expenses",
@@ -396,8 +436,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                           isSelected: _isPresetActive("week"),
                           onTap: () {
                             final now = DateTime.now();
-                            final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-                            final range = DateTimeRange(start: startOfWeek, end: now);
+                            final startOfWeek =
+                                now.subtract(Duration(days: now.weekday - 1));
+                            final range =
+                                DateTimeRange(start: startOfWeek, end: now);
                             setState(() => _selectedDateRange = range);
                             setModalState(() {});
                           },
@@ -408,8 +450,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                           isSelected: _isPresetActive("month"),
                           onTap: () {
                             final now = DateTime.now();
-                            final startOfMonth = DateTime(now.year, now.month, 1);
-                            final range = DateTimeRange(start: startOfMonth, end: now);
+                            final startOfMonth =
+                                DateTime(now.year, now.month, 1);
+                            final range =
+                                DateTimeRange(start: startOfMonth, end: now);
                             setState(() => _selectedDateRange = range);
                             setModalState(() {});
                           },
@@ -420,8 +464,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                           isSelected: _isPresetActive("30days"),
                           onTap: () {
                             final now = DateTime.now();
-                            final start30 = now.subtract(const Duration(days: 30));
-                            final range = DateTimeRange(start: start30, end: now);
+                            final start30 =
+                                now.subtract(const Duration(days: 30));
+                            final range =
+                                DateTimeRange(start: start30, end: now);
                             setState(() => _selectedDateRange = range);
                             setModalState(() {});
                           },
@@ -453,8 +499,12 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                               ),
                               appBarTheme: AppBarTheme(
                                 backgroundColor: forestDark,
-                                iconTheme: const IconThemeData(color: Colors.white),
-                                titleTextStyle: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                                iconTheme:
+                                    const IconThemeData(color: Colors.white),
+                                titleTextStyle: GoogleFonts.fraunces(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                             child: child!,
@@ -468,12 +518,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                     },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: _selectedDateRange != null ? forestDark.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                        color: _selectedDateRange != null
+                            ? forestDark.withValues(alpha: 0.08)
+                            : const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _selectedDateRange != null ? forestDark : const Color(0xFFE2E8F0),
+                          color: _selectedDateRange != null
+                              ? forestDark
+                              : const Color(0xFFE2E8F0),
                         ),
                       ),
                       child: Row(
@@ -484,7 +539,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                               Icon(
                                 Icons.calendar_today_rounded,
                                 size: 16,
-                                color: _selectedDateRange != null ? forestDark : darkText.withValues(alpha: 0.6),
+                                color: _selectedDateRange != null
+                                    ? forestDark
+                                    : darkText.withValues(alpha: 0.6),
                               ),
                               const SizedBox(width: 10),
                               Text(
@@ -492,8 +549,12 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                     ? "${DateFormat('dd MMM yyyy').format(_selectedDateRange!.start)}  →  ${DateFormat('dd MMM yyyy').format(_selectedDateRange!.end)}"
                                     : "Pick Custom Date Range...",
                                 style: GoogleFonts.inter(
-                                  color: _selectedDateRange != null ? forestDark : darkText,
-                                  fontWeight: _selectedDateRange != null ? FontWeight.bold : FontWeight.w500,
+                                  color: _selectedDateRange != null
+                                      ? forestDark
+                                      : darkText,
+                                  fontWeight: _selectedDateRange != null
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
                                   fontSize: 13,
                                 ),
                               ),
@@ -505,10 +566,13 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                 setState(() => _selectedDateRange = null);
                                 setModalState(() {});
                               },
-                              child: const Icon(Icons.close_rounded, size: 16, color: terracotta),
+                              child: const Icon(Icons.close_rounded,
+                                  size: 16, color: terracotta),
                             )
                           else
-                            Icon(Icons.chevron_right_rounded, size: 18, color: darkText.withValues(alpha: 0.4)),
+                            Icon(Icons.chevron_right_rounded,
+                                size: 18,
+                                color: darkText.withValues(alpha: 0.4)),
                         ],
                       ),
                     ),
@@ -538,7 +602,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                           badgeColor: forestDark,
                           onTap: () {
                             setState(() {
-                              _selectedCategoryFilter = isSelected ? "All" : cat;
+                              _selectedCategoryFilter =
+                                  isSelected ? "All" : cat;
                             });
                             setModalState(() {});
                           },
@@ -556,12 +621,16 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       onPressed: () => Navigator.pop(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: forestDark,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
                       child: Text(
                         "Apply Filters",
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -579,8 +648,10 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     if (_selectedDateRange == null) return false;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final start = DateTime(_selectedDateRange!.start.year, _selectedDateRange!.start.month, _selectedDateRange!.start.day);
-    final end = DateTime(_selectedDateRange!.end.year, _selectedDateRange!.end.month, _selectedDateRange!.end.day);
+    final start = DateTime(_selectedDateRange!.start.year,
+        _selectedDateRange!.start.month, _selectedDateRange!.start.day);
+    final end = DateTime(_selectedDateRange!.end.year,
+        _selectedDateRange!.end.month, _selectedDateRange!.end.day);
 
     if (type == "today") {
       return start == today && end == today;
@@ -636,10 +707,13 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? (badgeColor ?? forestDark) : const Color(0xFFF1F5F9),
+          color:
+              isSelected ? (badgeColor ?? forestDark) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? (badgeColor ?? forestDark) : const Color(0xFFE2E8F0),
+            color: isSelected
+                ? (badgeColor ?? forestDark)
+                : const Color(0xFFE2E8F0),
           ),
         ),
         child: Text(
@@ -656,14 +730,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   Widget _editFieldLabel(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
-        child: Text(text, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13)),
+        child: Text(text,
+            style: GoogleFonts.inter(
+                color: darkText, fontWeight: FontWeight.bold, fontSize: 13)),
       );
 
   InputDecoration _editFieldDecoration(IconData icon) => InputDecoration(
         prefixIcon: Icon(icon, size: 18, color: forestDark),
         filled: true,
         fillColor: const Color(0xFFF8FAFC),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
@@ -679,12 +756,28 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       );
 
   Future<void> _openEditExpenseDialog(Map<String, dynamic> expense) async {
-    final amountCtrl = TextEditingController(text: (expense["amount"] as num?)?.toString() ?? "");
-    final descCtrl = TextEditingController(text: expense["description"]?.toString() ?? "");
-    const baseCategories = ["General", "Food & Dining", "Travel & Transport", "Office Supplies", "Utilities", "Software & Tech", "Other"];
+    final amountCtrl = TextEditingController(
+        text: (expense["amount"] as num?)?.toString() ?? "");
+    final descCtrl =
+        TextEditingController(text: expense["description"]?.toString() ?? "");
+    const baseCategories = [
+      "General",
+      "Food & Dining",
+      "Travel & Transport",
+      "Office Supplies",
+      "Utilities",
+      "Software & Tech",
+      "Other"
+    ];
     String category = expense["category"]?.toString() ?? "General";
-    final categoryOptions = <String>{...baseCategories, ..._savedCustomCategories, category}.toList();
-    DateTime date = DateTime.tryParse((expense["date"] ?? "").toString())?.toLocal() ?? DateTime.now();
+    final categoryOptions = <String>{
+      ...baseCategories,
+      ..._savedCustomCategories,
+      category
+    }.toList();
+    DateTime date =
+        DateTime.tryParse((expense["date"] ?? "").toString())?.toLocal() ??
+            DateTime.now();
     bool saving = false;
 
     final saved = await showDialog<bool>(
@@ -692,8 +785,11 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text("Edit Expense", style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text("Edit Expense",
+              style: GoogleFonts.fraunces(
+                  color: darkText, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -702,15 +798,19 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 _editFieldLabel("Amount (₹)"),
                 TextField(
                   controller: amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
-                  decoration: _editFieldDecoration(Icons.currency_rupee_rounded),
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  style: GoogleFonts.inter(
+                      color: darkText, fontWeight: FontWeight.w600),
+                  decoration:
+                      _editFieldDecoration(Icons.currency_rupee_rounded),
                 ),
                 const SizedBox(height: 14),
                 _editFieldLabel("Description"),
                 TextField(
                   controller: descCtrl,
-                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                  style: GoogleFonts.inter(
+                      color: darkText, fontWeight: FontWeight.w600),
                   decoration: _editFieldDecoration(Icons.notes_rounded),
                 ),
                 const SizedBox(height: 14),
@@ -719,11 +819,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                   initialValue: category,
                   isExpanded: true,
                   dropdownColor: Colors.white,
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded, color: forestDark),
-                  style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600, fontSize: 14),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: forestDark),
+                  style: GoogleFonts.inter(
+                      color: darkText,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14),
                   decoration: _editFieldDecoration(Icons.category_rounded),
                   items: categoryOptions
-                      .map((c) => DropdownMenuItem<String>(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
+                      .map((c) => DropdownMenuItem<String>(
+                          value: c,
+                          child: Text(c, overflow: TextOverflow.ellipsis)))
                       .toList(),
                   onChanged: (v) {
                     if (v != null) setDialogState(() => category = v);
@@ -743,10 +849,12 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                     if (picked != null) setDialogState(() => date = picked);
                   },
                   child: InputDecorator(
-                    decoration: _editFieldDecoration(Icons.calendar_today_rounded),
+                    decoration:
+                        _editFieldDecoration(Icons.calendar_today_rounded),
                     child: Text(
                       DateFormat("dd MMM yyyy").format(date),
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(
+                          color: darkText, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
@@ -755,19 +863,29 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           ),
           actions: [
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: darkText.withValues(alpha: 0.7)),
+              style: TextButton.styleFrom(
+                  foregroundColor: darkText.withValues(alpha: 0.7)),
               onPressed: saving ? null : () => Navigator.pop(ctx, false),
-              child: Text("Cancel", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+              child: Text("Cancel",
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: forestDark, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: forestDark,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12))),
               onPressed: saving
                   ? null
                   : () async {
                       final amount = double.tryParse(amountCtrl.text.trim());
-                      if (amount == null || amount <= 0 || descCtrl.text.trim().isEmpty) {
+                      if (amount == null ||
+                          amount <= 0 ||
+                          descCtrl.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Enter a valid amount and description")),
+                          const SnackBar(
+                              content:
+                                  Text("Enter a valid amount and description")),
                         );
                         return;
                       }
@@ -786,11 +904,14 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       } else {
                         setDialogState(() => saving = false);
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(res["message"]?.toString() ?? "Failed to update expense")),
+                          SnackBar(
+                              content: Text(res["message"]?.toString() ??
+                                  "Failed to update expense")),
                         );
                       }
                     },
-              child: Text("Save", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+              child: Text("Save",
+                  style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -804,7 +925,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   String _settlementPayerName(dynamic s) {
     if (s == null) return "";
-    if (s["paidAs"] == "company") return _currentCompany?["name"]?.toString() ?? "Company";
+    if (s["paidAs"] == "company")
+      return _currentCompany?["name"]?.toString() ?? "Company";
     return s["paidBy"] != null ? s["paidBy"]["name"] ?? "Member" : "Member";
   }
 
@@ -837,7 +959,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: PayExpenseModal(
             expense: expense,
             userId: widget.userId,
@@ -861,7 +984,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
           child: ReceivedExpenseModal(
             expense: expense,
             userId: widget.userId,
@@ -875,13 +999,16 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
     }
   }
 
-  Future<void> _changeExpenseStatus(Map<String, dynamic> expense, String targetStatus) async {
+  Future<void> _changeExpenseStatus(
+      Map<String, dynamic> expense, String targetStatus) async {
     final bool isTargetPaid = targetStatus == "paid";
-    final String title = isTargetPaid ? "Mark Expense as Paid?" : "Change Status to Unpaid?";
+    final String title =
+        isTargetPaid ? "Mark Expense as Paid?" : "Change Status to Unpaid?";
     final String contentMsg = isTargetPaid
         ? "This expense will be marked as Paid (Settled).\n\nAre you sure you want to proceed?"
         : "This expense will be reset to Outstanding (Unpaid) status, and any existing settlement history for this expense will be cleared.\n\nAre you sure you want to proceed?";
-    final String confirmBtnText = isTargetPaid ? "Mark as Paid" : "Reset to Unpaid";
+    final String confirmBtnText =
+        isTargetPaid ? "Mark as Paid" : "Reset to Unpaid";
 
     final bool? confirm = await showDialog<bool>(
       context: context,
@@ -890,18 +1017,23 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           title,
-          style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
+          style: GoogleFonts.fraunces(
+              color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         content: Text(
           contentMsg,
-          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.8), fontSize: 14, height: 1.4),
+          style: GoogleFonts.inter(
+              color: darkText.withValues(alpha: 0.8),
+              fontSize: 14,
+              height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               "Cancel",
-              style: GoogleFonts.inter(color: Colors.grey[700], fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(
+                  color: Colors.grey[700], fontWeight: FontWeight.bold),
             ),
           ),
           ElevatedButton(
@@ -911,9 +1043,11 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
               foregroundColor: Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
-            child: Text(confirmBtnText, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            child: Text(confirmBtnText,
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -940,12 +1074,16 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isTargetPaid ? "Expense status changed to Paid (Settled)" : "Expense status changed to Unpaid (Outstanding)",
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+            isTargetPaid
+                ? "Expense status changed to Paid (Settled)"
+                : "Expense status changed to Unpaid (Outstanding)",
+            style: GoogleFonts.inter(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
           backgroundColor: forestDark,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       _refreshDashboard(showLoading: false);
@@ -954,17 +1092,20 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         SnackBar(
           content: Text(
             res["message"] ?? "Failed to update expense status",
-            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
+            style: GoogleFonts.inter(
+                color: Colors.white, fontWeight: FontWeight.bold),
           ),
           backgroundColor: terracotta,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
   }
 
-  Future<void> _openEditPaymentModal(Map<String, dynamic> expense, Map<String, dynamic>? existingSettlement) async {
+  Future<void> _openEditPaymentModal(Map<String, dynamic> expense,
+      Map<String, dynamic>? existingSettlement) async {
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -980,7 +1121,6 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       _refreshDashboard(showLoading: false);
     }
   }
-
 
   Widget _buildImageWidget(String imageStr) {
     if (imageStr.isEmpty) return const SizedBox.shrink();
@@ -1035,33 +1175,41 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.delete_outline_rounded, color: terracotta, size: 24),
+            const Icon(Icons.delete_outline_rounded,
+                color: terracotta, size: 24),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 "Delete Expense",
-                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
+                style: GoogleFonts.inter(
+                    color: darkText, fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
           ],
         ),
         content: Text(
           "Are you sure you want to permanently delete \"$desc\"? This will remove all associated payment settlements and cannot be undone.",
-          style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
+          style:
+              GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text("Cancel", style: GoogleFonts.inter(color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+            child: Text("Cancel",
+                style: GoogleFonts.inter(
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: terracotta,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text("Delete", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+            child: Text("Delete",
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -1102,22 +1250,36 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   void _openExpenseAuditModal(Map<String, dynamic> expense) {
     final creator = expense["createdBy"];
-    final creatorId = creator != null ? (creator is Map ? creator["_id"]?.toString() ?? "" : creator.toString()) : "";
-    final creatorName = creator != null ? (creator is Map ? creator["name"] ?? "Member" : "Member") : "Member";
-    final creatorEmail = creator != null ? (creator is Map ? creator["email"] ?? "" : "") : "";
+    final creatorId = creator != null
+        ? (creator is Map
+            ? creator["_id"]?.toString() ?? ""
+            : creator.toString())
+        : "";
+    final creatorName = creator != null
+        ? (creator is Map ? creator["name"] ?? "Member" : "Member")
+        : "Member";
+    final creatorEmail =
+        creator != null ? (creator is Map ? creator["email"] ?? "" : "") : "";
     final isPaid = expense["status"] == "paid";
     final amount = (expense["amount"] as num?)?.toDouble() ?? 0.0;
     final dateStr = expense["date"] != null
-        ? DateFormat("dd MMM, yyyy • hh:mm a").format(DateTime.parse(expense["date"]))
+        ? DateFormat("dd MMM, yyyy • hh:mm a")
+            .format(DateTime.parse(expense["date"]))
         : "";
 
     final settlementSingle = expense["settlement"];
-    final String paidById = settlementSingle != null && settlementSingle["paidBy"] != null
-        ? (settlementSingle["paidBy"] is Map ? settlementSingle["paidBy"]["_id"]?.toString() ?? "" : settlementSingle["paidBy"].toString())
-        : "";
-    final String paidToId = settlementSingle != null && settlementSingle["paidTo"] != null
-        ? (settlementSingle["paidTo"] is Map ? settlementSingle["paidTo"]["_id"]?.toString() ?? "" : settlementSingle["paidTo"].toString())
-        : "";
+    final String paidById =
+        settlementSingle != null && settlementSingle["paidBy"] != null
+            ? (settlementSingle["paidBy"] is Map
+                ? settlementSingle["paidBy"]["_id"]?.toString() ?? ""
+                : settlementSingle["paidBy"].toString())
+            : "";
+    final String paidToId =
+        settlementSingle != null && settlementSingle["paidTo"] != null
+            ? (settlementSingle["paidTo"] is Map
+                ? settlementSingle["paidTo"]["_id"]?.toString() ?? ""
+                : settlementSingle["paidTo"].toString())
+            : "";
 
     final bool isAdmin = _isAdmin;
     final bool isCreator = creatorId == widget.userId;
@@ -1142,7 +1304,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       }
     }
 
-    final bool canDeleteExpense = isAdmin || (isCreator && !isPaid && settlementList.isEmpty);
+    final bool canDeleteExpense =
+        isAdmin || (isCreator && !isPaid && settlementList.isEmpty);
 
     showModalBottomSheet(
       context: context,
@@ -1151,7 +1314,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
+          constraints:
+              BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.85),
           decoration: const BoxDecoration(
             color: creamSheet,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -1160,74 +1324,279 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           child: SingleChildScrollView(
             physics: const ClampingScrollPhysics(),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Fixed Drag Handle & Modal Header
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(10),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Fixed Drag Handle & Modal Header
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: darkSurface,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.12)),
+                            ),
+                            child: const Icon(Icons.info_outline_rounded,
+                                color: mintAccent, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            "Expense Audit & Details",
+                            style: GoogleFonts.fraunces(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: Container(
+                          padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(
                             color: darkSurface,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12)),
                           ),
-                          child: const Icon(Icons.info_outline_rounded, color: mintAccent, size: 20),
+                          child: const Icon(Icons.close_rounded,
+                              color: mintAccent, size: 18),
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          "Expense Audit & Details",
-                          style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Divider(color: Colors.white.withValues(alpha: 0.15)),
+                  const SizedBox(height: 8),
+
+                  // 1. Amount & Category Box
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
                       ],
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      icon: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: darkSurface,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                        ),
-                        child: const Icon(Icons.close_rounded, color: mintAccent, size: 18),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Divider(color: Colors.white.withValues(alpha: 0.15)),
-                const SizedBox(height: 8),
-
-                // 1. Amount & Category Box
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: darkSurface.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                expense["category"] ?? "General",
+                                style: GoogleFonts.inter(
+                                    color: darkSurface,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: isPaid
+                                    ? emerald.withValues(alpha: 0.12)
+                                    : terracotta.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                isPaid ? "PAID / SETTLED" : "OUTSTANDING",
+                                style: GoogleFonts.inter(
+                                    color: isPaid ? emerald : terracotta,
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold),
+                              ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          expense["description"] ?? "Expense",
+                          style: GoogleFonts.inter(
+                              color: darkText,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          "₹${amount.toStringAsFixed(2)}",
+                          style: GoogleFonts.fraunces(
+                              color: forestDark,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          dateStr,
+                          style: GoogleFonts.inter(
+                              color: darkText.withValues(alpha: 0.5),
+                              fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. Creator & Original Bill Attachment Info
+                  Text(
+                    "Created By",
+                    style: GoogleFonts.fraunces(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: darkSurface,
+                              child: Text(
+                                creatorName.isNotEmpty
+                                    ? creatorName[0].toUpperCase()
+                                    : "M",
+                                style: GoogleFonts.inter(
+                                    color: mintAccent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    creatorName,
+                                    style: GoogleFonts.inter(
+                                        color: darkText,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13),
+                                  ),
+                                  if (creatorEmail.isNotEmpty)
+                                    Text(
+                                      creatorEmail,
+                                      style: GoogleFonts.inter(
+                                          color:
+                                              darkText.withValues(alpha: 0.5),
+                                          fontSize: 11),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (expense["attachment"] != null &&
+                            expense["attachment"].toString().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          const Divider(),
+                          const SizedBox(height: 6),
+                          Text(
+                            "Original Bill / Receipt Proof:",
+                            style: GoogleFonts.inter(
+                                color: darkText,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11.5),
+                          ),
+                          const SizedBox(height: 6),
+                          _buildImageWidget(expense["attachment"].toString()),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 3. Payment & Settlement History Timeline
+                  if (settlementList.isNotEmpty) ...[
+                    Text(
+                      "Payment History (${settlementList.length})",
+                      style: GoogleFonts.fraunces(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    ...settlementList.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final s = entry.value;
+                      final sPayer = _settlementPayerName(s);
+                      final sPayerEmail =
+                          s["paidBy"] != null ? s["paidBy"]["email"] ?? "" : "";
+                      final sReceiver = s["paidTo"] != null
+                          ? s["paidTo"]["name"] ?? "Member"
+                          : "";
+                      final sMode =
+                          s["paymentMode"]?.toString().toUpperCase() ?? "CASH";
+                      final sProof = s["paymentProof"]?.toString() ?? "";
+                      final sDate = s["createdAt"] != null
+                          ? DateFormat("dd MMM, yyyy • hh:mm a")
+                              .format(DateTime.parse(s["createdAt"]))
+                          : "";
+                      final isFinalStep =
+                          isPaid && idx == settlementList.length;
+
+                      return Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isFinalStep
+                                ? emerald.withValues(alpha: 0.4)
+                                : forestDark.withValues(alpha: 0.2),
+                            width: isFinalStep ? 1.5 : 1.0,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,331 +1604,239 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: darkSurface.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    expense["category"] ?? "General",
-                                    style: GoogleFonts.inter(color: darkSurface, fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                                  decoration: BoxDecoration(
-                                    color: isPaid ? emerald.withValues(alpha: 0.12) : terracotta.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    isPaid ? "PAID / SETTLED" : "OUTSTANDING",
-                                    style: GoogleFonts.inter(color: isPaid ? emerald : terracotta, fontSize: 9.5, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              expense["description"] ?? "Expense",
-                              style: GoogleFonts.inter(color: darkText, fontSize: 14, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              "₹${amount.toStringAsFixed(2)}",
-                              style: GoogleFonts.fraunces(color: forestDark, fontSize: 20, fontWeight: FontWeight.bold),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              dateStr,
-                              style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 2. Creator & Original Bill Attachment Info
-                      Text(
-                        "Created By",
-                        style: GoogleFonts.fraunces(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 16,
-                                  backgroundColor: darkSurface,
-                                  child: Text(
-                                    creatorName.isNotEmpty ? creatorName[0].toUpperCase() : "M",
-                                    style: GoogleFonts.inter(color: mintAccent, fontSize: 12, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        creatorName,
-                                        style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13),
-                                      ),
-                                      if (creatorEmail.isNotEmpty)
-                                        Text(
-                                          creatorEmail,
-                                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (expense["attachment"] != null && expense["attachment"].toString().isNotEmpty) ...[
-                              const SizedBox(height: 10),
-                              const Divider(),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Original Bill / Receipt Proof:",
-                                style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 11.5),
-                              ),
-                              const SizedBox(height: 6),
-                              _buildImageWidget(expense["attachment"].toString()),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 3. Payment & Settlement History Timeline
-                      if (settlementList.isNotEmpty) ...[
-                        Text(
-                          "Payment History (${settlementList.length})",
-                          style: GoogleFonts.fraunces(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        ...settlementList.asMap().entries.map((entry) {
-                          final idx = entry.key + 1;
-                          final s = entry.value;
-                          final sPayer = _settlementPayerName(s);
-                          final sPayerEmail = s["paidBy"] != null ? s["paidBy"]["email"] ?? "" : "";
-                          final sReceiver = s["paidTo"] != null ? s["paidTo"]["name"] ?? "Member" : "";
-                          final sMode = s["paymentMode"]?.toString().toUpperCase() ?? "CASH";
-                          final sProof = s["paymentProof"]?.toString() ?? "";
-                          final sDate = s["createdAt"] != null
-                              ? DateFormat("dd MMM, yyyy • hh:mm a").format(DateTime.parse(s["createdAt"]))
-                              : "";
-                          final isFinalStep = isPaid && idx == settlementList.length;
-
-                          return Container(
-                            width: double.infinity,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: isFinalStep ? emerald.withValues(alpha: 0.4) : forestDark.withValues(alpha: 0.2),
-                                width: isFinalStep ? 1.5 : 1.0,
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: isFinalStep ? emerald.withValues(alpha: 0.12) : forestDark.withValues(alpha: 0.08),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          isFinalStep ? "Payment #$idx • Final Settlement" : "Payment #$idx",
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.inter(
-                                            color: isFinalStep ? emerald : forestDark,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: isFinalStep
+                                          ? emerald.withValues(alpha: 0.12)
+                                          : forestDark.withValues(alpha: 0.08),
+                                      borderRadius: BorderRadius.circular(8),
                                     ),
-                                    if (sDate.isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          sDate,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isFinalStep ? Icons.check_circle_rounded : Icons.payment_rounded,
-                                      color: isFinalStep ? emerald : forestDark,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        "Paid by $sPayer${sReceiver.isNotEmpty ? ' to $sReceiver' : ''}",
-                                        style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (sPayerEmail.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 26, top: 2),
                                     child: Text(
-                                      sPayerEmail,
-                                      style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11.5),
+                                      isFinalStep
+                                          ? "Payment #$idx • Final Settlement"
+                                          : "Payment #$idx",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                        color:
+                                            isFinalStep ? emerald : forestDark,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
                                     ),
                                   ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Text(
-                                      "Payment Method: ",
-                                      style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 12),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: forestDark.withValues(alpha: 0.08),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        sMode,
-                                        style: GoogleFonts.ibmPlexMono(color: forestDark, fontWeight: FontWeight.bold, fontSize: 11.5),
-                                      ),
-                                    ),
-                                  ],
                                 ),
-                                if (sProof.isNotEmpty) ...[
-                                  const SizedBox(height: 12),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    "Proof of Payment Image (Payment #$idx):",
-                                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 12),
+                                if (sDate.isNotEmpty) ...[
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      sDate,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.inter(
+                                          color:
+                                              darkText.withValues(alpha: 0.5),
+                                          fontSize: 11),
+                                    ),
                                   ),
-                                  const SizedBox(height: 8),
-                                  _buildImageWidget(sProof),
                                 ],
                               ],
                             ),
-                          );
-                        }),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // 4. Payment Actions (Edit Payment Details or Change to Unpaid)
-                      if (canManagePayment) ...[
-                        Text(
-                          "Payment Options",
-                          style: GoogleFonts.fraunces(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            if (isPaid || settlementList.isNotEmpty) ...[
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                    _openEditPaymentModal(
-                                      expense,
-                                      settlementList.isNotEmpty ? settlementList.last : null,
-                                    );
-                                  },
-                                  icon: const Icon(Icons.edit_rounded, size: 16, color: mintAccent),
-                                  label: Text("Edit Payment", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  style: OutlinedButton.styleFrom(
-                                    backgroundColor: darkSurface,
-                                    foregroundColor: Colors.white,
-                                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Icon(
+                                  isFinalStep
+                                      ? Icons.check_circle_rounded
+                                      : Icons.payment_rounded,
+                                  color: isFinalStep ? emerald : forestDark,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    "Paid by $sPayer${sReceiver.isNotEmpty ? ' to $sReceiver' : ''}",
+                                    style: GoogleFonts.inter(
+                                        color: darkText,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                            ],
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _changeExpenseStatus(expense, isPaid ? "outstanding" : "paid");
-                                },
-                                icon: Icon(isPaid ? Icons.undo_rounded : Icons.check_circle_rounded, size: 16, color: isPaid ? const Color(0xFFFCA5A5) : mintAccent),
-                                label: Text(
-                                  isPaid ? "Change to Unpaid" : "Mark as Paid",
-                                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  backgroundColor: darkSurface,
-                                  foregroundColor: isPaid ? const Color(0xFFFCA5A5) : mintAccent,
-                                  side: BorderSide(color: isPaid ? const Color(0xFFFCA5A5).withValues(alpha: 0.5) : mintAccent.withValues(alpha: 0.5)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
+                              ],
                             ),
+                            if (sPayerEmail.isNotEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.only(left: 26, top: 2),
+                                child: Text(
+                                  sPayerEmail,
+                                  style: GoogleFonts.inter(
+                                      color: darkText.withValues(alpha: 0.5),
+                                      fontSize: 11.5),
+                                ),
+                              ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Text(
+                                  "Payment Method: ",
+                                  style: GoogleFonts.inter(
+                                      color: darkText.withValues(alpha: 0.6),
+                                      fontSize: 12),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: forestDark.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    sMode,
+                                    style: GoogleFonts.ibmPlexMono(
+                                        color: forestDark,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (sProof.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              const Divider(),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Proof of Payment Image (Payment #$idx):",
+                                style: GoogleFonts.inter(
+                                    color: darkText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                              ),
+                              const SizedBox(height: 8),
+                              _buildImageWidget(sProof),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        if (canDeleteExpense) ...[
-                          SizedBox(
-                            width: double.infinity,
+                      );
+                    }),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // 4. Payment Actions (Edit Payment Details or Change to Unpaid)
+                  if (canManagePayment) ...[
+                    Text(
+                      "Payment Options",
+                      style: GoogleFonts.fraunces(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        if (isPaid || settlementList.isNotEmpty) ...[
+                          Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () {
                                 Navigator.pop(ctx);
-                                _confirmDeleteExpense(expense);
+                                _openEditPaymentModal(
+                                  expense,
+                                  settlementList.isNotEmpty
+                                      ? settlementList.last
+                                      : null,
+                                );
                               },
-                              icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFFCA5A5)),
-                              label: Text("Delete Expense", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.edit_rounded,
+                                  size: 16, color: mintAccent),
+                              label: Text("Edit Payment",
+                                  style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold)),
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: darkSurface,
-                                foregroundColor: const Color(0xFFFCA5A5),
-                                side: BorderSide(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                foregroundColor: Colors.white,
+                                side: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.2)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(width: 10),
                         ],
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _changeExpenseStatus(
+                                  expense, isPaid ? "outstanding" : "paid");
+                            },
+                            icon: Icon(
+                                isPaid
+                                    ? Icons.undo_rounded
+                                    : Icons.check_circle_rounded,
+                                size: 16,
+                                color: isPaid
+                                    ? const Color(0xFFFCA5A5)
+                                    : mintAccent),
+                            label: Text(
+                              isPaid ? "Change to Unpaid" : "Mark as Paid",
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: darkSurface,
+                              foregroundColor:
+                                  isPaid ? const Color(0xFFFCA5A5) : mintAccent,
+                              side: BorderSide(
+                                  color: isPaid
+                                      ? const Color(0xFFFCA5A5)
+                                          .withValues(alpha: 0.5)
+                                      : mintAccent.withValues(alpha: 0.5)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
                       ],
-                    ]),
-                  ),
-                );
-              },
-            );
-          }
+                    ),
+                    const SizedBox(height: 12),
+                    if (canDeleteExpense) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _confirmDeleteExpense(expense);
+                          },
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              size: 16, color: Color(0xFFFCA5A5)),
+                          label: Text("Delete Expense",
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: darkSurface,
+                            foregroundColor: const Color(0xFFFCA5A5),
+                            side: BorderSide(
+                                color: const Color(0xFFFCA5A5)
+                                    .withValues(alpha: 0.5)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                ]),
+          ),
+        );
+      },
+    );
+  }
 
   void _openCompanyMenu() {
     showModalBottomSheet(
@@ -1590,38 +1867,62 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
               const SizedBox(height: 14),
               Text(
                 "Select Company Ledger",
-                style: GoogleFonts.fraunces(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
+                style: GoogleFonts.fraunces(
+                    color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 14),
               for (final opt in [
-                {"mode": "company", "label": _currentCompany?["name"]?.toString() ?? "Company", "sub": "Company expenses only", "icon": Icons.business_rounded},
-                {"mode": "self", "label": "Self (${widget.userName})", "sub": "Your personal expenses only", "icon": Icons.person_rounded},
+                {
+                  "mode": "company",
+                  "label": _currentCompany?["name"]?.toString() ?? "Company",
+                  "sub": "Company expenses only",
+                  "icon": Icons.business_rounded
+                },
+                {
+                  "mode": "self",
+                  "label": "Self (${widget.userName})",
+                  "sub": "Your personal expenses only",
+                  "icon": Icons.person_rounded
+                },
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: _viewMode == opt["mode"] ? forestDark.withValues(alpha: 0.08) : const Color(0xFFF8FAFC),
+                      color: _viewMode == opt["mode"]
+                          ? forestDark.withValues(alpha: 0.08)
+                          : const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: _viewMode == opt["mode"] ? forestDark : const Color(0xFFE2E8F0),
+                        color: _viewMode == opt["mode"]
+                            ? forestDark
+                            : const Color(0xFFE2E8F0),
                         width: _viewMode == opt["mode"] ? 1.5 : 1.0,
                       ),
                     ),
                     child: ListTile(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       leading: Icon(opt["icon"] as IconData, color: forestDark),
                       title: Text(
                         opt["label"] as String,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: darkText, fontSize: 14.5),
+                        style: GoogleFonts.inter(
+                            fontWeight: FontWeight.bold,
+                            color: darkText,
+                            fontSize: 14.5),
                       ),
                       subtitle: Text(
                         opt["sub"] as String,
-                        style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12),
+                        style: GoogleFonts.inter(
+                            color: darkText.withValues(alpha: 0.5),
+                            fontSize: 12),
                       ),
-                      trailing: _viewMode == opt["mode"] ? const Icon(Icons.check_circle_rounded, color: forestDark) : null,
+                      trailing: _viewMode == opt["mode"]
+                          ? const Icon(Icons.check_circle_rounded,
+                              color: forestDark)
+                          : null,
                       onTap: () {
                         Navigator.pop(ctx);
                         setState(() => _viewMode = opt["mode"] as String);
@@ -1639,7 +1940,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final companyName =_currentCompany?["name"] ?? "Company Dashboard";
+    final companyName = _currentCompany?["name"] ?? "Company Dashboard";
 
     return Scaffold(
       backgroundColor: creamSheet,
@@ -1654,7 +1955,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
+            child: const Icon(Icons.arrow_back_rounded,
+                color: Color(0xFF10B981), size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -1665,7 +1967,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
             children: [
               Flexible(
                 child: Text(
-                  (_isAdmin && _viewMode == "self") ? "Self (${widget.userName.split(' ').first})" : companyName,
+                  (_isAdmin && _viewMode == "self")
+                      ? "Self (${widget.userName.split(' ').first})"
+                      : companyName,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.fraunces(
                     color: Colors.white,
@@ -1676,7 +1980,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
               ),
               if (_isAdmin) ...[
                 const SizedBox(width: 4),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF10B981), size: 22),
+                const Icon(Icons.keyboard_arrow_down_rounded,
+                    color: Color(0xFF10B981), size: 22),
               ],
             ],
           ),
@@ -1690,9 +1995,11 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF0C3826),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
-                child: const Icon(Icons.account_balance_rounded, color: Color(0xFF10B981), size: 20),
+                child: const Icon(Icons.account_balance_rounded,
+                    color: Color(0xFF10B981), size: 20),
               ),
               onPressed: _openBankAccountsSheet,
             ),
@@ -1705,7 +2012,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
-              child: const Icon(Icons.settings_rounded, color: Color(0xFF10B981), size: 20),
+              child: const Icon(Icons.settings_rounded,
+                  color: Color(0xFF10B981), size: 20),
             ),
             onPressed: () {
               Navigator.push(
@@ -1759,7 +2067,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         color: emerald,
         onRefresh: _refreshDashboard,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 90),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1768,232 +2077,268 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
               _buildBalanceSummaryCard(),
               const SizedBox(height: 24),
 
-                    // 2. Expense Ledger Feed Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          "Expense Ledger",
-                          style: GoogleFonts.fraunces(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          _searchQuery.isNotEmpty || _selectedStatusFilter != "All" || _selectedCategoryFilter != "All"
-                              ? "${_filteredExpenses.length} / ${_expenses.length} Entries"
-                              : "${_expenses.length} Entries",
-                          style: GoogleFonts.ibmPlexMono(
-                            color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+              // 2. Expense Ledger Feed Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Expense Ledger",
+                    style: GoogleFonts.fraunces(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-
-                    // Search & Filter Row
-                    Row(
-                      children: [
-                        // Search Input Bar
-                        Expanded(
-                          child: Container(
-                            height: 40,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.black.withValues(alpha: 0.08)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 6,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (val) => setState(() => _searchQuery = val),
-                              style: GoogleFonts.inter(color: darkText, fontSize: 13),
-                              textAlignVertical: TextAlignVertical.center,
-                              decoration: InputDecoration(
-                                isDense: true,
-                                hintText: "Search description, category...",
-                                hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 12.5),
-                                prefixIcon: const Icon(Icons.search_rounded, color: forestDark, size: 18),
-                                prefixIconConstraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                suffixIcon: _searchQuery.isNotEmpty
-                                    ? IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        icon: const Icon(Icons.clear_rounded, size: 16, color: darkText),
-                                        onPressed: () {
-                                          _searchController.clear();
-                                          setState(() => _searchQuery = "");
-                                        },
-                                      )
-                                    : null,
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Filter Icon Button with Active Indicator Badge
-                        Material(
-                          color: (_selectedStatusFilter != "All" || _selectedCategoryFilter != "All" || _selectedDateRange != null)
-                              ? mintAccent
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          elevation: 1,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(12),
-                            onTap: () => _openFilterModalSheet(),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              alignment: Alignment.center,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.tune_rounded,
-                                    color: (_selectedStatusFilter != "All" || _selectedCategoryFilter != "All" || _selectedDateRange != null)
-                                        ? darkSurface
-                                        : forestDark,
-                                    size: 20,
-                                  ),
-                                  if (_selectedStatusFilter != "All" || _selectedCategoryFilter != "All" || _selectedDateRange != null)
-                                    Positioned(
-                                      top: 2,
-                                      right: 2,
-                                      child: Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFFDC2626),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                  ),
+                  Text(
+                    _searchQuery.isNotEmpty ||
+                            _selectedStatusFilter != "All" ||
+                            _selectedCategoryFilter != "All"
+                        ? "${_filteredExpenses.length} / ${_expenses.length} Entries"
+                        : "${_expenses.length} Entries",
+                    style: GoogleFonts.ibmPlexMono(
+                      color: Colors.white.withValues(alpha: 0.7),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 14),
-
-                    // 3. Expenses List Feed
-                    if (_isLoading)
-                      const _ExpenseListShimmer()
-                    else if (_expenses.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.receipt_long_rounded, size: 48, color: darkText.withValues(alpha: 0.3)),
-                            const SizedBox(height: 12),
-                            Text(
-                              "No expenses posted yet",
-                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Tap the '+' button below to add your first expense claim.",
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      )
-                    else if (_filteredExpenses.isEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(28),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(Icons.search_off_rounded, size: 40, color: darkText.withValues(alpha: 0.3)),
-                            const SizedBox(height: 10),
-                            Text(
-                              "No matching expenses",
-                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Try clearing search keywords or filter options.",
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() {
-                                  _searchQuery = "";
-                                  _selectedStatusFilter = "All";
-                                  _selectedCategoryFilter = "All";
-                                });
-                              },
-                              icon: const Icon(Icons.refresh_rounded, size: 14, color: forestDark),
-                              label: Text("Reset Search & Filters", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.bold)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: forestDark,
-                                side: const BorderSide(color: forestDark, width: 1.2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else
-                      ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _filteredExpenses.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final exp = _filteredExpenses[index];
-                          final dateLabel = _getDateHeaderLabel(exp["date"] ?? exp["createdAt"]);
-                          final prevDateLabel = index > 0
-                              ? _getDateHeaderLabel(_filteredExpenses[index - 1]["date"] ?? _filteredExpenses[index - 1]["createdAt"])
-                              : null;
-
-                          final showHeader = index == 0 || dateLabel != prevDateLabel;
-
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (showHeader) ...[
-                                if (index > 0) const SizedBox(height: 6),
-                                _buildDateHeader(dateLabel),
-                              ],
-                              _buildExpenseCard(exp),
-                            ],
-                          );
-                        },
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ),
+              const SizedBox(height: 8),
+
+              // Search & Filter Row
+              Row(
+                children: [
+                  // Search Input Bar
+                  Expanded(
+                    child: Container(
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.08)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (val) => setState(() => _searchQuery = val),
+                        style: GoogleFonts.inter(color: darkText, fontSize: 13),
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: "Search description, category...",
+                          hintStyle: GoogleFonts.inter(
+                              color: darkText.withValues(alpha: 0.4),
+                              fontSize: 12.5),
+                          prefixIcon: const Icon(Icons.search_rounded,
+                              color: forestDark, size: 18),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 36, minHeight: 36),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  icon: const Icon(Icons.clear_rounded,
+                                      size: 16, color: darkText),
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = "");
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 0),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Filter Icon Button with Active Indicator Badge
+                  Material(
+                    color: (_selectedStatusFilter != "All" ||
+                            _selectedCategoryFilter != "All" ||
+                            _selectedDateRange != null)
+                        ? mintAccent
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    elevation: 1,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => _openFilterModalSheet(),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Icon(
+                              Icons.tune_rounded,
+                              color: (_selectedStatusFilter != "All" ||
+                                      _selectedCategoryFilter != "All" ||
+                                      _selectedDateRange != null)
+                                  ? darkSurface
+                                  : forestDark,
+                              size: 20,
+                            ),
+                            if (_selectedStatusFilter != "All" ||
+                                _selectedCategoryFilter != "All" ||
+                                _selectedDateRange != null)
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFDC2626),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // 3. Expenses List Feed
+              if (_isLoading)
+                const _ExpenseListShimmer()
+              else if (_expenses.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.receipt_long_rounded,
+                          size: 48, color: darkText.withValues(alpha: 0.3)),
+                      const SizedBox(height: 12),
+                      Text(
+                        "No expenses posted yet",
+                        style: GoogleFonts.inter(
+                            color: darkText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Tap the '+' button below to add your first expense claim.",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            color: darkText.withValues(alpha: 0.5),
+                            fontSize: 13),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_filteredExpenses.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.search_off_rounded,
+                          size: 40, color: darkText.withValues(alpha: 0.3)),
+                      const SizedBox(height: 10),
+                      Text(
+                        "No matching expenses",
+                        style: GoogleFonts.inter(
+                            color: darkText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Try clearing search keywords or filter options.",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                            color: darkText.withValues(alpha: 0.5),
+                            fontSize: 12),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() {
+                            _searchQuery = "";
+                            _selectedStatusFilter = "All";
+                            _selectedCategoryFilter = "All";
+                          });
+                        },
+                        icon: const Icon(Icons.refresh_rounded,
+                            size: 14, color: forestDark),
+                        label: Text("Reset Search & Filters",
+                            style: GoogleFonts.inter(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: forestDark,
+                          side: const BorderSide(color: forestDark, width: 1.2),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _filteredExpenses.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 0),
+                  itemBuilder: (context, index) {
+                    final exp = _filteredExpenses[index];
+                    final dateLabel =
+                        _getDateHeaderLabel(exp["date"] ?? exp["createdAt"]);
+                    final prevDateLabel = index > 0
+                        ? _getDateHeaderLabel(_filteredExpenses[index - 1]
+                                ["date"] ??
+                            _filteredExpenses[index - 1]["createdAt"])
+                        : null;
+
+                    final showHeader = index == 0 || dateLabel != prevDateLabel;
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (showHeader) ...[
+                          if (index > 0) const SizedBox(height: 6),
+                          _buildDateHeader(dateLabel),
+                        ],
+                        _buildExpenseCard(exp),
+                      ],
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -2023,7 +2368,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       padding: const EdgeInsets.only(top: 8, bottom: 6, left: 2, right: 2),
       child: Row(
         children: [
-          Icon(Icons.calendar_month_rounded, size: 14, color: Colors.white.withValues(alpha: 0.85)),
+          Icon(Icons.calendar_month_rounded,
+              size: 14, color: Colors.white.withValues(alpha: 0.85)),
           const SizedBox(width: 6),
           Text(
             dateLabel,
@@ -2062,7 +2408,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           color: isSelected ? activeColor : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? activeColor : Colors.black.withValues(alpha: 0.1),
+            color:
+                isSelected ? activeColor : Colors.black.withValues(alpha: 0.1),
           ),
         ),
         child: Text(
@@ -2086,7 +2433,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
+        border:
+            Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -2108,7 +2456,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        _showCompanyTotals ? "TOTAL EXPENSE SPENT" : "YOU ARE OWED (RECEIVABLE)",
+                        _showCompanyTotals
+                            ? "TOTAL EXPENSE SPENT"
+                            : "YOU ARE OWED (RECEIVABLE)",
                         style: GoogleFonts.ibmPlexMono(
                           color: const Color(0xFF6B7280),
                           fontSize: 9.5,
@@ -2177,7 +2527,6 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
           const SizedBox(height: 8),
           Divider(color: Colors.black.withValues(alpha: 0.08), height: 1),
           const SizedBox(height: 8),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -2214,13 +2563,20 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
   }
 
   Widget _buildExpenseCard(Map<String, dynamic> expense) {
-    final creatorId = expense["createdBy"] != null ? expense["createdBy"]["_id"].toString() : "";
-    final creatorName = expense["createdBy"] != null ? expense["createdBy"]["name"] ?? "Member" : "Member";
+    final creatorId = expense["createdBy"] != null
+        ? expense["createdBy"]["_id"].toString()
+        : "";
+    final creatorName = expense["createdBy"] != null
+        ? expense["createdBy"]["name"] ?? "Member"
+        : "Member";
     final isViewerCreator = creatorId == widget.userId;
 
     final currentCreditor = expense["currentCreditor"] ?? expense["createdBy"];
-    final creditorId = currentCreditor != null ? currentCreditor["_id"].toString() : creatorId;
-    final creditorName = currentCreditor != null ? currentCreditor["name"] ?? "Member" : creatorName;
+    final creditorId =
+        currentCreditor != null ? currentCreditor["_id"].toString() : creatorId;
+    final creditorName = currentCreditor != null
+        ? currentCreditor["name"] ?? "Member"
+        : creatorName;
     final isViewerCreditor = creditorId == widget.userId;
 
     final isPaid = expense["status"] == "paid";
@@ -2230,14 +2586,23 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         : "";
 
     final settlement = expense["settlement"];
-    final settlementPayer = settlement != null && settlement["paidBy"] != null ? _settlementPayerName(settlement) : "";
-    final settlementRecipient = settlement != null && settlement["paidTo"] != null ? settlement["paidTo"]["name"] ?? "Member" : creatorName;
+    final settlementPayer = settlement != null && settlement["paidBy"] != null
+        ? _settlementPayerName(settlement)
+        : "";
+    final settlementRecipient =
+        settlement != null && settlement["paidTo"] != null
+            ? settlement["paidTo"]["name"] ?? "Member"
+            : creatorName;
 
     final String paidById = settlement != null && settlement["paidBy"] != null
-        ? (settlement["paidBy"] is Map ? settlement["paidBy"]["_id"]?.toString() ?? "" : settlement["paidBy"].toString())
+        ? (settlement["paidBy"] is Map
+            ? settlement["paidBy"]["_id"]?.toString() ?? ""
+            : settlement["paidBy"].toString())
         : "";
     final String paidToId = settlement != null && settlement["paidTo"] != null
-        ? (settlement["paidTo"] is Map ? settlement["paidTo"]["_id"]?.toString() ?? "" : settlement["paidTo"].toString())
+        ? (settlement["paidTo"] is Map
+            ? settlement["paidTo"]["_id"]?.toString() ?? ""
+            : settlement["paidTo"].toString())
         : "";
 
     final bool isAdmin = _isAdmin;
@@ -2248,11 +2613,27 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
 
     final String expenseId = expense["_id"]?.toString() ?? "";
     final bool isExpanded = _expandedExpenseIds.contains(expenseId);
+    final String companyName = _currentCompany?["name"] ?? "Company";
+    final String logAsType = expense["logAs"] ?? (isPaid ? "company" : "self");
+    final bool isCompanyLogged = logAsType == "company";
+    final String creditorSummary = isPaid
+        ? (isCompanyLogged
+            ? "Paid by $companyName"
+            : (isViewerCreator ? "Paid by you" : "Paid by $creatorName"))
+        : (settlement != null
+            ? (isViewerCreditor
+                ? "Paid to $settlementRecipient by you"
+                : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
+                    ? "Paid by $settlementPayer · Owed to $creditorName"
+                    : "$settlementPayer paid $settlementRecipient · Owed to $creditorName"))
+            : (isViewerCreditor
+                ? "Added by you · Owed to you"
+                : "Added by $creatorName · Owed to $creditorName"));
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         onTap: () {
           setState(() {
             if (isExpanded) {
@@ -2265,71 +2646,74 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
           curve: Curves.easeInOut,
+          margin: const EdgeInsets.only(bottom: 4),
           padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.08), width: 1.0),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Category, Date, Status Badge, Controls & Expand Arrow
+              // Compact expense row. Details and actions stay in the expanded area.
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: forestDark.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              expense["category"] ?? "General",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.inter(color: forestDark, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
+                        Text(
+                          expense["description"] ?? "Expense Claim",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: darkText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            dateStr,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10),
+                        const SizedBox(height: 2),
+                        Text(
+                          "${expense["category"] ?? "General"} · $dateStr · $creditorSummary",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                            color: darkText.withValues(alpha: 0.58),
+                            fontSize: 10,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 2),
+                  const SizedBox(width: 6),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Text(
+                        "₹${amount.toStringAsFixed(2)}",
+                        style: GoogleFonts.inter(
+                          color: darkText,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isPaid ? emerald.withValues(alpha: 0.12) : terracotta.withValues(alpha: 0.12),
+                          color: isPaid
+                              ? emerald.withValues(alpha: 0.12)
+                              : terracotta.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          isPaid ? "PAID / SETTLED" : "OUTSTANDING",
+                          isPaid ? "PAID" : "DUE",
                           style: GoogleFonts.inter(
                             color: isPaid ? emerald : terracotta,
-                            fontSize: 9,
+                            fontSize: 8,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -2341,7 +2725,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         child: const SizedBox(
                           width: 20,
                           height: 20,
-                          child: Icon(Icons.info_outline_rounded, color: forestDark, size: 16),
+                          child: Icon(Icons.info_outline_rounded,
+                              color: forestDark, size: 16),
                         ),
                       ),
                       if (canManagePayment) ...[
@@ -2354,10 +2739,13 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                             surfaceTintColor: Colors.white,
                             elevation: 6,
                             shadowColor: Colors.black.withValues(alpha: 0.2),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
                             constraints: const BoxConstraints(),
                             padding: EdgeInsets.zero,
-                            icon: Icon(Icons.more_vert_rounded, color: darkText.withValues(alpha: 0.7), size: 16),
+                            icon: Icon(Icons.more_vert_rounded,
+                                color: darkText.withValues(alpha: 0.7),
+                                size: 16),
                             tooltip: "Payment Options",
                             onSelected: (val) {
                               if (val == "unpaid") {
@@ -2373,16 +2761,24 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                               }
                             },
                             itemBuilder: (ctx) => [
-                              if (isCreator && !isPaid && settlement == null && ((expense["settlements"] as List?)?.isEmpty ?? true))
+                              if (isCreator &&
+                                  !isPaid &&
+                                  settlement == null &&
+                                  ((expense["settlements"] as List?)?.isEmpty ??
+                                      true))
                                 PopupMenuItem(
                                   value: "edit_expense",
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.edit_note_rounded, size: 18, color: forestDark),
+                                      const Icon(Icons.edit_note_rounded,
+                                          size: 18, color: forestDark),
                                       const SizedBox(width: 10),
                                       Text(
                                         "Edit Expense",
-                                        style: GoogleFonts.inter(fontSize: 13, color: forestDark, fontWeight: FontWeight.bold),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            color: forestDark,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -2392,11 +2788,15 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                   value: "edit",
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.edit_rounded, size: 18, color: forestDark),
+                                      const Icon(Icons.edit_rounded,
+                                          size: 18, color: forestDark),
                                       const SizedBox(width: 10),
                                       Text(
                                         "Edit Payment Details",
-                                        style: GoogleFonts.inter(fontSize: 13, color: forestDark, fontWeight: FontWeight.bold),
+                                        style: GoogleFonts.inter(
+                                            fontSize: 13,
+                                            color: forestDark,
+                                            fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
@@ -2406,13 +2806,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                 child: Row(
                                   children: [
                                     Icon(
-                                      isPaid ? Icons.undo_rounded : Icons.check_circle_rounded,
+                                      isPaid
+                                          ? Icons.undo_rounded
+                                          : Icons.check_circle_rounded,
                                       size: 18,
                                       color: isPaid ? terracotta : emerald,
                                     ),
                                     const SizedBox(width: 10),
                                     Text(
-                                      isPaid ? "Change to Unpaid" : "Mark as Paid / Settled",
+                                      isPaid
+                                          ? "Change to Unpaid"
+                                          : "Mark as Paid / Settled",
                                       style: GoogleFonts.inter(
                                         fontSize: 13,
                                         color: isPaid ? terracotta : emerald,
@@ -2427,7 +2831,8 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                   value: "delete",
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.delete_outline_rounded, size: 18, color: terracotta),
+                                      const Icon(Icons.delete_outline_rounded,
+                                          size: 18, color: terracotta),
                                       const SizedBox(width: 10),
                                       Text(
                                         "Delete Expense",
@@ -2449,7 +2854,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         width: 20,
                         height: 20,
                         child: Icon(
-                          isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
                           color: forestDark,
                           size: 18,
                         ),
@@ -2458,77 +2865,6 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 2),
-
-              // Title & Amount Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      expense["description"] ?? "Expense Claim",
-                      style: GoogleFonts.inter(
-                        color: darkText,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "₹${amount.toStringAsFixed(2)}",
-                    style: GoogleFonts.fraunces(
-                      color: darkText,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-
-              // Creditor info (Who is currently owed money)
-              Row(
-                children: [
-                  Icon(Icons.person_outline_rounded, size: 14, color: darkText.withValues(alpha: 0.5)),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Builder(
-                      builder: (_) {
-                        final String companyName = _currentCompany?["name"] ?? "Company";
-                        final String logAsType = expense["logAs"] ?? (isPaid ? "company" : "self");
-                        final bool isCompanyLogged = logAsType == "company";
-
-                        final String subtext = isPaid
-                            ? (isCompanyLogged
-                                ? "Logged by $companyName (Company)"
-                                : (isViewerCreator ? "Logged by $creatorName (You • Paid)" : "Paid by $creatorName"))
-                            : (settlement != null
-                                ? (isViewerCreditor
-                                    ? "Paid to $settlementRecipient by You • Owed to You"
-                                    : (settlement?["paidTo"]?["_id"]?.toString() == widget.userId
-                                        ? "Paid by $settlementPayer • Owed to $creditorName"
-                                        : "$settlementPayer paid $settlementRecipient • Owed to $creditorName"))
-                                : (isViewerCreditor
-                                    ? "Logged by $creatorName (You) • Owed to You"
-                                    : "Logged by $creatorName • Owed to $creditorName"));
-
-                        return Text(
-                          subtext,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            color: darkText.withValues(alpha: 0.65),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-
               // EXPANDED / UNFOLDED CONTENT (Fluid AnimatedCrossFade)
               AnimatedCrossFade(
                 firstChild: const SizedBox.shrink(),
@@ -2537,12 +2873,18 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (expense["attachment"] != null && expense["attachment"].toString().isNotEmpty) ...[
+                      if (expense["attachment"] != null &&
+                          expense["attachment"].toString().isNotEmpty) ...[
                         Row(
                           children: [
-                            const Icon(Icons.attach_file_rounded, size: 14, color: forestDark),
+                            const Icon(Icons.attach_file_rounded,
+                                size: 14, color: forestDark),
                             const SizedBox(width: 4),
-                            Text("Receipt Attached", style: GoogleFonts.inter(color: forestDark, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            Text("Receipt Attached",
+                                style: GoogleFonts.inter(
+                                    color: forestDark,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -2557,12 +2899,15 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                             width: double.infinity,
                             child: ElevatedButton.icon(
                               onPressed: () => _openPayModal(expense),
-                              icon: const Icon(Icons.payment_rounded, size: 18, color: Colors.white),
-                              label: Text("Pay (₹${amount.toStringAsFixed(0)})"),
+                              icon: const Icon(Icons.payment_rounded,
+                                  size: 18, color: Colors.white),
+                              label:
+                                  Text("Pay (₹${amount.toStringAsFixed(0)})"),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: forestDark,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           )
@@ -2571,12 +2916,17 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                             width: double.infinity,
                             child: OutlinedButton.icon(
                               onPressed: () => _openReceivedModal(expense),
-                              icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: forestDark),
+                              icon: const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 18,
+                                  color: forestDark),
                               label: const Text("Mark Payment Received"),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: forestDark,
-                                side: const BorderSide(color: forestDark, width: 1.5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                side: const BorderSide(
+                                    color: forestDark, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           ),
@@ -2588,7 +2938,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         Row(
                           children: [
                             Icon(
-                              isPaid ? Icons.verified_rounded : Icons.history_rounded,
+                              isPaid
+                                  ? Icons.verified_rounded
+                                  : Icons.history_rounded,
                               size: 16,
                               color: isPaid ? emerald : forestDark,
                             ),
@@ -2601,7 +2953,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                                         : "Settled / Company Funded")
                                     : "Paid via ${settlement['paymentMode']?.toString().toUpperCase()} by $settlementPayer to $settlementRecipient",
                                 style: GoogleFonts.inter(
-                                  color: isPaid ? emerald : darkText.withValues(alpha: 0.7),
+                                  color: isPaid
+                                      ? emerald
+                                      : darkText.withValues(alpha: 0.7),
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -2613,7 +2967,9 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                     ],
                   ),
                 ),
-                crossFadeState: isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                crossFadeState: isExpanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
                 duration: const Duration(milliseconds: 300),
                 sizeCurve: Curves.fastOutSlowIn,
               ),

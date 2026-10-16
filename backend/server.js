@@ -6,9 +6,6 @@ const connectDB = require("./config/db");
 
 const app = express();
 
-connectDB();
-
-
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -26,7 +23,6 @@ app.use("/api/cards", cardRoutes);
 const reminderRoutes = require("./routes/reminderRoutes");
 
 app.use("/reminder", reminderRoutes);
-require("./jobs/reminderCron");
 const lendRoutes = require("./routes/lendRoutes");
 const liabilityRoutes = require("./routes/liabilityRoutes");
 app.use("/api/lend", lendRoutes);
@@ -112,9 +108,17 @@ app.get("/privacy", (req, res) => {
 
 const PORT = process.env.PORT || 3009;
 
-require("./jobs/emailSyncCron");
-require("./jobs/ledgerDayCloseCron");
+async function startServer() {
+  await connectDB();
+  require("./jobs/reminderCron");
+  require("./jobs/emailSyncCron");
+  require("./jobs/ledgerDayCloseCron");
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
-app.listen(3009, "0.0.0.0", () => {
-  console.log("Server running on port 3009");
+startServer().catch((error) => {
+  console.error("Server startup failed:", error);
+  process.exit(1);
 });

@@ -113,7 +113,10 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab>
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 6),
-                Text(myOwed == null ? "Loading…" : inr(myOwed),
+                if (myOwed == null)
+                  const _ShimmerBox(width: 132, height: 31)
+                else
+                  Text(inr(myOwed),
                     style: GoogleFonts.fraunces(
                         color: kForest,
                         fontSize: 27,
@@ -170,15 +173,14 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab>
             ),
             _sectionTitle("Pending verification"),
             if (_pending.isEmpty)
-              _compactEmpty(_secondaryLoading
-                  ? "Checking pending verification…"
-                  : "Nothing waiting for verification"),
+              _secondaryLoading
+                  ? _pendingShimmer()
+                  : _compactEmpty("Nothing waiting for verification"),
             ..._pending.map(_pendingCard),
           ],
           _sectionTitle("Today"),
           if (_today.isEmpty)
-            _compactEmpty(
-                _loading ? "Loading today's activity…" : "No activity today"),
+            _loading ? _todayShimmer() : _compactEmpty("No activity today"),
           ..._today.map((e) {
             final status = e["lifecycle"]?.toString();
             final statusLabel = switch (status) {
@@ -294,6 +296,51 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab>
         ),
       );
 
+  Widget _todayShimmer() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          children: [
+            for (var i = 0; i < 2; i++)
+              Container(
+                margin: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Row(
+                  children: [
+                    _ShimmerBox(width: 32, height: 32, dark: true, rounded: true),
+                    SizedBox(width: 10),
+                    Expanded(child: _ShimmerBox(height: 11, dark: true)),
+                    SizedBox(width: 18),
+                    _ShimmerBox(width: 48, height: 11, dark: true),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      );
+
+  Widget _pendingShimmer() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Row(
+            children: [
+              _ShimmerBox(width: 32, height: 32, dark: true, rounded: true),
+              SizedBox(width: 10),
+              Expanded(child: _ShimmerBox(height: 11, dark: true)),
+              SizedBox(width: 55, height: 20, child: _ShimmerBox(dark: true, height: 20)),
+            ],
+          ),
+        ),
+      );
+
   Widget _tile(String label, String value, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -307,7 +354,10 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab>
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            FittedBox(
+            if (value == "Loading…")
+              const _ShimmerBox(width: 92, height: 20)
+            else
+              FittedBox(
                 child: Text(value,
                     style: GoogleFonts.fraunces(
                         color: color,
@@ -545,4 +595,66 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab>
               ),
             ));
   }
+}
+
+class _ShimmerBox extends StatefulWidget {
+  final double width;
+  final double height;
+  final bool dark;
+  final bool rounded;
+
+  const _ShimmerBox({
+    this.width = double.infinity,
+    required this.height,
+    this.dark = false,
+    this.rounded = false,
+  });
+
+  @override
+  State<_ShimmerBox> createState() => _ShimmerBoxState();
+}
+
+class _ShimmerBoxState extends State<_ShimmerBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: widget.width,
+        height: widget.height,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.rounded ? 16 : 5),
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(-1.5 + 3 * _controller.value, 0),
+                  end: Alignment(-0.5 + 3 * _controller.value, 0),
+                  colors: widget.dark
+                      ? [
+                          Colors.white.withValues(alpha: 0.08),
+                          Colors.white.withValues(alpha: 0.24),
+                          Colors.white.withValues(alpha: 0.08),
+                        ]
+                      : const [
+                          Color(0xFFE7ECEA),
+                          Color(0xFFF7F9F8),
+                          Color(0xFFE7ECEA),
+                        ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
 }

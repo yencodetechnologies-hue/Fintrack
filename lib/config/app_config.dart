@@ -5,7 +5,7 @@ class AppConfig {
   // flutter run --dart-define=FINTRACK_API_BASE_URL=https://fintrack.yencodetechnologies.in
   static const String baseUrl = String.fromEnvironment(
     "FINTRACK_API_BASE_URL",
-    defaultValue: "http://192.168.100.247:3009",
+    defaultValue: "https://fintrack.yencodetechnologies.in",
   );
 
   static const String authBase = "$baseUrl/api/auth";

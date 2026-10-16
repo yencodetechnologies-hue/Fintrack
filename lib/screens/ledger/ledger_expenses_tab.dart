@@ -407,6 +407,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kDark.withValues(alpha: 0.06)),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
           InkWell(
@@ -484,63 +485,99 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
               ),
             ),
           ),
-          if (expanded)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(58, 0, 14, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (e["verification"] == "pending") ...[
-                    const SizedBox(height: 4),
-                    statusPill("Pending verification", kAmber),
-                  ],
-                  if (e["verification"] == "verified") ...[
-                    const SizedBox(height: 4),
-                    statusPill("Verified", kMint),
-                  ],
-                  if (e["hasAttachment"] == true ||
-                      (e["attachment"] != null &&
-                          e["attachment"].toString().isNotEmpty))
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero, foregroundColor: kForest),
-                      onPressed: () => _loadReceipt(
-                          id, "attachment", e["attachment"]?.toString()),
-                      icon: const Icon(Icons.attach_file_rounded, size: 16),
-                      label: const Text("View receipt"),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (e["verification"] == "pending") ...[
+                          const SizedBox(height: 4),
+                          statusPill("Pending verification", kAmber),
+                        ],
+                        if (e["verification"] == "verified") ...[
+                          const SizedBox(height: 4),
+                          statusPill("Verified", kMint),
+                        ],
+                        if (e["hasAttachment"] == true ||
+                            (e["attachment"] != null &&
+                                e["attachment"].toString().isNotEmpty))
+                          _receiptLink(
+                            label: "View receipt",
+                            icon: Icons.attach_file_rounded,
+                            onPressed: () => _loadReceipt(
+                                id, "attachment", e["attachment"]?.toString()),
+                          ),
+                        if (e["hasPaymentReceipt"] == true ||
+                            (e["paymentReceipt"] != null &&
+                                e["paymentReceipt"].toString().isNotEmpty))
+                          _receiptLink(
+                            label: "View payment receipt",
+                            icon: Icons.receipt_long_rounded,
+                            onPressed: () => _loadReceipt(id, "paymentReceipt",
+                                e["paymentReceipt"]?.toString()),
+                          ),
+                        ..._actions(e, status, mine),
+                        if (s.isAdmin &&
+                            (e["isAdminCreated"] == true ||
+                                s.admins.any((m) =>
+                                    idOf(m["userId"]) ==
+                                    idOf(e["createdBy"])) ||
+                                idOf(s.company["createdBy"]) ==
+                                    idOf(e["createdBy"])))
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => _editVisibility(e),
+                              icon: const Icon(Icons.visibility_rounded,
+                                  size: 16),
+                              label: const Text("Edit staff visibility"),
+                            ),
+                          ),
+                      ],
                     ),
-                  if (e["hasPaymentReceipt"] == true ||
-                      (e["paymentReceipt"] != null &&
-                          e["paymentReceipt"].toString().isNotEmpty))
-                    TextButton.icon(
-                      style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero, foregroundColor: kForest),
-                      onPressed: () => _loadReceipt(id, "paymentReceipt",
-                          e["paymentReceipt"]?.toString()),
-                      icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                      label: const Text("View payment receipt"),
-                    ),
-                  ..._actions(e, status, mine),
-                  if (s.isAdmin &&
-                      (e["isAdminCreated"] == true ||
-                          s.admins.any((m) =>
-                              idOf(m["userId"]) == idOf(e["createdBy"])) ||
-                          idOf(s.company["createdBy"]) == idOf(e["createdBy"])))
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => _editVisibility(e),
-                        icon: const Icon(Icons.visibility_rounded, size: 16),
-                        label: const Text("Edit staff visibility"),
-                      ),
-                    ),
-                ],
-              ),
-            ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
   }
+
+  Widget _receiptLink({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) =>
+      SizedBox(
+        width: double.infinity,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              alignment: Alignment.centerLeft,
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+              foregroundColor: kForest,
+            ),
+            onPressed: onPressed,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16),
+                const SizedBox(width: 8),
+                Text(label),
+              ],
+            ),
+          ),
+        ),
+      );
 
   List<Widget> _actions(Map<String, dynamic> e, String? status, bool mine) {
     final id = e["_id"].toString();
@@ -965,18 +1002,37 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
                       selected: {payer},
                       onSelectionChanged: (v) => set(() => payer = v.first),
                     ),
-                  ] else
-                    Text("Paid by you", style: labelStyle),
+                  ] else ...[
+                    Text("How are you paying?", style: labelStyle),
+                    const SizedBox(height: 6),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                            value: "person", label: Text("Paid by me")),
+                        ButtonSegment(
+                            value: "borrow", label: Text("Borrow")),
+                      ],
+                      selected: {payer},
+                      onSelectionChanged: (v) => set(() => payer = v.first),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   if (payer == "company")
                     fundDropdown(s, fund, (v) => set(() => fund = v),
                         hint: "Pay from"),
                   if (payer == "borrow") ...[
+                    Text(
+                        "This records the company loan immediately, like a group settlement.",
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: kDark.withValues(alpha: 0.6))),
+                    const SizedBox(height: 8),
                     Text("Source company", style: labelStyle),
                     const SizedBox(height: 6),
                     if (!addingCompany && sources.isEmpty)
                       Text(
-                          "No other companies yet — tap “Add new company” below.",
+                          s.isAdmin
+                              ? "No other companies yet — tap “Add new company” below."
+                              : "No other companies are available to borrow from.",
                           style: GoogleFonts.inter(
                               color: kTerracotta, fontSize: 12.5)),
                     if (!addingCompany && sources.isNotEmpty)
@@ -992,21 +1048,22 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
                             .toList(),
                         onChanged: (v) => set(() => sourceId = v),
                       ),
-                    TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: kForest),
-                      onPressed: () => set(() {
-                        addingCompany = !addingCompany;
-                        sourceId = null;
-                      }),
-                      icon: Icon(
-                          addingCompany
-                              ? Icons.close_rounded
-                              : Icons.add_rounded,
-                          size: 18),
-                      label: Text(addingCompany
-                          ? "Pick an existing company"
-                          : "Add new company"),
-                    ),
+                    if (s.isAdmin)
+                      TextButton.icon(
+                        style: TextButton.styleFrom(foregroundColor: kForest),
+                        onPressed: () => set(() {
+                          addingCompany = !addingCompany;
+                          sourceId = null;
+                        }),
+                        icon: Icon(
+                            addingCompany
+                                ? Icons.close_rounded
+                                : Icons.add_rounded,
+                            size: 18),
+                        label: Text(addingCompany
+                            ? "Pick an existing company"
+                            : "Add new company"),
+                      ),
                     if (addingCompany) ...[
                       Text("New company, saved on pay",
                           style: GoogleFonts.inter(
@@ -1076,6 +1133,12 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
                           : () async {
                               if (paymentReceipt.isEmpty) {
                                 toast(ctx, "Attach the payment receipt",
+                                    error: true);
+                                return;
+                              }
+                              if (payer == "borrow" && !addingCompany &&
+                                  (sourceId == null || sourceId!.isEmpty)) {
+                                toast(ctx, "Choose the company you borrowed from",
                                     error: true);
                                 return;
                               }

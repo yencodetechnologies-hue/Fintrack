@@ -363,6 +363,7 @@ exports.payExpense = handle(async (req, res) => {
   const companyId = expense.companyId;
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   const isAdmin = isAdminRole(role);
+  const staffBorrow = payer === "borrow" && !isAdmin;
   const recordedPayerId = paidByUserId || userId;
   if (paidByUserId && payer !== "person") throw fail(400, "A recorded person payer requires a personal payment");
   if (paidByUserId && String(expense.createdBy) !== String(userId)) throw fail(403, "Only the expense creator can record another member as the payer");
@@ -376,7 +377,7 @@ exports.payExpense = handle(async (req, res) => {
   if (!isAdmin) {
     const adminSet = new Set(await adminIds(companyId));
     if (adminSet.has(String(expense.createdBy)) && !(expense.visibleTo || []).some((id) => String(id) === String(userId))) throw fail(404, "Expense not found");
-    if (payer !== "person" && !(payer === "borrow" && String(expense.createdBy) === String(userId))) {
+    if (payer !== "person" && payer !== "borrow" && !(payer === "company" && String(expense.createdBy) === String(userId))) {
       throw fail(403, "Staff may record company-paid expenses only for their own expense");
     }
   }
@@ -390,9 +391,13 @@ exports.payExpense = handle(async (req, res) => {
     source = await resolveSourceCompany(userId, companyId, sourceCompanyId, newCompany);
     credit = await intercoAccount(companyId, source);
   }
-  const sourceFund = source ? await fundAccount(source._id, source.external ? "cash" : sourceFundId) : null;
+  const sourceFund = source
+    ? await fundAccount(source._id, source.external || staffBorrow ? "cash" : sourceFundId)
+    : null;
 
-  if (payer === "borrow" && !source.external) {
+  // Staff borrow payments settle immediately, like a group settlement; admin-recorded
+  // company payments still require a registered lender's confirmation.
+  if (payer === "borrow" && !source.external && !staffBorrow) {
     const requested = await Expense.findOneAndUpdate(
       { _id: expense._id, lifecycle: "approved", status: "outstanding" },
       { $set: { lifecycle: "awaiting_confirmation", status: "outstanding", payerType: "other_company", payerCompanyId: source._id, payerConfirmation: "pending", payerMethod: method || "", payerReference: reference || "", paymentReceipt, hasPaymentReceipt: Boolean(paymentReceipt) } },

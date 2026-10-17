@@ -6,7 +6,30 @@ const connectDB = require("./config/db");
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = [
+  "https://fintrack-sooty-eta.vercel.app",
+  "https://fintracknet.netlify.app",
+  "https://fintrack.yencodetechnologies.in",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:3009",
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 

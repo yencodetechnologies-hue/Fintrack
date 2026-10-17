@@ -90,7 +90,7 @@ jobs:
 
             for i in $(seq 1 $ATTEMPTS); do
 
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health || echo "000")
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3009/api/health || curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/api/health || echo "000")
 
 
               if [ "$HTTP_CODE" = "200" ]; then
@@ -118,7 +118,7 @@ jobs:
 
               echo "Port check:"
 
-              ss -tlnp | grep ':8000' || true
+              ss -tlnp | grep -E ':3009|:8000' || true
 
 
               echo "PM2 Logs"

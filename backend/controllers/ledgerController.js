@@ -571,10 +571,24 @@ exports.setExpenseVisibility = handle(async (req, res) => {
 
 exports.deleteExpense = handle(async (req, res) => {
   const userId = req.body.userId || req.query.userId;
+  if (!userId) throw fail(400, "User ID is required");
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
-  if (!userId || expense.createdBy.toString() !== userId.toString()) throw fail(403, "You can only delete your own expenses");
-  if (expense.lifecycle !== "submitted") throw fail(400, "Only submitted expenses can be deleted; booked payments must be reversed");
+
+  const role = await roleIn(expense.companyId, userId);
+  const isAdmin = isAdminRole(role);
+  const isCreator = expense.createdBy && expense.createdBy.toString() === userId.toString();
+
+  if (!isAdmin && !isCreator) {
+    throw fail(403, "You can only delete your own expenses");
+  }
+  if (!isAdmin && expense.lifecycle !== "submitted") {
+    throw fail(400, "Staff can only delete expenses before approval");
+  }
+  if (expense.lifecycle && expense.lifecycle.startsWith("paid")) {
+    throw fail(400, "Paid expenses cannot be deleted directly; booked payments must be reversed");
+  }
+
   await audit(userId, expense.companyId, "delete", "expense", expense._id, snapshot(expense), null);
   await Expense.deleteOne({ _id: expense._id });
   res.json({ success: true });

@@ -480,9 +480,11 @@ export default function DashboardPage() {
   }
 
   async function confirmDeleteExpense() {
-    if (!deletingExpense) return;
-    const res = await deleteLedgerExpense(deletingExpense._id, user.id);
+    const target = deletingExpense || modal?.expense;
+    if (!target) return;
+    const res = await deleteLedgerExpense(target._id, user.id);
     setDeletingExpense(null);
+    if (modal?.type === "confirmDelete") setModal(null);
     if (res.success) {
       showToast("Expense deleted");
       load();
@@ -528,17 +530,6 @@ export default function DashboardPage() {
     } else showToast(result.message || "Could not record routed payment", "error");
   }
 
-  async function confirmDeleteExpense() {
-    const expense = modal.expense;
-    const res = await deleteExpense(expense._id, user.id, companyId);
-    setModal(null);
-    if (res.success) {
-      showToast("Expense deleted successfully");
-      load();
-    } else {
-      showToast(res.message || "Failed to delete expense", "error");
-    }
-  }
 
   if (loading || !company) {
     return (
@@ -783,7 +774,7 @@ export default function DashboardPage() {
                                 Visibility
                               </button>
                             )}
-                            {expense.lifecycle === "submitted" && String(expense.createdBy?._id || expense.createdBy) === user.id && (
+                            {((isAdmin && !expense.lifecycle?.startsWith("paid")) || (!isAdmin && expense.lifecycle === "submitted" && String(expense.createdBy?._id || expense.createdBy) === user.id)) && (
                               <button
                                 type="button"
                                 className="btn btn-outline-danger"

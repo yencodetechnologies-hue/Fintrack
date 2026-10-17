@@ -1201,14 +1201,13 @@ exports.deleteExpense = async (req, res) => {
 
     const settlements = await Settlement.find({ expenseId: expense._id });
     const hasSettlement = settlements.length > 0;
-    const isPaid = expense.status === "paid";
-
-    const canDelete = isAdmin || (isCreator && !isPaid && !hasSettlement);
+    const isApproved = expense.lifecycle === "approved";
+    const canDelete = isAdmin || (isCreator && !isPaid && !hasSettlement && !isApproved);
 
     if (!canDelete) {
       return res.status(403).json({
         success: false,
-        message: "You do not have permission to delete this expense once status is changed or settled.",
+        message: "You do not have permission to delete this expense once approved, paid, or settled.",
       });
     }
 

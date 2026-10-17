@@ -670,7 +670,9 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab>
       row.add(btn("Reject", () => _rejectExpense(e),
           color: kTerracotta, icon: Icons.close_rounded, actionKey: "reject"));
     }
-    if (status == "submitted" && mine) {
+    final bool canDelete = (s.isAdmin && !status.startsWith("paid")) ||
+        (!s.isAdmin && status == "submitted" && mine);
+    if (canDelete) {
       row.add(btn("Delete", () => _deleteExpense(e),
           color: kTerracotta,
           icon: Icons.delete_outline_rounded,

@@ -20,14 +20,20 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+      const cleanOrigin = origin.replace(/\/+$/, "");
+      if (
+        allowedOrigins.includes(cleanOrigin) ||
+        cleanOrigin.endsWith(".vercel.app") ||
+        /^https:\/\/.*\.vercel\.app$/.test(cleanOrigin)
+      ) {
         return callback(null, true);
       }
       return callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    optionsSuccessStatus: 200,
   })
 );
 app.use(express.json({ limit: "50mb" }));

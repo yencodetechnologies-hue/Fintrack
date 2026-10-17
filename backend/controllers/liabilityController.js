@@ -62,7 +62,7 @@ exports.markPaid = async (req, res) => {
       {
         isPaid: true,
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({

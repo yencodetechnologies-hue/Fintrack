@@ -168,7 +168,7 @@ exports.addGroupMember = async (req, res) => {
     const updated = await ExpenseGroup.findByIdAndUpdate(
       req.params.groupId,
       { $addToSet: { members: memberId } },
-      { new: true }
+      { returnDocument: "after" }
     ).populate("members", "name email");
     return res.json({ success: true, group: updated, message: "Member added to group" });
   } catch (error) {
@@ -192,7 +192,7 @@ exports.removeGroupMember = async (req, res) => {
     const updated = await ExpenseGroup.findByIdAndUpdate(
       req.params.groupId,
       { $pull: { members: memberId } },
-      { new: true }
+      { returnDocument: "after" }
     ).populate("members", "name email");
     return res.json({ success: true, group: updated, message: "Member removed from group" });
   } catch (error) {

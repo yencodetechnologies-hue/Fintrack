@@ -179,7 +179,7 @@ const updateReminder = async (req, res) => {
           reminders: Array.isArray(reminders) ? reminders : [],
         },
       },
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!updated) {

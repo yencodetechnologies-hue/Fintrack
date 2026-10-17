@@ -121,7 +121,7 @@ async function handleOAuthCallback(code, stateOrUserId) {
       "yahooEmailSync.tokenExpiry": tokenExpiry,
       "yahooEmailSync.lastSyncAt": new Date(),
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!updatedUser) {
@@ -174,7 +174,7 @@ async function connectYahooWithAppPassword(userId, yahooEmail, appPassword) {
       "yahooEmailSync.appPassword": encryptedAppPassword,
       "yahooEmailSync.lastSyncAt": new Date(),
     },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   if (!updatedUser) {

@@ -57,7 +57,7 @@ async function getAccount(companyId, spec) {
   return LedgerAccount.findOneAndUpdate(
     key,
     { $setOnInsert: { ...key, name: spec.name } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: "after" }
   );
 }
 

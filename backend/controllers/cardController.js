@@ -78,7 +78,7 @@ exports.updateCard = async (req, res) => {
     const updated = await Card.findOneAndUpdate(
       { _id: req.params.id, userId },
       req.body,
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updated) {

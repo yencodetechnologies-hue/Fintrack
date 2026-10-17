@@ -62,7 +62,7 @@ exports.markReceived = async (req, res) => {
       {
         isReceived: true,
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     res.status(200).json({

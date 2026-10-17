@@ -336,7 +336,7 @@ exports.dismissBill = async (req, res) => {
     const bill = await ParsedBill.findOneAndUpdate(
       { _id: parsedBillId, userId },
       { status: "dismissed" },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!bill) {

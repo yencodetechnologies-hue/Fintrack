@@ -40,6 +40,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
   final _ifscCtrl = TextEditingController();
 
   final _incomeAmountCtrl = TextEditingController();
+  final _incomeDescCtrl = TextEditingController();
   String? _incomeDestination; // "cash" or bank id
   String? _incomeSourceBankId;
 
@@ -58,6 +59,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
     _numberCtrl.dispose();
     _ifscCtrl.dispose();
     _incomeAmountCtrl.dispose();
+    _incomeDescCtrl.dispose();
     super.dispose();
   }
 
@@ -125,6 +127,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
       amount: amount,
       destination: _incomeDestination!,
       sourceBankAccountId: _incomeDestination == "cash" ? _incomeSourceBankId : null,
+      description: _incomeDescCtrl.text.trim(),
     );
     if (!mounted) return;
     if (res["success"] == true) {
@@ -134,6 +137,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
         _mode = "";
         _saving = false;
         _incomeAmountCtrl.clear();
+        _incomeDescCtrl.clear();
         _incomeDestination = null;
         _incomeSourceBankId = null;
       });
@@ -280,6 +284,12 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
           decoration: _dec("Amount (₹) *", Icons.currency_rupee_rounded),
         ),
         const SizedBox(height: 10),
+        TextField(
+          controller: _incomeDescCtrl,
+          style: _fieldStyle,
+          decoration: _dec("Description (optional)", Icons.description_rounded),
+        ),
+        const SizedBox(height: 10),
         _bankDropdown(
           label: "Add to *",
           value: _incomeDestination,
@@ -351,12 +361,24 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
                 Icon(i["destinationType"] == "cash" ? Icons.payments_rounded : Icons.account_balance_rounded, size: 16, color: forestDark),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    i["destinationType"] == "cash"
-                        ? "InCash ← ${i["sourceName"]}"
-                        : "${i["destinationName"]}",
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(color: darkText, fontSize: 12.5, fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        (i["description"] != null && i["description"].toString().trim().isNotEmpty)
+                            ? i["description"].toString()
+                            : (i["destinationType"] == "cash" ? "InCash ← ${i["sourceName"]}" : "${i["destinationName"]}"),
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: darkText, fontSize: 12.5, fontWeight: FontWeight.w600),
+                      ),
+                      if (i["description"] != null && i["description"].toString().trim().isNotEmpty)
+                        Text(
+                          i["destinationType"] == "cash" ? "InCash ← ${i["sourceName"]}" : "${i["destinationName"]}",
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10.5),
+                        ),
+                    ],
                   ),
                 ),
                 Text(

@@ -35,7 +35,7 @@ export default function ReceiveModal({ expense, user, members, onClose, onReceiv
       <form onSubmit={handleSubmit}>
         <label className="field-label">Who paid you? *</label>
         <select className="field-select" value={payerUserId} onChange={(e) => setPayerUserId(e.target.value)} style={{ marginBottom: 16 }}>
-          <option value="">Select member</option>
+          <option value="">Select staff</option>
           {otherMembers.map((m) => (
             <option key={m.userId} value={m.userId}>{m.name}</option>
           ))}

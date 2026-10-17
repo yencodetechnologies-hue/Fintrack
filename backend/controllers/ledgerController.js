@@ -71,6 +71,26 @@ async function fundAccount(companyId, fundId) {
   return getAccount(companyId, { type: "bank", bankAccountId: bank._id, name: bank.bankName });
 }
 
+async function applyCompanyFund(companyId, fundId, delta) {
+  if (!fundId || fundId === "cash") {
+    await Company.updateOne({ _id: companyId }, { $inc: { cashBalance: delta } });
+  } else {
+    await Company.updateOne(
+      { _id: companyId, "bankAccounts._id": fundId },
+      { $inc: { "bankAccounts.$.balance": delta } }
+    );
+  }
+}
+
+async function getEffectiveFundBalance(companyId, fundId) {
+  const company = await Company.findById(companyId).select("bankAccounts cashBalance");
+  if (!fundId || fundId === "cash") {
+    return Number(company?.cashBalance || 0);
+  }
+  const bank = (company?.bankAccounts || []).find((b) => String(b._id) === String(fundId));
+  return bank ? Number(bank.balance || 0) : 0;
+}
+
 async function payableAccount(companyId, personUserId) {
   const user = await User.findById(personUserId).select("name");
   return getAccount(companyId, { type: "admin_payable", userId: personUserId, name: `Payable to ${user ? user.name : "member"}` });
@@ -231,7 +251,7 @@ async function recordPayerAtPost(expense, userId, choice) {
 }
 
 exports.createExpense = handle(async (req, res) => {
-  const { companyId, userId, amount, description, category, date, attachment, visibleTo } = req.body;
+  const { companyId, userId, amount, description, category, date, attachment, visibleTo, postAs, logAs, fundId, method, reference } = req.body;
   const value = parseFloat(amount);
   if (!companyId || !userId || !(value > 0) || !description || !String(description).trim()) {
     throw fail(400, "Company, amount and description are required");
@@ -239,33 +259,70 @@ exports.createExpense = handle(async (req, res) => {
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   const members = await CompanyMember.find({ companyId }).distinct("userId");
   const allowedMembers = new Set(members.map(String));
-  const company = await Company.findById(companyId).select("createdBy");
+  const company = await Company.findById(companyId).select("createdBy name bankAccounts cashBalance");
   if (company?.createdBy) allowedMembers.add(String(company.createdBy));
   const chosenVisibility = isAdminRole(role)
     ? [...new Set((Array.isArray(visibleTo) ? visibleTo : []).map(String))].filter((id) => allowedMembers.has(id))
     : [...allowedMembers];
+
+  const isCompanyPost = isAdminRole(role) && (postAs === "company" || logAs === "company");
+
+  if (isCompanyPost) {
+    const fund = fundId || "cash";
+    const available = await getEffectiveFundBalance(companyId, fund);
+    if (available < value) {
+      throw fail(400, `Insufficient balance in ${fund === "cash" ? "Cash" : "selected bank"} (₹${available.toFixed(2)} available, ₹${value.toFixed(2)} required)`);
+    }
+  }
+
   const expense = await Expense.create({
     companyId,
     createdBy: userId,
     isAdminCreated: isAdminRole(role),
-    payerType: "unpaid",
+    payerType: isCompanyPost ? "company" : "unpaid",
     amount: value,
     description: String(description).trim(),
     category: category || "General",
     date: date ? new Date(date) : new Date(),
     attachment: attachment || "",
+    hasAttachment: Boolean(attachment),
     visibleTo: chosenVisibility,
-    // an admin posting an expense has effectively approved it; staff expenses wait for an admin
-    lifecycle: isAdminRole(role) ? "approved" : "submitted",
+    // an admin posting an expense has effectively approved it; company expense is marked paid by company; staff expenses wait for an admin
+    lifecycle: isCompanyPost ? "paid_by_company" : (isAdminRole(role) ? "approved" : "submitted"),
     approvedBy: isAdminRole(role) ? userId : null,
-    status: "outstanding",
+    status: isCompanyPost ? "paid" : "outstanding",
+    logAs: isCompanyPost ? "company" : "self",
   });
+
+  if (isCompanyPost) {
+    try {
+      const fund = fundId || "cash";
+      const debit = await expenseAccount(companyId, expense.category);
+      const credit = await fundAccount(companyId, fund);
+      const verification = (await needsVerification(companyId, expense.amount)) ? "pending" : null;
+      const base = { method: method || "Bank", reference: reference || "", expenseId: expense._id, createdBy: userId, verification };
+      const txs = await postAll([
+        [
+          { ...base, companyId, type: "company_paid", memo: expense.description },
+          [{ account: debit, debit: expense.amount }, { account: credit, credit: expense.amount }],
+        ],
+      ]);
+      expense.transactionId = txs[0]._id;
+      expense.verification = verification;
+      await expense.save();
+      await applyCompanyFund(companyId, fund, -expense.amount);
+    } catch (txErr) {
+      console.error("Failed to post company ledger transaction:", txErr);
+    }
+  }
+
   await audit(userId, companyId, "create", "expense", expense._id, null, snapshot(expense));
   if (!BASE_EXPENSE_CATEGORIES.includes(expense.category)) {
     await Company.updateOne({ _id: companyId }, { $addToSet: { customCategories: expense.category } });
   }
   const poster = await User.findById(userId).select("name");
-  const msg = { title: "Expense posted", body: `${poster?.name || "Someone"} posted ${expense.category} · ₹${expense.amount}`, data: { expenseId: expense._id, companyId } };
+  const posterName = isCompanyPost ? (company?.name || "Company") : (poster?.name || "Someone");
+  const msg = { title: "Expense posted", body: `${posterName} posted ${expense.category} · ₹${expense.amount}`, data: { expenseId: expense._id, companyId } };
   await notifyCompanyAdmins(companyId, msg, userId);
   if (isAdminRole(role)) notifyUsers(chosenVisibility, msg, userId);
   res.status(201).json({ success: true, expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt").populate("paidByUserId", "name") });
@@ -279,8 +336,9 @@ exports.listExpenses = handle(async (req, res) => {
   let expenseQuery = Expense.find(query);
   if (summary === "1") {
     expenseQuery = expenseQuery
-      .select("companyId createdBy isAdminCreated visibleTo amount description category date lifecycle createdAt approvedBy verification")
+      .select("companyId createdBy isAdminCreated visibleTo amount description category date lifecycle createdAt approvedBy verification logAs")
       .populate("createdBy", "name")
+      .populate("companyId", "name")
       .populate("approvedBy", "name");
   } else {
     expenseQuery = expenseQuery
@@ -288,6 +346,7 @@ exports.listExpenses = handle(async (req, res) => {
       // response prevents large expense lists from timing out on mobile networks.
       .select("-attachment -paymentReceipt")
       .populate("createdBy", "name email")
+      .populate("companyId", "name")
       .populate("approvedBy", "name")
       .populate("paidByAdminId", "name")
       .populate("paidByUserId", "name")
@@ -386,8 +445,16 @@ exports.payExpense = handle(async (req, res) => {
   let source = null;
   let credit;
   if (payer === "admin" || payer === "person") credit = await payableAccount(companyId, payer === "person" ? recordedPayerId : userId);
-  else if (payer === "company") credit = await fundAccount(companyId, fundId);
-  else {
+  else if (payer === "company") {
+    credit = await fundAccount(companyId, fundId);
+    const available = await getEffectiveFundBalance(companyId, fundId);
+    if (available < expense.amount) {
+      const company = await Company.findById(companyId).select("bankAccounts");
+      const bankDoc = (company?.bankAccounts || []).find((b) => String(b._id) === String(fundId));
+      const fundName = fundId === "cash" ? "Cash" : (bankDoc?.bankName || credit.name || "selected fund");
+      throw fail(400, `Insufficient balance in ${fundName} (₹${available.toFixed(2)} available, ₹${expense.amount.toFixed(2)} required)`);
+    }
+  } else {
     source = await resolveSourceCompany(userId, companyId, sourceCompanyId, newCompany);
     credit = await intercoAccount(companyId, source);
   }
@@ -457,6 +524,9 @@ exports.payExpense = handle(async (req, res) => {
   }
   claimed.transactionId = txs[0]._id;
   await claimed.save();
+  if (payer === "company") {
+    await applyCompanyFund(companyId, fundId, -expense.amount);
+  }
   await audit(userId, companyId, "pay", "expense", expense._id, before, snapshot(claimed));
   const payerName = (await User.findById(userId).select("name"))?.name || "An admin";
   const how = ["admin", "person"].includes(payer) ? "paid it themselves" : payer === "company" ? "paid it from company funds" : `paid it with money borrowed from ${source.name}`;
@@ -530,6 +600,7 @@ exports.reimburse = handle(async (req, res) => {
     ]
   );
   await recomputeReimbursed(companyId, adminUserId);
+  await applyCompanyFund(companyId, fundId, -value);
   await audit(userId, companyId, "reimburse", "transaction", tx._id, null, { adminUserId, amount: value });
   notifyUsers([adminUserId], { title: "You were reimbursed", body: `₹${value} paid back to you`, data: { transactionId: tx._id, companyId } });
   if (tx.verification === "pending") await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Reimbursement of ₹${value}`, data: { transactionId: tx._id, companyId } }, userId);
@@ -549,6 +620,7 @@ exports.lend = handle(async (req, res) => {
     ]
   );
   await audit(userId, companyId, "lend", "transaction", tx._id, null, { amount: value });
+  await applyCompanyFund(companyId, fundId, value);
   await notifyCompanyAdmins(companyId, { title: "Admin lent money to the company", body: `₹${value} added; the company owes them this amount`, data: { transactionId: tx._id, companyId } }, userId);
   res.json({ success: true, transaction: tx, owed: await adminOwed(companyId, userId) });
 });
@@ -600,6 +672,16 @@ exports.balances = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+
+  // Ensure Cash and all Company bank accounts exist as LedgerAccount records
+  const company = await Company.findById(companyId).select("bankAccounts cashBalance");
+  if (company) {
+    await fundAccount(companyId, "cash");
+    for (const b of (company.bankAccounts || [])) {
+      await fundAccount(companyId, b._id);
+    }
+  }
+
   const accounts = await LedgerAccount.find({ companyId, type: { $in: ["admin_payable", "bank"] } }).populate("userId", "name");
   const totals = await LedgerEntry.aggregate([
     { $match: { accountId: { $in: accounts.map((a) => a._id) } } },
@@ -617,7 +699,16 @@ exports.balances = handle(async (req, res) => {
 
   const funds = accounts
     .filter((a) => a.type === "bank")
-    .map((a) => ({ accountId: a._id, fundId: a.bankAccountId || "cash", name: a.name, balance: round(get(a).debit - get(a).credit) }));
+    .map((a) => {
+      const bankDoc = (company?.bankAccounts || []).find((b) => String(b._id) === String(a.bankAccountId));
+      const bal = bankDoc ? Number(bankDoc.balance || 0) : (a.bankAccountId ? 0 : Number(company?.cashBalance || 0));
+      return {
+        accountId: a._id,
+        fundId: a.bankAccountId ? a.bankAccountId.toString() : "cash",
+        name: a.name + (bankDoc?.accountNumber ? ` (…${bankDoc.accountNumber.slice(-4)})` : ""),
+        balance: bal,
+      };
+    });
   res.json({
     success: true,
     role,

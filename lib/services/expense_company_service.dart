@@ -364,6 +364,7 @@ class ExpenseCompanyService {
     required double amount,
     required String destination,
     String? sourceBankAccountId,
+    String? description,
   }) async {
     try {
       final res = await http.post(
@@ -374,6 +375,7 @@ class ExpenseCompanyService {
           "amount": amount,
           "destination": destination,
           if (sourceBankAccountId != null) "sourceBankAccountId": sourceBankAccountId,
+          if (description != null && description.isNotEmpty) "description": description,
         }),
       ).timeout(const Duration(seconds: 15));
       return _parseResponse(res);

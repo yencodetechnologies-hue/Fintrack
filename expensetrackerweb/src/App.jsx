@@ -4,6 +4,8 @@ import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
 import CompaniesPage from "./pages/CompaniesPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
+import GroupDashboardPage from "./pages/GroupDashboardPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
 
 function RequireAuth({ children }) {
   const { user } = useAuth();
@@ -31,6 +33,22 @@ export default function App() {
         element={
           <RequireAuth>
             <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/group/:groupId"
+        element={
+          <RequireAuth>
+            <GroupDashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <ProfilePage />
           </RequireAuth>
         }
       />

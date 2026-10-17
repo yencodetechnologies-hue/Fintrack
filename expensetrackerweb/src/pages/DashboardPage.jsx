@@ -7,10 +7,36 @@ import {
   getCompanyBalanceSummary,
   getCompanyDetails,
   getCompanyExpenses,
+  getLedgerBalances,
+  getLedgerExpenses,
+  getLedgerIntercompany,
+  getLedgerLoans,
+  getUserCompanies,
+  approveLedgerExpense,
+  rejectLedgerExpense,
+  getLedgerReport,
+  getLedgerTransactions,
+  getLedgerAuditLog,
+  getLedgerExportUrl,
+  getLedgerBorrowSources,
+  createCompanyLoan,
+  repayCompanyLoan,
+  payLedgerExpense,
+  getLedgerPayerConfirmations,
+  confirmLedgerPayer,
+  verifyLedgerTransaction,
+  lendToCompany,
+  reimburseAdmin,
+  routedCompanyPayment,
   resetExpenseStatus,
+  getLedgerExpenseReceipts,
+  setLedgerExpenseVisibility,
+  deleteLedgerExpense,
+  reverseLedgerTransaction,
 } from "../api.js";
-import { formatDate, money } from "../utils.js";
+import { fileToBase64, formatDate, money, PAYMENT_METHODS } from "../utils.js";
 import Navbar from "../components/Navbar.jsx";
+import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
 import ExpenseCard from "../components/ExpenseCard.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
@@ -21,6 +47,49 @@ import EditSettlementModal from "../components/EditSettlementModal.jsx";
 import FundsPanel from "../components/FundsPanel.jsx";
 import SettingsPanel from "../components/SettingsPanel.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+
+const TODAY_KEY = new Date().toDateString();
+
+function getExpenseDateKey(expense) {
+  const raw = expense.date || expense.createdAt;
+  if (!raw) return "No Date";
+  if (typeof raw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return raw;
+  }
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return "No Date";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatGroupDate(dateStr) {
+  if (!dateStr || dateStr === "No Date") return "Undated";
+  const parts = dateStr.split("-");
+  let d;
+  if (parts.length === 3) {
+    d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  } else {
+    d = new Date(dateStr);
+  }
+  if (isNaN(d.getTime())) return "Undated";
+
+  const today = new Date();
+  const isToday =
+    d.getDate() === today.getDate() &&
+    d.getMonth() === today.getMonth() &&
+    d.getFullYear() === today.getFullYear();
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday =
+    d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+
+  const formatted = formatDate(d);
+  if (isToday) return `Today · ${formatted}`;
+  if (isYesterday) return `Yesterday · ${formatted}`;
+  return formatted;
+}
 
 export default function DashboardPage() {
   const { companyId } = useParams();
@@ -34,12 +103,44 @@ export default function DashboardPage() {
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState("company");
-  const [activeTab, setActiveTab] = useState("ledger");
+  const [viewMode] = useState("company");
+  const [activeTab, setActiveTab] = useState("home");
+  const [companies, setCompanies] = useState([]);
+  const [ledgerExpenses, setLedgerExpenses] = useState([]);
+  const [ledgerBalances, setLedgerBalances] = useState(null);
+  const [intercompany, setIntercompany] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [borrowSources, setBorrowSources] = useState([]);
+  const [payerRequests, setPayerRequests] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [report, setReport] = useState(null);
+  const [moreView, setMoreView] = useState("funds");
+  const [intercoModal, setIntercoModal] = useState(null);
+  const [intercoDraft, setIntercoDraft] = useState({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
+  const [intercoSaving, setIntercoSaving] = useState(false);
+  const [moneyModal, setMoneyModal] = useState("");
+  const [moneyDraft, setMoneyDraft] = useState({ adminUserId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
+  const [routeDraft, setRouteDraft] = useState({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" });
+  const [paymentDraft, setPaymentDraft] = useState({ payer: "admin", fundId: "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
+  const [payerFundSelections, setPayerFundSelections] = useState({});
+  const [receiptModal, setReceiptModal] = useState(null);
+  const [receiptLoadingId, setReceiptLoadingId] = useState(null);
+
+  const [visibilityModal, setVisibilityModal] = useState(null);
+  const [savingVisibility, setSavingVisibility] = useState(false);
+  const [deletingExpense, setDeletingExpense] = useState(null);
+  const [reversingTx, setReversingTx] = useState(null);
+
+  const [reportFrom, setReportFrom] = useState("");
+  const [reportTo, setReportTo] = useState("");
+  const [reportCategory, setReportCategory] = useState("All");
+  const [loadingReport, setLoadingReport] = useState(false);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [expenseDateFrom, setExpenseDateFrom] = useState("");
+  const [expenseDateTo, setExpenseDateTo] = useState("");
 
   const [modal, setModal] = useState(null); // {type, expense?}
   const [confirmingLogout, setConfirmingLogout] = useState(false);
@@ -50,44 +151,103 @@ export default function DashboardPage() {
   const cashBalance = company?.cashBalance || 0;
   const customCategories = company?.customCategories || [];
 
+  const availableCompanyFunds = useMemo(() => {
+    const list = [];
+    list.push({ fundId: "cash", name: "Cash", balance: Number(company?.cashBalance || 0) });
+
+    const bankList = company?.bankAccounts || [];
+    for (const b of bankList) {
+      const bId = String(b._id);
+      const label = `${b.bankName}${b.accountNumber ? ` (…${b.accountNumber.slice(-4)})` : ""}`;
+      list.push({ fundId: bId, name: label, balance: Number(b.balance || 0) });
+    }
+    return list;
+  }, [company]);
+
   const load = useCallback(async () => {
-    const [detailsRes, expensesRes, summaryRes] = await Promise.all([
-      getCompanyDetails(companyId, user.id),
-      getCompanyExpenses(companyId, user.id),
-      getCompanyBalanceSummary(companyId, user.id),
-    ]);
+    const detailsRes = await getCompanyDetails(companyId, user.id);
 
     if (detailsRes.success === false) {
       showToast(detailsRes.message || "Failed to load company", "error");
-      navigate("/companies", { replace: true });
+      const message = String(detailsRes.message || "").toLowerCase();
+      if (!message.includes("fetch") && !message.includes("network") && !message.includes("timed out")) {
+        navigate("/companies", { replace: true });
+      }
+      setLoading(false);
       return;
     }
 
     setCompany(detailsRes.company);
     setMembers(detailsRes.members || []);
     setCurrentUserRole(detailsRes.currentUserRole || "member");
-    if (expensesRes.success) setExpenses(expensesRes.expenses || []);
-    if (summaryRes.success) {
-      setSummary({
-        totalReceivable: summaryRes.totalReceivable || 0,
-        totalPayable: summaryRes.totalPayable || 0,
-        totalCompanySpent: summaryRes.totalCompanySpent || 0,
-        netBalance: summaryRes.netBalance || 0,
-      });
-    }
+    // Show the company workspace as soon as its required details arrive.
+    // The lists and totals below are secondary and should not block first paint.
     setLoading(false);
+
+    getUserCompanies(user.id).then((companyList) => {
+      setCompanies(Array.isArray(companyList) ? companyList : companyList.companies || []);
+    });
   }, [companyId, user.id, navigate, showToast]);
 
   useEffect(() => {
     setLoading(true);
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 30000);
     return () => clearInterval(interval);
   }, [load]);
 
+  // Fetch only the data needed by the currently opened workspace section.
   useEffect(() => {
-    if (!isAdmin && activeTab === "funds") setActiveTab("ledger");
-  }, [isAdmin, activeTab]);
+    if (!company) return;
+    let active = true;
+    const apply = (request, setter, pick = (result) => result) => {
+      request.then((result) => {
+        if (active && result?.success) setter(pick(result));
+      });
+    };
+
+    if (activeTab === "home") {
+      apply(getLedgerBalances(companyId, user.id), setLedgerBalances);
+      apply(getLedgerLoans(companyId, user.id), setLoans, (result) => result.loans || []);
+      apply(getLedgerExpenses(companyId, user.id), setLedgerExpenses, (result) => result.expenses || []);
+      apply(getLedgerTransactions(companyId, user.id), setTransactions, (result) => result.transactions || []);
+    } else if (activeTab === "expenses") {
+      apply(getLedgerBalances(companyId, user.id), setLedgerBalances);
+      apply(getLedgerExpenses(companyId, user.id), setLedgerExpenses, (result) => result.expenses || []);
+      apply(getLedgerBorrowSources(companyId, user.id), setBorrowSources, (result) => result.companies || []);
+    } else if (activeTab === "ledger") {
+      apply(getCompanyExpenses(companyId, user.id), setExpenses, (result) => result.expenses || []);
+      apply(getCompanyBalanceSummary(companyId, user.id), setSummary, (result) => ({
+        totalReceivable: result.totalReceivable || 0,
+        totalPayable: result.totalPayable || 0,
+        totalCompanySpent: result.totalCompanySpent || 0,
+        netBalance: result.netBalance || 0,
+      }));
+    } else if (activeTab === "interco") {
+      apply(getLedgerIntercompany(companyId, user.id), setIntercompany, (result) => result.balances || []);
+      apply(getLedgerLoans(companyId, user.id), setLoans, (result) => result.loans || []);
+      apply(getLedgerBorrowSources(companyId, user.id), setBorrowSources, (result) => result.companies || []);
+    }
+
+    return () => { active = false; };
+  }, [activeTab, company, companyId, user.id]);
+
+  const loadReport = useCallback(async (from = reportFrom, to = reportTo, cat = reportCategory) => {
+    setLoadingReport(true);
+    const res = await getLedgerReport(companyId, user.id, from, to, cat);
+    if (res.success) setReport(res.report);
+    setLoadingReport(false);
+  }, [companyId, user.id, reportFrom, reportTo, reportCategory]);
+
+  useEffect(() => {
+    if (activeTab !== "reports") return;
+    loadReport();
+  }, [activeTab, loadReport]);
+
+  useEffect(() => {
+    if (!isAdmin || activeTab !== "interco") return;
+    getLedgerPayerConfirmations(companyId, user.id).then((res) => { if (res.success) setPayerRequests(res.expenses || []); });
+  }, [activeTab, companyId, user.id, isAdmin]);
 
   const categories = useMemo(() => {
     const set = new Set(["All"]);
@@ -143,6 +303,62 @@ export default function DashboardPage() {
     return groups;
   }, [filtered]);
 
+  const groupedLedgerExpenses = useMemo(() => {
+    let list = ledgerExpenses.filter((expense) => (
+      statusFilter === "All" ||
+      (statusFilter === "Verify" ? expense.verification === "pending" : expense.lifecycle === statusFilter.toLowerCase())
+    ));
+
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((e) => {
+        const desc = (e.description || "").toLowerCase();
+        const cat = (e.category || "").toLowerCase();
+        const isComp = e.logAs === "company" || e.postedAs === "company";
+        const creator = isComp ? (company?.name || "").toLowerCase() : (e.createdBy?.name || "").toLowerCase();
+        const amt = String(e.amount || "");
+        return desc.includes(q) || cat.includes(q) || creator.includes(q) || amt.includes(q);
+      });
+    }
+
+    if (expenseDateFrom) {
+      list = list.filter((e) => {
+        const key = getExpenseDateKey(e);
+        return key >= expenseDateFrom;
+      });
+    }
+
+    if (expenseDateTo) {
+      list = list.filter((e) => {
+        const key = getExpenseDateKey(e);
+        return key <= expenseDateTo;
+      });
+    }
+
+    const sorted = [...list].sort((a, b) => {
+      const timeB = new Date(b.date || b.createdAt).getTime() || 0;
+      const timeA = new Date(a.date || a.createdAt).getTime() || 0;
+      return timeB - timeA;
+    });
+
+    const map = new Map();
+    for (const exp of sorted) {
+      const key = getExpenseDateKey(exp);
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          label: formatGroupDate(key),
+          items: [],
+          total: 0,
+        });
+      }
+      const g = map.get(key);
+      g.items.push(exp);
+      g.total += Number(exp.amount || 0);
+    }
+    return Array.from(map.values());
+  }, [ledgerExpenses, statusFilter, search, expenseDateFrom, expenseDateTo, company?.name]);
+
   async function handleToggleStatus(expense, status) {
     const res = await resetExpenseStatus(expense._id, user.id, status);
     if (res.success) {
@@ -151,6 +367,165 @@ export default function DashboardPage() {
     } else {
       showToast(res.message || "Failed to change status", "error");
     }
+  }
+
+  async function decideLedgerExpense(expense, action) {
+    const request = action === "approve" ? approveLedgerExpense : rejectLedgerExpense;
+    const res = await request(expense._id, user.id);
+    if (res.success) {
+      showToast(action === "approve" ? "Expense approved" : "Expense rejected");
+      load();
+    } else showToast(res.message || `Could not ${action} expense`, "error");
+  }
+
+  async function submitLedgerPayment(event) {
+    event.preventDefault();
+    const expense = modal?.expense;
+    if (!expense) return;
+    if (!paymentDraft.paymentReceipt) { showToast("Attach the payment receipt", "error"); return; }
+    if (paymentDraft.payer === "company" && !paymentDraft.fundId) { showToast("Choose the paying fund", "error"); return; }
+    if (paymentDraft.payer === "borrow" && !paymentDraft.sourceCompanyId) { showToast("Choose the company paying", "error"); return; }
+
+    if (paymentDraft.payer === "company") {
+      const selectedFund = availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0];
+      if (selectedFund && Number(selectedFund.balance || 0) < Number(expense.amount || 0)) {
+        showToast(`Insufficient balance in ${selectedFund.name} (${money(selectedFund.balance)} available)`, "error");
+        return;
+      }
+    }
+
+    const result = await payLedgerExpense(expense._id, { userId: user.id, ...paymentDraft });
+    if (result.success) {
+      setModal(null);
+      showToast(result.awaitingConfirmation ? "Payment request sent for confirmation" : "Payment recorded");
+      load();
+    } else showToast(result.message || "Could not record payment", "error");
+  }
+
+  async function submitIntercoAction(event) {
+    event.preventDefault();
+    setIntercoSaving(true);
+    const result = intercoModal?.type === "repay"
+      ? await repayCompanyLoan(intercoModal.loan._id, { userId: user.id, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference })
+      : await createCompanyLoan({ userId: user.id, borrowerCompanyId: companyId, lenderCompanyId: intercoDraft.companyId, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference });
+    setIntercoSaving(false);
+    if (result.success) {
+      showToast(intercoModal?.type === "repay" ? "Loan repayment recorded" : "Company loan recorded");
+      setIntercoModal(null);
+      setIntercoDraft({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
+      load();
+    } else showToast(result.message || "Could not save company loan", "error");
+  }
+
+  async function respondToPayerRequest(expense, accept) {
+    const fundId = payerFundSelections[expense._id] || availableCompanyFunds?.[0]?.fundId || "cash";
+    const result = await confirmLedgerPayer(expense._id, user.id, accept, accept ? fundId : undefined);
+    if (result.success) {
+      showToast(accept ? "Payment accepted and loan recorded" : "Payment declined");
+      getLedgerPayerConfirmations(companyId, user.id).then((res) => setPayerRequests(res.expenses || []));
+      load();
+    } else showToast(result.message || "Could not respond to payment request", "error");
+  }
+
+  async function handleViewReceipt(expense) {
+    setReceiptLoadingId(expense._id);
+    const res = await getLedgerExpenseReceipts(expense._id, user.id);
+    setReceiptLoadingId(null);
+    if (!res.success) {
+      showToast(res.message || "Could not load receipt", "error");
+      return;
+    }
+    if (!res.attachment && !res.paymentReceipt) {
+      showToast("No receipt found for this expense", "error");
+      return;
+    }
+    const toDataUrl = (data) => {
+      if (!data) return "";
+      return data.startsWith("data:") ? data : `data:image/jpeg;base64,${data}`;
+    };
+    setReceiptModal({
+      title: expense.description || "Expense Receipt",
+      attachment: toDataUrl(res.attachment),
+      paymentReceipt: toDataUrl(res.paymentReceipt),
+    });
+  }
+
+  async function verifyTransaction(transaction) {
+    const result = await verifyLedgerTransaction(transaction._id, user.id);
+    if (result.success) {
+      showToast("Transaction verified");
+      load();
+    } else showToast(result.message || "Could not verify transaction", "error");
+  }
+
+  function openVisibilityModal(expense) {
+    const ids = new Set((expense.visibleTo || []).map(String));
+    setVisibilityModal({ expense, selectedIds: ids, allStaff: ids.size === 0 });
+  }
+
+  async function handleSaveVisibility(e) {
+    e.preventDefault();
+    if (!visibilityModal) return;
+    setSavingVisibility(true);
+    const visibleTo = visibilityModal.allStaff ? [] : Array.from(visibilityModal.selectedIds);
+    const res = await setLedgerExpenseVisibility(visibilityModal.expense._id, user.id, visibleTo);
+    setSavingVisibility(false);
+    if (res.success) {
+      showToast("Expense visibility updated");
+      setVisibilityModal(null);
+      load();
+    } else {
+      showToast(res.message || "Failed to update visibility", "error");
+    }
+  }
+
+  async function confirmDeleteExpense() {
+    if (!deletingExpense) return;
+    const res = await deleteLedgerExpense(deletingExpense._id, user.id);
+    setDeletingExpense(null);
+    if (res.success) {
+      showToast("Expense deleted");
+      load();
+    } else {
+      showToast(res.message || "Failed to delete expense", "error");
+    }
+  }
+
+  async function confirmReverseTransaction() {
+    if (!reversingTx) return;
+    const res = await reverseLedgerTransaction(reversingTx._id, user.id);
+    setReversingTx(null);
+    if (res.success) {
+      showToast("Transaction reversed");
+      load();
+    } else {
+      showToast(res.message || "Failed to reverse transaction", "error");
+    }
+  }
+
+  async function submitMoneyAction(event) {
+    event.preventDefault();
+    setIntercoSaving(true);
+    const payload = { companyId, userId: user.id, amount: Number(moneyDraft.amount), fundId: moneyDraft.fundId, method: moneyDraft.method, reference: moneyDraft.reference };
+    const result = moneyModal === "lend" ? await lendToCompany(payload) : await reimburseAdmin({ ...payload, adminUserId: moneyDraft.adminUserId });
+    setIntercoSaving(false);
+    if (result.success) {
+      showToast(moneyModal === "lend" ? "Money lent to company" : "Manager reimbursed");
+      setMoneyModal("");
+      load();
+    } else showToast(result.message || "Could not record transaction", "error");
+  }
+
+  async function submitRoutedPayment(event) {
+    event.preventDefault();
+    setIntercoSaving(true);
+    const result = await routedCompanyPayment({ userId: user.id, companyId, ...routeDraft, sourceFundId: "cash" });
+    setIntercoSaving(false);
+    if (result.success) {
+      showToast("Routed payment recorded");
+      setIntercoModal(null);
+      load();
+    } else showToast(result.message || "Could not record routed payment", "error");
   }
 
   async function confirmDeleteExpense() {
@@ -182,15 +557,383 @@ export default function DashboardPage() {
       <div className="app-shell">
         <Sidebar
           company={company}
+          companies={companies}
           isAdmin={isAdmin}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
           active={activeTab}
           onNavigate={setActiveTab}
-          userName={user.name}
+          onCompanyChange={(id) => navigate(`/company/${id}`)}
         />
 
         <div className="main-panel">
+          {activeTab === "home" && (
+            <>
+              <h1 style={{ fontSize: 26, margin: "0 0 20px" }}>Home</h1>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+                <div className="stat-card"><div style={labelStyle}>{isAdmin ? "OWED TO PEOPLE" : "COMPANY OWES YOU"}</div><div style={bigNumberStyle}>{money(isAdmin ? ledgerBalances?.totalOwedToAdmins : ledgerBalances?.myOwed)}</div></div>
+                <div className="stat-card"><div style={labelStyle}>OWED TO OTHER COMPANIES</div><div style={{ ...bigNumberStyle, color: "var(--terracotta)" }}>{money(loans.filter((loan) => String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId).reduce((sum, loan) => sum + Number(loan.balance || 0), 0))}</div></div>
+                {isAdmin && <div className="stat-card"><div style={labelStyle}>CASH / BANK</div><div style={bigNumberStyle}>{money(availableCompanyFunds.reduce((sum, fund) => sum + Number(fund.balance || 0), 0))}</div></div>}
+              </div>
+              {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("reimburse"); }}>Reimburse person</button></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}><h2 style={{ margin: 0, fontSize: 19 }}>Today</h2><button className="btn btn-primary" onClick={() => setActiveTab("expenses")}>View expenses</button></div>
+              {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div> : ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).map((expense) => <div key={expense._id} className="card" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 12 }}><span><strong>{expense.description}</strong><br /><small>{expense.category} · {expense.createdBy?.name || "Staff"}</small></span><strong>{money(expense.amount)}</strong></div>)}
+              {isAdmin && <><h2 style={{ margin: "22px 0 12px", fontSize: 19 }}>Pending verification</h2>{transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).length ? transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).map((transaction) => <div key={transaction._id} className="card" style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}><span>{transaction.memo} · {money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}<br /><small>{transaction.createdBy?.name || "Manager"}</small></span><button className="btn btn-primary" onClick={() => verifyTransaction(transaction)}>Verify</button></div>) : <div className="card" style={{ color: "var(--muted)" }}>Nothing waiting for verification.</div>}</>}
+            </>
+          )}
+
+          {activeTab === "expenses" && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+                <h1 style={{ fontSize: 26, margin: 0 }}>Expenses</h1>
+                <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>
+              </div>
+              <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and track company expense submissions.</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                {["All", "Submitted", "Approved", ...(isAdmin ? ["Verify"] : [])].map((filter) => (
+                  <button
+                    key={filter}
+                    className={`btn ${statusFilter === filter ? "btn-dark" : "btn-outline"}`}
+                    onClick={() => setStatusFilter(filter)}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+
+              <div
+                className="card"
+                style={{
+                  marginBottom: 18,
+                  padding: "10px 14px",
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "#fff",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                }}
+              >
+                <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}
+                  >
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input
+                    type="text"
+                    className="field-input"
+                    style={{ paddingLeft: 34, paddingRight: search ? 30 : 12, height: 38, marginBottom: 0 }}
+                    placeholder="Search expenses by description, staff, amount…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        background: "none",
+                        border: "none",
+                        color: "var(--muted)",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        padding: 4,
+                        lineHeight: 1,
+                      }}
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>From</span>
+                    <input
+                      type="date"
+                      className="field-input"
+                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: 140, marginBottom: 0 }}
+                      value={expenseDateFrom}
+                      onChange={(e) => setExpenseDateFrom(e.target.value)}
+                      title="From date"
+                    />
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>To</span>
+                    <input
+                      type="date"
+                      className="field-input"
+                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: 140, marginBottom: 0 }}
+                      value={expenseDateTo}
+                      onChange={(e) => setExpenseDateTo(e.target.value)}
+                      title="To date"
+                    />
+                  </div>
+
+                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All") && (
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ height: 38, padding: "0 12px", fontSize: 12.5 }}
+                      onClick={() => {
+                        setSearch("");
+                        setExpenseDateFrom("");
+                        setExpenseDateTo("");
+                        setStatusFilter("All");
+                      }}
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {groupedLedgerExpenses.length === 0 ? (
+                <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 24 }}>
+                  No expenses match your search or date filters.
+                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All") && (
+                    <div style={{ marginTop: 10 }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        style={{ fontSize: 12.5, padding: "6px 14px" }}
+                        onClick={() => {
+                          setSearch("");
+                          setExpenseDateFrom("");
+                          setExpenseDateTo("");
+                          setStatusFilter("All");
+                        }}
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                groupedLedgerExpenses.map((group) => (
+                  <div key={group.key} className="expense-date-group">
+                    <div className="expense-date-breaker">
+                      <div className="expense-date-badge">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+                          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                          <line x1="16" x2="16" y1="2" y2="6" />
+                          <line x1="8" x2="8" y1="2" y2="6" />
+                          <line x1="3" x2="21" y1="10" y2="10" />
+                        </svg>
+                        <span>{group.label}</span>
+                      </div>
+                      <div className="expense-date-breaker-line" />
+                      <span className="expense-date-total">
+                        {group.items.length} {group.items.length === 1 ? "expense" : "expenses"} · {money(group.total)}
+                      </span>
+                    </div>
+
+                    {group.items.map((expense) => (
+                      <article className="card" key={expense._id} style={{ marginBottom: 10, padding: 16 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                          <div>
+                            <span className="pill pill-category">{expense.category || "General"}</span>
+                            <h3 style={{ margin: "9px 0 4px", fontSize: 16 }}>{expense.description}</h3>
+                            <small style={{ color: "var(--muted)" }}>
+                              Posted by {
+                                (expense.logAs === "company" || expense.postedAs === "company")
+                                  ? (expense.companyId?.name || company?.name || "Company")
+                                  : (expense.createdBy?.name || "Staff")
+                              } · {formatDate(expense.date || expense.createdAt)}
+                            </small>
+                          </div>
+                          <strong>{money(expense.amount)}</strong>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+                          <span className={`pill ${expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "pill-paid" : expense.lifecycle === "rejected" ? "pill-outstanding" : "pill-category"}`}>
+                            {(expense.lifecycle || "submitted").replaceAll("_", " ")}
+                          </span>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            {(expense.hasAttachment || expense.hasPaymentReceipt) && (
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => handleViewReceipt(expense)}
+                                disabled={receiptLoadingId === expense._id}
+                              >
+                                {receiptLoadingId === expense._id ? "Loading…" : "View receipt"}
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => openVisibilityModal(expense)}
+                              >
+                                Visibility
+                              </button>
+                            )}
+                            {expense.lifecycle === "submitted" && String(expense.createdBy?._id || expense.createdBy) === user.id && (
+                              <button
+                                type="button"
+                                className="btn btn-outline-danger"
+                                onClick={() => setDeletingExpense(expense)}
+                              >
+                                Delete
+                              </button>
+                            )}
+                            {isAdmin && expense.lifecycle === "submitted" && (
+                              <>
+                                <button className="btn btn-outline" onClick={() => decideLedgerExpense(expense, "reject")}>Reject</button>
+                                <button className="btn btn-primary" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button>
+                              </>
+                            )}
+                            {expense.lifecycle === "approved" && (
+                              <button
+                                className="btn btn-primary"
+                                onClick={() => {
+                                  const canPayCompany = isAdmin || String(expense.createdBy?._id || expense.createdBy) === user.id;
+                                  setPaymentDraft({
+                                    payer: isAdmin ? "admin" : "person",
+                                    fundId: availableCompanyFunds[0]?.fundId || "cash",
+                                    sourceCompanyId: "",
+                                    method: "UPI",
+                                    reference: "",
+                                    paymentReceipt: "",
+                                  });
+                                  setModal({ type: "ledgerPay", expense });
+                                }}
+                              >
+                                Record payment
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ))
+              )}
+            </>
+          )}
+
+          {activeTab === "interco" && (
+            <>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><h1 style={{ fontSize: 26, margin: 0 }}>Inter-company</h1>{isAdmin && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button><button className="btn btn-dark" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Borrow from a company</button></div>}</div>
+              {isAdmin && payerRequests.length > 0 && <><h2 style={{ fontSize: 18, marginTop: 22 }}>Payment confirmations</h2>{payerRequests.map((expense) => <div key={expense._id} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}><span><strong>{expense.description}</strong><br /><small>{expense.companyId?.name || "Another company"} · {money(expense.amount)}</small></span><div style={{ display: "flex", gap: 8 }}><select className="field-select" value={payerFundSelections[expense._id] || availableCompanyFunds[0]?.fundId || "cash"} onChange={(event) => setPayerFundSelections((current) => ({ ...current, [expense._id]: event.target.value }))}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name}</option>)}</select><button className="btn btn-outline" onClick={() => respondToPayerRequest(expense, false)}>Reject</button><button className="btn btn-primary" onClick={() => respondToPayerRequest(expense, true)}>Accept</button></div></div>)}</>}
+              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company balances</h2>
+              {intercompany.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No inter-company balances yet.</div> : intercompany.map((row) => <div key={row.companyId} className="card" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 10 }}><strong>{row.name}</strong><span>{row.net >= 0 ? "They owe this company" : "This company owes"} {money(Math.abs(row.net))}{row.mismatch ? " · Balance mismatch" : ""}</span></div>)}
+              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company loans</h2>
+              {loans.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No company loans yet.</div> : loans.map((loan) => <div key={loan._id} className="card" style={{ marginBottom: 8 }}><strong>{String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId ? `Borrowed from ${loan.lenderCompanyId?.name || "company"}` : `Lent to ${loan.borrowerCompanyId?.name || "company"}`}</strong><div style={{ color: "var(--muted)", marginTop: 6 }}>Balance {money(loan.balance)} · Original {money(loan.amount)}</div>{isAdmin && String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId && Number(loan.balance) > 0 && <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>}</div>)}
+            </>
+          )}
+
+          {activeTab === "reports" && (
+            <>
+              <h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Reports</h1>
+              <div className="card" style={{ marginBottom: 18, padding: 14 }}>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                  <div>
+                    <label className="field-label">From Date</label>
+                    <input
+                      className="field-input"
+                      type="date"
+                      value={reportFrom}
+                      onChange={(e) => setReportFrom(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">To Date</label>
+                    <input
+                      className="field-input"
+                      type="date"
+                      value={reportTo}
+                      onChange={(e) => setReportTo(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="field-label">Category</label>
+                    <select
+                      className="field-select"
+                      value={reportCategory}
+                      onChange={(e) => setReportCategory(e.target.value)}
+                    >
+                      <option value="All">All Categories</option>
+                      {["General", "Travel", "Food & Dining", "Rent", "Software", "Office Supplies", "Utilities", "Other", ...(company?.customCategories || [])].map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button className="btn btn-primary" onClick={() => loadReport()}>
+                    Apply Filter
+                  </button>
+                  {(reportFrom || reportTo || reportCategory !== "All") && (
+                    <button
+                      className="btn btn-outline"
+                      onClick={() => {
+                        setReportFrom("");
+                        setReportTo("");
+                        setReportCategory("All");
+                        loadReport("", "", "All");
+                      }}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {loadingReport ? (
+                <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
+                  <div className="spinner" />
+                </div>
+              ) : report ? (
+                <div className="card">
+                  <div className="profile-detail">
+                    <span className="field-label">Expenses</span>
+                    <strong>{money(report.expenses)}</strong>
+                  </div>
+                  <div className="profile-detail">
+                    <span className="field-label">Paid by managers</span>
+                    <strong>{money(report.paidByAdmins)}</strong>
+                  </div>
+                  <div className="profile-detail">
+                    <span className="field-label">Owed to managers</span>
+                    <strong>{money(report.owedToAdmins)}</strong>
+                  </div>
+                  <div className="profile-detail">
+                    <span className="field-label">Inter-company net</span>
+                    <strong>{money(report.intercompanyNet)}</strong>
+                  </div>
+                  <a
+                    className="btn btn-primary"
+                    href={getLedgerExportUrl(companyId, user.id, reportFrom, reportTo, reportCategory)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Export CSV
+                  </a>
+                </div>
+              ) : (
+                <div className="card" style={{ color: "var(--muted)" }}>No report data.</div>
+              )}
+            </>
+          )}
+
+          {activeTab === "more" && (
+            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>More</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>{[...(isAdmin ? ["funds", "transactions", "audit"] : []), "settings"].map((section) => <button key={section} className={`btn ${moreView === section ? "btn-dark" : "btn-outline"}`} onClick={() => setMoreView(section)}>{section === "funds" ? "Company Funds" : section === "transactions" ? "Ledger" : section === "audit" ? "Audit log" : "Settings"}</button>)}</div>{moreView === "funds" && isAdmin && <FundsPanel company={company} user={user} bankAccounts={bankAccounts} cashBalance={cashBalance} onChanged={(accounts, cash) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash }))} />}{moreView === "settings" && <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />}{moreView === "transactions" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} />}{moreView === "audit" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" />}</>
+          )}
+
           {activeTab === "ledger" && (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
@@ -297,14 +1040,207 @@ export default function DashboardPage() {
           company={company}
           user={user}
           isAdmin={isAdmin}
-          lockedLogAs={isAdmin ? viewMode : null}
           members={members}
-          bankAccounts={bankAccounts}
-          cashBalance={cashBalance}
           customCategories={customCategories}
           onClose={() => setModal(null)}
           onCreated={load}
         />
+      )}
+
+      {moneyModal && (
+        <Modal onClose={() => setMoneyModal("")} maxWidth={440}>
+          <h2 style={{ marginTop: 0 }}>{moneyModal === "lend" ? "Lend to company" : "Reimburse person"}</h2>
+          <form onSubmit={submitMoneyAction}>
+            {moneyModal === "reimburse" && <><label className="field-label">Payee</label><select className="field-select" value={moneyDraft.adminUserId} onChange={(event) => setMoneyDraft({ ...moneyDraft, adminUserId: event.target.value })} required><option value="">Choose manager</option>{(ledgerBalances?.admins || []).filter((admin) => String(admin.userId) !== user.id && Number(admin.owed) > 0).map((admin) => <option key={admin.userId} value={admin.userId}>{admin.name} · owed {money(admin.owed)}</option>)}</select></>}
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" value={moneyDraft.amount} onChange={(event) => setMoneyDraft({ ...moneyDraft, amount: event.target.value })} required />
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label><select className="field-select" value={moneyDraft.fundId} onChange={(event) => setMoneyDraft({ ...moneyDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
+            <select
+              className="field-select"
+              value={moneyDraft.method}
+              onChange={(event) => setMoneyDraft({ ...moneyDraft, method: event.target.value })}
+              required
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              {moneyDraft.method && !PAYMENT_METHODS.includes(moneyDraft.method) && (
+                <option value={moneyDraft.method}>{moneyDraft.method}</option>
+              )}
+            </select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={moneyDraft.reference} onChange={(event) => setMoneyDraft({ ...moneyDraft, reference: event.target.value })} />
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setMoneyModal("")}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : "Record transaction"}</button></div>
+          </form>
+        </Modal>
+      )}
+
+      {modal?.type === "ledgerPay" && (
+        <Modal onClose={() => setModal(null)} maxWidth={460}>
+          <h2 style={{ marginTop: 0 }}>Record payment</h2>
+          <p style={{ color: "var(--muted)" }}>{modal.expense.description} · {money(modal.expense.amount)}</p>
+          <form onSubmit={submitLedgerPayment}>
+            <label className="field-label">Who paid?</label>
+            <select className="field-select" value={paymentDraft.payer} onChange={(event) => setPaymentDraft({ ...paymentDraft, payer: event.target.value })}>
+              <option value={isAdmin ? "admin" : "person"}>Paid by me</option>
+              {(isAdmin || String(modal.expense.createdBy?._id || modal.expense.createdBy) === user.id) && <option value="company">Paid by company</option>}
+              <option value="borrow">Borrowed from a company</option>
+            </select>
+            {paymentDraft.payer === "company" && (() => {
+              const selectedFund = availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0];
+              const expenseAmount = Number(modal.expense?.amount || 0);
+              const isInsufficient = selectedFund && Number(selectedFund.balance || 0) < expenseAmount;
+
+              return (
+                <>
+                  <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label>
+                  <select className="field-select" value={paymentDraft.fundId} onChange={(event) => setPaymentDraft({ ...paymentDraft, fundId: event.target.value })}>
+                    {availableCompanyFunds.map((fund) => {
+                      const fundLow = Number(fund.balance || 0) < expenseAmount;
+                      return (
+                        <option key={fund.fundId} value={fund.fundId}>
+                          {fund.name} · {money(fund.balance)} {fundLow ? "⚠️ (Insufficient balance)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {isInsufficient && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 6,
+                        padding: "7px 10px",
+                        background: "#FEF2F2",
+                        border: "1px solid #FECACA",
+                        borderRadius: 8,
+                        color: "#DC2626",
+                        fontSize: 12,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      <span>Insufficient balance: {money(selectedFund?.balance || 0)} available ({money(expenseAmount)} required)</span>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+            {paymentDraft.payer === "borrow" && (
+              <>
+                <label className="field-label" style={{ display: "block", marginTop: 12 }}>Source company</label>
+                <select
+                  className="field-select"
+                  value={paymentDraft.sourceCompanyId}
+                  onChange={(event) => setPaymentDraft({ ...paymentDraft, sourceCompanyId: event.target.value })}
+                >
+                  <option value="">Choose company</option>
+                  {borrowSources.map((source) => (
+                    <option key={source._id} value={source._id}>{source.name}</option>
+                  ))}
+                </select>
+                {borrowSources.length === 0 && (
+                  <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
+                    No other companies found. You need at least one other company created in your workspace to borrow from.
+                  </p>
+                )}
+              </>
+            )}
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
+            <select
+              className="field-select"
+              value={paymentDraft.method}
+              onChange={(event) => setPaymentDraft({ ...paymentDraft, method: event.target.value })}
+              required
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              {paymentDraft.method && !PAYMENT_METHODS.includes(paymentDraft.method) && (
+                <option value={paymentDraft.method}>{paymentDraft.method}</option>
+              )}
+            </select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={paymentDraft.reference} onChange={(event) => setPaymentDraft({ ...paymentDraft, reference: event.target.value })} />
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment receipt *</label><input type="file" accept="image/*" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { showToast("Receipt must be 5 MB or smaller", "error"); event.target.value = ""; return; } const paymentReceipt = await fileToBase64(file); setPaymentDraft((current) => ({ ...current, paymentReceipt })); }} required />
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
+              {(() => {
+                const selectedFund = paymentDraft.payer === "company"
+                  ? (availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0])
+                  : null;
+                const isInsufficient = paymentDraft.payer === "company" && selectedFund && Number(selectedFund.balance || 0) < Number(modal.expense?.amount || 0);
+
+                return (
+                  <button
+                    className="btn btn-primary"
+                    style={{
+                      flex: 1,
+                      opacity: isInsufficient ? 0.55 : 1,
+                      cursor: isInsufficient ? "not-allowed" : "pointer",
+                    }}
+                    disabled={isInsufficient}
+                    title={isInsufficient ? "Cannot record payment: Insufficient balance in selected fund" : ""}
+                  >
+                    {isInsufficient ? "Insufficient Balance" : "Record payment"}
+                  </button>
+                );
+              })()}
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {intercoModal && (
+        <Modal onClose={() => setIntercoModal(null)} maxWidth={460}>
+          <h2 style={{ marginTop: 0 }}>{intercoModal.type === "repay" ? "Repay company loan" : intercoModal.type === "routed" ? "Routed payment to manager" : "Borrow from a company"}</h2>
+          {intercoModal.type === "routed" ? <form onSubmit={submitRoutedPayment}>
+            <label className="field-label">Source company</label><select className="field-select" value={routeDraft.sourceCompanyId} onChange={(event) => setRouteDraft({ ...routeDraft, sourceCompanyId: event.target.value })} required><option value="">Choose company</option>{borrowSources.map((source) => <option key={source._id} value={source._id}>{source.name}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Manager being paid</label><select className="field-select" value={routeDraft.adminUserId} onChange={(event) => setRouteDraft({ ...routeDraft, adminUserId: event.target.value })} required><option value="">Choose manager</option>{members.filter((member) => member.role === "admin" && member.userId !== user.id).map((member) => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" value={routeDraft.amount} onChange={(event) => setRouteDraft({ ...routeDraft, amount: event.target.value })} required />
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
+            <select
+              className="field-select"
+              value={routeDraft.method}
+              onChange={(event) => setRouteDraft({ ...routeDraft, method: event.target.value })}
+              required
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              {routeDraft.method && !PAYMENT_METHODS.includes(routeDraft.method) && (
+                <option value={routeDraft.method}>{routeDraft.method}</option>
+              )}
+            </select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={routeDraft.reference} onChange={(event) => setRouteDraft({ ...routeDraft, reference: event.target.value })} />
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIntercoModal(null)}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : "Confirm routed payment"}</button></div>
+          </form> :
+          <form onSubmit={submitIntercoAction}>
+            {intercoModal.type === "borrow" && <><label className="field-label">Lender company</label><select className="field-select" value={intercoDraft.companyId} onChange={(event) => setIntercoDraft({ ...intercoDraft, companyId: event.target.value })} required><option value="">Choose company</option>{borrowSources.map((source) => <option key={source._id} value={source._id}>{source.name}</option>)}</select></>}
+            {intercoModal.type === "repay" && <p style={{ color: "var(--muted)" }}>Outstanding balance: {money(intercoModal.loan.balance)}</p>}
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" max={intercoModal.type === "repay" ? intercoModal.loan.balance : undefined} value={intercoDraft.amount} onChange={(event) => setIntercoDraft({ ...intercoDraft, amount: event.target.value })} required />
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Fund</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
+            <select
+              className="field-select"
+              value={intercoDraft.method}
+              onChange={(event) => setIntercoDraft({ ...intercoDraft, method: event.target.value })}
+              required
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+              {intercoDraft.method && !PAYMENT_METHODS.includes(intercoDraft.method) && (
+                <option value={intercoDraft.method}>{intercoDraft.method}</option>
+              )}
+            </select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={intercoDraft.reference} onChange={(event) => setIntercoDraft({ ...intercoDraft, reference: event.target.value })} />
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIntercoModal(null)}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : intercoModal.type === "repay" ? "Record repayment" : "Record loan"}</button></div>
+          </form>}
+        </Modal>
       )}
 
       {modal?.type === "edit" && (
@@ -361,6 +1297,118 @@ export default function DashboardPage() {
         />
       )}
 
+      {visibilityModal && (
+        <Modal onClose={() => setVisibilityModal(null)} maxWidth={500}>
+          <h2 style={{ marginTop: 0, marginBottom: 8 }}>Staff Visibility</h2>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 16px" }}>
+            Choose which staff can see &quot;{visibilityModal.expense.description}&quot;.
+          </p>
+          <form onSubmit={handleSaveVisibility}>
+            <label className="group-member-option" style={{ marginBottom: 12 }}>
+              <input
+                type="checkbox"
+                checked={visibilityModal.allStaff}
+                onChange={(e) => {
+                  setVisibilityModal((curr) => ({
+                    ...curr,
+                    allStaff: e.target.checked,
+                    selectedIds: e.target.checked ? new Set() : new Set(members.map((m) => String(m.userId))),
+                  }));
+                }}
+              />
+              <strong>Visible to all staff</strong>
+            </label>
+
+            {!visibilityModal.allStaff && (
+              <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--slate-border-2)", borderRadius: 10, padding: 10, marginBottom: 16 }}>
+                {members.map((m) => {
+                  const mId = String(m.userId);
+                  const isChecked = visibilityModal.selectedIds.has(mId);
+                  return (
+                    <label key={mId} className="group-member-option" style={{ padding: "6px 0" }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const next = new Set(visibilityModal.selectedIds);
+                          if (e.target.checked) next.add(mId);
+                          else next.delete(mId);
+                          setVisibilityModal((curr) => ({ ...curr, selectedIds: next }));
+                        }}
+                      />
+                      <span>{m.name} ({m.role === "admin" ? "Manager" : "Staff"})</span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setVisibilityModal(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" style={{ flex: 1 }} disabled={savingVisibility}>
+                {savingVisibility ? "Saving…" : "Save Visibility"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {deletingExpense && (
+        <ConfirmDialog
+          title="Delete submitted expense?"
+          message={`Are you sure you want to delete "${deletingExpense.description}" (${money(deletingExpense.amount)})?`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={confirmDeleteExpense}
+          onCancel={() => setDeletingExpense(null)}
+        />
+      )}
+
+      {reversingTx && (
+        <ConfirmDialog
+          title="Reverse transaction?"
+          message={`A reversal entry will be booked in the ledger for "${reversingTx.memo || 'this transaction'}". No transaction records will be deleted.`}
+          confirmLabel="Reverse Transaction"
+          danger
+          onConfirm={confirmReverseTransaction}
+          onCancel={() => setReversingTx(null)}
+        />
+      )}
+
+      {receiptModal && (
+        <Modal onClose={() => setReceiptModal(null)} maxWidth={760}>
+          <h2 style={{ marginTop: 0, marginBottom: 16 }}>{receiptModal.title || "Receipt"}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {receiptModal.attachment && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
+                  📎 Bill / Expense Attachment
+                </div>
+                <img
+                  src={receiptModal.attachment}
+                  alt="Expense attachment"
+                  style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 8, display: "block", margin: "0 auto", objectFit: "contain" }}
+                />
+              </div>
+            )}
+            {receiptModal.paymentReceipt && (
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
+                  💳 Payment Proof / Receipt
+                </div>
+                <img
+                  src={receiptModal.paymentReceipt}
+                  alt="Payment receipt"
+                  style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 8, display: "block", margin: "0 auto", objectFit: "contain" }}
+                />
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
       {confirmingLogout && (
         <ConfirmDialog
           title="Log out?"
@@ -389,3 +1437,59 @@ const bigNumberStyle = {
   fontWeight: 700,
   color: "var(--forest)",
 };
+
+function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRows = useCallback(() => {
+    setLoading(true);
+    loader(companyId, userId).then((result) => {
+      setRows(result.transactions || result.logs || []);
+      setLoading(false);
+    });
+  }, [companyId, userId, loader]);
+
+  useEffect(() => {
+    fetchRows();
+  }, [fetchRows]);
+
+  if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 35 }}><div className="spinner dark" /></div>;
+  if (!rows.length) return <div className="card" style={{ color: "var(--muted)" }}>No {title.toLowerCase()} records yet.</div>;
+  return (
+    <div>
+      {rows.map((row) => {
+        const canReverse = isAdmin && title === "Ledger" && !row.reversedBy && row.type !== "reversal";
+        return (
+          <article key={row._id} className="card" style={{ marginBottom: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+              <div>
+                <strong>{row.memo || `${row.action || "Activity"} · ${row.object || ""}`}</strong>
+                <div style={{ marginTop: 5, color: "var(--muted)", fontSize: 12 }}>
+                  {row.createdBy?.name || row.userId?.name || "Staff"} · {formatDate(row.createdAt || row.at)}
+                  {row.reversedBy && <span style={{ color: "var(--terracotta)", marginLeft: 6 }}>(Reversed)</span>}
+                </div>
+              </div>
+              {canReverse && (
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  style={{ padding: "4px 8px", fontSize: 11 }}
+                  onClick={() => onReverse(row)}
+                >
+                  Reverse
+                </button>
+              )}
+            </div>
+            {Array.isArray(row.entries) && row.entries.map((entry) => (
+              <div key={entry._id} style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12 }}>
+                <span>{entry.accountId?.name || "Account"}</span>
+                <span>{Number(entry.debit) > 0 ? `Dr ${money(entry.debit)}` : `Cr ${money(entry.credit)}`}</span>
+              </div>
+            ))}
+          </article>
+        );
+      })}
+    </div>
+  );
+}

@@ -32,7 +32,7 @@ export function formatDateTime(d) {
   });
 }
 
-export function personName(ref, fallback = "Member") {
+export function personName(ref, fallback = "Staff") {
   if (!ref) return fallback;
   if (typeof ref === "object") return ref.name || fallback;
   return fallback;
@@ -49,6 +49,8 @@ export const PAYMENT_MODES = {
   card: "Card 💳",
   upi: "UPI 📲",
 };
+
+export const PAYMENT_METHODS = ["UPI", "Bank", "Cash", "Card"];
 
 export const LEGACY_PAYMENT_MODES = {
   cash: "Cash 💵",

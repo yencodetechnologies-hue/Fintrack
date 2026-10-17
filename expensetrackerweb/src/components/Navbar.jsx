@@ -1,6 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export default function Navbar({ crumb, backTo, children }) {
+  const location = useLocation();
   return (
     <div className="navbar">
       <div className="navbar-inner">
@@ -37,7 +38,10 @@ export default function Navbar({ crumb, backTo, children }) {
             )}
           </>
         )}
-        <div className="navbar-actions">{children}</div>
+        <div className="navbar-actions">
+          {location.pathname !== "/profile" && <Link to="/profile" className="nav-text-btn">Profile</Link>}
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -254,7 +254,7 @@ exports.getGroupExpenseReceipt = async (req, res) => {
 // 1. Create Company
 exports.createCompany = async (req, res) => {
   try {
-    const { name, details, userId, userName } = req.body;
+    const { name, details, userId, userName, memberUserIds = [] } = req.body;
     if (!name || !userId) {
       return res.status(400).json({ success: false, message: "Company Name and User ID are required" });
     }
@@ -280,6 +280,28 @@ exports.createCompany = async (req, res) => {
     });
     await member.save();
 
+    // Add selected members if provided
+    if (Array.isArray(memberUserIds) && memberUserIds.length > 0) {
+      for (const item of memberUserIds) {
+        const mUserId = typeof item === "object" && item !== null ? (item.userId || item._id || item.id) : item;
+        const role = typeof item === "object" && item?.role === "admin" ? "admin" : "member";
+        if (!mUserId || String(mUserId) === String(userId)) continue;
+
+        try {
+          const exists = await CompanyMember.findOne({ companyId: company._id, userId: mUserId });
+          if (!exists) {
+            await CompanyMember.create({
+              companyId: company._id,
+              userId: mUserId,
+              role,
+            });
+          }
+        } catch (mErr) {
+          console.error(`Failed to add member ${mUserId} to company:`, mErr);
+        }
+      }
+    }
+
     res.status(201).json({
       success: true,
       message: "Company created successfully",
@@ -288,6 +310,61 @@ exports.createCompany = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Candidate members from any company
+exports.getAllCompanyMemberCandidates = async (req, res) => {
+  try {
+    const { userId } = req.query;
+
+    const rawMembers = await CompanyMember.find({})
+      .populate("companyId", "name")
+      .populate("userId", "name email")
+      .lean();
+
+    const userMap = new Map();
+
+    for (const m of rawMembers) {
+      if (!m.userId || !m.userId._id) continue;
+      const uId = m.userId._id.toString();
+      if (userId && uId === String(userId)) continue;
+
+      if (!userMap.has(uId)) {
+        userMap.set(uId, {
+          userId: uId,
+          name: m.userId.name || "Staff",
+          email: m.userId.email || "",
+          companies: [],
+        });
+      }
+
+      if (m.companyId && m.companyId.name) {
+        const item = userMap.get(uId);
+        if (!item.companies.includes(m.companyId.name)) {
+          item.companies.push(m.companyId.name);
+        }
+      }
+    }
+
+    const allUsers = await User.find(userId ? { _id: { $ne: userId } } : {}).select("name email").lean();
+    for (const u of allUsers) {
+      const uId = u._id.toString();
+      if (!userMap.has(uId)) {
+        userMap.set(uId, {
+          userId: uId,
+          name: u.name || "User",
+          email: u.email || "",
+          companies: [],
+        });
+      }
+    }
+
+    const candidates = Array.from(userMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    return res.status(200).json({ success: true, candidates });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -423,7 +500,7 @@ exports.getCompanyDetails = async (req, res) => {
       return {
         _id: m._id,
         userId: m.userId,
-        name: userObj.name || "Member",
+        name: userObj.name || "Staff",
         email: userObj.email || "",
         role: isCreator ? "admin" : (m.role || "member"),
         joinedAt: m.joinedAt,
@@ -1316,7 +1393,7 @@ async function refundExpenseFunds(expense, settlements) {
 exports.addIncome = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { userId, amount, destination, sourceBankAccountId } = req.body;
+    const { userId, amount, destination, sourceBankAccountId, description } = req.body;
     const adminUserIds = await getCompanyAdminUserIds(companyId);
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can add income" });
@@ -1330,7 +1407,12 @@ exports.addIncome = async (req, res) => {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
 
-    const record = { companyId, createdBy: userId, amount: value };
+    const record = {
+      companyId,
+      createdBy: userId,
+      amount: value,
+      description: typeof description === "string" ? description.trim() : "",
+    };
     if (destination === "cash") {
       const source = company.bankAccounts.id(sourceBankAccountId);
       if (!source) {

@@ -225,6 +225,75 @@ a {
   color: #fff;
 }
 
+.sidebar-item svg {
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sidebar-item:hover svg,
+.sidebar-item.active svg {
+  opacity: 1;
+}
+
+.sidebar-company-picker {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  margin: 2px 0 1px -6px;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 9px;
+  background: rgba(255,255,255,0.055);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sidebar-company-picker:hover,
+.sidebar-company-picker:focus-within {
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.1);
+}
+
+.sidebar-company-picker > span {
+  position: absolute;
+  right: 9px;
+  pointer-events: none;
+}
+
+.sidebar-company-chevron {
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid rgba(255,255,255,0.72);
+  border-bottom: 1.5px solid rgba(255,255,255,0.72);
+  transform: translateY(-68%) rotate(45deg);
+}
+
+.sidebar-company-select {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  min-width: 120px;
+  height: 40px;
+  padding: 0 32px 0 11px;
+  appearance: none;
+  border: 0 !important;
+  border-radius: 9px;
+  outline: 0;
+  box-shadow: none !important;
+  color: #fff;
+  background: transparent;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sidebar-company-select option {
+  color: var(--dark-text);
+  background: #fff;
+}
+
 .main-panel {
   flex: 1;
   min-width: 0;
@@ -500,6 +569,285 @@ a {
   border-radius: 18px;
   padding: 28px;
   box-shadow: 0 25px 70px rgba(0,0,0,0.4);
+}
+
+/* Company and group workspace switch on the landing page with smooth animated thumb */
+.landing-toggle {
+  position: relative;
+  display: flex;
+  width: min(100%, 420px);
+  padding: 4px;
+  margin: 0 0 20px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 14px;
+  background: rgba(5,35,25,0.52);
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.landing-toggle-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.landing-toggle.groups .landing-toggle-thumb {
+  transform: translateX(100%);
+}
+
+.landing-toggle button {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.78);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.landing-toggle button:hover:not(.active) {
+  color: rgba(255,255,255,0.96);
+}
+
+.landing-toggle button.active {
+  color: var(--forest);
+  background: transparent;
+}
+
+/* Light-theme segmented toggle (e.g. modals) with smooth sliding thumb */
+.segmented-toggle {
+  position: relative;
+  display: flex;
+  width: 100%;
+  padding: 4px;
+  border: 1px solid var(--slate-border-2);
+  border-radius: 12px;
+  background: #F1F5F9;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+.segmented-toggle-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc(50% - 4px);
+  background: #ffffff;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.segmented-toggle.active-second .segmented-toggle-thumb {
+  transform: translateX(100%);
+}
+
+.segmented-toggle button {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.segmented-toggle button:hover:not(.active) {
+  color: var(--dark-text);
+}
+
+.segmented-toggle button.active {
+  color: var(--forest);
+  background: transparent;
+}
+
+/* Date breaker headers for expenses list */
+.expense-date-breaker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 12px;
+  user-select: none;
+}
+
+.expense-date-group:first-child .expense-date-breaker {
+  margin-top: 6px;
+}
+
+.expense-date-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  background: rgba(12, 95, 65, 0.08);
+  color: var(--forest);
+  border: 1px solid rgba(12, 95, 65, 0.16);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+
+.expense-date-breaker-line {
+  flex: 1;
+  height: 1px;
+  background: var(--slate-border-2);
+}
+
+.expense-date-total {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.landing-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px;
+  text-align: left;
+  border: 1px solid var(--slate-border);
+  cursor: pointer;
+}
+
+.group-avatar {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  background: var(--forest);
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+}
+
+.group-row-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 5px;
+}
+
+.group-row-copy strong {
+  overflow: hidden;
+  color: var(--dark-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.group-row-copy small,
+.group-member-option small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.group-member-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--slate-border);
+  border-radius: 10px;
+  color: var(--dark-text);
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.group-member-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.group-member-option input {
+  accent-color: var(--forest);
+}
+
+.profile-card {
+  max-width: 620px;
+  padding: 28px;
+}
+
+.profile-avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 24px;
+  place-items: center;
+  border-radius: 18px;
+  color: #fff;
+  background: var(--forest);
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.profile-detail {
+  display: grid;
+  gap: 7px;
+  padding: 16px 0;
+  border-top: 1px solid var(--slate-border);
+}
+
+.profile-detail strong {
+  color: var(--dark-text);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+@media (max-width: 520px) {
+  .landing-actions > .btn { flex: 1 1 145px; }
+  .group-row { gap: 9px; padding: 13px; }
+  .group-avatar { flex-basis: 38px; width: 38px; height: 38px; }
+  .profile-card { padding: 20px; }
+  .profile-actions { flex-direction: column-reverse; }
+  .profile-actions > .btn { justify-content: center; }
 }
 
 .spinner {

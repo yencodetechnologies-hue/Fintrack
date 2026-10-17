@@ -5,6 +5,7 @@ const companyExpenseController = require("../controllers/companyExpenseControlle
 // Company Endpoints
 router.post("/company/create", companyExpenseController.createCompany);
 router.post("/company/join", companyExpenseController.joinCompany);
+router.get("/company/candidates", companyExpenseController.getAllCompanyMemberCandidates);
 router.get("/user/:userId/companies", companyExpenseController.getUserCompanies);
 router.get("/companies", companyExpenseController.getAllAvailableCompanies);
 router.get("/company/:companyId", companyExpenseController.getCompanyDetails);

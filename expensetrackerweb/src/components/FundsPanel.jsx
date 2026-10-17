@@ -17,6 +17,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   const [ifsc, setIfsc] = useState("");
 
   const [incomeAmount, setIncomeAmount] = useState("");
+  const [incomeDescription, setIncomeDescription] = useState("");
   const [destination, setDestination] = useState("");
   const [sourceBank, setSourceBank] = useState("");
 
@@ -66,14 +67,21 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       return;
     }
     setSaving(true);
-    const res = await addIncome(company._id, user.id, amt, destination, destination === "cash" ? sourceBank : undefined);
+    const res = await addIncome(
+      company._id,
+      user.id,
+      amt,
+      destination,
+      destination === "cash" ? sourceBank : undefined,
+      incomeDescription.trim()
+    );
     setSaving(false);
     if (res.success) {
       setAccounts(res.bankAccounts || []);
       setCash(res.cashBalance ?? cash);
       onChanged(res.bankAccounts, res.cashBalance ?? cash);
       setMode("");
-      setIncomeAmount(""); setDestination(""); setSourceBank("");
+      setIncomeAmount(""); setIncomeDescription(""); setDestination(""); setSourceBank("");
       getIncomeHistory(company._id, user.id).then((r) => r.success && setIncome(r.income || []));
     } else {
       showToast(res.message || "Failed to add income", "error");
@@ -138,6 +146,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
         <form onSubmit={handleSaveIncome} className="card" style={{ maxWidth: 440, marginBottom: 28 }}>
           <h3 style={{ marginTop: 0, fontSize: 15 }}>Add income</h3>
           <input className="field-input" type="number" step="0.01" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} placeholder="Amount (₹) *" style={{ marginBottom: 10 }} />
+          <input className="field-input" value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} placeholder="Description (optional)" style={{ marginBottom: 10 }} />
           <select className="field-select" value={destination} onChange={(e) => setDestination(e.target.value)} style={{ marginBottom: 10 }}>
             <option value="">Add to *</option>
             <option value="cash">InCash ({money(cash)})</option>
@@ -182,9 +191,16 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
                 }}
               >
                 <span>{i.destinationType === "cash" ? "💵" : "🏦"}</span>
-                <span style={{ flex: 1, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {i.destinationType === "cash" ? `InCash ← ${i.sourceName}` : i.destinationName}
-                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {i.description || (i.destinationType === "cash" ? `InCash ← ${i.sourceName}` : i.destinationName)}
+                  </div>
+                  {i.description && (
+                    <small style={{ color: "var(--muted)", fontSize: 11.5, display: "block" }}>
+                      {i.destinationType === "cash" ? `InCash ← ${i.sourceName}` : i.destinationName}
+                    </small>
+                  )}
+                </div>
                 <span style={{ color: "var(--muted)", fontSize: 11.5 }}>{formatDate(i.createdAt)}</span>
                 <span style={{ color: "var(--forest)", fontWeight: 700 }}>+{money(i.amount)}</span>
               </div>

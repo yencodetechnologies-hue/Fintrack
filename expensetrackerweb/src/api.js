@@ -1,4 +1,5 @@
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://fintrack.yencodetechnologies.in").replace(/\/+$/, "");
+const DEFAULT_API_BASE = "https://fintrack.yencodetechnologies.in";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
 
 function getApiBase() {
   return API_BASE;
@@ -37,9 +38,17 @@ async function post(url, body) {
 
 async function get(url) {
   try {
-    const res = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+    let res;
+    try {
+      res = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timeout);
+    }
     return await parse(res);
   } catch (e) {
+    if (e.name === "AbortError") return { success: false, message: "Request timed out. Please try again." };
     return { success: false, message: e.message || "Network error" };
   }
 }
@@ -63,8 +72,10 @@ export const signup = (name, email, password, confirmPassword) =>
   post(authUrl("/signup"), { name, email, password, confirmPassword });
 
 // ---- Company ----
-export const createCompany = (userId, name, details, userName) =>
-  post(companyUrl("/company/create"), { userId, name, details, userName });
+export const createCompany = (userId, name, details, userName, memberUserIds = []) =>
+  post(companyUrl("/company/create"), { userId, name, details, userName, memberUserIds });
+export const getCompanyMemberCandidates = (userId) =>
+  get(companyUrl(`/company/candidates?userId=${userId}`));
 export const joinCompany = (userId, joinCode, userName) =>
   post(companyUrl("/company/join"), { userId, joinCode, userName });
 export const getUserCompanies = (userId) => get(companyUrl(`/user/${userId}/companies`));
@@ -92,12 +103,13 @@ export const addBankAccount = (companyId, userId, bankName, accountHolder, accou
   });
 export const deleteBankAccount = (companyId, userId, accountId) =>
   post(companyUrl(`/company/${companyId}/bank-accounts/${accountId}/delete`), { userId });
-export const addIncome = (companyId, userId, amount, destination, sourceBankAccountId) =>
+export const addIncome = (companyId, userId, amount, destination, sourceBankAccountId, description) =>
   post(companyUrl(`/company/${companyId}/income`), {
     userId,
     amount,
     destination,
     sourceBankAccountId,
+    description,
   });
 export const getIncomeHistory = (companyId, userId) =>
   get(companyUrl(`/company/${companyId}/income?userId=${userId}`));
@@ -120,3 +132,72 @@ export const deleteExpense = (expenseId, userId, companyId) =>
   post(companyUrl(`/expense/${expenseId}/delete`), { userId, companyId });
 export const getCompanyBalanceSummary = (companyId, userId) =>
   get(companyUrl(`/company/${companyId}/user/${userId}/summary`));
+
+// ---- Expense groups ----
+export const createExpenseGroup = (companyId, userId, name, memberIds) =>
+  post(companyUrl("/groups"), { companyId, userId, name, memberIds });
+export const getUserExpenseGroups = (userId) => get(companyUrl(`/groups?userId=${userId}`));
+export const getGroupExpenses = (groupId, userId) =>
+  get(companyUrl(`/groups/${groupId}/expenses?userId=${userId}`));
+export const createGroupExpense = (groupId, payload) =>
+  post(companyUrl(`/groups/${groupId}/expenses`), payload);
+export const getGroupExpenseReceipt = (groupId, expenseId, userId) =>
+  get(companyUrl(`/groups/${groupId}/expenses/${expenseId}/receipt?userId=${userId}`));
+export const getGroupMembers = (groupId, userId) =>
+  get(companyUrl(`/groups/${groupId}/members?userId=${userId}`));
+export const addGroupMember = (groupId, userId, memberId) =>
+  post(companyUrl(`/groups/${groupId}/members`), { userId, memberId });
+export const removeGroupMember = (groupId, memberId, userId) =>
+  del(companyUrl(`/groups/${groupId}/members/${memberId}`), { userId });
+export const settleExpenseGroup = (groupId, payload) =>
+  post(`${getApiBase()}/api/ledger/groups/${groupId}/settle`, payload);
+
+// ---- Company ledger (shared with the mobile app) ----
+const ledgerUrl = (path) => `${getApiBase()}/api/ledger${path}`;
+export const getLedgerBalances = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/balances?userId=${userId}`));
+export const getLedgerExpenses = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/expenses?userId=${userId}`));
+export const createLedgerExpense = (payload) => post(ledgerUrl("/expenses"), payload);
+export const approveLedgerExpense = (expenseId, userId) => post(ledgerUrl(`/expenses/${expenseId}/approve`), { userId });
+export const rejectLedgerExpense = (expenseId, userId) => post(ledgerUrl(`/expenses/${expenseId}/reject`), { userId });
+export const verifyLedgerTransaction = (transactionId, userId) => post(ledgerUrl(`/transactions/${transactionId}/verify`), { userId });
+export const payLedgerExpense = (expenseId, payload) => post(ledgerUrl(`/expenses/${expenseId}/pay`), payload);
+export const getLedgerBorrowSources = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/borrow-sources?userId=${userId}`));
+export const createCompanyLoan = (payload) => post(ledgerUrl("/loans"), payload);
+export const repayCompanyLoan = (loanId, payload) => post(ledgerUrl(`/loans/${loanId}/repay`), payload);
+export const lendToCompany = (payload) => post(ledgerUrl("/lend"), payload);
+export const reimburseAdmin = (payload) => post(ledgerUrl("/reimbursements"), payload);
+export const routedCompanyPayment = (payload) => post(ledgerUrl("/routed-payments"), payload);
+export const getLedgerPayerConfirmations = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/payer-confirmations?userId=${userId}`));
+export const confirmLedgerPayer = (expenseId, userId, accept, fundId) => post(ledgerUrl(`/expenses/${expenseId}/payer-confirmation`), { userId, accept, ...(fundId ? { fundId } : {}) });
+export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/intercompany?userId=${userId}`));
+export const getLedgerLoans = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
+export const getLedgerReport = (companyId, userId, from, to, category) => {
+  const params = new URLSearchParams({ userId });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (category && category !== "All") params.set("category", category);
+  return get(ledgerUrl(`/companies/${companyId}/report?${params}`));
+};
+export const getLedgerTransactions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/transactions?userId=${userId}`));
+export const getLedgerAuditLog = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/audit-log?userId=${userId}`));
+export const getLedgerExportUrl = (companyId, userId, from, to, category) => {
+  const params = new URLSearchParams({ userId, scope: "company" });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (category && category !== "All") params.set("category", category);
+  return ledgerUrl(`/companies/${companyId}/export?${params}`);
+};
+export const getLedgerExpenseReceipts = (expenseId, userId) =>
+  get(ledgerUrl(`/expenses/${expenseId}/receipts?userId=${userId}`));
+export const setLedgerExpenseVisibility = (expenseId, userId, visibleTo) =>
+  post(ledgerUrl(`/expenses/${expenseId}/visibility`), { userId, visibleTo });
+export const deleteLedgerExpense = (expenseId, userId) =>
+  del(ledgerUrl(`/expenses/${expenseId}`), { userId });
+export const reverseLedgerTransaction = (transactionId, userId) =>
+  post(ledgerUrl(`/transactions/${transactionId}/reverse`), { userId });
+export const addCompanyMember = (companyId, userId, email, role) =>
+  post(ledgerUrl(`/companies/${companyId}/members`), { userId, email, role });
+export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
+  post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
+export const updateCompanySettings = (companyId, payload) =>
+  post(ledgerUrl(`/companies/${companyId}/settings`), payload);

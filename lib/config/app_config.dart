@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppConfig {
-  // Override with:
-  // flutter run --dart-define=FINTRACK_API_BASE_URL=https://fintrack.yencodetechnologies.in
-  static const String baseUrl = String.fromEnvironment(
-    "FINTRACK_API_BASE_URL",
-    defaultValue: "https://fintrack.yencodetechnologies.in",
-  );
+  static const String baseUrl = "https://fintrack.yencodetechnologies.in";
 
   static const String authBase = "$baseUrl/api/auth";
   static const String signup = "$authBase/signup";

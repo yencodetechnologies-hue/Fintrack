@@ -1,4 +1,8 @@
-const DEFAULT_API_BASE = "http://localhost:3009";
+// Used only when VITE_API_BASE_URL is not set at build time: a page served from localhost
+// talks to the local backend, every deployed copy talks to the live one.
+const LIVE_API_BASE = "https://fintrack.yencodetechnologies.in";
+const isLocalPage = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const DEFAULT_API_BASE = isLocalPage ? "http://localhost:3009" : LIVE_API_BASE;
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
 
 function getApiBase() {

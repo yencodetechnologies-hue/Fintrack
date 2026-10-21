@@ -84,7 +84,8 @@ async function applyCompanyFund(companyId, fundId, delta) {
   }
 }
 
-// Outside (external) companies have no tracked funds, so only registered companies' balances move.
+// Loans only ever move the BORROWER's Cash/Bank (direct loans in, repayments out). A lender's balance is
+// never changed by lending — it shows separately as "Lent to other companies". Outside companies have no funds.
 async function applyIfTracked(company, fundId, delta) {
   if (!company || company.external) return;
   await applyCompanyFund(company._id, fundId || "cash", delta);
@@ -575,13 +576,8 @@ exports.payExpense = handle(async (req, res) => {
     ? await fundAccount(source._id, source.external || staffBorrow ? "cash" : (sourceFundId || "cash"))
     : null;
   // A manager of both companies is the lender's admin too, so there is nobody else to confirm.
+  // borrowing never depends on the lender's balance; it is tracked as a loan instead
   const managesSource = Boolean(source && !source.external && isAdminRole(await roleIn(source._id, userId)));
-  if (managesSource) {
-    const available = await getEffectiveFundBalance(source._id, sourceFundId || "cash");
-    if (available < expense.amount) {
-      throw fail(400, `Insufficient balance in ${source.name}'s selected fund (₹${available.toFixed(2)} available, ₹${expense.amount.toFixed(2)} required)`);
-    }
-  }
 
   // Staff borrow payments settle immediately, like a group settlement; admin-recorded
   // company payments still require a registered lender's confirmation unless the payer manages the lender.
@@ -630,7 +626,6 @@ exports.payExpense = handle(async (req, res) => {
       ]);
       loan.transactionIds = txs.map((tx) => tx._id);
       await loan.save();
-      await applyIfTracked(source, staffBorrow ? "cash" : (sourceFundId || "cash"), -expense.amount);
       await audit(userId, source._id, "loan_received", "loan", loan._id, null, { borrowerCompanyId: companyId, amount: expense.amount });
     } else {
       txs = await postAll([
@@ -1188,9 +1183,8 @@ exports.createLoan = handle(async (req, res) => {
   ]);
   loan.transactionIds = txs.map((tx) => tx._id);
   await loan.save();
-  // borrowed money lands in the borrower's chosen fund and leaves the lender's
+  // borrowed money lands in the borrower's chosen fund; the lender's Cash/Bank is left as is
   await applyIfTracked(borrower, fundId, value);
-  await applyIfTracked(lender, req.body.lenderFundId, -value);
   await audit(userId, borrower._id, "borrow", "loan", loan._id, null, { lenderCompanyId, amount: value });
   await audit(userId, lender._id, "loan_received", "loan", loan._id, null, { borrowerCompanyId, amount: value });
   await notifyCompanyAdmins(borrower._id, { title: "Company loan recorded", body: `Borrowed ₹${value} from ${lender.name}`, data: { loanId: loan._id, companyId: borrower._id } }, userId);
@@ -1219,7 +1213,6 @@ exports.repayLoan = handle(async (req, res) => {
       [{ companyId: lender._id, type: "loan_repayment", loanId: loan._id, routeId, memo: note || `Repayment from ${borrower.name}`, method: method || "", reference: reference || "", createdBy: userId }, [{ account: await fundAccount(lender._id, lender.external ? "cash" : (req.body.lenderFundId || "cash")), debit: value }, { account: await intercoAccount(lender._id, borrower), credit: value }]],
     ]);
     await applyIfTracked(borrower, fundId, -value);
-    await applyIfTracked(lender, req.body.lenderFundId, value);
     await audit(userId, borrower._id, "repay", "loan", loan._id, { balance }, { amount: value, transactions: txs.map((t) => t._id) });
     await audit(userId, lender._id, "loan_repaid", "loan", loan._id, { balance }, { amount: value, transactions: txs.map((t) => t._id) });
     await notifyCompanyAdmins(borrower._id, { title: "Company loan repayment recorded", body: `Repaid ₹${value} to ${lender.name}`, data: { loanId: loan._id, companyId: borrower._id } }, userId);
@@ -1319,7 +1312,6 @@ exports.settleExpenseGroup = handle(async (req, res) => {
       await CompanyLoan.deleteOne({ _id: loan._id });
       throw error;
     }
-    await applyIfTracked(lender, "cash", -total);
 
     const before = snapshot(group);
     group.settlementStatus = "settled";
@@ -1386,7 +1378,6 @@ exports.confirmExpensePayer = handle(async (req, res) => {
     await Expense.updateOne({ _id: expense._id, payerConfirmation: "processing" }, { $set: { payerConfirmation: "pending" } });
     throw error;
   }
-  await applyIfTracked(lender, req.body.fundId, -expense.amount);
   expense.lifecycle = "paid_by_company";
   expense.status = "paid";
   expense.payerConfirmation = "accepted";
@@ -1480,7 +1471,6 @@ exports.routedPayment = handle(async (req, res) => {
   ]);
   loan.transactionIds = txs.map((tx) => tx._id);
   await loan.save();
-  await applyIfTracked(source, sourceFundId, -value);
   await recomputeReimbursed(companyId, adminUserId);
   await audit(userId, companyId, "routed_payment", "transaction", txs[0]._id, null, { source: source._id, adminUserId, amount: value });
   await audit(userId, source._id, "routed_payment", "loan", loan._id, null, { companyId, adminUserId, amount: value });

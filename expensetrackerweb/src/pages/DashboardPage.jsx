@@ -198,6 +198,19 @@ export default function DashboardPage() {
     return [...byLender].map(([name, balance]) => ({ name, balance }));
   }, [loans, companyId]);
 
+  // Open loans other companies still owe this company, totalled per borrower.
+  const lentByBorrower = useMemo(() => {
+    const byBorrower = new Map();
+    for (const loan of loans) {
+      if (String(loan.lenderCompanyId?._id || loan.lenderCompanyId) !== companyId) continue;
+      const balance = Number(loan.balance || 0);
+      if (!(balance > 0)) continue;
+      const name = loan.borrowerCompanyId?.name || "Another company";
+      byBorrower.set(name, (byBorrower.get(name) || 0) + balance);
+    }
+    return [...byBorrower].map(([name, balance]) => ({ name, balance }));
+  }, [loans, companyId]);
+
   const load = useCallback(async () => {
     const detailsRes = await getCompanyDetails(companyId, user.id);
 
@@ -420,7 +433,8 @@ export default function DashboardPage() {
     if (paymentDraft.payer === "company" && !paymentDraft.fundId) { showToast("Choose the paying fund", "error"); return; }
     if (paymentDraft.payer === "borrow" && !paymentDraft.sourceCompanyId) { showToast("Choose the company paying", "error"); return; }
 
-    if (paymentDraft.payer === "company") {
+    // only this company's own money is balance-checked; another company paying is a loan
+    if (paymentDraft.payer === "company" && payingCompanyId === companyId) {
       const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
       if (selectedFund && Number(selectedFund.balance || 0) < Number(expense.amount || 0)) {
         showToast(`Insufficient balance in ${selectedFund.name} (${money(selectedFund.balance)} available)`, "error");
@@ -621,6 +635,18 @@ export default function DashboardPage() {
                     ))
                   )}
                 </div>
+                {lentByBorrower.length > 0 && (
+                  <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("interco")} title="View company loans">
+                    <div style={labelStyle}>LENT TO OTHER COMPANIES</div>
+                    <div style={{ ...bigNumberStyle, color: "var(--forest)" }}>{money(lentByBorrower.reduce((sum, row) => sum + row.balance, 0))}</div>
+                    {lentByBorrower.map((row) => (
+                      <div key={row.name} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, marginTop: 4 }}>
+                        <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company.name} → {row.name}</span>
+                        <strong>{money(row.balance)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {isAdmin && <div className="stat-card"><div style={labelStyle}>CASH / BANK</div><div style={bigNumberStyle}>{money(availableCompanyFunds.reduce((sum, fund) => sum + Number(fund.balance || 0), 0))}</div></div>}
               </div>
               {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("reimburse"); }}>Reimburse person</button></div>}
@@ -1242,8 +1268,9 @@ export default function DashboardPage() {
             {paymentDraft.payer === "company" && (() => {
               const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
               const expenseAmount = Number(modal.expense?.amount || 0);
-              const isInsufficient = selectedFund && Number(selectedFund.balance || 0) < expenseAmount;
               const isOtherCompany = payingCompanyId !== companyId;
+              // borrowing from another company ignores its balance; only this company's own funds are checked
+              const isInsufficient = !isOtherCompany && selectedFund && Number(selectedFund.balance || 0) < expenseAmount;
 
               return (
                 <>
@@ -1262,22 +1289,26 @@ export default function DashboardPage() {
                       </select>
                       {isOtherCompany && (
                         <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--terracotta)", lineHeight: 1.45 }}>
-                          {payingCompany?.name} → {company.name}: {money(expenseAmount)} will be recorded as borrowed by {company.name} from {payingCompany?.name}.
+                          {payingCompany?.name} → {company.name}: {money(expenseAmount)} will be recorded as borrowed by {company.name} from {payingCompany?.name}. Neither company's Cash/Bank changes; it shows in the Borrowed / Lent tiles.
                         </p>
                       )}
                     </>
                   )}
-                  <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from{isOtherCompany ? ` (${payingCompany?.name})` : ""}</label>
-                  <select className="field-select" value={paymentDraft.fundId} onChange={(event) => setPaymentDraft({ ...paymentDraft, fundId: event.target.value })}>
-                    {payingFunds.map((fund) => {
-                      const fundLow = Number(fund.balance || 0) < expenseAmount;
-                      return (
-                        <option key={fund.fundId} value={fund.fundId}>
-                          {fund.name} · {money(fund.balance)} {fundLow ? "⚠️ (Insufficient balance)" : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
+                  {!isOtherCompany && (
+                    <>
+                      <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label>
+                      <select className="field-select" value={paymentDraft.fundId} onChange={(event) => setPaymentDraft({ ...paymentDraft, fundId: event.target.value })}>
+                        {payingFunds.map((fund) => {
+                          const fundLow = Number(fund.balance || 0) < expenseAmount;
+                          return (
+                            <option key={fund.fundId} value={fund.fundId}>
+                              {fund.name} · {money(fund.balance)} {fundLow ? "⚠️ (Insufficient balance)" : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </>
+                  )}
                   {isInsufficient && (
                     <div
                       style={{
@@ -1347,7 +1378,7 @@ export default function DashboardPage() {
                 const selectedFund = paymentDraft.payer === "company"
                   ? (payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0])
                   : null;
-                const isInsufficient = paymentDraft.payer === "company" && selectedFund && Number(selectedFund.balance || 0) < Number(modal.expense?.amount || 0);
+                const isInsufficient = paymentDraft.payer === "company" && payingCompanyId === companyId && selectedFund && Number(selectedFund.balance || 0) < Number(modal.expense?.amount || 0);
 
                 return (
                   <button

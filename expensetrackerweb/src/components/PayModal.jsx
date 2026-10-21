@@ -24,10 +24,6 @@ export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAcco
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!proof) {
-      showToast("Payment proof screenshot/photo is required", "error");
-      return;
-    }
     if (!paymentMode) {
       showToast("Select a payment mode (Cash, Card or UPI)", "error");
       return;
@@ -108,7 +104,7 @@ export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAcco
           </>
         )}
 
-        <label className="field-label">Payment Proof Screenshot *</label>
+        <label className="field-label">Payment Proof Screenshot (optional)</label>
         <input type="file" accept="image/*" onChange={handleFile} style={{ marginBottom: 16 }} />
         {proof && <img src={proof} alt="Proof preview" style={{ maxWidth: "100%", borderRadius: 10, marginBottom: 16 }} />}
 

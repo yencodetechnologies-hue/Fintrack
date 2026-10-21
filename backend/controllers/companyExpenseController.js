@@ -825,8 +825,9 @@ exports.payExpense = async (req, res) => {
     const { expenseId } = req.params;
     const { userId, paymentMode, paymentProof, payAs, fundId } = req.body;
 
-    if (!userId || !paymentMode || !paymentProof) {
-      return res.status(400).json({ success: false, message: "Payment mode and proof of payment image are required" });
+    // proof of payment is optional
+    if (!userId || !paymentMode) {
+      return res.status(400).json({ success: false, message: "Payment mode is required" });
     }
     if (!["cash", "card", "upi"].includes(paymentMode)) {
       return res.status(400).json({ success: false, message: "Payment mode must be Cash, Card or UPI" });
@@ -879,7 +880,7 @@ exports.payExpense = async (req, res) => {
       paidTo: currentCreditorId,
       amount: originalExpense.amount,
       paymentMode,
-      paymentProof,
+      paymentProof: paymentProof || "",
       initiatedBy: "payer",
     });
     if (fund) await applyFund(originalExpense.companyId, fund, -originalExpense.amount);

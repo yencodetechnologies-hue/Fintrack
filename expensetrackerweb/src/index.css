@@ -991,3 +991,36 @@ a {
 }
 .row-tag.good { background: #DCFCE7; color: #047857; }
 .row-tag.bad { background: #FEE2E2; color: var(--terracotta); }
+
+/* Close button shared by every popup (Modal.jsx) */
+.modal-sheet { position: relative; }
+
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--slate-border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  z-index: 1;
+}
+
+.modal-close:hover {
+  background: var(--slate-bg);
+  color: var(--dark-text);
+}
+
+/* keep popup titles clear of the close button */
+.modal-sheet > h2:first-of-type,
+.modal-sheet > h3:first-of-type,
+.modal-sheet > div:nth-child(2) > h2:first-child {
+  padding-right: 40px;
+}

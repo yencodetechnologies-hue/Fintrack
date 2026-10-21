@@ -527,7 +527,8 @@ exports.rejectExpense = handle((req, res) => decide(req, res, "rejected"));
 exports.payExpense = handle(async (req, res) => {
   const { userId, payer, fundId, method, reference, sourceCompanyId, newCompany, sourceFundId, paidByUserId, paymentReceipt } = req.body;
   if (!["admin", "person", "company", "borrow"].includes(payer)) throw fail(400, "Choose a valid payment type");
-  if (!method || !String(method).trim() || !paymentReceipt) throw fail(400, "Payment method and receipt are required");
+  // the payment receipt is optional; the method is still needed for the books
+  if (!method || !String(method).trim()) throw fail(400, "Payment method is required");
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
   if (expense.groupId) throw fail(403, "Group expenses are settled only when the group is closed");
@@ -587,7 +588,7 @@ exports.payExpense = handle(async (req, res) => {
   if (payer === "borrow" && !source.external && !staffBorrow && !managesSource) {
     const requested = await Expense.findOneAndUpdate(
       { _id: expense._id, lifecycle: "approved", status: "outstanding" },
-      { $set: { lifecycle: "awaiting_confirmation", status: "outstanding", payerType: "other_company", payerCompanyId: source._id, payerConfirmation: "pending", payerMethod: method || "", payerReference: reference || "", paymentReceipt, hasPaymentReceipt: Boolean(paymentReceipt) } },
+      { $set: { lifecycle: "awaiting_confirmation", status: "outstanding", payerType: "other_company", payerCompanyId: source._id, payerConfirmation: "pending", payerMethod: method || "", payerReference: reference || "", paymentReceipt: paymentReceipt || "", hasPaymentReceipt: Boolean(paymentReceipt) } },
       { returnDocument: "after" }
     );
     if (!requested) throw fail(409, "This expense is already paid or another payer has claimed it");

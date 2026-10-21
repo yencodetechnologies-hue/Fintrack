@@ -417,7 +417,6 @@ export default function DashboardPage() {
     event.preventDefault();
     const expense = modal?.expense;
     if (!expense) return;
-    if (!paymentDraft.paymentReceipt) { showToast("Attach the payment receipt", "error"); return; }
     if (paymentDraft.payer === "company" && !paymentDraft.fundId) { showToast("Choose the paying fund", "error"); return; }
     if (paymentDraft.payer === "borrow" && !paymentDraft.sourceCompanyId) { showToast("Choose the company paying", "error"); return; }
 
@@ -1343,7 +1342,7 @@ export default function DashboardPage() {
               )}
             </select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={paymentDraft.reference} onChange={(event) => setPaymentDraft({ ...paymentDraft, reference: event.target.value })} />
-            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment receipt *</label><input type="file" accept="image/*" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 5 * 1024 * 1024) { showToast("Receipt must be 5 MB or smaller", "error"); event.target.value = ""; return; } const paymentReceipt = await fileToBase64(file); setPaymentDraft((current) => ({ ...current, paymentReceipt })); }} required />
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment receipt (optional)</label><input type="file" accept="image/*" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) { setPaymentDraft((current) => ({ ...current, paymentReceipt: "" })); return; } if (file.size > 5 * 1024 * 1024) { showToast("Receipt must be 5 MB or smaller", "error"); event.target.value = ""; return; } const paymentReceipt = await fileToBase64(file); setPaymentDraft((current) => ({ ...current, paymentReceipt })); }} />
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               {(() => {

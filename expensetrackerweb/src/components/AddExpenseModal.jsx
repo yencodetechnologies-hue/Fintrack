@@ -418,7 +418,7 @@ export default function AddExpenseModal({
         )}
 
         <div style={{ marginBottom: 18 }}>
-          <label className="field-label" style={{ marginBottom: 6 }}>Receipt / Attachment</label>
+          <label className="field-label" style={{ marginBottom: 6 }}>Receipt / Attachment (optional)</label>
           <label
             style={{
               display: "flex",

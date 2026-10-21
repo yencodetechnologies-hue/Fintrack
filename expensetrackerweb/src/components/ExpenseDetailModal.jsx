@@ -164,7 +164,7 @@ export default function ExpenseDetailModal({
   return (
     <Modal onClose={onClose} maxWidth={560}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+      <div style={{ paddingRight: 40 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <span className={`pill ${lifecycleClass}`} style={{ fontSize: 11 }}>{lifecycleLabel}</span>
           <span className="pill pill-category" style={{ fontSize: 11 }}>{expense.category || "General"}</span>
@@ -181,7 +181,6 @@ export default function ExpenseDetailModal({
             </span>
           )}
         </div>
-        <button onClick={onClose} type="button" aria-label="Close" style={closeBtnStyle}>✕</button>
       </div>
 
       <h2 style={{ margin: "14px 0 2px", fontSize: 21, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>
@@ -317,18 +316,6 @@ const subValStyle = {
   fontSize: 11.5,
   fontWeight: 500,
   color: "var(--muted)",
-};
-
-const closeBtnStyle = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  border: "1px solid var(--slate-border)",
-  background: "#fff",
-  color: "var(--muted)",
-  fontSize: 14,
-  lineHeight: 1,
-  flexShrink: 0,
 };
 
 const detailsBoxStyle = {

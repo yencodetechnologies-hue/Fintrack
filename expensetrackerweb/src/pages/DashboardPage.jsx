@@ -30,12 +30,11 @@ import {
   getPayableBills,
   routedCompanyPayment,
   resetExpenseStatus,
-  getLedgerExpenseReceipts,
   setLedgerExpenseVisibility,
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { bankAccountLabel, fileToBase64, formatDate, money, PAYMENT_METHODS } from "../utils.js";
+import { bankAccountLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS } from "../utils.js";
 import Navbar from "../components/Navbar.jsx";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
@@ -130,8 +129,6 @@ export default function DashboardPage() {
   const [routeDraft, setRouteDraft] = useState({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" });
   const [paymentDraft, setPaymentDraft] = useState({ payer: "admin", fundId: "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
   const [payerFundSelections, setPayerFundSelections] = useState({});
-  const [receiptModal, setReceiptModal] = useState(null);
-  const [receiptLoadingId, setReceiptLoadingId] = useState(null);
 
   const [visibilityModal, setVisibilityModal] = useState(null);
   const [savingVisibility, setSavingVisibility] = useState(false);
@@ -185,6 +182,8 @@ export default function DashboardPage() {
         { fundId: "cash", name: payingCompany?.cashAccountName || "Cash", balance: Number(payingCompany?.cashBalance || 0) },
         ...(payingCompany?.bankAccounts || []).map((b) => ({ fundId: String(b._id), name: bankAccountLabel(b), balance: Number(b.balance || 0) })),
       ];
+
+  const pendingVerification = transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy);
 
   // Open loans this company still owes, totalled per lending company.
   const borrowedByLender = useMemo(() => {
@@ -468,29 +467,6 @@ export default function DashboardPage() {
     } else showToast(result.message || "Could not respond to payment request", "error");
   }
 
-  async function handleViewReceipt(expense) {
-    setReceiptLoadingId(expense._id);
-    const res = await getLedgerExpenseReceipts(expense._id, user.id);
-    setReceiptLoadingId(null);
-    if (!res.success) {
-      showToast(res.message || "Could not load receipt", "error");
-      return;
-    }
-    if (!res.attachment && !res.paymentReceipt) {
-      showToast("No receipt found for this expense", "error");
-      return;
-    }
-    const toDataUrl = (data) => {
-      if (!data) return "";
-      return data.startsWith("data:") ? data : `data:image/jpeg;base64,${data}`;
-    };
-    setReceiptModal({
-      title: expense.description || "Expense Receipt",
-      attachment: toDataUrl(res.attachment),
-      paymentReceipt: toDataUrl(res.paymentReceipt),
-    });
-  }
-
   async function verifyTransaction(transaction) {
     const result = await verifyLedgerTransaction(transaction._id, user.id);
     if (result.success) {
@@ -652,39 +628,45 @@ export default function DashboardPage() {
               {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
                 <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
               ) : (
-                ledgerExpenses
-                  .filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY)
-                  .map((expense) => (
-                    <div
-                      key={expense._id}
-                      className="card"
-                      onClick={() => setSelectedExpenseDetail(expense)}
-                      style={{
-                        marginBottom: 8,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        gap: 12,
-                        cursor: "pointer",
-                        transition: "border-color 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--forest)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = ""; }}
-                    >
-                      <span>
-                        <strong>{expense.description}</strong><br />
-                        <small style={{ color: "var(--muted)" }}>{expense.category || "General"} · {expense.createdBy?.name || "Staff"} · {formatDate(expense.date || expense.createdAt)}</small>
-                      </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span className={`pill ${expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "pill-paid" : expense.lifecycle === "rejected" ? "pill-outstanding" : "pill-category"}`} style={{ fontSize: 11 }}>
-                          {(expense.lifecycle || "submitted").replaceAll("_", " ")}
-                        </span>
-                        <strong style={{ fontSize: 15 }}>{money(expense.amount)}</strong>
-                      </div>
-                    </div>
-                  ))
+                <div className="card expense-list">
+                  {ledgerExpenses
+                    .filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY)
+                    .map((expense) => {
+                      const tone = expense.lifecycle === "rejected" ? "bad" : expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "good" : expense.lifecycle === "reimbursed" ? "done" : "wait";
+                      return (
+                        <button type="button" key={expense._id} className="expense-row" onClick={() => setSelectedExpenseDetail(expense)}>
+                          <span className="expense-row-main">
+                            <span className="expense-row-title">{expense.description}</span>
+                            <span className="expense-row-meta">{expense.category || "General"} · {expense.createdBy?.name || "Staff"} · {formatDate(expense.date || expense.createdAt)}</span>
+                          </span>
+                          <span className={`expense-row-status ${tone}`}>{(expense.lifecycle || "submitted").replaceAll("_", " ")}</span>
+                          <span className="expense-row-amount">{money(expense.amount)}</span>
+                        </button>
+                      );
+                    })}
+                </div>
               )}
-              {isAdmin && <><h2 style={{ margin: "22px 0 12px", fontSize: 19 }}>Pending verification</h2>{transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).length ? transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).map((transaction) => <div key={transaction._id} className="card" style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}><span>{transaction.memo} · {money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}<br /><small>{transaction.createdBy?.name || "Manager"}</small></span><button className="btn btn-primary" onClick={() => verifyTransaction(transaction)}>Verify</button></div>) : <div className="card" style={{ color: "var(--muted)" }}>Nothing waiting for verification.</div>}</>}
+              {isAdmin && (
+                <>
+                  <h2 style={{ margin: "22px 0 12px", fontSize: 19 }}>Pending verification</h2>
+                  {pendingVerification.length === 0 ? (
+                    <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>Nothing waiting for verification.</div>
+                  ) : (
+                    <div className="card expense-list">
+                      {pendingVerification.map((transaction) => (
+                        <div key={transaction._id} className="expense-row static">
+                          <span className="expense-row-main">
+                            <span className="expense-row-title">{transaction.memo || transaction.type}</span>
+                            <span className="expense-row-meta">{transaction.createdBy?.name || "Manager"} · {formatDate(transaction.createdAt)}</span>
+                          </span>
+                          <span className="expense-row-amount">{money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}</span>
+                          <span className="expense-row-action"><button className="btn btn-primary btn-sm" onClick={() => verifyTransaction(transaction)}>Verify</button></span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </>
           )}
 
@@ -851,106 +833,57 @@ export default function DashboardPage() {
                       </span>
                     </div>
 
-                    {group.items.map((expense) => (
-                      <article
-                        className="card"
-                        key={expense._id}
-                        onClick={() => setSelectedExpenseDetail(expense)}
-                        style={{
-                          marginBottom: 10,
-                          padding: 16,
-                          cursor: "pointer",
-                          transition: "border-color 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--forest)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = ""; }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                          <div>
-                            <span className="pill pill-category">{expense.category || "General"}</span>
-                            <h3 style={{ margin: "9px 0 4px", fontSize: 16 }}>{expense.description}</h3>
-                            <small style={{ color: "var(--muted)" }}>
-                              Posted by {
-                                (expense.logAs === "company" || expense.postedAs === "company")
-                                  ? (expense.companyId?.name || company?.name || "Company")
-                                  : (expense.createdBy?.name || "Staff")
-                              } · {formatDate(expense.date || expense.createdAt)}
-                            </small>
+                    <div className="card expense-list">
+                      {group.items.map((expense) => {
+                        const tone = expense.lifecycle === "rejected" ? "bad" : expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "good" : expense.lifecycle === "reimbursed" ? "done" : "wait";
+                        const postedBy = (expense.logAs === "company" || expense.postedAs === "company")
+                          ? (expense.companyId?.name || company?.name || "Company")
+                          : (expense.createdBy?.name || "Staff");
+                        return (
+                          <div
+                            key={expense._id}
+                            className="expense-row"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setSelectedExpenseDetail(expense)}
+                            onKeyDown={(e) => { if (e.key === "Enter") setSelectedExpenseDetail(expense); }}
+                          >
+                            <span className="expense-row-main">
+                              <span className="expense-row-title">{expense.description}</span>
+                              <span className="expense-row-meta">
+                                {expense.category || "General"} · {postedBy} · {formatDate(expense.date || expense.createdAt)}
+                                {(expense.hasAttachment || expense.hasPaymentReceipt) && (
+                                  <span title="Has receipt" style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 6 }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                    </svg>
+                                    Receipt
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                            <span className={`expense-row-status ${tone}`}>{(expense.lifecycle || "submitted").replaceAll("_", " ")}</span>
+                            <span className="expense-row-amount">{money(expense.amount)}</span>
+                            <span className="expense-row-action" onClick={(e) => e.stopPropagation()}>
+                              {isAdmin && expense.lifecycle === "submitted" ? (
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button>
+                              ) : expense.lifecycle === "approved" ? (
+                                <button
+                                  type="button"
+                                  className="btn btn-primary btn-sm"
+                                  onClick={() => {
+                                    setPaymentDraft({ payer: isAdmin ? "admin" : "person", fundId: availableCompanyFunds[0]?.fundId || "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
+                                    setModal({ type: "ledgerPay", expense });
+                                  }}
+                                >
+                                  Pay
+                                </button>
+                              ) : null}
+                            </span>
                           </div>
-                          <strong>{money(expense.amount)}</strong>
-                        </div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
-                          <span className={`pill ${expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "pill-paid" : expense.lifecycle === "rejected" ? "pill-outstanding" : "pill-category"}`}>
-                            {(expense.lifecycle || "submitted").replaceAll("_", " ")}
-                          </span>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
-                            {(expense.hasAttachment || expense.hasPaymentReceipt) && (
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => handleViewReceipt(expense)}
-                                disabled={receiptLoadingId === expense._id}
-                              >
-                                {receiptLoadingId === expense._id ? "Loading…" : "View receipt"}
-                              </button>
-                            )}
-                            {isAdmin && (
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => openVisibilityModal(expense)}
-                              >
-                                Visibility
-                              </button>
-                            )}
-                            {((isAdmin && !expense.lifecycle?.startsWith("paid") && expense.lifecycle !== "awaiting_confirmation" && expense.status !== "paid") ||
-                              (!isAdmin && (!expense.lifecycle || expense.lifecycle === "submitted") && !expense.lifecycle?.startsWith("paid") && expense.status !== "paid" && String(expense.createdBy?._id || expense.createdBy) === user.id)) && (
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => setModal({ type: "edit", expense })}
-                              >
-                                Edit
-                              </button>
-                            )}
-                            {((isAdmin && !expense.lifecycle?.startsWith("paid")) || (!isAdmin && expense.lifecycle === "submitted" && String(expense.createdBy?._id || expense.createdBy) === user.id)) && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-danger"
-                                onClick={() => setDeletingExpense(expense)}
-                              >
-                                Delete
-                              </button>
-                            )}
-                            {isAdmin && expense.lifecycle === "submitted" && (
-                              <>
-                                <button className="btn btn-outline" onClick={() => decideLedgerExpense(expense, "reject")}>Reject</button>
-                                <button className="btn btn-primary" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button>
-                              </>
-                            )}
-                            {expense.lifecycle === "approved" && (
-                              <button
-                                className="btn btn-primary"
-                                onClick={() => {
-                                  const canPayCompany = isAdmin || String(expense.createdBy?._id || expense.createdBy) === user.id;
-                                  setPaymentDraft({
-                                    payer: isAdmin ? "admin" : "person",
-                                    fundId: availableCompanyFunds[0]?.fundId || "cash",
-                                    sourceCompanyId: "",
-                                    method: "UPI",
-                                    reference: "",
-                                    paymentReceipt: "",
-                                  });
-                                  setModal({ type: "ledgerPay", expense });
-                                }}
-                              >
-                                Record payment
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </article>
-                    ))}
+                        );
+                      })}
+                    </div>
                   </div>
                 ))
               )}
@@ -960,27 +893,81 @@ export default function DashboardPage() {
           {activeTab === "interco" && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><h1 style={{ fontSize: 26, margin: 0 }}>Inter-company</h1>{isAdmin && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button><button className="btn btn-dark" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Borrow from a company</button></div>}</div>
-              {isAdmin && payerRequests.length > 0 && <><h2 style={{ fontSize: 18, marginTop: 22 }}>Payment confirmations</h2>{payerRequests.map((expense) => <div key={expense._id} className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 8 }}><span><strong>{expense.description}</strong><br /><small>{expense.companyId?.name || "Another company"} · {money(expense.amount)}</small></span><div style={{ display: "flex", gap: 8 }}><select className="field-select" value={payerFundSelections[expense._id] || availableCompanyFunds[0]?.fundId || "cash"} onChange={(event) => setPayerFundSelections((current) => ({ ...current, [expense._id]: event.target.value }))}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name}</option>)}</select><button className="btn btn-outline" onClick={() => respondToPayerRequest(expense, false)}>Reject</button><button className="btn btn-primary" onClick={() => respondToPayerRequest(expense, true)}>Accept</button></div></div>)}</>}
-              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company balances</h2>
-              {intercompany.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No inter-company balances yet.</div> : intercompany.map((row) => <div key={row.companyId} className="card" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 10 }}><strong>{row.name}</strong><span>{row.net >= 0 ? "They owe this company" : "This company owes"} {money(Math.abs(row.net))}{row.mismatch ? " · Balance mismatch" : ""}</span></div>)}
-              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company loans</h2>
-              {loans.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No company loans yet.</div> : loans.map((loan) => {
-                const weBorrowed = String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId;
-                const lenderName = loan.lenderCompanyId?.name || "Another company";
-                const borrowerName = loan.borrowerCompanyId?.name || "Another company";
-                const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
-                return <div key={loan._id} className="card" style={{ marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                    <span>
-                      <span className={`pill ${weBorrowed ? "pill-outstanding" : "pill-paid"}`} style={{ fontSize: 11, marginRight: 8 }}>{weBorrowed ? "Borrowed" : "Lent"}</span>
-                      <strong>{lenderName} → {borrowerName}</strong>
-                    </span>
-                    <strong style={{ color: Number(loan.balance) > 0 ? "var(--terracotta)" : "var(--muted)" }}>{Number(loan.balance) > 0 ? `${money(loan.balance)} due` : "Repaid"}</strong>
+              {isAdmin && payerRequests.length > 0 && (
+                <>
+                  <h2 style={{ fontSize: 18, marginTop: 22 }}>Payment confirmations</h2>
+                  <div className="card expense-list">
+                    {payerRequests.map((expense) => (
+                      <div key={expense._id} className="expense-row static wrap">
+                        <span className="expense-row-main">
+                          <span className="expense-row-title">{expense.description}</span>
+                          <span className="expense-row-meta">{expense.companyId?.name || "Another company"} asks {company.name} to pay · {formatDate(expense.createdAt)}</span>
+                        </span>
+                        <span className="expense-row-amount">{money(expense.amount)}</span>
+                        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <select className="field-select" style={{ height: 30, padding: "0 8px", fontSize: 12 }} value={payerFundSelections[expense._id] || availableCompanyFunds[0]?.fundId || "cash"} onChange={(event) => setPayerFundSelections((current) => ({ ...current, [expense._id]: event.target.value }))}>
+                            {availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name}</option>)}
+                          </select>
+                          <button className="btn btn-outline btn-sm" onClick={() => respondToPayerRequest(expense, false)}>Reject</button>
+                          <button className="btn btn-primary btn-sm" onClick={() => respondToPayerRequest(expense, true)}>Accept</button>
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <div style={{ color: "var(--muted)", marginTop: 6, fontSize: 13 }}>
-                    {sourceLabel} · {formatDate(loan.createdAt)} · Original {money(loan.amount)}{Number(loan.repaid) > 0 ? ` · Repaid ${money(loan.repaid)}` : ""}{loan.note ? ` · ${loan.note}` : ""}
-                  </div>{isAdmin && weBorrowed && Number(loan.balance) > 0 && <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>}</div>;
-              })}
+                </>
+              )}
+              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company balances</h2>
+              {intercompany.length === 0 ? (
+                <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>No inter-company balances yet.</div>
+              ) : (
+                <div className="card expense-list">
+                  {intercompany.map((row) => (
+                    <div key={row.companyId} className="expense-row static">
+                      <span className="expense-row-main">
+                        <span className="expense-row-title">{row.name}</span>
+                        <span className="expense-row-meta">
+                          {row.net > 0 ? "They owe this company" : row.net < 0 ? "This company owes them" : "Settled"}
+                          {row.mismatch ? <span style={{ color: "var(--terracotta)", fontWeight: 600 }}> · Balance mismatch</span> : null}
+                        </span>
+                      </span>
+                      <span className="expense-row-amount" style={{ color: row.net < 0 ? "var(--terracotta)" : row.net > 0 ? "var(--forest)" : "var(--muted)" }}>{money(Math.abs(row.net))}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <h2 style={{ fontSize: 18, marginTop: 24 }}>Company loans</h2>
+              {loans.length === 0 ? (
+                <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>No company loans yet.</div>
+              ) : (
+                <div className="card expense-list">
+                  {loans.map((loan) => {
+                    const weBorrowed = String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId;
+                    const lenderName = loan.lenderCompanyId?.name || "Another company";
+                    const borrowerName = loan.borrowerCompanyId?.name || "Another company";
+                    const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
+                    const open = Number(loan.balance) > 0;
+                    return (
+                      <div key={loan._id} className="expense-row static">
+                        <span className="expense-row-main">
+                          <span className="expense-row-title">
+                            <span className={`row-tag ${weBorrowed ? "bad" : "good"}`}>{weBorrowed ? "Borrowed" : "Lent"}</span>
+                            {lenderName} → {borrowerName}
+                          </span>
+                          <span className="expense-row-meta">
+                            {sourceLabel} · {formatDate(loan.createdAt)} · Original {money(loan.amount)}{Number(loan.repaid) > 0 ? ` · Repaid ${money(loan.repaid)}` : ""}{loan.note ? ` · ${loan.note}` : ""}
+                          </span>
+                        </span>
+                        <span className="expense-row-amount" style={{ color: open ? "var(--terracotta)" : "var(--muted)" }}>{open ? `${money(loan.balance)} due` : "Repaid"}</span>
+                        <span className="expense-row-action">
+                          {isAdmin && weBorrowed && open && (
+                            <button className="btn btn-outline btn-sm" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>
+                          )}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
 
@@ -1570,38 +1557,6 @@ export default function DashboardPage() {
         />
       )}
 
-      {receiptModal && (
-        <Modal onClose={() => setReceiptModal(null)} maxWidth={760}>
-          <h2 style={{ marginTop: 0, marginBottom: 16 }}>{receiptModal.title || "Receipt"}</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {receiptModal.attachment && (
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
-                  📎 Bill / Expense Attachment
-                </div>
-                <img
-                  src={receiptModal.attachment}
-                  alt="Expense attachment"
-                  style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 8, display: "block", margin: "0 auto", objectFit: "contain" }}
-                />
-              </div>
-            )}
-            {receiptModal.paymentReceipt && (
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>
-                  💳 Payment Proof / Receipt
-                </div>
-                <img
-                  src={receiptModal.paymentReceipt}
-                  alt="Payment receipt"
-                  style={{ maxWidth: "100%", maxHeight: "65vh", borderRadius: 8, display: "block", margin: "0 auto", objectFit: "contain" }}
-                />
-              </div>
-            )}
-          </div>
-        </Modal>
-      )}
-
       {selectedExpenseDetail && (
         <ExpenseDetailModal
           expense={selectedExpenseDetail}
@@ -1675,39 +1630,35 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse })
   }, [fetchRows]);
 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 35 }}><div className="spinner dark" /></div>;
-  if (!rows.length) return <div className="card" style={{ color: "var(--muted)" }}>No {title.toLowerCase()} records yet.</div>;
+  if (!rows.length) return <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>No {title.toLowerCase()} records yet.</div>;
   return (
-    <div>
+    <div className="card expense-list">
       {rows.map((row) => {
         const canReverse = isAdmin && title === "Ledger" && !row.reversedBy && row.type !== "reversal";
+        const total = Array.isArray(row.entries) ? row.entries.reduce((sum, entry) => sum + Number(entry.debit || 0), 0) : null;
         return (
-          <article key={row._id} className="card" style={{ marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-              <div>
-                <strong>{row.memo || `${row.action || "Activity"} · ${row.object || ""}`}</strong>
-                <div style={{ marginTop: 5, color: "var(--muted)", fontSize: 12 }}>
-                  {row.createdBy?.name || row.userId?.name || "Staff"} · {formatDate(row.createdAt || row.at)}
-                  {row.reversedBy && <span style={{ color: "var(--terracotta)", marginLeft: 6 }}>(Reversed)</span>}
-                </div>
-              </div>
-              {canReverse && (
-                <button
-                  type="button"
-                  className="btn btn-outline-danger"
-                  style={{ padding: "4px 8px", fontSize: 11 }}
-                  onClick={() => onReverse(row)}
-                >
-                  Reverse
-                </button>
+          <div key={row._id} className="expense-row static">
+            <span className="expense-row-main">
+              <span className="expense-row-title">
+                {row.memo || `${(row.action || "Activity").replaceAll("_", " ")} · ${row.object || ""}`}
+                {row.reversedBy && <span className="row-tag bad" style={{ marginLeft: 6 }}>Reversed</span>}
+              </span>
+              <span className="expense-row-meta">
+                {row.createdBy?.name || row.userId?.name || "Staff"} · {formatDateTime(row.createdAt || row.at)}
+              </span>
+              {Array.isArray(row.entries) && row.entries.length > 0 && (
+                <span className="expense-row-meta" style={{ whiteSpace: "normal" }}>
+                  {row.entries.map((entry) => `${Number(entry.debit) > 0 ? "Dr" : "Cr"} ${entry.accountId?.name || "Account"} ${money(Number(entry.debit) > 0 ? entry.debit : entry.credit)}`).join("  ·  ")}
+                </span>
               )}
-            </div>
-            {Array.isArray(row.entries) && row.entries.map((entry) => (
-              <div key={entry._id} style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 12 }}>
-                <span>{entry.accountId?.name || "Account"}</span>
-                <span>{Number(entry.debit) > 0 ? `Dr ${money(entry.debit)}` : `Cr ${money(entry.credit)}`}</span>
-              </div>
-            ))}
-          </article>
+            </span>
+            {total !== null && <span className="expense-row-amount">{money(total)}</span>}
+            {canReverse && (
+              <span className="expense-row-action">
+                <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => onReverse(row)}>Reverse</button>
+              </span>
+            )}
+          </div>
         );
       })}
     </div>

@@ -16,6 +16,7 @@ router.post("/transactions/:transactionId/reverse", c.reverseTransaction);
 router.get("/companies/:companyId/expenses", c.listExpenses);
 router.get("/expenses/:expenseId/receipts", c.expenseReceipts);
 router.post("/expenses/:expenseId/receipts", c.updateExpenseReceipts);
+router.post("/expenses/:expenseId/payer-type", c.changePayerType);
 router.get("/companies/:companyId/balances", c.balances);
 router.get("/companies/:companyId/payables/:personId", c.payableBills);
 router.get("/companies/:companyId/transactions", c.listTransactions);

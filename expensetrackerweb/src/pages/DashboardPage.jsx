@@ -1425,6 +1425,8 @@ export default function DashboardPage() {
         <EditExpenseModal
           expense={modal.expense}
           user={user}
+          isAdmin={isAdmin}
+          funds={availableCompanyFunds}
           customCategories={customCategories}
           onClose={() => setModal(null)}
           onUpdated={load}

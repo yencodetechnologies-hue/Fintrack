@@ -88,8 +88,11 @@ export default function ExpenseDetailModal({
     isApproved || isPaid ? "pill-paid" : isRejected ? "pill-outstanding" : "pill-category";
 
   const isAwaitingPayer = lifecycle === "awaiting_confirmation";
+  // the creating manager can always open Edit to switch who paid (me / company), even after payment
+  const paidByMe = lifecycle === "paid_by_admin" && String(expense.paidByAdminId?._id || expense.paidByAdminId) === String(user.id);
+  const creatorCanSwitchPayer = isAdmin && isCreator && (isApproved || lifecycle === "paid_by_company" || paidByMe);
   const canEdit =
-    (isAdmin && !isPaid && !isAwaitingPayer) || (!isAdmin && isSubmitted && isCreator && !isPaid);
+    (isAdmin && !isPaid && !isAwaitingPayer) || (!isAdmin && isSubmitted && isCreator && !isPaid) || creatorCanSwitchPayer;
 
   // managers can fix receipt images at any status
   const canReplaceReceipts = isAdmin;

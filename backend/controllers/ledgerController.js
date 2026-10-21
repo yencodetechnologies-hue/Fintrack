@@ -771,6 +771,85 @@ exports.updateExpense = handle(async (req, res) => {
   res.json({ success: true, message: "Expense updated successfully", expense });
 });
 
+// The manager who created an expense can switch who paid it — themselves or the company — at any time.
+// The old payment is reversed in the books (and fund balance restored) before the new one is posted.
+exports.changePayerType = handle(async (req, res) => {
+  const { userId, payerType, fundId } = req.body;
+  if (!["manager", "company"].includes(payerType)) throw fail(400, "Choose who paid: manager or company");
+  const expense = await Expense.findById(req.params.expenseId);
+  if (!expense) throw fail(404, "Expense not found");
+  const companyId = expense.companyId;
+  const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  if (!isAdminRole(role) || String(expense.createdBy) !== String(userId)) {
+    throw fail(403, "Only the manager who created this expense can change who paid it");
+  }
+  if (expense.groupId) throw fail(400, "Group expenses are settled with the group");
+  if (expense.lifecycle === "reimbursed") throw fail(400, "You were already reimbursed for this expense, so it can't be switched");
+  const current = expense.lifecycle === "paid_by_company" && expense.payerType === "company" ? "company"
+    : expense.lifecycle === "paid_by_admin" && String(expense.paidByAdminId) === String(userId) ? "manager"
+    : expense.lifecycle === "approved" ? "unpaid" : null;
+  if (!current) throw fail(400, "This expense was paid another way (by someone else or another company) and can't be switched here");
+  if (current === payerType) throw fail(400, `It's already marked as paid by ${payerType === "company" ? "the company" : "you"}`);
+
+  const amount = expense.amount;
+  if (payerType === "company") {
+    const fund = fundId || "cash";
+    const available = await getEffectiveFundBalance(companyId, fund);
+    if (available < amount) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available, ₹${amount.toFixed(2)} required)`);
+  }
+  // moving off "paid by me" must not take back money already reimbursed on this bill
+  if (current === "manager" && (await adminOwed(companyId, userId)) < amount) {
+    throw fail(400, "Part of what the company owed you has already been reimbursed; this expense can't be switched to company");
+  }
+
+  const before = snapshot(expense);
+  // 1. undo the old payment
+  const oldTx = expense.transactionId ? await LedgerTransaction.findById(expense.transactionId) : null;
+  if (oldTx && !oldTx.reversedBy) {
+    const entries = await LedgerEntry.find({ transactionId: oldTx._id });
+    const accounts = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) } });
+    const accMap = new Map(accounts.map((a) => [a._id.toString(), a]));
+    const reversal = await post(
+      { companyId, type: "reversal", memo: `Payer changed: ${expense.description}`, expenseId: expense._id, reverses: oldTx._id, createdBy: userId },
+      entries.map((e) => ({ account: accMap.get(e.accountId.toString()), debit: e.credit, credit: e.debit }))
+    );
+    oldTx.reversedBy = reversal._id;
+    await oldTx.save();
+    if (current === "company") {
+      const fundAcc = accounts.find((a) => a.type === "bank" && entries.some((e) => String(e.accountId) === String(a._id) && e.credit > 0));
+      await applyCompanyFund(companyId, fundAcc?.bankAccountId ? String(fundAcc.bankAccountId) : "cash", amount);
+    }
+  }
+
+  // 2. book the new payment
+  const isCompany = payerType === "company";
+  const verification = isCompany && (await needsVerification(companyId, amount)) ? "pending" : null;
+  const tx = await post(
+    { companyId, type: isCompany ? "company_paid" : "admin_paid", expenseId: expense._id, memo: expense.description, method: expense.payerMethod || "", reference: expense.payerReference || "", createdBy: userId, verification },
+    [
+      { account: await expenseAccount(companyId, expense.category), debit: amount },
+      { account: isCompany ? await fundAccount(companyId, fundId || "cash") : await payableAccount(companyId, userId), credit: amount },
+    ]
+  );
+  if (isCompany) await applyCompanyFund(companyId, fundId || "cash", -amount);
+
+  Object.assign(expense, {
+    lifecycle: isCompany ? "paid_by_company" : "paid_by_admin",
+    status: "paid",
+    payerType: isCompany ? "company" : "person",
+    paidByAdminId: isCompany ? null : userId,
+    paidByUserId: isCompany ? null : userId,
+    logAs: isCompany ? "company" : "self",
+    transactionId: tx._id,
+    verification,
+  });
+  await expense.save();
+  if (current === "manager") await recomputeReimbursed(companyId, userId);
+  await audit(userId, companyId, "change_payer", "expense", expense._id, before, snapshot(expense));
+  if (verification) await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${expense.description} · ₹${amount}`, data: { transactionId: tx._id, companyId } }, userId);
+  res.json({ success: true, expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt") });
+});
+
 // Managers can swap receipt images at any status (after payment the amount and details stay locked).
 exports.updateExpenseReceipts = handle(async (req, res) => {
   const { userId, attachment, paymentReceipt } = req.body;

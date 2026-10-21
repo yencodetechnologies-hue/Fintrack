@@ -203,6 +203,8 @@ export const setLedgerExpenseVisibility = (expenseId, userId, visibleTo) =>
   post(ledgerUrl(`/expenses/${expenseId}/visibility`), { userId, visibleTo });
 export const updateLedgerExpenseReceipts = (expenseId, userId, receipts) =>
   post(ledgerUrl(`/expenses/${expenseId}/receipts`), { userId, ...receipts });
+export const changeLedgerPayerType = (expenseId, userId, payerType, fundId) =>
+  post(ledgerUrl(`/expenses/${expenseId}/payer-type`), { userId, payerType, fundId });
 export const updateLedgerExpense = (expenseId, payload) =>
   post(ledgerUrl(`/expenses/${expenseId}/update`), payload);
 export const deleteLedgerExpense = (expenseId, userId) =>

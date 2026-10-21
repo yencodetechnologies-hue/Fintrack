@@ -44,6 +44,18 @@ export function personId(ref) {
   return ref.toString();
 }
 
+// The categories a company offers: built-ins + its own, minus the ones a manager removed.
+export function companyCategories(company, extra = []) {
+  const hidden = new Set((company?.hiddenCategories || []).map((c) => c.toLowerCase()));
+  const seen = new Set();
+  return [...BASE_CATEGORIES, ...(company?.customCategories || []), ...extra].filter((c) => {
+    const key = String(c || "").trim().toLowerCase();
+    if (!key || hidden.has(key) || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 // Who an expense is shown as posted by: the company for company-posted expenses, otherwise the person.
 export function isCompanyPosted(expense) {
   return expense?.logAs === "company" || expense?.postedAs === "company";
@@ -52,6 +64,28 @@ export function isCompanyPosted(expense) {
 export function postedByName(expense, company) {
   if (isCompanyPosted(expense)) return expense.companyId?.name || company?.name || "Company";
   return expense?.createdBy?.name || "Staff";
+}
+
+// Status text shown on expenses, naming who actually paid:
+// "Paid by OtherCo" when another company paid (borrowed), "Paid by TestCo" for the company itself, "Paid by Meera" for a person.
+export function expenseStatusLabel(expense, company) {
+  const lifecycle = expense?.lifecycle || "submitted";
+  const nameOf = (ref) => (ref && typeof ref === "object" ? ref.name : "");
+  if (lifecycle === "paid_by_company") {
+    if (expense.payerType === "other_company") return `Paid by ${nameOf(expense.payerCompanyId) || "another company"}`;
+    return `Paid by ${expense.companyId?.name || company?.name || "company"}`;
+  }
+  if (lifecycle === "paid_by_admin" || lifecycle === "paid_by_person") {
+    const who = nameOf(expense.paidByUserId) || nameOf(expense.paidByAdminId);
+    return who ? `Paid by ${who}` : lifecycle === "paid_by_admin" ? "Paid by manager" : "Paid by staff";
+  }
+  if (lifecycle === "awaiting_confirmation") return `Awaiting ${nameOf(expense.payerCompanyId) || "payer"} confirmation`;
+  return {
+    submitted: "Awaiting approval",
+    approved: "Approved · unpaid",
+    rejected: "Rejected",
+    reimbursed: "Reimbursed",
+  }[lifecycle] || lifecycle.replaceAll("_", " ");
 }
 
 // "Bank of India – Acme Pvt Ltd (…1234)": tells apart accounts at the same bank.

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import { createCompany, getCompanyMemberCandidates, getUserCompanies, getUserExpenseGroups, joinCompany } from "../api.js";
-import Navbar from "../components/Navbar.jsx";
+import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 import CreateGroupModal from "../components/CreateGroupModal.jsx";
 
@@ -16,7 +16,17 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(""); // "", "create", "join"
   const [saving, setSaving] = useState(false);
-  const [activeView, setActiveView] = useState("companies");
+  // ?view=groups opens the Groups list (sidebar link); otherwise Companies
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeView, setActiveViewState] = useState(() => (searchParams.get("view") === "groups" ? "groups" : "companies"));
+  const urlView = searchParams.get("view") === "groups" ? "groups" : "companies";
+  useEffect(() => {
+    setActiveViewState(urlView);
+  }, [urlView]);
+  const setActiveView = (v) => {
+    setActiveViewState(v);
+    setSearchParams(v === "groups" ? { view: "groups" } : {}, { replace: true });
+  };
   const [groups, setGroups] = useState([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState("");
@@ -52,6 +62,12 @@ export default function CompaniesPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // opening Groups from the sidebar (?view=groups) loads them
+  useEffect(() => {
+    if (activeView === "groups" && !groups.length && !groupsLoading) loadGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
 
   useEffect(() => {
     if (modal === "create") {
@@ -136,9 +152,7 @@ export default function CompaniesPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <Navbar>
-      </Navbar>
+    <AppLayout title={activeView === "groups" ? "Groups" : "Companies"}>
 
       <div className="container" style={{ padding: "52px 32px 70px" }}>
         <div style={{ marginBottom: 36 }}>
@@ -200,7 +214,7 @@ export default function CompaniesPage() {
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{c.name}</div>
                 <div style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span className="pill" style={{ background: c.userRole === "admin" ? "rgba(12,95,65,0.1)" : "var(--slate-border-2)", color: c.userRole === "admin" ? "var(--forest)" : "var(--dark-text)" }}>
+                  <span className="pill" style={{ background: c.userRole === "admin" ? "rgba(25, 87, 84,0.1)" : "var(--slate-border-2)", color: c.userRole === "admin" ? "var(--forest)" : "var(--dark-text)" }}>
                     {c.userRole === "admin" ? "Manager" : "Staff"}
                   </span>
                   {c.details ? <span>{c.details}</span> : null}
@@ -462,6 +476,6 @@ export default function CompaniesPage() {
 
       {showCreateGroup && <CreateGroupModal companies={companies} user={user} onClose={() => setShowCreateGroup(false)} onCreated={loadGroups} />}
 
-    </div>
+    </AppLayout>
   );
 }

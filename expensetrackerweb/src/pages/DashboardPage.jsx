@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import {
@@ -34,10 +34,9 @@ import {
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { bankAccountLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS, postedByName } from "../utils.js";
-import Navbar from "../components/Navbar.jsx";
+import { bankAccountLabel, companyCategories, expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS, postedByName } from "../utils.js";
 import Modal from "../components/Modal.jsx";
-import Sidebar from "../components/Sidebar.jsx";
+import AppLayout, { rememberCompany } from "../components/AppLayout.jsx";
 import ExpenseCard from "../components/ExpenseCard.jsx";
 import AddExpenseModal from "../components/AddExpenseModal.jsx";
 import EditExpenseModal from "../components/EditExpenseModal.jsx";
@@ -97,7 +96,7 @@ function formatGroupDate(dateStr) {
 
 export default function DashboardPage() {
   const { companyId } = useParams();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -109,7 +108,17 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
   const [loading, setLoading] = useState(true);
   const [viewMode] = useState("company");
-  const [activeTab, setActiveTab] = useState("home");
+  // the open tab lives in the URL (?tab=) so the sidebar on any page can open it and a refresh keeps it
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "home");
+  const changeTab = useCallback((tab) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
+  }, [setSearchParams]);
+  const urlTab = searchParams.get("tab");
+  useEffect(() => {
+    if (urlTab) setActiveTab(urlTab);
+  }, [urlTab]);
   const [companies, setCompanies] = useState([]);
   const [ledgerExpenses, setLedgerExpenses] = useState([]);
   const [ledgerBalances, setLedgerBalances] = useState(null);
@@ -148,7 +157,6 @@ export default function DashboardPage() {
   const [expenseDateTo, setExpenseDateTo] = useState("");
 
   const [modal, setModal] = useState(null); // {type, expense?}
-  const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   const isAdmin = currentUserRole === "admin";
   const showCompanyTotals = isAdmin && viewMode === "company";
@@ -225,6 +233,7 @@ export default function DashboardPage() {
     }
 
     setCompany(detailsRes.company);
+    rememberCompany(companyId);
     setMembers(detailsRes.members || []);
     setCurrentUserRole(detailsRes.currentUserRole || "member");
     setHiddenStaffIds(detailsRes.hiddenStaffIds || []);
@@ -596,21 +605,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <Navbar crumb={company.name} backTo="/companies">
-        <button className="nav-text-btn" onClick={() => setConfirmingLogout(true)}>⎋ Log out</button>
-      </Navbar>
-
-      <div className="app-shell">
-        <Sidebar
-          company={company}
-          companies={companies}
-          isAdmin={isAdmin}
-          active={activeTab}
-          onNavigate={setActiveTab}
-          onCompanyChange={(id) => navigate(`/company/${id}`)}
-        />
-
+    <AppLayout companyId={companyId} isAdmin={isAdmin} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
         <div className="main-panel">
           {activeTab === "home" && (
             <>
@@ -618,37 +613,62 @@ export default function DashboardPage() {
                 <h1 style={{ fontSize: 26, margin: 0 }}>Home</h1>
                 <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
-                <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("expenses")} title="View all expenses"><div style={labelStyle}>TOTAL EXPENSES</div><div style={bigNumberStyle}>{ledgerExpenses.length}</div><small style={{ color: "var(--muted)" }}>{money(ledgerExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0))}</small></div>
-                <div className="stat-card"><div style={labelStyle}>{isAdmin ? "OWED TO PEOPLE" : "COMPANY OWES YOU"}</div><div style={bigNumberStyle}>{money(isAdmin ? ledgerBalances?.totalOwedToAdmins : ledgerBalances?.myOwed)}</div></div>
-                <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("interco")} title="View company loans">
-                  <div style={labelStyle}>BORROWED FROM OTHER COMPANIES</div>
-                  <div style={{ ...bigNumberStyle, color: "var(--terracotta)" }}>{money(borrowedByLender.reduce((sum, row) => sum + row.balance, 0))}</div>
-                  {borrowedByLender.length === 0 ? (
-                    <small style={{ color: "var(--muted)" }}>Nothing borrowed</small>
-                  ) : (
-                    borrowedByLender.map((row) => (
-                      <div key={row.name} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, marginTop: 4 }}>
-                        <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name} → {company.name}</span>
-                        <strong>{money(row.balance)}</strong>
-                      </div>
-                    ))
-                  )}
-                </div>
-                {lentByBorrower.length > 0 && (
-                  <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("interco")} title="View company loans">
-                    <div style={labelStyle}>LENT TO OTHER COMPANIES</div>
-                    <div style={{ ...bigNumberStyle, color: "var(--forest)" }}>{money(lentByBorrower.reduce((sum, row) => sum + row.balance, 0))}</div>
-                    {lentByBorrower.map((row) => (
-                      <div key={row.name} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, marginTop: 4 }}>
-                        <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{company.name} → {row.name}</span>
-                        <strong>{money(row.balance)}</strong>
-                      </div>
-                    ))}
+              {(() => {
+                const totalSpent = ledgerExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+                const borrowedTotal = borrowedByLender.reduce((sum, row) => sum + row.balance, 0);
+                const lentTotal = lentByBorrower.reduce((sum, row) => sum + row.balance, 0);
+                const cashTotal = availableCompanyFunds.filter((f) => f.fundId === "cash").reduce((s, f) => s + Number(f.balance || 0), 0);
+                const bankTotal = availableCompanyFunds.filter((f) => f.fundId !== "cash").reduce((s, f) => s + Number(f.balance || 0), 0);
+                const loanLines = (rows, arrow) => rows.slice(0, 2).map((row) => (
+                  <div key={row.name} className="home-tile-line">
+                    <span>{arrow(row.name)}</span>
+                    <strong>{money(row.balance)}</strong>
                   </div>
-                )}
-                {isAdmin && <div className="stat-card"><div style={labelStyle}>CASH / BANK</div><div style={bigNumberStyle}>{money(availableCompanyFunds.reduce((sum, fund) => sum + Number(fund.balance || 0), 0))}</div></div>}
-              </div>
+                ));
+                return (
+                  <div className={`home-tiles ${isAdmin ? "" : "staff"}`}>
+                    <HomeTile
+                      label="Total expenses"
+                      value={money(totalSpent)}
+                      sub={`${ledgerExpenses.length} expense${ledgerExpenses.length === 1 ? "" : "s"}`}
+                      onClick={() => changeTab("expenses")}
+                      title="View all expenses"
+                    />
+                    <HomeTile
+                      label={isAdmin ? "My outstanding" : "Company owes you"}
+                      value={money(ledgerBalances?.myOwed)}
+                      color={Number(ledgerBalances?.myOwed) > 0 ? "var(--terracotta)" : undefined}
+                      sub={isAdmin ? `Owed to all people ${money(ledgerBalances?.totalOwedToAdmins)}` : "Paid by you, not yet reimbursed"}
+                    />
+                    {isAdmin && (
+                      <>
+                        <HomeTile
+                          label="Pending borrowed"
+                          value={money(borrowedTotal)}
+                          color={borrowedTotal > 0 ? "var(--terracotta)" : undefined}
+                          sub={borrowedByLender.length ? loanLines(borrowedByLender, (name) => `from ${name}`) : "Nothing to repay"}
+                          onClick={() => changeTab("interco")}
+                          title="View company loans"
+                        />
+                        <HomeTile
+                          label="Pending lent"
+                          value={money(lentTotal)}
+                          sub={lentByBorrower.length ? loanLines(lentByBorrower, (name) => `to ${name}`) : "Nothing to collect"}
+                          onClick={() => changeTab("interco")}
+                          title="View company loans"
+                        />
+                        <HomeTile
+                          label="Balance"
+                          value={money(cashTotal + bankTotal)}
+                          sub={`Cash ${money(cashTotal)} · Bank ${money(bankTotal)}`}
+                          onClick={() => { changeTab("more"); setMoreView("funds"); }}
+                          title="View company funds"
+                        />
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("reimburse"); }}>Reimburse person</button></div>}
               {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
                 <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
@@ -664,7 +684,7 @@ export default function DashboardPage() {
                             <span className="expense-row-title">{expense.description}</span>
                             <span className="expense-row-meta">{expense.category || "General"} · {postedByName(expense, company)} · {formatDate(expense.date || expense.createdAt)}</span>
                           </span>
-                          <span className={`expense-row-status ${tone}`}>{(expense.lifecycle || "submitted").replaceAll("_", " ")}</span>
+                          <span className={`expense-row-status ${tone}`}>{expenseStatusLabel(expense, company)}</span>
                           <span className="expense-row-amount">{money(expense.amount)}</span>
                         </button>
                       );
@@ -885,7 +905,7 @@ export default function DashboardPage() {
                                 )}
                               </span>
                             </span>
-                            <span className={`expense-row-status ${tone}`}>{(expense.lifecycle || "submitted").replaceAll("_", " ")}</span>
+                            <span className={`expense-row-status ${tone}`}>{expenseStatusLabel(expense, company)}</span>
                             <span className="expense-row-amount">{money(expense.amount)}</span>
                             <span className="expense-row-action" onClick={(e) => e.stopPropagation()}>
                               {isAdmin && expense.lifecycle === "submitted" ? (
@@ -1025,7 +1045,7 @@ export default function DashboardPage() {
                       onChange={(e) => setReportCategory(e.target.value)}
                     >
                       <option value="All">All Categories</option>
-                      {["General", "Travel", "Food & Dining", "Rent", "Software", "Office Supplies", "Utilities", "Other", ...(company?.customCategories || [])].map((c) => (
+                      {companyCategories(company).map((c) => (
                         <option key={c} value={c}>{c}</option>
                       ))}
                     </select>
@@ -1200,7 +1220,6 @@ export default function DashboardPage() {
             <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />
           )}
         </div>
-      </div>
 
       {modal?.type === "add" && (
         <AddExpenseModal
@@ -1457,6 +1476,7 @@ export default function DashboardPage() {
           isAdmin={isAdmin}
           funds={availableCompanyFunds}
           customCategories={customCategories}
+          hiddenCategories={company?.hiddenCategories || []}
           onClose={() => setModal(null)}
           onUpdated={load}
         />
@@ -1614,17 +1634,7 @@ export default function DashboardPage() {
         />
       )}
 
-      {confirmingLogout && (
-        <ConfirmDialog
-          title="Log out?"
-          message="You'll need to sign in again to access your companies."
-          confirmLabel="Log out"
-          danger
-          onConfirm={logout}
-          onCancel={() => setConfirmingLogout(false)}
-        />
-      )}
-    </div>
+    </AppLayout>
   );
 }
 
@@ -1635,6 +1645,17 @@ const labelStyle = {
   letterSpacing: 0.6,
   marginBottom: 6,
 };
+
+// One summary tile on Home: label, big value, a short detail line (or rows), optionally clickable.
+function HomeTile({ label, value, sub, color, onClick, title }) {
+  return (
+    <div className={`stat-card home-tile${onClick ? " clickable" : ""}`} onClick={onClick} title={title}>
+      <div className="home-tile-label">{label}</div>
+      <div className="home-tile-value" style={color ? { color } : undefined}>{value}</div>
+      {sub && <div className="home-tile-sub">{sub}</div>}
+    </div>
+  );
+}
 
 const bigNumberStyle = {
   fontFamily: "Fraunces, serif",

@@ -2,7 +2,7 @@ import { useState } from "react";
 import Modal from "./Modal.jsx";
 import { addCustomCategory, createLedgerExpense, saveVisibilityPreference } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { bankAccountLabel, fileToBase64, formatDate, BASE_CATEGORIES } from "../utils.js";
+import { bankAccountLabel, companyCategories, fileToBase64, formatDate } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
 export default function AddExpenseModal({
@@ -38,7 +38,8 @@ export default function AddExpenseModal({
 
   // Categories added in this form show up at once; the server save happens in the background.
   const [addedCategories, setAddedCategories] = useState([]);
-  const categoryOptions = Array.from(new Set([...BASE_CATEGORIES, ...customCategories, ...addedCategories]));
+  // company's categories (minus ones a manager removed) + any just added in this form
+  const categoryOptions = Array.from(new Set([...companyCategories({ ...company, customCategories }), ...addedCategories]));
 
   function handleAddCategory() {
     const name = newCategory.trim();
@@ -184,8 +185,8 @@ export default function AddExpenseModal({
                   alignItems: "center",
                   gap: 8,
                   padding: "8px 12px",
-                  background: "rgba(12, 95, 65, 0.08)",
-                  border: "1px solid rgba(12, 95, 65, 0.16)",
+                  background: "rgba(25, 87, 84, 0.08)",
+                  border: "1px solid rgba(25, 87, 84, 0.16)",
                   borderRadius: 8,
                   marginTop: 10,
                 }}
@@ -395,8 +396,8 @@ export default function AddExpenseModal({
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: isSelf ? "default" : "pointer",
-                      border: checked ? "1px solid rgba(12, 95, 65, 0.3)" : "1px solid var(--slate-border-2)",
-                      background: checked ? "rgba(12, 95, 65, 0.08)" : "#F8FAFC",
+                      border: checked ? "1px solid rgba(25, 87, 84, 0.3)" : "1px solid var(--slate-border-2)",
+                      background: checked ? "rgba(25, 87, 84, 0.08)" : "#F8FAFC",
                       color: checked ? "var(--forest)" : "var(--muted)",
                       transition: "all 0.15s ease",
                     }}
@@ -439,7 +440,7 @@ export default function AddExpenseModal({
                   width: 32,
                   height: 32,
                   borderRadius: 8,
-                  background: attachment ? "rgba(12, 95, 65, 0.12)" : "#E2E8F0",
+                  background: attachment ? "rgba(25, 87, 84, 0.12)" : "#E2E8F0",
                   color: attachment ? "var(--forest)" : "var(--muted)",
                   display: "flex",
                   alignItems: "center",

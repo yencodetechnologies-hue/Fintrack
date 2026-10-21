@@ -3,7 +3,7 @@ import Modal from "./Modal.jsx";
 import { changeLedgerPayerType, updateExpense, updateLedgerExpense, updateLedgerExpenseReceipts } from "../api.js";
 import { fileToBase64, money } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { BASE_CATEGORIES } from "../utils.js";
+import { companyCategories } from "../utils.js";
 
 // Who paid, as the creating manager can switch it: "manager" (me), "company", or "unpaid" (approved, nothing booked yet — shown as "me").
 function currentPayer(expense, userId) {
@@ -14,7 +14,7 @@ function currentPayer(expense, userId) {
   return null;
 }
 
-export default function EditExpenseModal({ expense, user, isAdmin = false, funds = [], customCategories, onClose, onUpdated }) {
+export default function EditExpenseModal({ expense, user, isAdmin = false, funds = [], customCategories, hiddenCategories = [], onClose, onUpdated }) {
   const { showToast } = useToast();
   const [amount, setAmount] = useState(String(expense.amount ?? ""));
   const [description, setDescription] = useState(expense.description || "");
@@ -53,7 +53,8 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
     setNewReceipt(await fileToBase64(file));
   }
 
-  const categoryOptions = Array.from(new Set([...BASE_CATEGORIES, ...customCategories, expense.category].filter(Boolean)));
+  // company's current categories; the expense keeps its own even if that category was later removed
+  const categoryOptions = Array.from(new Set([...companyCategories({ customCategories, hiddenCategories }), expense.category].filter(Boolean)));
 
   async function handleSubmit(e) {
     e.preventDefault();

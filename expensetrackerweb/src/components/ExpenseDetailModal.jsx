@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal.jsx";
 import { getLedgerExpenseReceipts, updateLedgerExpenseReceipts } from "../api.js";
-import { fileToBase64, formatDate, formatDateTime, money, postedByName } from "../utils.js";
+import { expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, postedByName } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
 
 export default function ExpenseDetailModal({
@@ -73,17 +73,10 @@ export default function ExpenseDetailModal({
   const isRejected = lifecycle === "rejected";
   const isPaid = lifecycle.startsWith("paid") || expense.status === "paid";
 
-  const LIFECYCLE_LABELS = {
-    submitted: "Awaiting approval",
-    approved: "Approved · unpaid",
-    rejected: "Rejected",
-    paid_by_admin: "Paid by manager",
-    paid_by_person: "Paid by staff",
-    paid_by_company: "Paid by company",
-    awaiting_confirmation: "Awaiting payer confirmation",
-    reimbursed: "Reimbursed",
-  };
-  const lifecycleLabel = LIFECYCLE_LABELS[lifecycle] || lifecycle.replaceAll("_", " ");
+  const lifecycleLabel = expenseStatusLabel(expense, company);
+  const borrowedFrom = expense.payerType === "other_company" && expense.payerCompanyId && typeof expense.payerCompanyId === "object"
+    ? expense.payerCompanyId.name
+    : "";
   const lifecycleClass =
     isApproved || isPaid ? "pill-paid" : isRejected ? "pill-outstanding" : "pill-category";
 
@@ -154,6 +147,12 @@ export default function ExpenseDetailModal({
     ["Company", expense.companyId?.name || company?.name || "Company"],
     expense.approvedBy && ["Approved by", nameOf(expense.approvedBy, "Manager")],
     isPaid && expense.paidByUserId && ["Paid by", nameOf(expense.paidByUserId, "Member")],
+    lifecycle === "paid_by_company" && [
+      "Paid by",
+      borrowedFrom
+        ? <span key="payer">{borrowedFrom}<span style={subValStyle}>Borrowed by {expense.companyId?.name || company?.name || "this company"}</span></span>
+        : (expense.companyId?.name || company?.name || "Company"),
+    ],
     isPaid && paymentText && ["Payment", paymentText],
     expense.payerReference && ["Reference / UTR", <span key="ref" style={{ fontFamily: "monospace" }}>{expense.payerReference}</span>],
     isAdmin && expense.visibleTo && ["Staff visibility", expense.visibleTo.length === 0 ? "All staff" : `${expense.visibleTo.length} selected staff`],

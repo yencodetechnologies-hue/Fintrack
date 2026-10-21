@@ -34,6 +34,8 @@ router.get("/companies/:companyId/export", c.exportCsv);
 router.post("/companies/:companyId/members", c.addMember);
 router.post("/companies/:companyId/invites", c.inviteMember);
 router.post("/companies/:companyId/visibility-preference", c.setVisibilityPreference);
+router.post("/companies/:companyId/categories", c.addCategory);
+router.post("/companies/:companyId/categories/delete", c.deleteCategory);
 router.post("/companies/:companyId/members/:memberUserId/role", c.setMemberRole);
 router.post("/expenses/:expenseId/visibility", c.setExpenseVisibility);
 router.post("/expenses/:expenseId/payer-confirmation", c.confirmExpensePayer);

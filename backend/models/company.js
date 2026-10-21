@@ -49,6 +49,11 @@ const companySchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // built-in categories a manager removed for this company (built-ins live in the apps, so they are hidden, not deleted)
+    hiddenCategories: {
+      type: [String],
+      default: [],
+    },
     joinCodeCreatedAt: {
       type: Date,
     },

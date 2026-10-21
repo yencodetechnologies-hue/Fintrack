@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import Navbar from "../components/Navbar.jsx";
+import AppLayout from "../components/AppLayout.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { useState } from "react";
@@ -9,8 +9,7 @@ export default function ProfilePage() {
   const [confirmingLogout, setConfirmingLogout] = useState(false);
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <Navbar crumb="Profile" backTo="/companies" />
+    <AppLayout title="Profile">
       <main className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>
         <div className="eyebrow" style={{ marginBottom: 10 }}>Account</div>
         <h1 style={{ color: "#fff", fontSize: 36, margin: "0 0 10px" }}>Your profile</h1>
@@ -35,6 +34,6 @@ export default function ProfilePage() {
         </section>
       </main>
       {confirmingLogout && <ConfirmDialog title="Log out?" message="You'll need to sign in again to access your account." confirmLabel="Log out" danger onConfirm={logout} onCancel={() => setConfirmingLogout(false)} />}
-    </div>
+    </AppLayout>
   );
 }

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
+import { companyCategories } from "../utils.js";
 import {
   addCompanyMember,
   deleteCompany,
@@ -39,6 +41,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
   const [savingSettings, setSavingSettings] = useState(false);
 
   const [removing, setRemoving] = useState(null);
+  const [managingCategories, setManagingCategories] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -299,6 +302,20 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
       </div>
 
       {isAdmin && (
+        <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h3 style={{ fontSize: 16, margin: "0 0 4px" }}>Expense categories</h3>
+            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: 0 }}>
+              {companyCategories(company).length} categories offered when posting expenses.
+            </p>
+          </div>
+          <button type="button" className="btn btn-outline" onClick={() => setManagingCategories(true)}>
+            Manage categories
+          </button>
+        </div>
+      )}
+
+      {isAdmin && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Company Configuration</h3>
           <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
@@ -360,6 +377,10 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
             </button>
           </div>
         </>
+      )}
+
+      {managingCategories && (
+        <ManageCategoriesModal company={company} user={user} onClose={() => setManagingCategories(false)} onChanged={onChanged} />
       )}
 
       {pendingInvite && (

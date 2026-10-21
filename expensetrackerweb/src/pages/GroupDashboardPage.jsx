@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import {
@@ -13,7 +13,7 @@ import {
   settleExpenseGroup,
 } from "../api.js";
 import { fileToBase64, formatDate, money, personId, personName } from "../utils.js";
-import Navbar from "../components/Navbar.jsx";
+import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 
 export default function GroupDashboardPage() {
@@ -198,12 +198,7 @@ export default function GroupDashboardPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh" }}>
-      <Navbar crumb={group?.name || "Group"} backTo="/companies">
-        <Link className="nav-text-btn" to="/companies">
-          All expenses
-        </Link>
-      </Navbar>
+    <AppLayout companyId={group?.companyId?._id || group?.companyId} title={group?.name || "Group"}>
       <main className="container" style={{ paddingTop: 34, paddingBottom: 64 }}>
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: 70 }}>
@@ -552,6 +547,6 @@ export default function GroupDashboardPage() {
           </div>
         </Modal>
       )}
-    </div>
+    </AppLayout>
   );
 }

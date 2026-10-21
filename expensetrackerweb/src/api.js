@@ -213,6 +213,10 @@ export const reverseLedgerTransaction = (transactionId, userId) =>
   post(ledgerUrl(`/transactions/${transactionId}/reverse`), { userId });
 export const addCompanyMember = (companyId, userId, email, role) =>
   post(ledgerUrl(`/companies/${companyId}/members`), { userId, email, role });
+export const addCompanyCategory = (companyId, userId, name) =>
+  post(ledgerUrl(`/companies/${companyId}/categories`), { userId, name });
+export const deleteCompanyCategory = (companyId, userId, name) =>
+  post(ledgerUrl(`/companies/${companyId}/categories/delete`), { userId, name });
 export const saveVisibilityPreference = (companyId, userId, hiddenStaffIds) =>
   post(ledgerUrl(`/companies/${companyId}/visibility-preference`), { userId, hiddenStaffIds });
 export const inviteCompanyMember = (companyId, userId, email, role) =>

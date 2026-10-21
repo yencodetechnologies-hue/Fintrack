@@ -466,6 +466,16 @@ exports.listExpenses = handle(async (req, res) => {
       .populate("payerCompanyId", "name");
   }
   let expenses = (await expenseQuery.sort({ createdAt: -1 })).map((expense) => expense.toObject());
+  // older borrowed payments didn't store the paying company; recover it from the loan so "Paid by <company>" shows
+  const missingPayer = expenses.filter((e) => e.payerType === "other_company" && !e.payerCompanyId);
+  if (missingPayer.length) {
+    const loans = await CompanyLoan.find({ expenseId: { $in: missingPayer.map((e) => e._id) } }).populate("lenderCompanyId", "name").select("expenseId lenderCompanyId");
+    const lenderByExpense = new Map(loans.map((l) => [String(l.expenseId), l.lenderCompanyId]));
+    for (const e of missingPayer) {
+      const lender = lenderByExpense.get(String(e._id));
+      if (lender) e.payerCompanyId = { _id: lender._id, name: lender.name };
+    }
+  }
   if (summary !== "1" && expenses.length) {
     expenses = expenses.map((expense) => ({
       ...expense,
@@ -602,7 +612,7 @@ exports.payExpense = handle(async (req, res) => {
   const before = snapshot(expense);
   const claimed = await Expense.findOneAndUpdate(
     { _id: expense._id, lifecycle: "approved", status: "outstanding" },
-    { $set: { lifecycle: target, paidByAdminId: payer === "admin" ? userId : null, paidByUserId: ["admin", "person"].includes(payer) ? recordedPayerId : null, payerType: ["admin", "person"].includes(payer) ? "person" : payer === "company" ? "company" : "other_company", payerMethod: method || "", payerReference: reference || "", ...(paymentReceipt ? { paymentReceipt, hasPaymentReceipt: true } : {}), status: "paid", verification } },
+    { $set: { lifecycle: target, paidByAdminId: payer === "admin" ? userId : null, paidByUserId: ["admin", "person"].includes(payer) ? recordedPayerId : null, payerType: ["admin", "person"].includes(payer) ? "person" : payer === "company" ? "company" : "other_company", payerCompanyId: payer === "borrow" ? source._id : null, payerMethod: method || "", payerReference: reference || "", ...(paymentReceipt ? { paymentReceipt, hasPaymentReceipt: true } : {}), status: "paid", verification } },
     { returnDocument: "after" }
   );
   if (!claimed) throw fail(409, "This expense is not approved or has already been paid");
@@ -1583,6 +1593,49 @@ exports.report = handle(async (req, res) => {
   const { userId, from, to, category } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
   res.json({ success: true, report: await companyReport(companyId, from, to, category) });
+});
+
+// ---------- Categories (managers) ----------
+const categoryState = (company) => ({ customCategories: company.customCategories || [], hiddenCategories: company.hiddenCategories || [] });
+const sameName = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+exports.addCategory = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.body;
+  const name = String(req.body.name || "").trim();
+  if (!name) throw fail(400, "Category name is required");
+  if (name.length > 40) throw fail(400, "Keep the category name under 40 characters");
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  const company = await Company.findById(companyId).select("customCategories hiddenCategories");
+  if (!company) throw fail(404, "Company not found");
+  const hidden = (company.hiddenCategories || []).find((c) => sameName(c, name));
+  if (hidden) {
+    // re-adding a removed built-in category brings it back
+    company.hiddenCategories = company.hiddenCategories.filter((c) => !sameName(c, name));
+  } else if (!(company.customCategories || []).some((c) => sameName(c, name))) {
+    company.customCategories.push(name);
+  }
+  await company.save();
+  await audit(userId, companyId, "add_category", "company", company._id, null, { name });
+  res.json({ success: true, ...categoryState(company) });
+});
+
+exports.deleteCategory = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.body;
+  const name = String(req.body.name || "").trim();
+  if (!name) throw fail(400, "Category name is required");
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  const company = await Company.findById(companyId).select("customCategories hiddenCategories");
+  if (!company) throw fail(404, "Company not found");
+  const isCustom = (company.customCategories || []).some((c) => sameName(c, name));
+  if (isCustom) company.customCategories = company.customCategories.filter((c) => !sameName(c, name));
+  // built-in names (not stored per company) are hidden instead
+  else if (!(company.hiddenCategories || []).some((c) => sameName(c, name))) company.hiddenCategories.push(name);
+  await company.save();
+  const inUse = await Expense.countDocuments({ companyId, category: name });
+  await audit(userId, companyId, "delete_category", "company", company._id, { name }, null);
+  res.json({ success: true, inUse, ...categoryState(company) });
 });
 
 // Spending patterns over the last N months (managers only). Months/weekdays are in IST.

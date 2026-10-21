@@ -781,8 +781,13 @@ exports.updateExpenseReceipts = handle(async (req, res) => {
   }
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
-  // receipts are evidence, not amounts, so managers may fix them at any status
-  await requireRole(expense.companyId, userId, ["admin", "super_admin"]);
+  // receipts are evidence, not amounts, so managers may fix them at any status;
+  // the creator may fix their own bill receipt while it still awaits approval (same as editing)
+  const role = await requireRole(expense.companyId, userId, ["employee", "admin", "super_admin"]);
+  if (!isAdminRole(role)) {
+    const ownSubmitted = String(expense.createdBy) === String(userId) && expense.lifecycle === "submitted";
+    if (!ownSubmitted || paymentReceipt !== undefined) throw fail(403, "Only managers can change receipts after approval");
+  }
 
   const changed = [];
   if (attachment !== undefined) { expense.attachment = attachment; changed.push("attachment"); }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
-import { updateExpense, updateLedgerExpense } from "../api.js";
+import { updateExpense, updateLedgerExpense, updateLedgerExpenseReceipts } from "../api.js";
+import { fileToBase64 } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { BASE_CATEGORIES } from "../utils.js";
 
@@ -11,6 +12,23 @@ export default function EditExpenseModal({ expense, user, customCategories, onCl
   const [category, setCategory] = useState(expense.category || "General");
   const [date, setDate] = useState(() => new Date(expense.date || expense.createdAt).toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
+  const [newReceipt, setNewReceipt] = useState("");
+
+  async function handleReceipt(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      showToast("Choose an image file", "error");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("Receipt must be 5 MB or smaller", "error");
+      e.target.value = "";
+      return;
+    }
+    setNewReceipt(await fileToBase64(file));
+  }
 
   const categoryOptions = Array.from(new Set([...BASE_CATEGORIES, ...customCategories, expense.category].filter(Boolean)));
 
@@ -31,6 +49,15 @@ export default function EditExpenseModal({ expense, user, customCategories, onCl
       category,
       date: new Date(date).toISOString(),
     });
+    if (res.success && newReceipt && expense.lifecycle) {
+      const receiptRes = await updateLedgerExpenseReceipts(expense._id, user.id, { attachment: newReceipt });
+      if (!receiptRes.success) {
+        setSaving(false);
+        showToast(`Details saved, but the receipt wasn't: ${receiptRes.message || "upload failed"}`, "error");
+        onUpdated();
+        return;
+      }
+    }
     setSaving(false);
     if (res.success) {
       showToast("Expense updated successfully");
@@ -59,7 +86,17 @@ export default function EditExpenseModal({ expense, user, customCategories, onCl
         </select>
 
         <label className="field-label">Date</label>
-        <input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ marginBottom: 18 }} />
+        <input className="field-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ marginBottom: 14 }} />
+
+        {expense.lifecycle && (
+          <>
+            <label className="field-label">{expense.hasAttachment ? "Replace bill receipt (optional)" : "Add bill receipt (optional)"}</label>
+            <input className="field-input" type="file" accept="image/*" onChange={handleReceipt} style={{ marginBottom: newReceipt ? 8 : 18, padding: 8 }} />
+            {newReceipt && (
+              <img src={newReceipt} alt="New receipt" style={{ display: "block", maxHeight: 120, maxWidth: "100%", objectFit: "contain", borderRadius: 8, border: "1px solid var(--slate-border)", marginBottom: 18 }} />
+            )}
+          </>
+        )}
 
         <div style={{ display: "flex", gap: 10 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>

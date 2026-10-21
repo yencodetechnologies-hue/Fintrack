@@ -44,6 +44,16 @@ export function personId(ref) {
   return ref.toString();
 }
 
+// Who an expense is shown as posted by: the company for company-posted expenses, otherwise the person.
+export function isCompanyPosted(expense) {
+  return expense?.logAs === "company" || expense?.postedAs === "company";
+}
+
+export function postedByName(expense, company) {
+  if (isCompanyPosted(expense)) return expense.companyId?.name || company?.name || "Company";
+  return expense?.createdBy?.name || "Staff";
+}
+
 // "Bank of India – Acme Pvt Ltd (…1234)": tells apart accounts at the same bank.
 export function bankAccountLabel(b) {
   if (!b) return "";

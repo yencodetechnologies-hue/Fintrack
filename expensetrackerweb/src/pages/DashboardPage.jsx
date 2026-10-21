@@ -34,7 +34,7 @@ import {
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { bankAccountLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS } from "../utils.js";
+import { bankAccountLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS, postedByName } from "../utils.js";
 import Navbar from "../components/Navbar.jsx";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
@@ -306,7 +306,7 @@ export default function DashboardPage() {
       list = list.filter((e) => {
         const desc = (e.description || "").toLowerCase();
         const cat = (e.category || "").toLowerCase();
-        const creator = (e.createdBy?.name || "").toLowerCase();
+        const creator = postedByName(e, company).toLowerCase();
         const amt = String(e.amount || "");
         return desc.includes(q) || cat.includes(q) || creator.includes(q) || amt.includes(q);
       });
@@ -636,7 +636,7 @@ export default function DashboardPage() {
                         <button type="button" key={expense._id} className="expense-row" onClick={() => setSelectedExpenseDetail(expense)}>
                           <span className="expense-row-main">
                             <span className="expense-row-title">{expense.description}</span>
-                            <span className="expense-row-meta">{expense.category || "General"} · {expense.createdBy?.name || "Staff"} · {formatDate(expense.date || expense.createdAt)}</span>
+                            <span className="expense-row-meta">{expense.category || "General"} · {postedByName(expense, company)} · {formatDate(expense.date || expense.createdAt)}</span>
                           </span>
                           <span className={`expense-row-status ${tone}`}>{(expense.lifecycle || "submitted").replaceAll("_", " ")}</span>
                           <span className="expense-row-amount">{money(expense.amount)}</span>
@@ -835,9 +835,7 @@ export default function DashboardPage() {
                     <div className="card expense-list">
                       {group.items.map((expense) => {
                         const tone = expense.lifecycle === "rejected" ? "bad" : expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "good" : expense.lifecycle === "reimbursed" ? "done" : "wait";
-                        const postedBy = (expense.logAs === "company" || expense.postedAs === "company")
-                          ? (expense.companyId?.name || company?.name || "Company")
-                          : (expense.createdBy?.name || "Staff");
+                        const postedBy = postedByName(expense, company);
                         return (
                           <div
                             key={expense._id}

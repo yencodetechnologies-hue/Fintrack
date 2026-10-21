@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal.jsx";
 import { getLedgerExpenseReceipts, updateLedgerExpenseReceipts } from "../api.js";
-import { fileToBase64, formatDate, formatDateTime, money } from "../utils.js";
+import { fileToBase64, formatDate, formatDateTime, money, postedByName } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
 
 export default function ExpenseDetailModal({
@@ -146,7 +146,9 @@ export default function ExpenseDetailModal({
 
   const rows = [
     ["Expense date", formatDate(expense.date || expense.createdAt)],
-    ["Posted by", <span key="by">{creatorName}{creatorEmail && <span style={subValStyle}>{creatorEmail}</span>}</span>],
+    isCompanyPost
+      ? ["Posted by", <span key="by">{postedByName(expense, company)}<span style={subValStyle}>Entered by {expense.createdBy?.name || "a manager"}</span></span>]
+      : ["Posted by", <span key="by">{creatorName}{creatorEmail && <span style={subValStyle}>{creatorEmail}</span>}</span>],
     ["Posted on", formatDateTime(expense.createdAt)],
     ["Type", isCompanyPost ? "Company expense" : "Personal expense (reimbursable)"],
     ["Company", expense.companyId?.name || company?.name || "Company"],

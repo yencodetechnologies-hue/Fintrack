@@ -2,9 +2,9 @@ import { useState } from "react";
 import Modal from "./Modal.jsx";
 import { payExpense } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { fileToBase64, money, PAYMENT_MODES } from "../utils.js";
+import { bankAccountLabel, fileToBase64, money, PAYMENT_MODES } from "../utils.js";
 
-export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAccounts, cashBalance, onClose, onPaid }) {
+export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAccounts, cashBalance, cashAccountName = "InCash", onClose, onPaid }) {
   const { showToast } = useToast();
   const [payAs, setPayAs] = useState(lockedPayAs || (isAdmin ? "company" : "self"));
   const [paymentMode, setPaymentMode] = useState("");
@@ -34,7 +34,7 @@ export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAcco
     }
     if (needsFund && !fundId) {
       showToast(
-        bankAccounts.length === 0 ? "Add a company bank account first" : "Select the bank account or InCash used for this payment",
+        bankAccounts.length === 0 ? "Add a company bank account first" : `Select the bank account or ${cashAccountName} used for this payment`,
         "error"
       );
       return;
@@ -97,11 +97,11 @@ export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAcco
           <>
             <label className="field-label">Pay From *</label>
             <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)} style={{ marginBottom: 16 }}>
-              <option value="">Select bank account or InCash</option>
-              <option value="cash">InCash ({money(cashBalance)})</option>
+              <option value="">Select bank account or {cashAccountName}</option>
+              <option value="cash">{cashAccountName} ({money(cashBalance)})</option>
               {bankAccounts.map((b) => (
                 <option key={b._id} value={b._id}>
-                  {b.bankName} •••• {String(b.accountNumber).slice(-4)} ({money(b.balance || 0)})
+                  {bankAccountLabel(b)} · {money(b.balance || 0)}
                 </option>
               ))}
             </select>

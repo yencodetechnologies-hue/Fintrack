@@ -27,6 +27,7 @@ import {
   verifyLedgerTransaction,
   lendToCompany,
   reimburseAdmin,
+  getPayableBills,
   routedCompanyPayment,
   resetExpenseStatus,
   getLedgerExpenseReceipts,
@@ -34,7 +35,7 @@ import {
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { fileToBase64, formatDate, money, PAYMENT_METHODS } from "../utils.js";
+import { bankAccountLabel, fileToBase64, formatDate, money, PAYMENT_METHODS } from "../utils.js";
 import Navbar from "../components/Navbar.jsx";
 import Modal from "../components/Modal.jsx";
 import Sidebar from "../components/Sidebar.jsx";
@@ -47,6 +48,10 @@ import EditSettlementModal from "../components/EditSettlementModal.jsx";
 import FundsPanel from "../components/FundsPanel.jsx";
 import SettingsPanel from "../components/SettingsPanel.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
+import PayableBillsPreview from "../components/PayableBillsPreview.jsx";
+import OutstandingReport from "../components/OutstandingReport.jsx";
+import ExpenseAnalysis from "../components/ExpenseAnalysis.jsx";
 
 const TODAY_KEY = new Date().toDateString();
 
@@ -100,6 +105,7 @@ export default function DashboardPage() {
   const [company, setCompany] = useState(null);
   const [members, setMembers] = useState([]);
   const [currentUserRole, setCurrentUserRole] = useState("member");
+  const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
   const [loading, setLoading] = useState(true);
@@ -119,6 +125,7 @@ export default function DashboardPage() {
   const [intercoDraft, setIntercoDraft] = useState({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
   const [intercoSaving, setIntercoSaving] = useState(false);
   const [moneyModal, setMoneyModal] = useState("");
+  const [payeeBills, setPayeeBills] = useState({ loading: false, bills: [], owed: 0 });
   const [moneyDraft, setMoneyDraft] = useState({ adminUserId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
   const [routeDraft, setRouteDraft] = useState({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" });
   const [paymentDraft, setPaymentDraft] = useState({ payer: "admin", fundId: "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
@@ -130,6 +137,7 @@ export default function DashboardPage() {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [deletingExpense, setDeletingExpense] = useState(null);
   const [reversingTx, setReversingTx] = useState(null);
+  const [selectedExpenseDetail, setSelectedExpenseDetail] = useState(null);
 
   const [reportFrom, setReportFrom] = useState("");
   const [reportTo, setReportTo] = useState("");
@@ -158,11 +166,38 @@ export default function DashboardPage() {
     const bankList = company?.bankAccounts || [];
     for (const b of bankList) {
       const bId = String(b._id);
-      const label = `${b.bankName}${b.accountNumber ? ` (…${b.accountNumber.slice(-4)})` : ""}`;
+      const label = bankAccountLabel(b);
       list.push({ fundId: bId, name: label, balance: Number(b.balance || 0) });
     }
     return list;
   }, [company]);
+
+  // Other companies this user manages: they can pay this company's expenses (recorded as a loan).
+  const managedOtherCompanies = useMemo(
+    () => companies.filter((c) => String(c._id) !== companyId && c.userRole === "admin" && !c.external),
+    [companies, companyId]
+  );
+  const payingCompanyId = paymentDraft.payingCompanyId || companyId;
+  const payingCompany = payingCompanyId === companyId ? company : managedOtherCompanies.find((c) => String(c._id) === payingCompanyId);
+  const payingFunds = payingCompanyId === companyId
+    ? availableCompanyFunds
+    : [
+        { fundId: "cash", name: payingCompany?.cashAccountName || "Cash", balance: Number(payingCompany?.cashBalance || 0) },
+        ...(payingCompany?.bankAccounts || []).map((b) => ({ fundId: String(b._id), name: bankAccountLabel(b), balance: Number(b.balance || 0) })),
+      ];
+
+  // Open loans this company still owes, totalled per lending company.
+  const borrowedByLender = useMemo(() => {
+    const byLender = new Map();
+    for (const loan of loans) {
+      if (String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) !== companyId) continue;
+      const balance = Number(loan.balance || 0);
+      if (!(balance > 0)) continue;
+      const name = loan.lenderCompanyId?.name || "Another company";
+      byLender.set(name, (byLender.get(name) || 0) + balance);
+    }
+    return [...byLender].map(([name, balance]) => ({ name, balance }));
+  }, [loans, companyId]);
 
   const load = useCallback(async () => {
     const detailsRes = await getCompanyDetails(companyId, user.id);
@@ -180,6 +215,7 @@ export default function DashboardPage() {
     setCompany(detailsRes.company);
     setMembers(detailsRes.members || []);
     setCurrentUserRole(detailsRes.currentUserRole || "member");
+    setHiddenStaffIds(detailsRes.hiddenStaffIds || []);
     // Show the company workspace as soon as its required details arrive.
     // The lists and totals below are secondary and should not block first paint.
     setLoading(false);
@@ -387,14 +423,19 @@ export default function DashboardPage() {
     if (paymentDraft.payer === "borrow" && !paymentDraft.sourceCompanyId) { showToast("Choose the company paying", "error"); return; }
 
     if (paymentDraft.payer === "company") {
-      const selectedFund = availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0];
+      const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
       if (selectedFund && Number(selectedFund.balance || 0) < Number(expense.amount || 0)) {
         showToast(`Insufficient balance in ${selectedFund.name} (${money(selectedFund.balance)} available)`, "error");
         return;
       }
     }
 
-    const result = await payLedgerExpense(expense._id, { userId: user.id, ...paymentDraft });
+    const { payingCompanyId: _payingCompanyId, ...draft } = paymentDraft;
+    // Paid by another company the user manages = this company borrows from it.
+    const payload = draft.payer === "company" && payingCompanyId !== companyId
+      ? { ...draft, payer: "borrow", sourceCompanyId: payingCompanyId, sourceFundId: draft.fundId }
+      : draft;
+    const result = await payLedgerExpense(expense._id, { userId: user.id, ...payload });
     if (result.success) {
       setModal(null);
       showToast(result.awaitingConfirmation ? "Payment request sent for confirmation" : "Payment recorded");
@@ -482,14 +523,25 @@ export default function DashboardPage() {
   async function confirmDeleteExpense() {
     const target = deletingExpense || modal?.expense;
     if (!target) return;
-    const res = await deleteLedgerExpense(target._id, user.id);
+    const targetId = target._id;
+
+    // 1. Optimistic removal: Instantly remove expense from UI so user doesn't wait
+    setLedgerExpenses((prev) => prev.filter((e) => e._id !== targetId));
+    setExpenses((prev) => prev.filter((e) => e._id !== targetId));
     setDeletingExpense(null);
     if (modal?.type === "confirmDelete") setModal(null);
+    if (selectedExpenseDetail?._id === targetId) setSelectedExpenseDetail(null);
+
+    // 2. Perform server deletion
+    const res = await deleteLedgerExpense(targetId, user.id);
     if (res.success) {
       showToast("Expense deleted");
-      load();
+      // Fast targeted refresh of balances & expenses in background
+      getLedgerBalances(companyId, user.id).then((bRes) => bRes?.success && setLedgerBalances(bRes));
+      getLedgerExpenses(companyId, user.id).then((eRes) => eRes?.success && setLedgerExpenses(eRes.expenses || []));
     } else {
       showToast(res.message || "Failed to delete expense", "error");
+      load(); // Revert back if server rejected
     }
   }
 
@@ -505,6 +557,18 @@ export default function DashboardPage() {
     }
   }
 
+  async function selectPayee(personId) {
+    setMoneyDraft((d) => ({ ...d, adminUserId: personId, amount: "" }));
+    if (!personId) {
+      setPayeeBills({ loading: false, bills: [], owed: 0 });
+      return;
+    }
+    setPayeeBills({ loading: true, bills: [], owed: 0 });
+    const res = await getPayableBills(companyId, personId, user.id);
+    setPayeeBills(res.success ? { loading: false, bills: res.bills || [], owed: Number(res.owed || 0) } : { loading: false, bills: [], owed: 0 });
+    if (!res.success) showToast(res.message || "Could not load open bills", "error");
+  }
+
   async function submitMoneyAction(event) {
     event.preventDefault();
     setIntercoSaving(true);
@@ -512,7 +576,10 @@ export default function DashboardPage() {
     const result = moneyModal === "lend" ? await lendToCompany(payload) : await reimburseAdmin({ ...payload, adminUserId: moneyDraft.adminUserId });
     setIntercoSaving(false);
     if (result.success) {
-      showToast(moneyModal === "lend" ? "Money lent to company" : "Manager reimbursed");
+      const payeeName = (ledgerBalances?.admins || []).find((a) => String(a.userId) === String(moneyDraft.adminUserId))?.name || "person";
+      showToast(moneyModal === "lend"
+        ? "Money lent to company"
+        : `Paid ${money(payload.amount)} to ${payeeName}${result.billsClosed ? ` · ${result.billsClosed} bill${result.billsClosed === 1 ? "" : "s"} closed` : ""}`);
       setMoneyModal("");
       load();
     } else showToast(result.message || "Could not record transaction", "error");
@@ -558,15 +625,65 @@ export default function DashboardPage() {
         <div className="main-panel">
           {activeTab === "home" && (
             <>
-              <h1 style={{ fontSize: 26, margin: "0 0 20px" }}>Home</h1>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
+                <h1 style={{ fontSize: 26, margin: 0 }}>Home</h1>
+                <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+                <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("expenses")} title="View all expenses"><div style={labelStyle}>TOTAL EXPENSES</div><div style={bigNumberStyle}>{ledgerExpenses.length}</div><small style={{ color: "var(--muted)" }}>{money(ledgerExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0))}</small></div>
                 <div className="stat-card"><div style={labelStyle}>{isAdmin ? "OWED TO PEOPLE" : "COMPANY OWES YOU"}</div><div style={bigNumberStyle}>{money(isAdmin ? ledgerBalances?.totalOwedToAdmins : ledgerBalances?.myOwed)}</div></div>
-                <div className="stat-card"><div style={labelStyle}>OWED TO OTHER COMPANIES</div><div style={{ ...bigNumberStyle, color: "var(--terracotta)" }}>{money(loans.filter((loan) => String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId).reduce((sum, loan) => sum + Number(loan.balance || 0), 0))}</div></div>
+                <div className="stat-card" style={{ cursor: "pointer" }} onClick={() => setActiveTab("interco")} title="View company loans">
+                  <div style={labelStyle}>BORROWED FROM OTHER COMPANIES</div>
+                  <div style={{ ...bigNumberStyle, color: "var(--terracotta)" }}>{money(borrowedByLender.reduce((sum, row) => sum + row.balance, 0))}</div>
+                  {borrowedByLender.length === 0 ? (
+                    <small style={{ color: "var(--muted)" }}>Nothing borrowed</small>
+                  ) : (
+                    borrowedByLender.map((row) => (
+                      <div key={row.name} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 12.5, marginTop: 4 }}>
+                        <span style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name} → {company.name}</span>
+                        <strong>{money(row.balance)}</strong>
+                      </div>
+                    ))
+                  )}
+                </div>
                 {isAdmin && <div className="stat-card"><div style={labelStyle}>CASH / BANK</div><div style={bigNumberStyle}>{money(availableCompanyFunds.reduce((sum, fund) => sum + Number(fund.balance || 0), 0))}</div></div>}
               </div>
               {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("reimburse"); }}>Reimburse person</button></div>}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}><h2 style={{ margin: 0, fontSize: 19 }}>Today</h2><button className="btn btn-primary" onClick={() => setActiveTab("expenses")}>View expenses</button></div>
-              {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div> : ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).map((expense) => <div key={expense._id} className="card" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 12 }}><span><strong>{expense.description}</strong><br /><small>{expense.category} · {expense.createdBy?.name || "Staff"}</small></span><strong>{money(expense.amount)}</strong></div>)}
+              {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
+                <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
+              ) : (
+                ledgerExpenses
+                  .filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY)
+                  .map((expense) => (
+                    <div
+                      key={expense._id}
+                      className="card"
+                      onClick={() => setSelectedExpenseDetail(expense)}
+                      style={{
+                        marginBottom: 8,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 12,
+                        cursor: "pointer",
+                        transition: "border-color 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--forest)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = ""; }}
+                    >
+                      <span>
+                        <strong>{expense.description}</strong><br />
+                        <small style={{ color: "var(--muted)" }}>{expense.category || "General"} · {expense.createdBy?.name || "Staff"} · {formatDate(expense.date || expense.createdAt)}</small>
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span className={`pill ${expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "pill-paid" : expense.lifecycle === "rejected" ? "pill-outstanding" : "pill-category"}`} style={{ fontSize: 11 }}>
+                          {(expense.lifecycle || "submitted").replaceAll("_", " ")}
+                        </span>
+                        <strong style={{ fontSize: 15 }}>{money(expense.amount)}</strong>
+                      </div>
+                    </div>
+                  ))
+              )}
               {isAdmin && <><h2 style={{ margin: "22px 0 12px", fontSize: 19 }}>Pending verification</h2>{transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).length ? transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy).map((transaction) => <div key={transaction._id} className="card" style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}><span>{transaction.memo} · {money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}<br /><small>{transaction.createdBy?.name || "Manager"}</small></span><button className="btn btn-primary" onClick={() => verifyTransaction(transaction)}>Verify</button></div>) : <div className="card" style={{ color: "var(--muted)" }}>Nothing waiting for verification.</div>}</>}
             </>
           )}
@@ -735,7 +852,19 @@ export default function DashboardPage() {
                     </div>
 
                     {group.items.map((expense) => (
-                      <article className="card" key={expense._id} style={{ marginBottom: 10, padding: 16 }}>
+                      <article
+                        className="card"
+                        key={expense._id}
+                        onClick={() => setSelectedExpenseDetail(expense)}
+                        style={{
+                          marginBottom: 10,
+                          padding: 16,
+                          cursor: "pointer",
+                          transition: "border-color 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--forest)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = ""; }}
+                      >
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                           <div>
                             <span className="pill pill-category">{expense.category || "General"}</span>
@@ -754,7 +883,7 @@ export default function DashboardPage() {
                           <span className={`pill ${expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "pill-paid" : expense.lifecycle === "rejected" ? "pill-outstanding" : "pill-category"}`}>
                             {(expense.lifecycle || "submitted").replaceAll("_", " ")}
                           </span>
-                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
                             {(expense.hasAttachment || expense.hasPaymentReceipt) && (
                               <button
                                 type="button"
@@ -772,6 +901,16 @@ export default function DashboardPage() {
                                 onClick={() => openVisibilityModal(expense)}
                               >
                                 Visibility
+                              </button>
+                            )}
+                            {((isAdmin && !expense.lifecycle?.startsWith("paid") && expense.lifecycle !== "awaiting_confirmation" && expense.status !== "paid") ||
+                              (!isAdmin && (!expense.lifecycle || expense.lifecycle === "submitted") && !expense.lifecycle?.startsWith("paid") && expense.status !== "paid" && String(expense.createdBy?._id || expense.createdBy) === user.id)) && (
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => setModal({ type: "edit", expense })}
+                              >
+                                Edit
                               </button>
                             )}
                             {((isAdmin && !expense.lifecycle?.startsWith("paid")) || (!isAdmin && expense.lifecycle === "submitted" && String(expense.createdBy?._id || expense.createdBy) === user.id)) && (
@@ -825,7 +964,23 @@ export default function DashboardPage() {
               <h2 style={{ fontSize: 18, marginTop: 24 }}>Company balances</h2>
               {intercompany.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No inter-company balances yet.</div> : intercompany.map((row) => <div key={row.companyId} className="card" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between", gap: 10 }}><strong>{row.name}</strong><span>{row.net >= 0 ? "They owe this company" : "This company owes"} {money(Math.abs(row.net))}{row.mismatch ? " · Balance mismatch" : ""}</span></div>)}
               <h2 style={{ fontSize: 18, marginTop: 24 }}>Company loans</h2>
-              {loans.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No company loans yet.</div> : loans.map((loan) => <div key={loan._id} className="card" style={{ marginBottom: 8 }}><strong>{String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId ? `Borrowed from ${loan.lenderCompanyId?.name || "company"}` : `Lent to ${loan.borrowerCompanyId?.name || "company"}`}</strong><div style={{ color: "var(--muted)", marginTop: 6 }}>Balance {money(loan.balance)} · Original {money(loan.amount)}</div>{isAdmin && String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId && Number(loan.balance) > 0 && <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>}</div>)}
+              {loans.length === 0 ? <div className="card" style={{ color: "var(--muted)" }}>No company loans yet.</div> : loans.map((loan) => {
+                const weBorrowed = String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId;
+                const lenderName = loan.lenderCompanyId?.name || "Another company";
+                const borrowerName = loan.borrowerCompanyId?.name || "Another company";
+                const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
+                return <div key={loan._id} className="card" style={{ marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                    <span>
+                      <span className={`pill ${weBorrowed ? "pill-outstanding" : "pill-paid"}`} style={{ fontSize: 11, marginRight: 8 }}>{weBorrowed ? "Borrowed" : "Lent"}</span>
+                      <strong>{lenderName} → {borrowerName}</strong>
+                    </span>
+                    <strong style={{ color: Number(loan.balance) > 0 ? "var(--terracotta)" : "var(--muted)" }}>{Number(loan.balance) > 0 ? `${money(loan.balance)} due` : "Repaid"}</strong>
+                  </div>
+                  <div style={{ color: "var(--muted)", marginTop: 6, fontSize: 13 }}>
+                    {sourceLabel} · {formatDate(loan.createdAt)} · Original {money(loan.amount)}{Number(loan.repaid) > 0 ? ` · Repaid ${money(loan.repaid)}` : ""}{loan.note ? ` · ${loan.note}` : ""}
+                  </div>{isAdmin && weBorrowed && Number(loan.balance) > 0 && <button className="btn btn-outline" style={{ marginTop: 10 }} onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>}</div>;
+              })}
             </>
           )}
 
@@ -918,11 +1073,14 @@ export default function DashboardPage() {
               ) : (
                 <div className="card" style={{ color: "var(--muted)" }}>No report data.</div>
               )}
+              <OutstandingReport companyId={companyId} userId={user.id} />
             </>
           )}
 
+          {activeTab === "analysis" && isAdmin && <ExpenseAnalysis companyId={companyId} userId={user.id} />}
+
           {activeTab === "more" && (
-            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>More</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>{[...(isAdmin ? ["funds", "transactions", "audit"] : []), "settings"].map((section) => <button key={section} className={`btn ${moreView === section ? "btn-dark" : "btn-outline"}`} onClick={() => setMoreView(section)}>{section === "funds" ? "Company Funds" : section === "transactions" ? "Ledger" : section === "audit" ? "Audit log" : "Settings"}</button>)}</div>{moreView === "funds" && isAdmin && <FundsPanel company={company} user={user} bankAccounts={bankAccounts} cashBalance={cashBalance} onChanged={(accounts, cash) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash }))} />}{moreView === "settings" && <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />}{moreView === "transactions" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} />}{moreView === "audit" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" />}</>
+            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>More</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>{[...(isAdmin ? ["funds", "transactions", "audit"] : []), "settings"].map((section) => <button key={section} className={`btn ${moreView === section ? "btn-dark" : "btn-outline"}`} onClick={() => setMoreView(section)}>{section === "funds" ? "Company Funds" : section === "transactions" ? "Ledger" : section === "audit" ? "Audit log" : "Settings"}</button>)}</div>{moreView === "funds" && isAdmin && <FundsPanel company={company} user={user} bankAccounts={bankAccounts} cashBalance={cashBalance} onChanged={(accounts, cash, newName) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash, ...(newName ? { cashAccountName: newName } : {}) }))} />}{moreView === "settings" && <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />}{moreView === "transactions" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} />}{moreView === "audit" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" />}</>
           )}
 
           {activeTab === "ledger" && (
@@ -1002,6 +1160,7 @@ export default function DashboardPage() {
                         onEditSettlement={(e) => setModal({ type: "editSettlement", expense: e })}
                         onToggleStatus={handleToggleStatus}
                         onDelete={(e) => setModal({ type: "confirmDelete", expense: e })}
+                        onViewDetail={(e) => setSelectedExpenseDetail(e)}
                       />
                     ))}
                   </div>
@@ -1016,7 +1175,14 @@ export default function DashboardPage() {
               user={user}
               bankAccounts={bankAccounts}
               cashBalance={cashBalance}
-              onChanged={(accounts, cash) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash }))}
+              onChanged={(accounts, cash, newName) =>
+                setCompany((c) => ({
+                  ...c,
+                  bankAccounts: accounts,
+                  cashBalance: cash,
+                  ...(newName ? { cashAccountName: newName } : {}),
+                }))
+              }
             />
           )}
 
@@ -1033,6 +1199,10 @@ export default function DashboardPage() {
           isAdmin={isAdmin}
           members={members}
           customCategories={customCategories}
+          hiddenStaffIds={hiddenStaffIds}
+          existingExpenses={ledgerExpenses}
+          onCategoryAdded={(list) => setCompany((c) => ({ ...c, customCategories: list }))}
+          onHiddenStaffChange={setHiddenStaffIds}
           onClose={() => setModal(null)}
           onCreated={load}
         />
@@ -1042,8 +1212,17 @@ export default function DashboardPage() {
         <Modal onClose={() => setMoneyModal("")} maxWidth={440}>
           <h2 style={{ marginTop: 0 }}>{moneyModal === "lend" ? "Lend to company" : "Reimburse person"}</h2>
           <form onSubmit={submitMoneyAction}>
-            {moneyModal === "reimburse" && <><label className="field-label">Payee</label><select className="field-select" value={moneyDraft.adminUserId} onChange={(event) => setMoneyDraft({ ...moneyDraft, adminUserId: event.target.value })} required><option value="">Choose manager</option>{(ledgerBalances?.admins || []).filter((admin) => String(admin.userId) !== user.id && Number(admin.owed) > 0).map((admin) => <option key={admin.userId} value={admin.userId}>{admin.name} · owed {money(admin.owed)}</option>)}</select></>}
-            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" value={moneyDraft.amount} onChange={(event) => setMoneyDraft({ ...moneyDraft, amount: event.target.value })} required />
+            {moneyModal === "reimburse" && <><label className="field-label">Pay to</label><select className="field-select" value={moneyDraft.adminUserId} onChange={(event) => selectPayee(event.target.value)} required><option value="">Choose person</option>{(ledgerBalances?.admins || []).filter((admin) => String(admin.userId) !== user.id && Number(admin.owed) > 0).map((admin) => <option key={admin.userId} value={admin.userId}>{admin.name} · owed {money(admin.owed)}</option>)}</select></>}
+            <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
+              <span>Amount (₹)</span>
+              {moneyModal === "reimburse" && moneyDraft.adminUserId && payeeBills.owed > 0 && (
+                <button type="button" className="btn btn-outline" style={{ padding: "2px 10px", fontSize: 11.5 }} onClick={() => setMoneyDraft((d) => ({ ...d, amount: String(payeeBills.owed) }))}>
+                  Pay full balance · {money(payeeBills.owed)}
+                </button>
+              )}
+            </label>
+            <input className="field-input" type="number" min="0.01" step="0.01" max={moneyModal === "reimburse" && moneyDraft.adminUserId && payeeBills.owed > 0 ? payeeBills.owed : undefined} value={moneyDraft.amount} onChange={(event) => setMoneyDraft({ ...moneyDraft, amount: event.target.value })} required />
+            {moneyModal === "reimburse" && moneyDraft.adminUserId && <PayableBillsPreview bills={payeeBills.bills} loading={payeeBills.loading} amount={moneyDraft.amount} />}
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label><select className="field-select" value={moneyDraft.fundId} onChange={(event) => setMoneyDraft({ ...moneyDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
             <select
@@ -1077,15 +1256,36 @@ export default function DashboardPage() {
               <option value="borrow">Borrowed from a company</option>
             </select>
             {paymentDraft.payer === "company" && (() => {
-              const selectedFund = availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0];
+              const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
               const expenseAmount = Number(modal.expense?.amount || 0);
               const isInsufficient = selectedFund && Number(selectedFund.balance || 0) < expenseAmount;
+              const isOtherCompany = payingCompanyId !== companyId;
 
               return (
                 <>
-                  <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label>
+                  {isAdmin && managedOtherCompanies.length > 0 && (
+                    <>
+                      <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paying company</label>
+                      <select
+                        className="field-select"
+                        value={payingCompanyId}
+                        onChange={(event) => setPaymentDraft({ ...paymentDraft, payingCompanyId: event.target.value, fundId: "cash" })}
+                      >
+                        <option value={companyId}>{company.name} (this company)</option>
+                        {managedOtherCompanies.map((c) => (
+                          <option key={c._id} value={String(c._id)}>{c.name}</option>
+                        ))}
+                      </select>
+                      {isOtherCompany && (
+                        <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--terracotta)", lineHeight: 1.45 }}>
+                          {payingCompany?.name} → {company.name}: {money(expenseAmount)} will be recorded as borrowed by {company.name} from {payingCompany?.name}.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from{isOtherCompany ? ` (${payingCompany?.name})` : ""}</label>
                   <select className="field-select" value={paymentDraft.fundId} onChange={(event) => setPaymentDraft({ ...paymentDraft, fundId: event.target.value })}>
-                    {availableCompanyFunds.map((fund) => {
+                    {payingFunds.map((fund) => {
                       const fundLow = Number(fund.balance || 0) < expenseAmount;
                       return (
                         <option key={fund.fundId} value={fund.fundId}>
@@ -1161,7 +1361,7 @@ export default function DashboardPage() {
               <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               {(() => {
                 const selectedFund = paymentDraft.payer === "company"
-                  ? (availableCompanyFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || availableCompanyFunds[0])
+                  ? (payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0])
                   : null;
                 const isInsufficient = paymentDraft.payer === "company" && selectedFund && Number(selectedFund.balance || 0) < Number(modal.expense?.amount || 0);
 
@@ -1211,9 +1411,10 @@ export default function DashboardPage() {
           </form> :
           <form onSubmit={submitIntercoAction}>
             {intercoModal.type === "borrow" && <><label className="field-label">Lender company</label><select className="field-select" value={intercoDraft.companyId} onChange={(event) => setIntercoDraft({ ...intercoDraft, companyId: event.target.value })} required><option value="">Choose company</option>{borrowSources.map((source) => <option key={source._id} value={source._id}>{source.name}</option>)}</select></>}
-            {intercoModal.type === "repay" && <p style={{ color: "var(--muted)" }}>Outstanding balance: {money(intercoModal.loan.balance)}</p>}
+            {intercoModal.type === "borrow" && <p style={{ color: "var(--muted)", fontSize: 13, margin: "10px 0 0" }}>{(borrowSources.find((s) => s._id === intercoDraft.companyId)?.name || "Lender company")} → <strong>{company.name}</strong>. The amount is added to the fund you pick below and shows as owed to the lender.</p>}
+            {intercoModal.type === "repay" && <p style={{ color: "var(--muted)" }}><strong>{company.name}</strong> → {intercoModal.loan.lenderCompanyId?.name || "lender"} · Outstanding balance: {money(intercoModal.loan.balance)}</p>}
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" max={intercoModal.type === "repay" ? intercoModal.loan.balance : undefined} value={intercoDraft.amount} onChange={(event) => setIntercoDraft({ ...intercoDraft, amount: event.target.value })} required />
-            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Fund</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>{intercoModal.type === "repay" ? `Pay from (${company.name})` : `Receive into (${company.name})`}</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
             <select
               className="field-select"
@@ -1252,6 +1453,7 @@ export default function DashboardPage() {
           lockedPayAs={showCompanyTotals ? "company" : null}
           bankAccounts={bankAccounts}
           cashBalance={cashBalance}
+          cashAccountName={company?.cashAccountName || "InCash"}
           onClose={() => setModal(null)}
           onPaid={load}
         />
@@ -1398,6 +1600,33 @@ export default function DashboardPage() {
             )}
           </div>
         </Modal>
+      )}
+
+      {selectedExpenseDetail && (
+        <ExpenseDetailModal
+          expense={selectedExpenseDetail}
+          user={user}
+          isAdmin={isAdmin}
+          company={company}
+          onClose={() => setSelectedExpenseDetail(null)}
+          onEdit={(exp) => setModal({ type: "edit", expense: exp })}
+          onApprove={(exp) => decideLedgerExpense(exp, "approve")}
+          onReject={(exp) => decideLedgerExpense(exp, "reject")}
+          onRecordPayment={(exp) => {
+            setPaymentDraft({
+              payer: isAdmin ? "admin" : "person",
+              fundId: availableCompanyFunds[0]?.fundId || "cash",
+              sourceCompanyId: "",
+              method: "UPI",
+              reference: "",
+              paymentReceipt: "",
+            });
+            setModal({ type: "ledgerPay", expense: exp });
+          }}
+          onDelete={(exp) => setDeletingExpense(exp)}
+          onVisibility={(exp) => openVisibilityModal(exp)}
+          onReceiptsUpdated={() => getLedgerExpenses(companyId, user.id).then((res) => res?.success && setLedgerExpenses(res.expenses || []))}
+        />
       )}
 
       {confirmingLogout && (

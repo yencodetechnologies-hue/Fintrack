@@ -25,6 +25,7 @@ router.get("/groups/:groupId/expenses/:expenseId/receipt", companyExpenseControl
 
 // Expense Endpoints
 router.post("/company/:companyId/category", companyExpenseController.addCustomCategory);
+router.post("/company/:companyId/cash-account-name", companyExpenseController.updateCashAccountName);
 router.post("/company/:companyId/bank-accounts", companyExpenseController.addBankAccount);
 router.post("/company/:companyId/bank-accounts/:accountId/delete", companyExpenseController.deleteBankAccount);
 router.post("/company/:companyId/income", companyExpenseController.addIncome);

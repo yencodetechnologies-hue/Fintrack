@@ -40,6 +40,11 @@ const companySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    cashAccountName: {
+      type: String,
+      trim: true,
+      default: "InCash",
+    },
     customCategories: {
       type: [String],
       default: [],

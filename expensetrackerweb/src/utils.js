@@ -44,6 +44,14 @@ export function personId(ref) {
   return ref.toString();
 }
 
+// "Bank of India – Acme Pvt Ltd (…1234)": tells apart accounts at the same bank.
+export function bankAccountLabel(b) {
+  if (!b) return "";
+  const holder = b.accountHolder ? ` – ${b.accountHolder}` : "";
+  const last4 = b.accountNumber ? ` (…${String(b.accountNumber).slice(-4)})` : "";
+  return `${b.bankName}${holder}${last4}`;
+}
+
 export const PAYMENT_MODES = {
   cash: "Cash 💵",
   card: "Card 💳",

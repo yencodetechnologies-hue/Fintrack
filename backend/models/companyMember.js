@@ -21,6 +21,12 @@ const companyMemberSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // Members this manager last unticked under "Visible To" when posting; new members stay visible.
+    hiddenStaffIds: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: "User",
+      default: [],
+    },
   },
   { timestamps: true }
 );

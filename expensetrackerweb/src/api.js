@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "https://fintrack.yencodetechnologies.in";
+const DEFAULT_API_BASE = "http://localhost:3009";
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
 
 function getApiBase() {
@@ -165,6 +165,8 @@ export const getLedgerBorrowSources = (companyId, userId) => get(ledgerUrl(`/com
 export const createCompanyLoan = (payload) => post(ledgerUrl("/loans"), payload);
 export const repayCompanyLoan = (loanId, payload) => post(ledgerUrl(`/loans/${loanId}/repay`), payload);
 export const lendToCompany = (payload) => post(ledgerUrl("/lend"), payload);
+export const getPayableBills = (companyId, personId, userId) =>
+  get(ledgerUrl(`/companies/${companyId}/payables/${personId}?userId=${userId}`));
 export const reimburseAdmin = (payload) => post(ledgerUrl("/reimbursements"), payload);
 export const routedCompanyPayment = (payload) => post(ledgerUrl("/routed-payments"), payload);
 export const getLedgerPayerConfirmations = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/payer-confirmations?userId=${userId}`));
@@ -178,6 +180,10 @@ export const getLedgerReport = (companyId, userId, from, to, category) => {
   if (category && category !== "All") params.set("category", category);
   return get(ledgerUrl(`/companies/${companyId}/report?${params}`));
 };
+export const getExpenseAnalysis = (companyId, userId, months = 12) =>
+  get(ledgerUrl(`/companies/${companyId}/analysis?userId=${userId}&months=${months}`));
+export const getOutstandingReport = (companyId, userId) =>
+  get(ledgerUrl(`/companies/${companyId}/outstanding?userId=${userId}`));
 export const getLedgerTransactions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/transactions?userId=${userId}`));
 export const getLedgerAuditLog = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/audit-log?userId=${userId}`));
 export const getLedgerExportUrl = (companyId, userId, from, to, category) => {
@@ -191,13 +197,24 @@ export const getLedgerExpenseReceipts = (expenseId, userId) =>
   get(ledgerUrl(`/expenses/${expenseId}/receipts?userId=${userId}`));
 export const setLedgerExpenseVisibility = (expenseId, userId, visibleTo) =>
   post(ledgerUrl(`/expenses/${expenseId}/visibility`), { userId, visibleTo });
+export const updateLedgerExpenseReceipts = (expenseId, userId, receipts) =>
+  post(ledgerUrl(`/expenses/${expenseId}/receipts`), { userId, ...receipts });
+export const updateLedgerExpense = (expenseId, payload) =>
+  post(ledgerUrl(`/expenses/${expenseId}/update`), payload);
 export const deleteLedgerExpense = (expenseId, userId) =>
   del(ledgerUrl(`/expenses/${expenseId}`), { userId });
 export const reverseLedgerTransaction = (transactionId, userId) =>
   post(ledgerUrl(`/transactions/${transactionId}/reverse`), { userId });
 export const addCompanyMember = (companyId, userId, email, role) =>
   post(ledgerUrl(`/companies/${companyId}/members`), { userId, email, role });
+export const saveVisibilityPreference = (companyId, userId, hiddenStaffIds) =>
+  post(ledgerUrl(`/companies/${companyId}/visibility-preference`), { userId, hiddenStaffIds });
+export const inviteCompanyMember = (companyId, userId, email, role) =>
+  post(ledgerUrl(`/companies/${companyId}/invites`), { userId, email, role });
 export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
   post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
 export const updateCompanySettings = (companyId, payload) =>
   post(ledgerUrl(`/companies/${companyId}/settings`), payload);
+export const updateCashAccountName = (companyId, userId, cashAccountName) =>
+  post(companyUrl(`/company/${companyId}/cash-account-name`), { userId, cashAccountName });
+

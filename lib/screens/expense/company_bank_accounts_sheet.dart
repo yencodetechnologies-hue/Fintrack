@@ -8,6 +8,7 @@ class CompanyBankAccountsSheet extends StatefulWidget {
   final String userId;
   final List<Map<String, dynamic>> initialAccounts;
   final num initialCashBalance;
+  final String initialCashName;
 
   const CompanyBankAccountsSheet({
     super.key,
@@ -15,6 +16,7 @@ class CompanyBankAccountsSheet extends StatefulWidget {
     required this.userId,
     required this.initialAccounts,
     this.initialCashBalance = 0,
+    this.initialCashName = "InCash",
   });
 
   @override
@@ -28,6 +30,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
 
   late List<Map<String, dynamic>> _accounts;
   late num _cashBalance;
+  late String _cashName;
   List<Map<String, dynamic>> _income = [];
 
   // "" = list, "bank" = add bank form, "income" = add income form
@@ -49,6 +52,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
     super.initState();
     _accounts = List.from(widget.initialAccounts);
     _cashBalance = widget.initialCashBalance;
+    _cashName = widget.initialCashName;
     _loadIncome();
   }
 
@@ -113,7 +117,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
       return;
     }
     if (_incomeDestination == null) {
-      _toast("Select a bank account or InCash");
+      _toast("Select a bank account or $_cashName");
       return;
     }
     if (_incomeDestination == "cash" && _incomeSourceBankId == null) {
@@ -294,7 +298,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
           label: "Add to *",
           value: _incomeDestination,
           items: [
-            DropdownMenuItem<String>(value: "cash", child: Text("InCash (${_money(_cashBalance)})")),
+            DropdownMenuItem<String>(value: "cash", child: Text("$_cashName (${_money(_cashBalance)})")),
             ...bankItems,
           ],
           onChanged: (v) => setState(() => _incomeDestination = v),
@@ -309,7 +313,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
           ),
           const SizedBox(height: 6),
           Text(
-            "This amount is taken out of the selected bank's balance and added to InCash.",
+            "This amount is taken out of the selected bank's balance and added to $_cashName.",
             style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 11, fontStyle: FontStyle.italic),
           ),
         ],
@@ -368,13 +372,13 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
                       Text(
                         (i["description"] != null && i["description"].toString().trim().isNotEmpty)
                             ? i["description"].toString()
-                            : (i["destinationType"] == "cash" ? "InCash ← ${i["sourceName"]}" : "${i["destinationName"]}"),
+                            : (i["destinationType"] == "cash" ? "$_cashName ← ${i["sourceName"]}" : "${i["destinationName"]}"),
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(color: darkText, fontSize: 12.5, fontWeight: FontWeight.w600),
                       ),
                       if (i["description"] != null && i["description"].toString().trim().isNotEmpty)
                         Text(
-                          i["destinationType"] == "cash" ? "InCash ← ${i["sourceName"]}" : "${i["destinationName"]}",
+                          i["destinationType"] == "cash" ? "$_cashName ← ${i["sourceName"]}" : "${i["destinationName"]}",
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 10.5),
                         ),
@@ -418,7 +422,7 @@ class _CompanyBankAccountsSheetState extends State<CompanyBankAccountsSheet> {
             const SizedBox(height: 14),
             Text("Company Funds", style: GoogleFonts.fraunces(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 14),
-            _fundTile(icon: Icons.payments_rounded, title: "InCash", subtitle: "Cash in hand", balance: _cashBalance),
+            _fundTile(icon: Icons.payments_rounded, title: _cashName, subtitle: "Cash in hand", balance: _cashBalance),
             for (final a in _accounts)
               _fundTile(
                 icon: Icons.account_balance_rounded,

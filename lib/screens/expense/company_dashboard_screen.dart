@@ -947,6 +947,7 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
         userId: widget.userId,
         initialAccounts: _bankAccounts,
         initialCashBalance: _cashBalance,
+        initialCashName: (_currentCompany?["cashAccountName"] as String?) ?? "InCash",
       ),
     );
     _refreshDashboard(showLoading: false);
@@ -1304,8 +1305,12 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
       }
     }
 
+    final bool isSubmitted =
+        expense["lifecycle"] == null || expense["lifecycle"] == "submitted";
+    final bool canEditExpense = (isAdmin && !isPaid && settlementList.isEmpty) ||
+        (!isAdmin && isCreator && isSubmitted && !isPaid && settlementList.isEmpty);
     final bool canDeleteExpense =
-        isAdmin || (isCreator && !isPaid && settlementList.isEmpty);
+        isAdmin || (isCreator && !isPaid && settlementList.isEmpty && isSubmitted);
 
     showModalBottomSheet(
       context: context,
@@ -1803,7 +1808,31 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    if (canEditExpense) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _openEditExpenseDialog(expense);
+                          },
+                          icon: const Icon(Icons.edit_note_rounded,
+                              size: 16, color: mintAccent),
+                          label: Text("Edit Expense",
+                              style: GoogleFonts.inter(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: darkSurface,
+                            foregroundColor: Colors.white,
+                            side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.2)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     if (canDeleteExpense) ...[
                       SizedBox(
                         width: double.infinity,
@@ -2761,11 +2790,19 @@ class _CompanyDashboardScreenState extends State<CompanyDashboardScreen> {
                               }
                             },
                             itemBuilder: (ctx) => [
-                              if (isCreator &&
-                                  !isPaid &&
-                                  settlement == null &&
-                                  ((expense["settlements"] as List?)?.isEmpty ??
-                                      true))
+                              if ((isAdmin &&
+                                      !isPaid &&
+                                      settlement == null &&
+                                      ((expense["settlements"] as List?)?.isEmpty ??
+                                          true)) ||
+                                  (!isAdmin &&
+                                      isCreator &&
+                                      (expense["lifecycle"] == "submitted" ||
+                                          expense["lifecycle"] == null) &&
+                                      !isPaid &&
+                                      settlement == null &&
+                                      ((expense["settlements"] as List?)?.isEmpty ??
+                                          true)))
                                 PopupMenuItem(
                                   value: "edit_expense",
                                   child: Row(

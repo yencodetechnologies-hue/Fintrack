@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory } from "../api.js";
+import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory, updateCashAccountName } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money } from "../utils.js";
+import { bankAccountLabel, formatDate, money } from "../utils.js";
 
 export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged }) {
   const { showToast } = useToast();
   const [accounts, setAccounts] = useState(bankAccounts);
   const [cash, setCash] = useState(cashBalance);
+  const [cashName, setCashName] = useState(company?.cashAccountName || "InCash");
+  const [isEditingCashName, setIsEditingCashName] = useState(false);
+  const [editCashNameInput, setEditCashNameInput] = useState(company?.cashAccountName || "InCash");
+  const [savingCashName, setSavingCashName] = useState(false);
+
   const [income, setIncome] = useState([]);
   const [mode, setMode] = useState("");
   const [saving, setSaving] = useState(false);
@@ -27,10 +32,46 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   }, [bankAccounts, cashBalance]);
 
   useEffect(() => {
+    const name = company?.cashAccountName || "InCash";
+    setCashName(name);
+    setEditCashNameInput(name);
+  }, [company?.cashAccountName]);
+
+  useEffect(() => {
     getIncomeHistory(company._id, user.id).then((res) => {
       if (res.success) setIncome(res.income || []);
     });
   }, [company._id, user.id]);
+
+  function handleStartEditCashName() {
+    setEditCashNameInput(cashName);
+    setIsEditingCashName(true);
+  }
+
+  function handleCancelEditCashName() {
+    setEditCashNameInput(cashName);
+    setIsEditingCashName(false);
+  }
+
+  async function handleSaveCashName(e) {
+    if (e) e.preventDefault();
+    const trimmed = editCashNameInput.trim();
+    if (!trimmed) {
+      showToast("Cash account name cannot be empty", "error");
+      return;
+    }
+    setSavingCashName(true);
+    const res = await updateCashAccountName(company._id, user.id, trimmed);
+    setSavingCashName(false);
+    if (res.success) {
+      setCashName(trimmed);
+      setIsEditingCashName(false);
+      showToast("Cash account name updated");
+      if (onChanged) onChanged(accounts, cash, trimmed);
+    } else {
+      showToast(res.message || "Failed to update name", "error");
+    }
+  }
 
   async function handleSaveBank(e) {
     e.preventDefault();
@@ -45,7 +86,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       setAccounts(res.bankAccounts || []);
       setMode("");
       setBankName(""); setHolder(""); setNumber(""); setIfsc("");
-      onChanged(res.bankAccounts, cash);
+      onChanged(res.bankAccounts, cash, cashName);
     } else {
       showToast(res.message || "Failed to save bank account", "error");
     }
@@ -59,7 +100,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       return;
     }
     if (!destination) {
-      showToast("Select a bank account or InCash", "error");
+      showToast(`Select a bank account or ${cashName}`, "error");
       return;
     }
     if (destination === "cash" && !sourceBank) {
@@ -79,7 +120,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
     if (res.success) {
       setAccounts(res.bankAccounts || []);
       setCash(res.cashBalance ?? cash);
-      onChanged(res.bankAccounts, res.cashBalance ?? cash);
+      onChanged(res.bankAccounts, res.cashBalance ?? cash, cashName);
       setMode("");
       setIncomeAmount(""); setIncomeDescription(""); setDestination(""); setSourceBank("");
       getIncomeHistory(company._id, user.id).then((r) => r.success && setIncome(r.income || []));
@@ -92,7 +133,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
     const res = await deleteBankAccount(company._id, user.id, account._id);
     if (res.success) {
       setAccounts(res.bankAccounts || []);
-      onChanged(res.bankAccounts, cash);
+      onChanged(res.bankAccounts, cash, cashName);
     } else {
       showToast(res.message || "Failed to remove bank account", "error");
     }
@@ -102,11 +143,23 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
     <div>
       <h1 style={{ fontSize: 26, margin: "0 0 6px" }}>Company Funds</h1>
       <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 28px" }}>
-        Track InCash and bank balances, and where company money moves.
+        Track {cashName} and bank balances, and where company money moves.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <FundTile icon="💵" title="InCash" subtitle="Cash in hand" balance={cash} />
+        <FundTile
+          icon="💵"
+          title={cashName}
+          subtitle="Cash in hand"
+          balance={cash}
+          isEditing={isEditingCashName}
+          editValue={editCashNameInput}
+          onEditChange={setEditCashNameInput}
+          onStartEdit={handleStartEditCashName}
+          onCancelEdit={handleCancelEditCashName}
+          onSaveEdit={handleSaveCashName}
+          savingEdit={savingCashName}
+        />
         {accounts.map((a) => (
           <FundTile
             key={a._id}
@@ -149,9 +202,9 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
           <input className="field-input" value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} placeholder="Description (optional)" style={{ marginBottom: 10 }} />
           <select className="field-select" value={destination} onChange={(e) => setDestination(e.target.value)} style={{ marginBottom: 10 }}>
             <option value="">Add to *</option>
-            <option value="cash">InCash ({money(cash)})</option>
+            <option value="cash">{cashName} ({money(cash)})</option>
             {accounts.map((b) => (
-              <option key={b._id} value={b._id}>{b.bankName} ({money(b.balance || 0)})</option>
+              <option key={b._id} value={b._id}>{bankAccountLabel(b)} · {money(b.balance || 0)}</option>
             ))}
           </select>
           {destination === "cash" && (
@@ -159,11 +212,11 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
               <select className="field-select" value={sourceBank} onChange={(e) => setSourceBank(e.target.value)} style={{ marginBottom: 6 }}>
                 <option value="">Cash coming from bank *</option>
                 {accounts.map((b) => (
-                  <option key={b._id} value={b._id}>{b.bankName} ({money(b.balance || 0)})</option>
+                  <option key={b._id} value={b._id}>{bankAccountLabel(b)} · {money(b.balance || 0)}</option>
                 ))}
               </select>
               <p style={{ fontSize: 11, fontStyle: "italic", color: "var(--muted)", marginTop: 0 }}>
-                This amount is taken out of the selected bank's balance and added to InCash.
+                This amount is taken out of the selected bank's balance and added to {cashName}.
               </p>
             </>
           )}
@@ -193,11 +246,11 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
                 <span>{i.destinationType === "cash" ? "💵" : "🏦"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {i.description || (i.destinationType === "cash" ? `InCash ← ${i.sourceName}` : i.destinationName)}
+                    {i.description || (i.destinationType === "cash" ? `${cashName} ← ${i.sourceName}` : i.destinationName)}
                   </div>
                   {i.description && (
                     <small style={{ color: "var(--muted)", fontSize: 11.5, display: "block" }}>
-                      {i.destinationType === "cash" ? `InCash ← ${i.sourceName}` : i.destinationName}
+                      {i.destinationType === "cash" ? `${cashName} ← ${i.sourceName}` : i.destinationName}
                     </small>
                   )}
                 </div>
@@ -212,19 +265,96 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   );
 }
 
-function FundTile({ icon, title, subtitle, balance, onDelete }) {
+function FundTile({
+  icon,
+  title,
+  subtitle,
+  balance,
+  onDelete,
+  isEditing,
+  editValue,
+  onEditChange,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  savingEdit,
+}) {
   return (
     <div className="stat-card" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-      <span style={{ fontSize: 22 }}>{icon}</span>
+      <span style={{ fontSize: 22, marginTop: 2 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div>
+        {isEditing ? (
+          <form onSubmit={onSaveEdit} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
+            <input
+              type="text"
+              value={editValue}
+              onChange={(e) => onEditChange(e.target.value)}
+              autoFocus
+              className="field-input"
+              style={{
+                padding: "3px 8px",
+                fontSize: 13.5,
+                fontWeight: 600,
+                height: 28,
+                flex: 1,
+                minWidth: 0,
+              }}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={savingEdit}
+              style={{ padding: "0 8px", fontSize: 12, height: 28, lineHeight: 1 }}
+              title="Save"
+            >
+              {savingEdit ? "..." : "✓"}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onCancelEdit}
+              style={{ padding: "0 8px", fontSize: 12, height: 28, lineHeight: 1 }}
+              title="Cancel"
+            >
+              ✕
+            </button>
+          </form>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div>
+            {onStartEdit && (
+              <button
+                type="button"
+                onClick={onStartEdit}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  fontSize: 13,
+                  padding: "0 2px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  lineHeight: 1,
+                }}
+                title="Edit name"
+              >
+                ✏️
+              </button>
+            )}
+          </div>
+        )}
         {subtitle && <div style={{ fontSize: 11.5, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 2 }}>{subtitle}</div>}
         <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: "var(--forest)", fontSize: 19, marginTop: 8 }}>
           {money(balance)}
         </div>
       </div>
       {onDelete && (
-        <button onClick={onDelete} style={{ background: "none", border: "none", color: "var(--terracotta)", fontSize: 15 }}>
+        <button
+          onClick={onDelete}
+          style={{ background: "none", border: "none", color: "var(--terracotta)", fontSize: 15, cursor: "pointer" }}
+          title="Delete bank account"
+        >
           🗑
         </button>
       )}

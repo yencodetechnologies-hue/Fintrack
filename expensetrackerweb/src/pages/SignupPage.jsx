@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { signup as signupApi } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import AuthLayout from "../components/AuthLayout.jsx";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(() => searchParams.get("email") || ""); // prefilled from an invite link
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
-import { updateExpense } from "../api.js";
+import { updateExpense, updateLedgerExpense } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { BASE_CATEGORIES } from "../utils.js";
 
@@ -22,7 +22,9 @@ export default function EditExpenseModal({ expense, user, customCategories, onCl
       return;
     }
     setSaving(true);
-    const res = await updateExpense(expense._id, {
+    // ledger expenses carry a lifecycle; older settlement-based ones don't
+    const save = expense.lifecycle ? updateLedgerExpense : updateExpense;
+    const res = await save(expense._id, {
       userId: user.id,
       amount: amt,
       description: description.trim(),

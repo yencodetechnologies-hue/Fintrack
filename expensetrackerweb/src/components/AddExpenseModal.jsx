@@ -1,8 +1,9 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
-import { addCustomCategory, createLedgerExpense } from "../api.js";
+import { addCustomCategory, createLedgerExpense, saveVisibilityPreference } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { fileToBase64, BASE_CATEGORIES } from "../utils.js";
+import { bankAccountLabel, fileToBase64, formatDate, BASE_CATEGORIES } from "../utils.js";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 
 export default function AddExpenseModal({
   company,
@@ -10,6 +11,10 @@ export default function AddExpenseModal({
   isAdmin,
   members,
   customCategories,
+  hiddenStaffIds = [],
+  existingExpenses = [],
+  onCategoryAdded,
+  onHiddenStaffChange,
   onClose,
   onCreated,
 }) {
@@ -21,20 +26,33 @@ export default function AddExpenseModal({
   const [addingCategory, setAddingCategory] = useState(false);
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [attachment, setAttachment] = useState("");
-  const [visibleTo, setVisibleTo] = useState(() => new Set(members.map((m) => m.userId)));
+  // Starts from the members this manager unticked last time (saved on the server), so new members stay visible.
+  const [visibleTo, setVisibleTo] = useState(() => {
+    const hiddenSet = new Set(hiddenStaffIds.map(String));
+    return new Set(members.map((m) => m.userId).filter((id) => !hiddenSet.has(String(id))));
+  });
   const [postAs, setPostAs] = useState("self");
   const [fundId, setFundId] = useState("cash");
   const [saving, setSaving] = useState(false);
+  const [duplicateFound, setDuplicateFound] = useState(null);
 
-  const categoryOptions = Array.from(new Set([...BASE_CATEGORIES, ...customCategories]));
+  // Categories added in this form show up at once; the server save happens in the background.
+  const [addedCategories, setAddedCategories] = useState([]);
+  const categoryOptions = Array.from(new Set([...BASE_CATEGORIES, ...customCategories, ...addedCategories]));
 
-  async function handleAddCategory() {
+  function handleAddCategory() {
     const name = newCategory.trim();
     if (!name) return;
-    setCategory(name);
+    const existing = categoryOptions.find((c) => c.toLowerCase() === name.toLowerCase());
+    if (!existing) setAddedCategories((list) => [...list, name]);
+    setCategory(existing || name);
     setAddingCategory(false);
     setNewCategory("");
-    await addCustomCategory(company._id, user.id, name);
+    if (existing) return;
+    addCustomCategory(company._id, user.id, name).then((res) => {
+      if (res.success) onCategoryAdded?.(res.customCategories || [...customCategories, name]);
+      else showToast(res.message || "Category will be saved with the expense", "error");
+    });
   }
 
   async function handleFile(e) {
@@ -49,11 +67,15 @@ export default function AddExpenseModal({
   }
 
   function toggleMember(id) {
-    setVisibleTo((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+    const next = new Set(visibleTo);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setVisibleTo(next);
+    const selected = new Set([...next].map(String));
+    const hidden = members.map((m) => String(m.userId)).filter((memberId) => !selected.has(memberId));
+    onHiddenStaffChange?.(hidden);
+    saveVisibilityPreference(company._id, user.id, hidden).then((res) => {
+      if (!res.success) showToast(res.message || "Couldn't save your visibility choice", "error");
     });
   }
 
@@ -65,8 +87,15 @@ export default function AddExpenseModal({
   const parsedAmt = parseFloat(amount) || 0;
   const isInsufficientFund = isAdmin && postAs === "company" && parsedAmt > 0 && selectedFundBalance < parsedAmt;
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  // Live hint from already-loaded expenses; the server makes the final check on submit.
+  const sameExpense = (exp) =>
+    exp.lifecycle !== "rejected" &&
+    Number(exp.amount) === parsedAmt &&
+    String(exp.description || "").trim().toLowerCase() === description.trim().toLowerCase();
+  const likelyDuplicate = parsedAmt > 0 && description.trim() ? existingExpenses.find(sameExpense) : null;
+
+  async function handleSubmit(e, confirmDuplicate = false) {
+    e?.preventDefault();
     const amt = parseFloat(amount);
     if (!(amt > 0) || !description.trim()) {
       showToast("Enter a valid amount and description", "error");
@@ -88,12 +117,16 @@ export default function AddExpenseModal({
       visibleTo: Array.from(visibleTo),
       postAs: isAdmin ? postAs : "self",
       fundId: isAdmin && postAs === "company" ? fundId : undefined,
+      checkDuplicate: true,
+      confirmDuplicate,
     });
     setSaving(false);
     if (res.success) {
       showToast("Expense added successfully!");
       onCreated();
       onClose();
+    } else if (res.code === "DUPLICATE_EXPENSE") {
+      setDuplicateFound(res.duplicate || {});
     } else {
       showToast(res.message || "Failed to add expense", "error");
     }
@@ -207,7 +240,7 @@ export default function AddExpenseModal({
                 const low = parsedAmt > 0 && bal < parsedAmt;
                 return (
                   <option key={b._id} value={b._id}>
-                    {b.bankName} {b.accountNumber ? `(…${b.accountNumber.slice(-4)})` : ""} · ₹{bal.toFixed(2)} {low ? "⚠️ (Insufficient)" : ""}
+                    {bankAccountLabel(b)} · ₹{bal.toFixed(2)} {low ? "⚠️ (Insufficient)" : ""}
                   </option>
                 );
               })}
@@ -282,6 +315,13 @@ export default function AddExpenseModal({
                 style={{ height: 40, marginBottom: 0 }}
                 value={newCategory}
                 onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter adds the category instead of submitting the whole expense form
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddCategory();
+                  }
+                }}
                 placeholder="New category name"
                 autoFocus
               />
@@ -326,6 +366,12 @@ export default function AddExpenseModal({
             placeholder="What was this expense for?"
             required
           />
+          {likelyDuplicate && (
+            <div style={{ marginTop: 6, padding: "7px 10px", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 8, color: "#C2410C", fontSize: 12, fontWeight: 600 }}>
+              ⚠️ Possible duplicate: "{likelyDuplicate.description}" for ₹{Number(likelyDuplicate.amount).toFixed(2)} was already posted
+              {likelyDuplicate.createdBy?.name ? ` by ${likelyDuplicate.createdBy.name}` : ""} on {formatDate(likelyDuplicate.date || likelyDuplicate.createdAt)}.
+            </div>
+          )}
         </div>
 
         {isAdmin && members.length > 0 && (
@@ -462,6 +508,24 @@ export default function AddExpenseModal({
           {saving ? "Submitting…" : isInsufficientFund ? "Insufficient Fund Balance" : "Submit Expense"}
         </button>
       </form>
+
+      {duplicateFound && (
+        <ConfirmDialog
+          title="Duplicate expense?"
+          message={[
+            `An expense "${duplicateFound.description || description.trim()}" for ₹${Number(duplicateFound.amount ?? parsedAmt).toFixed(2)} already exists`,
+            duplicateFound.createdBy?.name ? ` (posted by ${duplicateFound.createdBy.name})` : "",
+            duplicateFound.date || duplicateFound.createdAt ? ` on ${formatDate(duplicateFound.date || duplicateFound.createdAt)}` : "",
+            ". Post it again anyway?",
+          ].join("")}
+          confirmLabel="Post anyway"
+          onConfirm={() => {
+            setDuplicateFound(null);
+            handleSubmit(null, true);
+          }}
+          onCancel={() => setDuplicateFound(null)}
+        />
+      )}
     </Modal>
   );
 }

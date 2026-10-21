@@ -452,6 +452,7 @@ exports.getUserCompanies = async (req, res) => {
           ...compDoc,
           bankAccounts: canSeeBank ? (compDoc.bankAccounts || []) : [],
           cashBalance: canSeeBank ? (compDoc.cashBalance || 0) : 0,
+          cashAccountName: compDoc.cashAccountName || "InCash",
           userRole: isCreator ? "admin" : (m.role || "member"),
           joinedAt: m.joinedAt,
         };
@@ -534,11 +535,16 @@ exports.getCompanyDetails = async (req, res) => {
       companyOut.cashBalance = 0;
     }
 
+    const ownMembership = userId
+      ? rawMembers.find((m) => m.userId && m.userId.toString() === userId.toString())
+      : null;
+
     res.status(200).json({
       success: true,
       company: companyOut,
       members: membersList,
       currentUserRole,
+      hiddenStaffIds: (ownMembership?.hiddenStaffIds || []).map(String),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1190,7 +1196,7 @@ exports.deleteExpense = async (req, res) => {
       return res.status(400).json({ success: false, message: "User ID is required" });
     }
 
-    const expense = await Expense.findById(expenseId);
+    const expense = await Expense.findById(expenseId).select("-attachment -paymentReceipt");
     if (!expense) {
       return res.status(404).json({ success: false, message: "Expense not found" });
     }
@@ -1201,6 +1207,7 @@ exports.deleteExpense = async (req, res) => {
 
     const settlements = await Settlement.find({ expenseId: expense._id });
     const hasSettlement = settlements.length > 0;
+    const isPaid = expense.status === "paid" || Boolean(expense.lifecycle && expense.lifecycle.startsWith("paid"));
     const isApproved = expense.lifecycle === "approved";
     const canDelete = isAdmin || (isCreator && !isPaid && !hasSettlement && !isApproved);
 
@@ -1236,13 +1243,27 @@ exports.updateExpense = async (req, res) => {
       return res.status(404).json({ success: false, message: "Expense not found" });
     }
 
-    if (expense.createdBy.toString() !== userId.toString()) {
-      return res.status(403).json({ success: false, message: "Only the expense creator can edit this expense" });
+    const adminUserIds = await getCompanyAdminUserIds(expense.companyId);
+    const isAdmin = adminUserIds.includes(userId.toString());
+    const isCreator = expense.createdBy && expense.createdBy.toString() === userId.toString();
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ success: false, message: "You can only edit your own expenses" });
     }
 
+    // Staff can only edit before approval
+    if (!isAdmin && expense.lifecycle && expense.lifecycle !== "submitted") {
+      return res.status(400).json({ success: false, message: "Staff can only edit expenses before approval" });
+    }
+
+    // Manager can edit before paid by company (or any paid status / settlement)
     const settlementCount = await Settlement.countDocuments({ expenseId: expense._id });
-    if (expense.status === "paid" || settlementCount > 0) {
-      return res.status(400).json({ success: false, message: "This expense can no longer be edited because a payment has been made" });
+    const isPaid =
+      expense.status === "paid" ||
+      (expense.lifecycle && expense.lifecycle.startsWith("paid")) ||
+      settlementCount > 0;
+    if (isPaid) {
+      return res.status(400).json({ success: false, message: "This expense can no longer be edited because a payment has already been made" });
     }
 
     if (amount !== undefined) {
@@ -1292,6 +1313,37 @@ exports.addCustomCategory = async (req, res) => {
     await rememberCategory(companyId, name);
     const company = await Company.findById(companyId);
     res.status(200).json({ success: true, customCategories: company ? company.customCategories : [] });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// 15b. Update Cash Account Name (admin only)
+exports.updateCashAccountName = async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { userId, cashAccountName } = req.body;
+    const adminUserIds = await getCompanyAdminUserIds(companyId);
+    if (!userId || !adminUserIds.includes(userId.toString())) {
+      return res.status(403).json({ success: false, message: "Only Admin can edit cash account name" });
+    }
+    const name = String(cashAccountName || "").trim();
+    if (!name) {
+      return res.status(400).json({ success: false, message: "Cash account name cannot be empty" });
+    }
+    const company = await Company.findByIdAndUpdate(
+      companyId,
+      { cashAccountName: name },
+      { returnDocument: "after" }
+    );
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+    res.status(200).json({
+      success: true,
+      message: "Cash account name updated successfully",
+      cashAccountName: company.cashAccountName,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1355,8 +1407,9 @@ async function resolveFund(companyId, fundId, amount) {
   const company = await Company.findById(companyId);
   if (!company) throw fail("Company not found");
   if (fundId === "cash") {
-    if ((company.cashBalance || 0) < amount) throw fail("Insufficient InCash balance (₹" + (company.cashBalance || 0) + ")");
-    return { type: "cash", bankAccountId: null, name: "InCash" };
+    const cashName = company.cashAccountName || "InCash";
+    if ((company.cashBalance || 0) < amount) throw fail("Insufficient " + cashName + " balance (₹" + (company.cashBalance || 0) + ")");
+    return { type: "cash", bankAccountId: null, name: cashName };
   }
   const account = company.bankAccounts.id(fundId);
   if (!account) throw fail("Selected bank account was not found");
@@ -1406,6 +1459,7 @@ exports.addIncome = async (req, res) => {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
 
+    const cashName = company.cashAccountName || "InCash";
     const record = {
       companyId,
       createdBy: userId,
@@ -1424,7 +1478,7 @@ exports.addIncome = async (req, res) => {
       await applyFund(companyId, { type: "cash" }, value);
       Object.assign(record, {
         destinationType: "cash",
-        destinationName: "InCash",
+        destinationName: cashName,
         sourceBankAccountId: source._id,
         sourceName: source.bankName,
       });

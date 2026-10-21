@@ -13,6 +13,7 @@ export default function ExpenseCard({
   onEditSettlement,
   onToggleStatus,
   onDelete,
+  onViewDetail,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,7 +40,10 @@ export default function ExpenseCard({
   const isPayer = settlementPayerId === user.id;
   const isReceiver = personId(settlement?.paidTo) === user.id;
   const canManagePayment = isAdmin || isCreator || isPayer || isReceiver;
-  const canEditExpense = isCreator && !isPaid && settlements.length === 0;
+  const isSubmitted = !expense.lifecycle || expense.lifecycle === "submitted";
+  const canEditExpense =
+    (isAdmin && !isPaid && settlements.length === 0) ||
+    (!isAdmin && isCreator && isSubmitted && !isPaid && settlements.length === 0);
   const canDeleteExpense = isAdmin || (isCreator && !isPaid && settlements.length === 0);
 
   const logAsType = expense.logAs || (isPaid ? "company" : "self");
@@ -100,11 +104,16 @@ export default function ExpenseCard({
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>{expense.description}</div>
-        <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 16 }}>{money(expense.amount)}</div>
+      <div
+        onClick={() => onViewDetail && onViewDetail(expense)}
+        style={{ cursor: onViewDetail ? "pointer" : "default" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{expense.description}</div>
+          <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 16 }}>{money(expense.amount)}</div>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{subtext}</div>
       </div>
-      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{subtext}</div>
 
       {expanded && (
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--slate-border-2)" }}>

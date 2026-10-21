@@ -3,6 +3,7 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 import {
   addCompanyMember,
   deleteCompany,
+  inviteCompanyMember,
   regenerateJoinCode,
   removeMember,
   setCompanyMemberRole,
@@ -26,6 +27,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("member");
   const [inviting, setInviting] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState(null); // {email, role} for an email with no account
 
   const [gstin, setGstin] = useState(company.gstin || "");
   const [currency, setCurrency] = useState(company.currency || "INR");
@@ -80,8 +82,24 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
       showToast(`${res.member?.name || inviteEmail} added as ${inviteRole === "admin" ? "manager" : "staff"}`);
       setInviteEmail("");
       onChanged();
+    } else if (res.code === "USER_NOT_FOUND") {
+      setPendingInvite({ email: inviteEmail.trim(), role: inviteRole });
     } else {
       showToast(res.message || "Failed to add staff", "error");
+    }
+  }
+
+  async function confirmSendInvite() {
+    const { email, role } = pendingInvite;
+    setPendingInvite(null);
+    setInviting(true);
+    const res = await inviteCompanyMember(company._id, user.id, email, role);
+    setInviting(false);
+    if (res.success) {
+      showToast(`Invite sent to ${email}`);
+      setInviteEmail("");
+    } else {
+      showToast(res.message || "Failed to send invite", "error");
     }
   }
 
@@ -189,7 +207,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Direct Staff Invite</h3>
           <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
-            Add an existing registered user directly to this company by email without a join code.
+            Add a registered user directly by email, or invite someone new to sign up and join.
           </p>
           <form onSubmit={handleAddMember} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <input
@@ -342,6 +360,16 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
             </button>
           </div>
         </>
+      )}
+
+      {pendingInvite && (
+        <ConfirmDialog
+          title="Not a Q Fin user yet"
+          message={`${pendingInvite.email} is not in the user list. Send an invite link to their email? Once they sign up with this email, they'll join ${company.name} as ${pendingInvite.role === "admin" ? "a manager" : "staff"}.`}
+          confirmLabel="Send invite"
+          onConfirm={confirmSendInvite}
+          onCancel={() => setPendingInvite(null)}
+        />
       )}
 
       {removing && (

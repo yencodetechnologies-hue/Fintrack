@@ -4,12 +4,31 @@ const Card = require("../models/card");
 const Reminder = require("../models/reminder");
 const Lend = require("../models/lend");
 const Liability = require("../models/liability");
+const CompanyMember = require("../models/companyMember");
+const CompanyInvite = require("../models/companyInvite");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 
 // A device token belongs to one account at a time, so a shared phone never gets the previous user's pushes.
 const releaseTokenFromOthers = (userId, token) =>
   User.updateMany({ _id: { $ne: userId }, fcmTokens: token }, { $pull: { fcmTokens: token } });
+
+// Companies that invited this email before it had an account get the new user as a member.
+// Never fails signup: a broken invite is logged and skipped.
+async function acceptPendingInvites(user) {
+  try {
+    const invites = await CompanyInvite.find({ email: String(user.email).trim().toLowerCase(), status: "pending" });
+    for (const invite of invites) {
+      const exists = await CompanyMember.exists({ companyId: invite.companyId, userId: user._id });
+      if (!exists) await CompanyMember.create({ companyId: invite.companyId, userId: user._id, role: invite.role });
+      invite.status = "accepted";
+      invite.acceptedAt = new Date();
+      await invite.save();
+    }
+  } catch (e) {
+    console.error("accepting company invites failed:", e.message);
+  }
+}
 
 
   exports.signup = async (req, res) => {
@@ -41,6 +60,8 @@ const releaseTokenFromOthers = (userId, token) =>
         password: hashedPassword,
         fcmTokens: fcmToken ? [fcmToken] : [],
       });
+
+      await acceptPendingInvites(user);
 
       res.status(201).json({
         success: true,

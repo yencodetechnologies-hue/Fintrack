@@ -13,6 +13,7 @@ export default function AddExpenseModal({
   customCategories,
   hiddenStaffIds = [],
   existingExpenses = [],
+  advanceBalance = 0,
   onCategoryAdded,
   onHiddenStaffChange,
   onClose,
@@ -33,6 +34,8 @@ export default function AddExpenseModal({
   });
   const [postAs, setPostAs] = useState("self");
   const [fundId, setFundId] = useState("cash");
+  const [useAdvance, setUseAdvance] = useState(false);
+  const canUseAdvance = !isAdmin && advanceBalance > 0;
   const [saving, setSaving] = useState(false);
   const [duplicateFound, setDuplicateFound] = useState(null);
 
@@ -120,6 +123,7 @@ export default function AddExpenseModal({
       fundId: isAdmin && postAs === "company" ? fundId : undefined,
       checkDuplicate: true,
       confirmDuplicate,
+      useAdvance: canUseAdvance && useAdvance,
     });
     setSaving(false);
     if (res.success) {
@@ -374,6 +378,22 @@ export default function AddExpenseModal({
             </div>
           )}
         </div>
+
+        {canUseAdvance && (
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 16, padding: "10px 12px", borderRadius: 10, border: "1.5px solid var(--slate-border)", background: useAdvance ? "#ECFDF5" : "#fff", cursor: "pointer", fontSize: 13 }}>
+            <input type="checkbox" checked={useAdvance} onChange={(e) => setUseAdvance(e.target.checked)} style={{ marginTop: 2 }} />
+            <span>
+              <strong>Use my voucher balance (₹{advanceBalance.toFixed(2)})</strong>
+              <span style={{ display: "block", color: "var(--muted)", fontSize: 12, marginTop: 2 }}>
+                {parsedAmt > 0
+                  ? parsedAmt > advanceBalance
+                    ? `₹${advanceBalance.toFixed(2)} from your balance, company owes you ₹${(parsedAmt - advanceBalance).toFixed(2)}.`
+                    : `All ₹${parsedAmt.toFixed(2)} comes from your balance.`
+                  : "Taken from your balance when a manager approves this expense."}
+              </span>
+            </span>
+          </label>
+        )}
 
         {isAdmin && members.length > 0 && (
           <div style={{ marginBottom: 16 }}>

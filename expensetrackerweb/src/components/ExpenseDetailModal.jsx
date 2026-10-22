@@ -153,6 +153,9 @@ export default function ExpenseDetailModal({
         ? <span key="payer">{borrowedFrom}<span style={subValStyle}>Borrowed by {expense.companyId?.name || company?.name || "this company"}</span></span>
         : (expense.companyId?.name || company?.name || "Company"),
     ],
+    lifecycle === "paid_by_voucher" && expense.voucherId && ["Paid by", "Voucher money given in advance"],
+    Number(expense.advanceUsed) > 0 && ["From voucher balance", money(expense.advanceUsed)],
+    !isPaid && expense.useAdvance && ["Voucher balance", "Will be used when approved"],
     isPaid && paymentText && ["Payment", paymentText],
     expense.payerReference && ["Reference / UTR", <span key="ref" style={{ fontFamily: "monospace" }}>{expense.payerReference}</span>],
     isAdmin && expense.visibleTo && ["Staff visibility", expense.visibleTo.length === 0 ? "All staff" : `${expense.visibleTo.length} selected staff`],

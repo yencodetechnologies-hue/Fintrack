@@ -27,6 +27,8 @@ const companyMemberSchema = new mongoose.Schema(
       ref: "User",
       default: [],
     },
+    // Set while this person's voucher balance (advance) is being changed, so two changes can't spend it twice.
+    advanceLockAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

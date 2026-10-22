@@ -6,7 +6,7 @@ const ObjectId = Schema.Types.ObjectId;
 const accountSchema = new Schema(
   {
     companyId: { type: ObjectId, ref: "Company", required: true },
-    type: { type: String, enum: ["bank", "expense", "admin_payable", "intercompany"], required: true },
+    type: { type: String, enum: ["bank", "expense", "admin_payable", "intercompany", "advance"], required: true },
     name: { type: String, required: true },
     bankAccountId: { type: ObjectId, default: null },
     category: { type: String, default: null },
@@ -20,13 +20,15 @@ accountSchema.index({ companyId: 1, type: 1, bankAccountId: 1, category: 1, user
 const transactionSchema = new Schema(
   {
     companyId: { type: ObjectId, ref: "Company", required: true },
-    type: { type: String, enum: ["admin_paid", "company_paid", "borrowed", "reimburse", "lend", "intercompany", "routed", "loan_repayment", "reversal"], required: true },
+    type: { type: String, enum: ["admin_paid", "company_paid", "borrowed", "reimburse", "lend", "intercompany", "routed", "loan_repayment", "reversal", "voucher_issue", "voucher_claim", "advance_used", "advance_offset", "advance_return"], required: true },
     date: { type: Date, default: Date.now },
     memo: { type: String, default: "" },
     method: { type: String, default: "" },
     reference: { type: String, default: "" },
     expenseId: { type: ObjectId, ref: "Expense", default: null },
     loanId: { type: ObjectId, ref: "CompanyLoan", default: null },
+    voucherId: { type: ObjectId, ref: "Voucher", default: null },
+    advanceReturnId: { type: ObjectId, ref: "AdvanceReturn", default: null },
     routeId: { type: String, default: null },
     createdBy: { type: ObjectId, ref: "User", required: true },
     approvedBy: { type: ObjectId, ref: "User", default: null },
@@ -37,6 +39,8 @@ const transactionSchema = new Schema(
   },
   { timestamps: true }
 );
+
+transactionSchema.index({ loanId: 1 });
 
 const entrySchema = new Schema(
   {
@@ -64,6 +68,7 @@ const auditSchema = new Schema(
 );
 auditSchema.index({ companyId: 1, at: -1 });
 auditSchema.index({ userId: 1, at: -1 });
+auditSchema.index({ objectId: 1, action: 1 });
 
 module.exports = {
   LedgerAccount: mongoose.model("LedgerAccount", accountSchema),

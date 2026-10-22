@@ -1032,7 +1032,79 @@ a {
   gap: 12px;
   margin-bottom: 20px;
 }
-.home-tiles.staff { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 560px; }
+.home-tiles.staff { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 840px; }
+
+/* Inter-company loan detail popup (LoanDetailModal.jsx) */
+.loan-flow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--slate-border-2);
+  border-radius: 14px;
+  background: var(--slate-bg);
+}
+.loan-reason { display: flex; flex-direction: column; gap: 2px; margin-top: 10px; padding: 8px 12px; border-left: 3px solid var(--forest); background: rgba(25, 87, 84, 0.05); border-radius: 0 10px 10px 0; font-size: 13.5px; color: var(--dark-text); word-break: break-word; }
+.loan-flow-node { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.loan-flow-role { font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+.loan-flow-name { font-weight: 700; font-size: 15px; color: var(--dark-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loan-flow-arrow { flex: 0 1 120px; min-width: 70px; display: flex; flex-direction: column; align-items: center; color: var(--forest); }
+.loan-flow-arrow span { font-size: 12px; font-weight: 700; margin-bottom: 2px; white-space: nowrap; }
+.loan-balance { padding: 14px 16px; border: 1px solid var(--slate-border-2); border-radius: 14px; }
+.loan-label { font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+.loan-due { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 700; line-height: 1.15; }
+.loan-progress { height: 6px; border-radius: 99px; background: var(--slate-border-2); margin-top: 12px; overflow: hidden; }
+.loan-progress span { display: block; height: 100%; background: var(--mint); border-radius: 99px; }
+.loan-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.loan-chips span { font-size: 11.5px; padding: 3px 9px; border-radius: 99px; background: var(--slate-bg); border: 1px solid var(--slate-border-2); color: var(--dark-text); }
+.loan-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+.loan-person { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--slate-border-2); border-radius: 12px; }
+.loan-avatar { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(25, 87, 84, 0.1); color: var(--forest); font-weight: 800; font-size: 13px; }
+.loan-person-role { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.loan-person-name { display: block; font-weight: 700; font-size: 14px; color: var(--dark-text); }
+.loan-person-sub { display: block; font-size: 11.5px; color: var(--muted); }
+.loan-section { margin-top: 18px; }
+.loan-section h3 { font-size: 15px; margin: 0 0 8px; }
+.loan-bill { padding: 14px 16px; border: 1px solid var(--slate-border-2); border-radius: 14px; background: #fff; }
+.loan-bill-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--slate-border-2); font-size: 12.5px; color: var(--muted); }
+.loan-bill-meta strong { color: var(--dark-text); font-weight: 600; }
+.loan-receipts { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.loan-receipt { display: flex; flex-direction: column; gap: 4px; width: 110px; text-decoration: none; color: var(--muted); font-size: 11.5px; }
+.loan-receipt img { width: 110px; height: 90px; object-fit: cover; border-radius: 10px; border: 1px solid var(--slate-border); }
+.loan-receipt:hover img { border-color: var(--forest); }
+.loan-empty { padding: 12px 14px; border: 1px dashed var(--slate-border); border-radius: 12px; color: var(--muted); font-size: 13px; }
+.loan-timeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--slate-border-2); }
+.loan-timeline li { position: relative; padding: 0 0 12px 10px; font-size: 13.5px; }
+.loan-timeline li::before { content: ""; position: absolute; left: -23px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--mint); border: 2px solid #fff; }
+.loan-timeline li.reversed { opacity: 0.55; text-decoration: line-through; }
+@media (max-width: 480px) {
+  .loan-flow { flex-wrap: wrap; }
+  .loan-flow-arrow { order: 3; flex-basis: 100%; }
+}
+
+/* Vouchers: money given to staff up front */
+.voucher-card {
+  background: #F8FAFC;
+  border: 1px solid var(--slate-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.voucher-card.highlight {
+  background: #ECFDF5;
+  border: 1.5px solid var(--mint);
+  border-left: 5px solid var(--mint);
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.12);
+}
+.voucher-card-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #047857;
+  margin-bottom: 4px;
+}
 
 @media (max-width: 1180px) {
   .home-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }

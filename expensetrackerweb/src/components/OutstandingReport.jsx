@@ -22,7 +22,7 @@ function PeopleTable({ title, rows }) {
       {rows.length === 0 ? (
         <div style={{ color: "var(--muted)", padding: "6px 14px 16px", fontSize: 13 }}>Nothing outstanding.</div>
       ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
           <thead>
             <tr>
               <th style={th}>NAME</th>
@@ -30,6 +30,7 @@ function PeopleTable({ title, rows }) {
               <th style={{ ...th, textAlign: "right" }}>APPROVED CLAIMS</th>
               <th style={{ ...th, textAlign: "right" }}>COMPANY OWES</th>
               <th style={{ ...th, textAlign: "right" }}>AWAITING APPROVAL</th>
+              <th style={{ ...th, textAlign: "right" }}>VOUCHER MONEY HELD</th>
             </tr>
           </thead>
           <tbody>
@@ -40,6 +41,7 @@ function PeopleTable({ title, rows }) {
                 <td style={num}>{money(r.claims)}{r.claimCount ? <small style={{ color: "var(--muted)" }}> ({r.claimCount})</small> : null}</td>
                 <td style={{ ...num, fontWeight: 800, color: r.owed > 0 ? "var(--terracotta)" : "var(--dark-text)" }}>{money(r.owed)}</td>
                 <td style={{ ...num, color: "var(--muted)" }}>{money(r.awaitingApproval)}{r.awaitingCount ? <small> ({r.awaitingCount})</small> : null}</td>
+                <td style={{ ...num, color: r.advanceHeld > 0 ? "var(--forest)" : "var(--muted)" }}>{money(r.advanceHeld || 0)}</td>
               </tr>
             ))}
           </tbody>
@@ -84,6 +86,7 @@ export default function OutstandingReport({ companyId, userId }) {
             <Tile label="WE OWE COMPANIES" value={data.totals.weOweCompanies} color="var(--terracotta)" />
             <Tile label="COMPANIES OWE US" value={data.totals.companiesOweUs} color="var(--forest)" />
             <Tile label="AWAITING APPROVAL" value={data.totals.awaitingApproval} />
+            <Tile label="VOUCHER MONEY WITH STAFF" value={data.totals.advanceHeld || 0} />
           </div>
 
           <PeopleTable title="Managers" rows={data.managers} />
@@ -122,7 +125,7 @@ export default function OutstandingReport({ companyId, userId }) {
             )}
           </div>
           <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
-            "Company owes" = paid out of pocket and not yet reimbursed + approved claims not yet paid. Awaiting approval is shown separately and not counted.
+            "Company owes" = paid out of pocket and not yet reimbursed + approved claims not yet paid. Awaiting approval is shown separately and not counted. "Voucher money held" is company money staff still have from vouchers.
           </p>
         </>
       )}

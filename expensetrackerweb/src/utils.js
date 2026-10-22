@@ -79,6 +79,7 @@ export function expenseStatusLabel(expense, company) {
     const who = nameOf(expense.paidByUserId) || nameOf(expense.paidByAdminId);
     return who ? `Paid by ${who}` : lifecycle === "paid_by_admin" ? "Paid by manager" : "Paid by staff";
   }
+  if (lifecycle === "paid_by_voucher") return "Paid by voucher";
   if (lifecycle === "awaiting_confirmation") return `Awaiting ${nameOf(expense.payerCompanyId) || "payer"} confirmation`;
   return {
     submitted: "Awaiting approval",
@@ -120,3 +121,11 @@ export const BASE_CATEGORIES = [
   "Software & Tech",
   "Other",
 ];
+
+// Voucher status pill: label and colours
+export const VOUCHER_STATUS = {
+  open: { label: "Open", bg: "#ECFDF5", color: "#047857" },
+  claiming: { label: "Claiming…", bg: "#FFF7ED", color: "#C2410C" },
+  claimed: { label: "Claimed", bg: "#EEF2FF", color: "#4338CA" },
+  cancelled: { label: "Cancelled", bg: "#F1F5F9", color: "#64748B" },
+};

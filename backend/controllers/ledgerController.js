@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Company = require("../models/company");
 const CompanyMember = require("../models/companyMember");
 const Expense = require("../models/expense");
@@ -6,6 +7,8 @@ const { LedgerAccount, LedgerTransaction, LedgerEntry, AuditLog } = require("../
 const CompanyLoan = require("../models/companyLoan");
 const { ExpenseGroup } = require("../models/expenseGroup");
 const CompanyInvite = require("../models/companyInvite");
+const Voucher = require("../models/voucher");
+const AdvanceReturn = require("../models/advanceReturn");
 const nodemailer = require("nodemailer");
 const { notifyUsers, notifyCompanyAdmins } = require("../services/ledgerNotify");
 
@@ -146,7 +149,45 @@ async function post(tx, lines) {
   return transaction;
 }
 
-const audit = (userId, companyId, action, object, objectId, before, after) =>
+// Transaction types whose bank lines were also applied to Company.cashBalance / bankAccounts[].balance.
+// Lender-side legs (intercompany) never touched the lender's displayed funds, so they are left alone.
+const FUND_TRACKED_TYPES = new Set(["company_paid", "reimburse", "lend", "borrowed", "voucher_issue", "advance_return"]);
+
+async function legMovesCompanyFunds(leg) {
+  if (FUND_TRACKED_TYPES.has(leg.type)) return true;
+  if (leg.type === "loan_repayment" && leg.loanId) {
+    const loan = await CompanyLoan.findById(leg.loanId).select("borrowerCompanyId");
+    return Boolean(loan && String(loan.borrowerCompanyId) === String(leg.companyId));
+  }
+  return false;
+}
+
+// Mirrors a transaction's entries, marks it reversed and gives back what it did to the displayed Cash/Bank.
+async function postReversal(leg, userId, memo) {
+  const entries = await LedgerEntry.find({ transactionId: leg._id });
+  const accounts = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) } });
+  const accMap = new Map(accounts.map((a) => [a._id.toString(), a]));
+  const reversal = await post(
+    { companyId: leg.companyId, type: "reversal", memo: memo || `Reversal of ${leg.type}`, expenseId: leg.expenseId, voucherId: leg.voucherId, advanceReturnId: leg.advanceReturnId, routeId: leg.routeId, reverses: leg._id, createdBy: userId },
+    entries.map((e) => ({ account: accMap.get(e.accountId.toString()), debit: e.credit, credit: e.debit }))
+  );
+  leg.reversedBy = reversal._id;
+  await leg.save();
+  if (await legMovesCompanyFunds(leg)) {
+    const company = await Company.findById(leg.companyId).select("external");
+    if (company && !company.external) {
+      for (const e of entries) {
+        const acc = accMap.get(e.accountId.toString());
+        if (!acc || acc.type !== "bank") continue;
+        const applied = round(e.debit - e.credit);
+        if (applied) await applyCompanyFund(leg.companyId, acc.bankAccountId ? String(acc.bankAccountId) : "cash", -applied);
+      }
+    }
+  }
+  return { reversal, accounts };
+}
+
+const audit =(userId, companyId, action, object, objectId, before, after) =>
   AuditLog.create({ userId, companyId, action, object, objectId, before, after });
 
 const snapshot = (doc) => {
@@ -405,6 +446,8 @@ exports.createExpense = handle(async (req, res) => {
     approvedBy: isAdminRole(role) ? userId : null,
     status: isCompanyPost ? "paid" : "outstanding",
     logAs: isCompanyPost ? "company" : "self",
+    // staff may ask for this to come out of the voucher balance they hold; it is taken when a manager approves
+    useAdvance: role === "employee" && Boolean(req.body.useAdvance),
   });
 
   if (isCompanyPost) {
@@ -449,7 +492,7 @@ exports.listExpenses = handle(async (req, res) => {
   let expenseQuery = Expense.find(query);
   if (summary === "1") {
     expenseQuery = expenseQuery
-      .select("companyId createdBy isAdminCreated visibleTo amount description category date lifecycle createdAt approvedBy verification logAs")
+      .select("companyId createdBy isAdminCreated visibleTo amount description category date lifecycle createdAt approvedBy verification logAs voucherId useAdvance advanceUsed")
       .populate("createdBy", "name")
       .populate("companyId", "name")
       .populate("approvedBy", "name");
@@ -521,12 +564,26 @@ async function decide(req, res, target) {
   if (!expense) throw fail(404, "Expense not found");
   await requireRole(expense.companyId, userId, ["admin", "super_admin"]);
   const before = snapshot(expense);
-  const updated = await Expense.findOneAndUpdate(
-    { _id: expense._id, lifecycle: "submitted" },
-    { $set: { lifecycle: target, approvedBy: userId } },
-    { returnDocument: "after" }
-  ).populate("createdBy", "name email").populate("approvedBy", "name email");
-  if (!updated) throw fail(400, `Only submitted expenses can be ${target}`);
+  const approveAndApply = async () => {
+    const approved = await Expense.findOneAndUpdate(
+      { _id: expense._id, lifecycle: "submitted" },
+      { $set: { lifecycle: target, approvedBy: userId } },
+      { returnDocument: "after" }
+    );
+    if (!approved) throw fail(400, `Only submitted expenses can be ${target}`);
+    if (target === "approved" && approved.useAdvance) {
+      try {
+        await applyAdvanceToExpense(approved, userId);
+      } catch (e) {
+        // the expense stays approved (owed to its creator) if the balance couldn't be booked
+        console.error("applying voucher balance failed:", e.message);
+      }
+    }
+  };
+  if (target === "approved" && expense.useAdvance) await withAdvanceLock(expense.companyId, expense.createdBy, approveAndApply);
+  else await approveAndApply();
+  const updated = await Expense.findById(expense._id).select("-attachment -paymentReceipt")
+    .populate("createdBy", "name email").populate("approvedBy", "name email").populate("paidByUserId", "name");
   await audit(userId, expense.companyId, target === "approved" ? "approve" : "reject", "expense", expense._id, before, snapshot(updated));
   notifyUsers([expense.createdBy], { title: target === "approved" ? "Expense approved" : "Expense rejected", body: `${expense.description} · ₹${expense.amount}`, data: { expenseId: expense._id, companyId: expense.companyId } }, userId);
   res.json({ success: true, expense: updated });
@@ -884,48 +941,78 @@ exports.updateExpenseReceipts = handle(async (req, res) => {
 
 // ---------- reimburse & lend ----------
 exports.reimburse = handle(async (req, res) => {
-  const { companyId, userId, adminUserId, amount, fundId, method, reference } = req.body;
-  const value = round(parseFloat(amount));
-  if (!(value > 0)) throw fail(400, "Enter a valid amount");
+  const { companyId, userId, adminUserId, amount, fundId, method, reference, offsetAdvance } = req.body;
+  const value = round(parseFloat(amount) || 0);
+  if (value < 0) throw fail(400, "Enter a valid amount");
+  if (!adminUserId) throw fail(400, "Choose who to reimburse");
   const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
   const targetRole = await roleIn(companyId, adminUserId);
   if (!targetRole) throw fail(400, "The payee must be a member of this company");
   if (adminUserId.toString() === userId.toString()) throw fail(403, "You cannot reimburse yourself");
-  const recordedOwed = await adminOwed(companyId, adminUserId);
-  const claims = await pendingClaims(companyId, adminUserId);
-  const owed = round(recordedOwed + claims.reduce((s, c) => s + c.amount, 0));
-  if (value > owed) throw fail(400, `Amount exceeds the open balance (₹${owed})`);
-  const available = await getEffectiveFundBalance(companyId, fundId);
-  if (available < value) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
-  const openBefore = (await openPayableBills(companyId, adminUserId)).length + claims.length;
 
-  // book only as many of the oldest approved claims as this payment needs; the rest stay approved
-  let covered = recordedOwed;
-  let acknowledged = 0;
-  for (const claim of claims) {
-    if (covered >= value) break;
-    if (await acknowledgeClaim(claim, adminUserId, userId)) {
-      covered = round(covered + claim.amount);
-      acknowledged += 1;
+  const run = async () => {
+    const recordedOwed = await adminOwed(companyId, adminUserId);
+    const claims = await pendingClaims(companyId, adminUserId);
+    const owed = round(recordedOwed + claims.reduce((s, c) => s + c.amount, 0));
+    // optional netting: voucher balance the person still holds is set against what they are owed
+    const held = offsetAdvance ? Math.max(0, await heldAdvance(companyId, adminUserId)) : 0;
+    const offset = round(Math.min(held, Math.max(0, owed - value)));
+    if (!(value > 0) && !(offset > 0)) throw fail(400, "Enter a valid amount");
+    const settled = round(value + offset);
+    if (settled > owed) throw fail(400, `Amount exceeds the open balance (₹${owed})`);
+    if (value > 0) {
+      const available = await getEffectiveFundBalance(companyId, fundId);
+      if (available < value) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
     }
-  }
-  if (covered < value) throw fail(409, "Some claims changed while paying; refresh and try again");
+    const openBefore = (await openPayableBills(companyId, adminUserId)).length + claims.length;
 
-  const tx = await post(
-    { companyId, type: "reimburse", memo: "Admin reimbursement", method: method || "", reference: reference || "", createdBy: userId, verification: (await needsVerification(companyId, value)) ? "pending" : null },
-    [
-      { account: await payableAccount(companyId, adminUserId), debit: value },
-      { account: await fundAccount(companyId, fundId), credit: value },
-    ]
-  );
-  await recomputeReimbursed(companyId, adminUserId);
-  await applyCompanyFund(companyId, fundId, -value);
-  await audit(userId, companyId, "reimburse", "transaction", tx._id, null, { adminUserId, amount: value });
-  notifyUsers([adminUserId], { title: "You were reimbursed", body: `₹${value} paid back to you`, data: { transactionId: tx._id, companyId } });
-  if (tx.verification === "pending") await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Reimbursement of ₹${value}`, data: { transactionId: tx._id, companyId } }, userId);
-  const openAfter = (await openPayableBills(companyId, adminUserId)).length + (claims.length - acknowledged);
-  const billsClosed = Math.max(0, openBefore - openAfter);
-  res.json({ success: true, transaction: tx, owed: await adminOwed(companyId, adminUserId), billsClosed });
+    // book only as many of the oldest approved claims as this payment needs; the rest stay approved
+    let covered = recordedOwed;
+    let acknowledged = 0;
+    for (const claim of claims) {
+      if (covered >= settled) break;
+      if (await acknowledgeClaim(claim, adminUserId, userId)) {
+        covered = round(covered + claim.amount);
+        acknowledged += 1;
+      }
+    }
+    if (covered < settled) throw fail(409, "Some claims changed while paying; refresh and try again");
+
+    let offsetTx = null;
+    if (offset > 0) {
+      offsetTx = await post(
+        { companyId, type: "advance_offset", memo: "Voucher balance set against reimbursement", createdBy: userId },
+        [
+          { account: await payableAccount(companyId, adminUserId), debit: offset },
+          { account: await advanceAccount(companyId, adminUserId), credit: offset },
+        ]
+      );
+      await audit(userId, companyId, "advance_offset", "transaction", offsetTx._id, null, { adminUserId, amount: offset });
+    }
+    let tx = null;
+    if (value > 0) {
+      tx = await post(
+        { companyId, type: "reimburse", memo: "Admin reimbursement", method: method || "", reference: reference || "", createdBy: userId, verification: (await needsVerification(companyId, value)) ? "pending" : null },
+        [
+          { account: await payableAccount(companyId, adminUserId), debit: value },
+          { account: await fundAccount(companyId, fundId), credit: value },
+        ]
+      );
+      await applyCompanyFund(companyId, fundId, -value);
+      await audit(userId, companyId, "reimburse", "transaction", tx._id, null, { adminUserId, amount: value });
+    }
+    await recomputeReimbursed(companyId, adminUserId);
+    const lead = tx || offsetTx;
+    const body = value > 0 && offset > 0 ? `₹${value} paid back to you, ₹${offset} taken from your voucher balance`
+      : value > 0 ? `₹${value} paid back to you` : `₹${offset} taken from your voucher balance`;
+    notifyUsers([adminUserId], { title: "You were reimbursed", body, data: { transactionId: lead._id, companyId } });
+    if (tx?.verification === "pending") await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Reimbursement of ₹${value}`, data: { transactionId: tx._id, companyId } }, userId);
+    const openAfter = (await openPayableBills(companyId, adminUserId)).length + (claims.length - acknowledged);
+    const billsClosed = Math.max(0, openBefore - openAfter);
+    res.json({ success: true, transaction: lead, offset, owed: await adminOwed(companyId, adminUserId), billsClosed });
+  };
+  if (offsetAdvance) await withAdvanceLock(companyId, adminUserId, run);
+  else await run();
 });
 
 exports.lend = handle(async (req, res) => {
@@ -955,30 +1042,29 @@ exports.reverseTransaction = handle(async (req, res) => {
   if (original.reversedBy) throw fail(400, "This transaction has already been reversed");
   if (original.type === "reversal") throw fail(400, "A reversal cannot be reversed");
 
+  // a voucher can't lose its funding while its claim still stands
+  if (original.type === "voucher_issue" && original.voucherId) {
+    const voucher = await Voucher.findById(original.voucherId).select("status");
+    if (voucher && voucher.status !== "open") throw fail(400, "Reverse the voucher claim first");
+  }
+
   // linked legs (same routeId) are reversed together so both companies stay in step
   const legs = original.routeId ? await LedgerTransaction.find({ routeId: original.routeId, reversedBy: null }) : [original];
   const reversals = [];
   const touched = [];
   for (const leg of legs) {
-    const entries = await LedgerEntry.find({ transactionId: leg._id });
-    const accounts = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) } });
-    const accMap = new Map(accounts.map((a) => [a._id.toString(), a]));
-    const reversal = await post(
-      { companyId: leg.companyId, type: "reversal", memo: `Reversal of ${leg.type}`, expenseId: leg.expenseId, routeId: leg.routeId, reverses: leg._id, createdBy: userId },
-      entries.map((e) => ({ account: accMap.get(e.accountId.toString()), debit: e.credit, credit: e.debit }))
-    );
-    leg.reversedBy = reversal._id;
-    await leg.save();
+    const { reversal, accounts } = await postReversal(leg, userId);
     reversals.push(reversal);
     touched.push(...accounts.filter((a) => a.type === "admin_payable"));
   }
 
-  if (original.expenseId && ["admin_paid", "company_paid", "borrowed", "intercompany"].includes(original.type)) {
+  if (original.expenseId && ["admin_paid", "company_paid", "borrowed", "intercompany", "advance_used"].includes(original.type)) {
     await Expense.updateOne(
       { _id: original.expenseId },
-      { $set: { lifecycle: "approved", paidByAdminId: null, transactionId: null, status: "outstanding", verification: null } }
+      { $set: { lifecycle: "approved", paidByAdminId: null, paidByUserId: null, payerType: "unpaid", transactionId: null, status: "outstanding", verification: null, advanceUsed: 0 } }
     );
   }
+  await undoVoucherRecords(original, userId);
   for (const a of touched) await recomputeReimbursed(a.companyId, a.userId);
   for (const leg of legs) {
     await audit(userId, leg.companyId, "reverse", "transaction", leg._id, null, { reversals: reversals.filter((r) => r.companyId.toString() === leg.companyId.toString()).map((r) => r._id) });
@@ -1027,8 +1113,11 @@ exports.balances = handle(async (req, res) => {
     a.owed = round(a.owed + a.claims);
   }
   const myOwed = admins.find((a) => a.userId && a.userId.toString() === userId.toString())?.owed || 0;
+  const advances = await advanceHeldByPerson(companyId);
+  for (const a of admins) a.advance = advances.get(String(a.userId)) || 0;
+  const myAdvance = advances.get(String(userId)) || 0;
 
-  if (!isAdminRole(role)) return res.json({ success: true, role, myOwed });
+  if (!isAdminRole(role)) return res.json({ success: true, role, myOwed, myAdvance });
 
   const funds = accounts
     .filter((a) => a.type === "bank")
@@ -1046,6 +1135,8 @@ exports.balances = handle(async (req, res) => {
     success: true,
     role,
     myOwed,
+    myAdvance,
+    totalAdvanceHeld: round([...advances.values()].reduce((s, v) => s + Math.max(0, v), 0)),
     totalOwedToAdmins: round(admins.reduce((s, a) => s + a.owed, 0)),
     admins,
     funds,
@@ -1176,6 +1267,75 @@ exports.listLoans = handle(async (req, res) => {
   const rows = [];
   for (const loan of loans) rows.push(loanView(loan, await loanBalance(loan)));
   res.json({ success: true, loans: rows });
+});
+
+// One loan in full: the bill (or group) it paid, who started the payment, who confirmed it, and every repayment.
+exports.loanDetail = handle(async (req, res) => {
+  const { userId, receipts } = req.query;
+  const loan = await CompanyLoan.findById(req.params.loanId)
+    .populate("borrowerCompanyId", "name external").populate("lenderCompanyId", "name external").populate("createdBy", "name");
+  if (!loan) throw fail(404, "Loan not found");
+  const roles = await Promise.all([roleIn(loan.borrowerCompanyId?._id, userId), roleIn(loan.lenderCompanyId?._id, userId)]);
+  if (!roles.some(Boolean)) throw fail(403, "You are not a member of either company");
+
+  // receipt images are large, so the popup asks for them separately after the details are on screen
+  if (receipts === "1") {
+    const expense = loan.expenseId ? await Expense.findById(loan.expenseId).select("attachment paymentReceipt").lean() : null;
+    return res.json({ success: true, attachment: expense?.attachment || "", paymentReceipt: expense?.paymentReceipt || "" });
+  }
+
+  const borrowerId = loan.borrowerCompanyId?._id;
+  // every lookup below is independent, so they run together (one round trip to the database instead of a dozen)
+  const [expense, audits, g, repaymentTxs, issueAlive] = await Promise.all([
+    loan.expenseId ? Expense.findById(loan.expenseId).select("-attachment -paymentReceipt").populate("createdBy", "name").populate("approvedBy", "name").lean() : null,
+    loan.expenseId
+      ? AuditLog.find({ objectId: loan.expenseId, action: { $in: ["request_payer_confirmation", "accept_payer"] } }).select("action userId at").sort({ at: -1 }).populate("userId", "name").lean()
+      : [],
+    loan.groupId ? ExpenseGroup.findById(loan.groupId).select("name createdBy settledAt settledAmount").populate("createdBy", "name").lean() : null,
+    LedgerTransaction.find({ loanId: loan._id, companyId: borrowerId, type: "loan_repayment" }).populate("createdBy", "name").sort({ createdAt: 1 }).lean(),
+    LedgerTransaction.exists({ _id: { $in: loan.transactionIds }, reversedBy: null, type: { $ne: "reversal" } }),
+  ]);
+
+  let initiatedBy = loan.createdBy ? { _id: loan.createdBy._id, name: loan.createdBy.name } : null;
+  let confirmedBy = null;
+  let bill = null;
+  if (expense) {
+    bill = {
+      _id: expense._id,
+      description: expense.description,
+      category: expense.category,
+      amount: expense.amount,
+      date: expense.date || expense.createdAt,
+      postedBy: expense.createdBy?.name || "",
+      approvedBy: expense.approvedBy?.name || "",
+      method: expense.payerMethod || loan.method || "",
+      reference: expense.payerReference || loan.reference || "",
+      hasAttachment: Boolean(expense.hasAttachment),
+      hasPaymentReceipt: Boolean(expense.hasPaymentReceipt),
+    };
+    // a payment that waited for the lender's confirmation: the requester started it, a lender admin confirmed it
+    const request = audits.find((a) => a.action === "request_payer_confirmation");
+    const accepted = audits.find((a) => a.action === "accept_payer");
+    if (request?.userId) initiatedBy = { _id: request.userId._id, name: request.userId.name };
+    if (accepted?.userId) confirmedBy = { _id: accepted.userId._id, name: accepted.userId.name };
+  }
+  const group = g ? { _id: g._id, name: g.name, createdBy: g.createdBy?.name || "", settledAt: g.settledAt, amount: g.settledAmount } : null;
+
+  const entries = repaymentTxs.length ? await LedgerEntry.find({ transactionId: { $in: repaymentTxs.map((t) => t._id) } }).select("transactionId debit").lean() : [];
+  const repayments = repaymentTxs.map((t) => ({
+    _id: t._id,
+    amount: round(entries.filter((e) => String(e.transactionId) === String(t._id)).reduce((s, e) => s + e.debit, 0)),
+    date: t.createdAt,
+    by: t.createdBy?.name || "",
+    method: t.method,
+    reference: t.reference,
+    reversed: Boolean(t.reversedBy),
+  }));
+  // same rule as loanBalance(), from the rows already loaded
+  const repaid = repayments.filter((r) => !r.reversed).reduce((s, r) => s + r.amount, 0);
+  const balance = issueAlive ? round(Math.max(0, loan.amount - repaid)) : 0;
+
+  res.json({ success: true, loan: loanView(loan, balance), bill, group, initiatedBy, confirmedBy, repayments });
 });
 
 exports.createLoan = handle(async (req, res) => {
@@ -1562,7 +1722,7 @@ function periodFilter(from, to) {
 
 async function companyReport(companyId, from, to, category) {
   const period = periodFilter(from, to);
-  const expQuery = { companyId, lifecycle: { $in: ["paid_by_admin", "paid_by_person", "paid_by_company", "reimbursed"] } };
+  const expQuery = { companyId, lifecycle: { $in: ["paid_by_admin", "paid_by_person", "paid_by_company", "reimbursed", "paid_by_voucher"] } };
   if (period) expQuery.date = period;
   if (category && category !== "All") expQuery.category = category;
   const expenses = await Expense.find(expQuery).select("amount lifecycle category");
@@ -1582,7 +1742,7 @@ async function companyReport(companyId, from, to, category) {
   }
   return {
     expenses: sum(expenses),
-    paidByAdmins: sum(expenses.filter((e) => e.lifecycle !== "paid_by_company")),
+    paidByAdmins: sum(expenses.filter((e) => e.lifecycle !== "paid_by_company" && e.lifecycle !== "paid_by_voucher")),
     owedToAdmins: round(owed),
     intercompanyNet: round(interco),
   };
@@ -1744,7 +1904,7 @@ exports.outstandingReport = handle(async (req, res) => {
   const people = new Map();
   const person = (id) => {
     const key = String(id);
-    if (!people.has(key)) people.set(key, { userId: key, name: "", role: "staff", recorded: 0, claims: 0, claimCount: 0, awaitingApproval: 0, awaitingCount: 0 });
+    if (!people.has(key)) people.set(key, { userId: key, name: "", role: "staff", recorded: 0, claims: 0, claimCount: 0, awaitingApproval: 0, awaitingCount: 0, advanceHeld: 0 });
     return people.get(key);
   };
   const payables = await LedgerAccount.find({ companyId, type: "admin_payable" });
@@ -1759,6 +1919,10 @@ exports.outstandingReport = handle(async (req, res) => {
     if (e.lifecycle === "approved") { p.claims = round(p.claims + e.amount); p.claimCount += 1; }
     else { p.awaitingApproval = round(p.awaitingApproval + e.amount); p.awaitingCount += 1; }
   }
+  // voucher money a person is still holding for the company
+  for (const [id, held] of await advanceHeldByPerson(companyId)) {
+    if (held > 0) person(id).advanceHeld = held;
+  }
   const ids = [...people.keys()];
   const [users, members] = await Promise.all([
     User.find({ _id: { $in: ids } }).select("name"),
@@ -1769,7 +1933,7 @@ exports.outstandingReport = handle(async (req, res) => {
   const rows = [...people.values()].map((p) => {
     const isAdmin = roleById.get(p.userId) === "admin" || String(company?.createdBy) === p.userId;
     return { ...p, name: nameById.get(p.userId) || "Former member", role: isAdmin ? "manager" : "staff", owed: round(p.recorded + p.claims) };
-  }).filter((p) => p.owed !== 0 || p.awaitingApproval !== 0).sort((a, b) => b.owed - a.owed);
+  }).filter((p) => p.owed !== 0 || p.awaitingApproval !== 0 || p.advanceHeld !== 0).sort((a, b) => b.owed - a.owed);
 
   // companies: open loan balances, from this company's side
   const loans = await CompanyLoan.find({ $or: [{ borrowerCompanyId: companyId }, { lenderCompanyId: companyId }] })
@@ -1802,6 +1966,7 @@ exports.outstandingReport = handle(async (req, res) => {
       owedToManagers: sum(managers, "owed"),
       owedToStaff: sum(staff, "owed"),
       awaitingApproval: sum(rows, "awaitingApproval"),
+      advanceHeld: sum(rows, "advanceHeld"),
       weOweCompanies: sum(companies, "weOwe"),
       companiesOweUs: sum(companies, "theyOwe"),
     },
@@ -1979,4 +2144,363 @@ exports.inviteMember = handle(async (req, res) => {
 
   await audit(userId, companyId, "invite_member", "invite", invite._id, null, { email, role });
   res.status(201).json({ success: true, invite: { email, role } });
+});
+
+// ---------- vouchers (money handed to staff up front) ----------
+// Each staff member has an "advance" account: debit = voucher money given to them, credit = spent or handed back.
+// "Held" balance = advance balance minus vouchers still open (those are shown separately until claimed).
+
+async function advanceAccount(companyId, personUserId) {
+  const user = await User.findById(personUserId).select("name");
+  return getAccount(companyId, { type: "advance", userId: personUserId, name: `Advance with ${user ? user.name : "member"}` });
+}
+
+async function heldAdvance(companyId, personUserId) {
+  const acc = await LedgerAccount.findOne({ companyId, type: "advance", userId: personUserId });
+  if (!acc) return 0;
+  const t = await accountTotals(acc._id);
+  const open = await Voucher.find({ companyId, recipientId: personUserId, status: "open" }).select("amount");
+  return round(t.debit - t.credit - open.reduce((s, v) => s + v.amount, 0));
+}
+
+// userId -> held balance, for everyone in the company who has an advance account
+async function advanceHeldByPerson(companyId) {
+  const out = new Map();
+  const accounts = await LedgerAccount.find({ companyId, type: "advance" }).select("userId");
+  if (!accounts.length) return out;
+  const totals = await LedgerEntry.aggregate([
+    { $match: { accountId: { $in: accounts.map((a) => a._id) } } },
+    { $group: { _id: "$accountId", debit: { $sum: "$debit" }, credit: { $sum: "$credit" } } },
+  ]);
+  const t = new Map(totals.map((x) => [String(x._id), x]));
+  for (const a of accounts) {
+    const x = t.get(String(a._id));
+    out.set(String(a.userId), round((x?.debit || 0) - (x?.credit || 0)));
+  }
+  const open = await Voucher.find({ companyId, status: "open" }).select("recipientId amount");
+  for (const v of open) {
+    const key = String(v.recipientId);
+    out.set(key, round((out.get(key) || 0) - v.amount));
+  }
+  return out;
+}
+
+// One change to a person's advance at a time (claim, use on an expense, netting, hand-back, cancel).
+const ADVANCE_LOCK_MS = 2 * 60 * 1000;
+async function withAdvanceLock(companyId, personUserId, fn) {
+  const now = new Date();
+  const locked = await CompanyMember.findOneAndUpdate(
+    { companyId, userId: personUserId, $or: [{ advanceLockAt: null }, { advanceLockAt: { $lt: new Date(now.getTime() - ADVANCE_LOCK_MS) } }] },
+    { $set: { advanceLockAt: now } }
+  );
+  if (!locked) {
+    // a company creator without a member row never receives vouchers, so there is nothing to protect
+    if (!(await CompanyMember.exists({ companyId, userId: personUserId }))) return fn();
+    throw fail(409, "This person's voucher balance is being updated; try again in a moment");
+  }
+  try {
+    return await fn();
+  } finally {
+    await CompanyMember.updateOne({ _id: locked._id, advanceLockAt: now }, { $set: { advanceLockAt: null } });
+  }
+}
+
+// Takes money out of the displayed Cash/Bank only if it is there (no check-then-deduct race).
+async function takeCompanyFund(companyId, fundId, amount, label) {
+  const isCash = !fundId || fundId === "cash";
+  const result = await Company.updateOne(
+    isCash
+      ? { _id: companyId, cashBalance: { $gte: amount } }
+      : { _id: companyId, bankAccounts: { $elemMatch: { _id: new mongoose.Types.ObjectId(String(fundId)), balance: { $gte: amount } } } },
+    isCash ? { $inc: { cashBalance: -amount } } : { $inc: { "bankAccounts.$.balance": -amount } }
+  );
+  if (!result.modifiedCount) {
+    const available = await getEffectiveFundBalance(companyId, fundId);
+    throw fail(400, `Insufficient balance in ${label} (₹${available.toFixed(2)} available, ₹${amount.toFixed(2)} required)`);
+  }
+}
+
+// A staff expense approved with "use my balance": the held balance pays what it can, the company owes the rest.
+async function applyAdvanceToExpense(expense, userId) {
+  const { companyId, createdBy } = expense;
+  const held = await heldAdvance(companyId, createdBy);
+  const used = round(Math.min(expense.amount, Math.max(0, held)));
+  if (!(used > 0)) return;
+  const rest = round(expense.amount - used);
+  const lines = [
+    { account: await expenseAccount(companyId, expense.category), debit: expense.amount },
+    { account: await advanceAccount(companyId, createdBy), credit: used },
+  ];
+  if (rest > 0) lines.push({ account: await payableAccount(companyId, createdBy), credit: rest });
+  const tx = await post({ companyId, type: "advance_used", expenseId: expense._id, memo: expense.description, createdBy: userId }, lines);
+  await Expense.updateOne(
+    { _id: expense._id, lifecycle: "approved" },
+    { $set: { lifecycle: rest > 0 ? "paid_by_person" : "paid_by_voucher", status: "paid", payerType: "person", paidByUserId: createdBy, advanceUsed: used, transactionId: tx._id } }
+  );
+  await audit(userId, companyId, "use_advance", "expense", expense._id, null, { used, owed: rest });
+  notifyUsers([createdBy], { title: "Voucher balance used", body: `₹${used} of your balance paid ${expense.description}${rest > 0 ? `; ₹${rest} is owed to you` : ""}`, data: { expenseId: expense._id, companyId } }, userId);
+}
+
+// Keeps vouchers / hand-backs in step when a super admin reverses their ledger transaction.
+async function undoVoucherRecords(tx, userId) {
+  if (tx.type === "voucher_issue" && tx.voucherId) {
+    await Voucher.updateOne({ _id: tx.voucherId, status: "open" }, { $set: { status: "cancelled", cancelledBy: userId, cancelledAt: new Date() } });
+  }
+  if (tx.type === "voucher_claim" && tx.voucherId) {
+    await Voucher.updateOne(
+      { _id: tx.voucherId, status: "claimed" },
+      { $set: { status: "open", claimedAmount: 0, fromAdvance: 0, owedToRecipient: 0, expenseId: null, claimTxId: null, claimedAt: null } }
+    );
+    if (tx.expenseId) await Expense.updateOne({ _id: tx.expenseId }, { $set: { lifecycle: "rejected", status: "outstanding", transactionId: null, advanceUsed: 0 } });
+  }
+  if (tx.type === "advance_return" && tx.advanceReturnId) {
+    await AdvanceReturn.updateOne({ _id: tx.advanceReturnId }, { $set: { status: "reversed" } });
+  }
+}
+
+const voucherPopulate = (q) => q.populate("recipientId", "name").populate("createdBy", "name").populate("cancelledBy", "name");
+
+exports.createVoucher = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, recipientId, amount, purpose, fundedBy, fundId } = req.body;
+  const value = round(parseFloat(amount));
+  if (!(value > 0)) throw fail(400, "Enter a valid amount");
+  if (!purpose || !String(purpose).trim()) throw fail(400, "Enter what the voucher is for");
+  if (!["company", "manager"].includes(fundedBy)) throw fail(400, "Choose who funds the voucher: company or manager");
+  if (!recipientId) throw fail(400, "Choose who receives the voucher");
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if ((await roleIn(companyId, recipientId)) !== "employee") throw fail(400, "Vouchers can be given to staff only");
+
+  let fund = null;
+  let fundName = "";
+  let creditAccount;
+  if (fundedBy === "company") {
+    fund = fundId || "cash";
+    creditAccount = await fundAccount(companyId, fund);
+    const company = await Company.findById(companyId).select("cashAccountName");
+    fundName = fund === "cash" ? (company?.cashAccountName || "Cash") : creditAccount.name;
+    await takeCompanyFund(companyId, fund, value, fundName);
+  } else {
+    creditAccount = await payableAccount(companyId, userId);
+  }
+
+  let voucher;
+  try {
+    voucher = await Voucher.create({ companyId, recipientId, createdBy: userId, amount: value, purpose: String(purpose).trim(), fundedBy, fundId: fund, fundName });
+    const verification = fundedBy === "company" && (await needsVerification(companyId, value)) ? "pending" : null;
+    const tx = await post(
+      { companyId, type: "voucher_issue", voucherId: voucher._id, memo: `Voucher: ${voucher.purpose}`, createdBy: userId, verification },
+      [
+        { account: await advanceAccount(companyId, recipientId), debit: value },
+        { account: creditAccount, credit: value },
+      ]
+    );
+    voucher.issueTxId = tx._id;
+    await voucher.save();
+    if (verification) await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Voucher ${voucher.purpose} · ₹${value}`, data: { transactionId: tx._id, companyId } }, userId);
+  } catch (e) {
+    if (voucher) await Voucher.deleteOne({ _id: voucher._id });
+    if (fund) await applyCompanyFund(companyId, fund, value);
+    throw e;
+  }
+
+  await audit(userId, companyId, "create", "voucher", voucher._id, null, { recipientId, amount: value, purpose: voucher.purpose, fundedBy, fundId: fund });
+  const giver = await User.findById(userId).select("name");
+  notifyUsers([recipientId], { title: "Voucher received", body: `${giver?.name || "A manager"} gave you ₹${value} for ${voucher.purpose}`, data: { voucherId: voucher._id, companyId } }, userId);
+  res.status(201).json({ success: true, voucher: await voucherPopulate(Voucher.findById(voucher._id)) });
+});
+
+exports.listVouchers = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  const admin = isAdminRole(role);
+  const vouchers = await voucherPopulate(Voucher.find(admin ? { companyId } : { companyId, recipientId: userId }))
+    .sort({ createdAt: -1 }).limit(500).lean();
+  const returns = await AdvanceReturn.find(admin ? { companyId } : { companyId, userId })
+    .populate("userId", "name").populate("decidedBy", "name").sort({ createdAt: -1 }).limit(200).lean();
+  const held = await advanceHeldByPerson(companyId);
+  const myAdvance = held.get(String(userId)) || 0;
+  if (!admin) return res.json({ success: true, role, vouchers, returns, myAdvance });
+
+  // per staff member: given, claimed, still open, and balance held
+  const ids = new Set([...held.keys(), ...vouchers.map((v) => String(v.recipientId?._id || v.recipientId))]);
+  const users = await User.find({ _id: { $in: [...ids] } }).select("name");
+  const total = (list, f) => round(list.reduce((s, v) => s + (v[f] || 0), 0));
+  const people = users.map((u) => {
+    const mine = vouchers.filter((v) => String(v.recipientId?._id || v.recipientId) === String(u._id) && v.status !== "cancelled");
+    return {
+      userId: u._id,
+      name: u.name,
+      given: total(mine, "amount"),
+      claimed: total(mine.filter((v) => v.status === "claimed"), "claimedAmount"),
+      open: total(mine.filter((v) => v.status === "open"), "amount"),
+      held: held.get(String(u._id)) || 0,
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  res.json({ success: true, role, vouchers, returns, people, myAdvance });
+});
+
+exports.claimVoucher = handle(async (req, res) => {
+  const { userId, amount, category, description, attachment, date } = req.body;
+  const value = round(parseFloat(amount));
+  if (!(value > 0)) throw fail(400, "Enter the amount you spent");
+  if (attachment && !(typeof attachment === "string" && attachment.startsWith("data:image/"))) throw fail(400, "Receipts must be image files");
+  const found = await Voucher.findById(req.params.voucherId);
+  if (!found) throw fail(404, "Voucher not found");
+  if (String(found.recipientId) !== String(userId)) throw fail(403, "Only the person who received this voucher can claim it");
+  const companyId = found.companyId;
+  await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+
+  let voucher;
+  let expense;
+  await withAdvanceLock(companyId, userId, async () => {
+    voucher = await Voucher.findOneAndUpdate({ _id: found._id, status: "open" }, { $set: { status: "claiming" } }, { returnDocument: "after" });
+    if (!voucher) throw fail(409, "This voucher was already claimed or cancelled");
+    try {
+      // this voucher is no longer "open", so the held balance now includes it: claim from it first, then from the rest
+      const available = Math.max(0, await heldAdvance(companyId, userId));
+      const fromAdvance = round(Math.min(value, available));
+      const owedToRecipient = round(value - fromAdvance);
+      const cat = String(category || "").trim() || "General";
+      expense = await Expense.create({
+        companyId,
+        createdBy: userId,
+        isAdminCreated: false,
+        amount: value,
+        description: String(description || "").trim() || voucher.purpose,
+        category: cat,
+        date: date ? new Date(date) : new Date(),
+        attachment: attachment || "",
+        lifecycle: "paid_by_voucher",
+        approvedBy: voucher.createdBy,
+        status: "paid",
+        payerType: voucher.fundedBy === "company" ? "company" : "person",
+        logAs: "self",
+        voucherId: voucher._id,
+        advanceUsed: fromAdvance,
+      });
+      const lines = [{ account: await expenseAccount(companyId, cat), debit: value }];
+      if (fromAdvance > 0) lines.push({ account: await advanceAccount(companyId, userId), credit: fromAdvance });
+      if (owedToRecipient > 0) lines.push({ account: await payableAccount(companyId, userId), credit: owedToRecipient });
+      const tx = await post({ companyId, type: "voucher_claim", expenseId: expense._id, voucherId: voucher._id, memo: `Voucher claim: ${expense.description}`, createdBy: userId }, lines);
+      expense.transactionId = tx._id;
+      await expense.save();
+      Object.assign(voucher, { status: "claimed", claimedAmount: value, fromAdvance, owedToRecipient, expenseId: expense._id, claimTxId: tx._id, claimedAt: new Date() });
+      await voucher.save();
+    } catch (e) {
+      if (expense && !expense.transactionId) await Expense.deleteOne({ _id: expense._id });
+      await Voucher.updateOne({ _id: voucher._id, status: "claiming" }, { $set: { status: "open" } });
+      throw e;
+    }
+  });
+
+  if (!BASE_EXPENSE_CATEGORIES.includes(expense.category)) {
+    await Company.updateOne({ _id: companyId }, { $addToSet: { customCategories: expense.category } });
+  }
+  await audit(userId, companyId, "claim", "voucher", voucher._id, null, { amount: value, fromAdvance: voucher.fromAdvance, owedToRecipient: voucher.owedToRecipient, expenseId: expense._id });
+  const claimer = await User.findById(userId).select("name");
+  const left = round(voucher.amount - value);
+  const tail = left > 0 ? ` · ₹${left} stays with them` : voucher.owedToRecipient > 0 ? ` · ₹${voucher.owedToRecipient} owed to them` : "";
+  await notifyCompanyAdmins(companyId, { title: "Voucher claimed", body: `${claimer?.name || "Staff"} claimed ₹${value} of ₹${voucher.amount} for ${voucher.purpose}${tail}`, data: { voucherId: voucher._id, expenseId: expense._id, companyId } }, userId);
+  res.json({
+    success: true,
+    voucher: await voucherPopulate(Voucher.findById(voucher._id)),
+    expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt"),
+    myAdvance: await heldAdvance(companyId, userId),
+  });
+});
+
+exports.cancelVoucher = handle(async (req, res) => {
+  const { userId } = req.body;
+  const found = await Voucher.findById(req.params.voucherId);
+  if (!found) throw fail(404, "Voucher not found");
+  const companyId = found.companyId;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+
+  await withAdvanceLock(companyId, found.recipientId, async () => {
+    const voucher = await Voucher.findOneAndUpdate(
+      { _id: found._id, status: "open" },
+      { $set: { status: "cancelled", cancelledBy: userId, cancelledAt: new Date() } },
+      { returnDocument: "after" }
+    );
+    if (!voucher) throw fail(409, "Only an unclaimed voucher can be cancelled");
+    try {
+      if (voucher.fundedBy === "manager" && (await adminOwed(companyId, voucher.createdBy)) < voucher.amount) {
+        throw fail(400, "The manager who funded this voucher has already been reimbursed for it, so it can't be cancelled");
+      }
+      const issue = voucher.issueTxId ? await LedgerTransaction.findById(voucher.issueTxId) : null;
+      // the money goes back where it came from: company Cash/Bank, or off the manager's owed balance
+      if (issue && !issue.reversedBy) await postReversal(issue, userId, `Voucher cancelled: ${voucher.purpose}`);
+      if (voucher.fundedBy === "manager") await recomputeReimbursed(companyId, voucher.createdBy);
+    } catch (e) {
+      await Voucher.updateOne({ _id: voucher._id, status: "cancelled" }, { $set: { status: "open", cancelledBy: null, cancelledAt: null } });
+      throw e;
+    }
+  });
+
+  await audit(userId, companyId, "cancel", "voucher", found._id, { status: "open" }, { status: "cancelled" });
+  notifyUsers([found.recipientId], { title: "Voucher cancelled", body: `₹${found.amount} for ${found.purpose} was cancelled`, data: { voucherId: found._id, companyId } }, userId);
+  res.json({ success: true, voucher: await voucherPopulate(Voucher.findById(found._id)) });
+});
+
+// Staff asks to hand back unused balance; nothing moves until a manager confirms they received the cash.
+exports.requestAdvanceReturn = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, amount, note } = req.body;
+  const value = round(parseFloat(amount));
+  if (!(value > 0)) throw fail(400, "Enter a valid amount");
+  await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  const held = await heldAdvance(companyId, userId);
+  const pending = await AdvanceReturn.find({ companyId, userId, status: { $in: ["pending", "processing"] } }).select("amount");
+  const free = round(held - pending.reduce((s, r) => s + r.amount, 0));
+  if (value > free) throw fail(400, free > 0 ? `You can hand back up to ₹${free}` : "You have no voucher balance to hand back");
+  const advanceReturn = await AdvanceReturn.create({ companyId, userId, amount: value, note: String(note || "").trim() });
+  await audit(userId, companyId, "request_return", "advance_return", advanceReturn._id, null, { amount: value });
+  const person = await User.findById(userId).select("name");
+  await notifyCompanyAdmins(companyId, { title: "Hand-back to confirm", body: `${person?.name || "Staff"} is handing back ₹${value} of voucher balance`, data: { advanceReturnId: advanceReturn._id, companyId } }, userId);
+  res.status(201).json({ success: true, advanceReturn });
+});
+
+exports.decideAdvanceReturn = handle(async (req, res) => {
+  const { userId, accept } = req.body;
+  const found = await AdvanceReturn.findById(req.params.returnId);
+  if (!found) throw fail(404, "Hand-back not found");
+  const companyId = found.companyId;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if (String(found.userId) === String(userId)) throw fail(403, "Another manager must confirm your hand-back");
+
+  let advanceReturn;
+  await withAdvanceLock(companyId, found.userId, async () => {
+    advanceReturn = await AdvanceReturn.findOneAndUpdate({ _id: found._id, status: "pending" }, { $set: { status: "processing" } }, { returnDocument: "after" });
+    if (!advanceReturn) throw fail(409, "This hand-back was already handled");
+    try {
+      if (accept) {
+        const held = await heldAdvance(companyId, advanceReturn.userId);
+        if (held < advanceReturn.amount) throw fail(400, `They now hold only ₹${Math.max(0, held)}; ask them to send a new hand-back`);
+        const tx = await post(
+          { companyId, type: "advance_return", advanceReturnId: advanceReturn._id, memo: `Voucher balance handed back${advanceReturn.note ? `: ${advanceReturn.note}` : ""}`, method: "Cash", createdBy: userId },
+          [
+            { account: await fundAccount(companyId, "cash"), debit: advanceReturn.amount },
+            { account: await advanceAccount(companyId, advanceReturn.userId), credit: advanceReturn.amount },
+          ]
+        );
+        await applyCompanyFund(companyId, "cash", advanceReturn.amount);
+        advanceReturn.transactionId = tx._id;
+      }
+      Object.assign(advanceReturn, { status: accept ? "confirmed" : "rejected", decidedBy: userId, decidedAt: new Date() });
+      await advanceReturn.save();
+    } catch (e) {
+      await AdvanceReturn.updateOne({ _id: advanceReturn._id, status: "processing" }, { $set: { status: "pending" } });
+      throw e;
+    }
+  });
+
+  await audit(userId, companyId, accept ? "confirm_return" : "reject_return", "advance_return", advanceReturn._id, null, { amount: advanceReturn.amount });
+  notifyUsers([advanceReturn.userId], {
+    title: accept ? "Hand-back confirmed" : "Hand-back declined",
+    body: accept ? `₹${advanceReturn.amount} received back into company cash` : `Your hand-back of ₹${advanceReturn.amount} was declined; the balance stays with you`,
+    data: { advanceReturnId: advanceReturn._id, companyId },
+  }, userId);
+  res.json({ success: true, advanceReturn });
 });

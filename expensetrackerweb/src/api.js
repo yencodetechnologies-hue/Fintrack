@@ -176,7 +176,9 @@ export const routedCompanyPayment = (payload) => post(ledgerUrl("/routed-payment
 export const getLedgerPayerConfirmations = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/payer-confirmations?userId=${userId}`));
 export const confirmLedgerPayer = (expenseId, userId, accept, fundId) => post(ledgerUrl(`/expenses/${expenseId}/payer-confirmation`), { userId, accept, ...(fundId ? { fundId } : {}) });
 export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/intercompany?userId=${userId}`));
-export const getLedgerLoans = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
+export const getLoanDetail = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}`));
+export const getLoanReceipts = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}&receipts=1`));
+export const getLedgerLoans =(companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
 export const getLedgerReport = (companyId, userId, from, to, category) => {
   const params = new URLSearchParams({ userId });
   if (from) params.set("from", from);
@@ -225,6 +227,16 @@ export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
   post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
 export const updateCompanySettings = (companyId, payload) =>
   post(ledgerUrl(`/companies/${companyId}/settings`), payload);
-export const updateCashAccountName = (companyId, userId, cashAccountName) =>
+// ---- Vouchers (money given to staff up front) ----
+export const getVouchers = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/vouchers?userId=${userId}`));
+export const createVoucher = (companyId, payload) => post(ledgerUrl(`/companies/${companyId}/vouchers`), payload);
+export const claimVoucher = (voucherId, payload) => post(ledgerUrl(`/vouchers/${voucherId}/claim`), payload);
+export const cancelVoucher = (voucherId, userId) => post(ledgerUrl(`/vouchers/${voucherId}/cancel`), { userId });
+export const requestAdvanceReturn = (companyId, userId, amount, note) =>
+  post(ledgerUrl(`/companies/${companyId}/advance-returns`), { userId, amount, note });
+export const decideAdvanceReturn = (returnId, userId, accept) =>
+  post(ledgerUrl(`/advance-returns/${returnId}/decide`), { userId, accept });
+
+export const updateCashAccountName =(companyId, userId, cashAccountName) =>
   post(companyUrl(`/company/${companyId}/cash-account-name`), { userId, cashAccountName });
 

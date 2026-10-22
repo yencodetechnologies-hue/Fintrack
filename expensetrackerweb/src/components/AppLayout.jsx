@@ -34,6 +34,7 @@ const ICONS = {
   interco: ["m17 2 4 4-4 4", "M3 6h18", "m7 22-4-4 4-4", "M21 18H3"],
   reports: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z", "M14 2v6h6", "M16 13H8", "M16 17H8"],
   analysis: ["M3 3v18h18", "m19 9-5 5-4-4-3 3"],
+  vouchers: ["M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z", "M13 5v2", "M13 17v2", "M13 11v2"],
   more: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
   companies: ["M3 21h18", "M5 21V7l7-4 7 4v14", "M9 21v-6h6v6"],
   groups: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"],
@@ -47,6 +48,7 @@ const WORKSPACE = [
   { tab: "interco", label: "Inter-co" },
   { tab: "reports", label: "Reports", adminOnly: true },
   { tab: "analysis", label: "Analysis", adminOnly: true },
+  { tab: "vouchers", label: "Vouchers", adminOnly: true },
   { tab: "more", label: "More" },
 ];
 

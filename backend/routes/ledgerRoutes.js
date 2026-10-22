@@ -42,7 +42,14 @@ router.post("/expenses/:expenseId/payer-confirmation", c.confirmExpensePayer);
 router.get("/companies/:companyId/loans", c.listLoans);
 router.get("/companies/:companyId/payer-confirmations", c.listPayerConfirmations);
 router.post("/loans", c.createLoan);
+router.get("/loans/:loanId", c.loanDetail);
 router.post("/loans/:loanId/repay", c.repayLoan);
 router.post("/groups/:groupId/settle", c.settleExpenseGroup);
+router.get("/companies/:companyId/vouchers", c.listVouchers);
+router.post("/companies/:companyId/vouchers", c.createVoucher);
+router.post("/vouchers/:voucherId/claim", c.claimVoucher);
+router.post("/vouchers/:voucherId/cancel", c.cancelVoucher);
+router.post("/companies/:companyId/advance-returns", c.requestAdvanceReturn);
+router.post("/advance-returns/:returnId/decide", c.decideAdvanceReturn);
 
 module.exports = router;

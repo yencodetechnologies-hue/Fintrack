@@ -50,8 +50,15 @@ import ExpenseDetailModal from "../components/ExpenseDetailModal.jsx";
 import PayableBillsPreview from "../components/PayableBillsPreview.jsx";
 import OutstandingReport from "../components/OutstandingReport.jsx";
 import ExpenseAnalysis from "../components/ExpenseAnalysis.jsx";
+import VouchersPanel from "../components/VouchersPanel.jsx";
+import StaffVouchers from "../components/StaffVouchers.jsx";
+import CreateVoucherModal from "../components/CreateVoucherModal.jsx";
+import HandBackModal from "../components/HandBackModal.jsx";
+import LoanDetailModal from "../components/LoanDetailModal.jsx";
 
 const TODAY_KEY = new Date().toDateString();
+const roundMoney = (n) => Math.round(n * 100) / 100;
+const periodInputStyle = { height: 38, padding: "0 10px", fontSize: 13, width: 150, marginBottom: 0 };
 
 function getExpenseDateKey(expense) {
   const raw = expense.date || expense.createdAt;
@@ -134,7 +141,10 @@ export default function DashboardPage() {
   const [intercoSaving, setIntercoSaving] = useState(false);
   const [moneyModal, setMoneyModal] = useState("");
   const [payeeBills, setPayeeBills] = useState({ loading: false, bills: [], owed: 0 });
-  const [moneyDraft, setMoneyDraft] = useState({ adminUserId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
+  const [moneyDraft, setMoneyDraft] = useState({ adminUserId: "", amount: "", fundId: "cash", method: "UPI", reference: "", offsetAdvance: false });
+  const [voucherModal, setVoucherModal] = useState(false);
+  const [handBackOpen, setHandBackOpen] = useState(false);
+  const [viewingLoan, setViewingLoan] = useState(null);
   const [routeDraft, setRouteDraft] = useState({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" });
   const [paymentDraft, setPaymentDraft] = useState({ payer: "admin", fundId: "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
   const [payerFundSelections, setPayerFundSelections] = useState({});
@@ -154,6 +164,10 @@ export default function DashboardPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [expenseDateFrom, setExpenseDateFrom] = useState("");
+  // Expenses tab: "all", "company" (posted as the company), "managers", "staff", or one person's user id
+  const [postedByFilter, setPostedByFilter] = useState("all");
+  // Expenses tab period: all time, one day, one month, one year, or a custom From/To range
+  const [periodMode, setPeriodMode] = useState("all");
   const [expenseDateTo, setExpenseDateTo] = useState("");
 
   const [modal, setModal] = useState(null); // {type, expense?}
@@ -190,6 +204,12 @@ export default function DashboardPage() {
         { fundId: "cash", name: payingCompany?.cashAccountName || "Cash", balance: Number(payingCompany?.cashBalance || 0) },
         ...(payingCompany?.bankAccounts || []).map((b) => ({ fundId: String(b._id), name: bankAccountLabel(b), balance: Number(b.balance || 0) })),
       ];
+
+  // Reimburse person: voucher money the chosen payee still holds, and how much of it the netting tick-box sets off
+  const payeeHeld = Math.max(0, Number((ledgerBalances?.admins || []).find((a) => String(a.userId) === String(moneyDraft.adminUserId))?.advance || 0));
+  const offsetAmount = moneyModal === "reimburse" && moneyDraft.offsetAdvance
+    ? roundMoney(Math.min(payeeHeld, Math.max(0, payeeBills.owed - Number(moneyDraft.amount || 0))))
+    : 0;
 
   const pendingVerification = transactions.filter((transaction) => transaction.verification === "pending" && !transaction.reversedBy);
 
@@ -360,6 +380,42 @@ export default function DashboardPage() {
     return groups;
   }, [filtered]);
 
+  // Day / month / year pickers fill the same From–To range the list is filtered by.
+  function setPeriod(mode, value) {
+    if (!value) return;
+    if (mode === "day") {
+      setExpenseDateFrom(value);
+      setExpenseDateTo(value);
+    } else if (mode === "month") {
+      const [y, m] = value.split("-").map(Number);
+      setExpenseDateFrom(`${value}-01`);
+      setExpenseDateTo(`${value}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`);
+    } else if (mode === "year") {
+      setExpenseDateFrom(`${value}-01-01`);
+      setExpenseDateTo(`${value}-12-31`);
+    }
+  }
+
+  function choosePeriod(mode) {
+    setPeriodMode(mode);
+    const today = getExpenseDateKey({ date: new Date() });
+    if (mode === "all") {
+      setExpenseDateFrom("");
+      setExpenseDateTo("");
+    } else if (mode === "day") setPeriod("day", today);
+    else if (mode === "month") setPeriod("month", today.slice(0, 7));
+    else if (mode === "year") setPeriod("year", today.slice(0, 4));
+  }
+
+  const expenseYears = useMemo(() => {
+    const years = new Set([String(new Date().getFullYear())]);
+    for (const e of ledgerExpenses) {
+      const key = getExpenseDateKey(e);
+      if (/^\d{4}/.test(key)) years.add(key.slice(0, 4));
+    }
+    return [...years].sort().reverse();
+  }, [ledgerExpenses]);
+
   const groupedLedgerExpenses = useMemo(() => {
     let list = ledgerExpenses.filter((expense) => (
       statusFilter === "All" ||
@@ -375,6 +431,18 @@ export default function DashboardPage() {
         const creator = isComp ? (company?.name || "").toLowerCase() : (e.createdBy?.name || "").toLowerCase();
         const amt = String(e.amount || "");
         return desc.includes(q) || cat.includes(q) || creator.includes(q) || amt.includes(q);
+      });
+    }
+
+    if (postedByFilter !== "all") {
+      const managerIds = new Set(members.filter((m) => m.role === "admin").map((m) => String(m.userId)));
+      list = list.filter((e) => {
+        const isComp = e.logAs === "company" || e.postedAs === "company";
+        const creatorId = String(e.createdBy?._id || e.createdBy || "");
+        if (postedByFilter === "company") return isComp;
+        if (postedByFilter === "managers") return !isComp && managerIds.has(creatorId);
+        if (postedByFilter === "staff") return !isComp && !managerIds.has(creatorId);
+        return !isComp && creatorId === postedByFilter;
       });
     }
 
@@ -414,7 +482,7 @@ export default function DashboardPage() {
       g.total += Number(exp.amount || 0);
     }
     return Array.from(map.values());
-  }, [ledgerExpenses, statusFilter, search, expenseDateFrom, expenseDateTo, company?.name]);
+  }, [ledgerExpenses, statusFilter, search, expenseDateFrom, expenseDateTo, company?.name, postedByFilter, members]);
 
   async function handleToggleStatus(expense, status) {
     const res = await resetExpenseStatus(expense._id, user.id, status);
@@ -469,7 +537,7 @@ export default function DashboardPage() {
     setIntercoSaving(true);
     const result = intercoModal?.type === "repay"
       ? await repayCompanyLoan(intercoModal.loan._id, { userId: user.id, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference })
-      : await createCompanyLoan({ userId: user.id, borrowerCompanyId: companyId, lenderCompanyId: intercoDraft.companyId, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference });
+      : await createCompanyLoan({ userId: user.id, borrowerCompanyId: companyId, lenderCompanyId: intercoDraft.companyId, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference, note: (intercoDraft.note || "").trim() });
     setIntercoSaving(false);
     if (result.success) {
       showToast(intercoModal?.type === "repay" ? "Loan repayment recorded" : "Company loan recorded");
@@ -556,7 +624,7 @@ export default function DashboardPage() {
   }
 
   async function selectPayee(personId) {
-    setMoneyDraft((d) => ({ ...d, adminUserId: personId, amount: "" }));
+    setMoneyDraft((d) => ({ ...d, adminUserId: personId, amount: "", offsetAdvance: false }));
     if (!personId) {
       setPayeeBills({ loading: false, bills: [], owed: 0 });
       return;
@@ -571,16 +639,22 @@ export default function DashboardPage() {
     event.preventDefault();
     setIntercoSaving(true);
     const payload = { companyId, userId: user.id, amount: Number(moneyDraft.amount), fundId: moneyDraft.fundId, method: moneyDraft.method, reference: moneyDraft.reference };
-    const result = moneyModal === "lend" ? await lendToCompany(payload) : await reimburseAdmin({ ...payload, adminUserId: moneyDraft.adminUserId });
+    const result = moneyModal === "lend" ? await lendToCompany(payload) : await reimburseAdmin({ ...payload, adminUserId: moneyDraft.adminUserId, offsetAdvance: Boolean(moneyDraft.offsetAdvance) });
     setIntercoSaving(false);
     if (result.success) {
       const payeeName = (ledgerBalances?.admins || []).find((a) => String(a.userId) === String(moneyDraft.adminUserId))?.name || "person";
+      const offsetNote = result.offset > 0 ? ` · ${money(result.offset)} set off from voucher balance` : "";
       showToast(moneyModal === "lend"
         ? "Money lent to company"
-        : `Paid ${money(payload.amount)} to ${payeeName}${result.billsClosed ? ` · ${result.billsClosed} bill${result.billsClosed === 1 ? "" : "s"} closed` : ""}`);
+        : `${payload.amount > 0 ? `Paid ${money(payload.amount)} to ${payeeName}` : `Settled ${payeeName}`}${offsetNote}${result.billsClosed ? ` · ${result.billsClosed} bill${result.billsClosed === 1 ? "" : "s"} closed` : ""}`);
       setMoneyModal("");
       load();
     } else showToast(result.message || "Could not record transaction", "error");
+  }
+
+  function openRepay(loan) {
+    setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" });
+    setIntercoModal({ type: "repay", loan });
   }
 
   async function submitRoutedPayment(event) {
@@ -640,6 +714,15 @@ export default function DashboardPage() {
                       color={Number(ledgerBalances?.myOwed) > 0 ? "var(--terracotta)" : undefined}
                       sub={isAdmin ? `Owed to all people ${money(ledgerBalances?.totalOwedToAdmins)}` : "Paid by you, not yet reimbursed"}
                     />
+                    {!isAdmin && (
+                      <HomeTile
+                        label="Voucher balance"
+                        value={money(Math.max(0, Number(ledgerBalances?.myAdvance || 0)))}
+                        sub={Number(ledgerBalances?.myAdvance) > 0 ? "Company money with you · tap to hand back" : "No voucher money with you"}
+                        onClick={Number(ledgerBalances?.myAdvance) > 0 ? () => setHandBackOpen(true) : undefined}
+                        title="Hand back unused voucher money"
+                      />
+                    )}
                     {isAdmin && (
                       <>
                         <HomeTile
@@ -669,7 +752,8 @@ export default function DashboardPage() {
                   </div>
                 );
               })()}
-              {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setMoneyModal("reimburse"); }}>Reimburse person</button></div>}
+              {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("reimburse"); }}>Reimburse person</button><button className="btn btn-outline" onClick={() => setVoucherModal(true)}>Create voucher</button></div>}
+              {!isAdmin && <StaffVouchers companyId={companyId} company={company} user={user} refreshKey={company} onChanged={load} />}
               {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
                 <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
               ) : (
@@ -797,30 +881,73 @@ export default function DashboardPage() {
 
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>From</span>
-                    <input
-                      type="date"
-                      className="field-input"
-                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: 140, marginBottom: 0 }}
-                      value={expenseDateFrom}
-                      onChange={(e) => setExpenseDateFrom(e.target.value)}
-                      title="From date"
-                    />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Posted by</span>
+                    <select
+                      className="field-select"
+                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: "auto", minWidth: 150, marginBottom: 0 }}
+                      value={postedByFilter}
+                      onChange={(e) => setPostedByFilter(e.target.value)}
+                      title="Show expenses posted by"
+                    >
+                      <option value="all">Everyone</option>
+                      <option value="company">{company.name} (company)</option>
+                      <option value="managers">All managers</option>
+                      <option value="staff">All staff</option>
+                      {members.some((m) => m.role === "admin") && (
+                        <optgroup label="Managers">
+                          {members.filter((m) => m.role === "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
+                        </optgroup>
+                      )}
+                      {members.some((m) => m.role !== "admin") && (
+                        <optgroup label="Staff">
+                          {members.filter((m) => m.role !== "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
+                        </optgroup>
+                      )}
+                    </select>
                   </div>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>To</span>
-                    <input
-                      type="date"
-                      className="field-input"
-                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: 140, marginBottom: 0 }}
-                      value={expenseDateTo}
-                      onChange={(e) => setExpenseDateTo(e.target.value)}
-                      title="To date"
-                    />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Period</span>
+                    <select
+                      className="field-select"
+                      style={{ ...periodInputStyle, width: "auto", minWidth: 110 }}
+                      value={periodMode}
+                      onChange={(e) => choosePeriod(e.target.value)}
+                      title="Filter by day, month, year or a custom range"
+                    >
+                      <option value="all">All time</option>
+                      <option value="day">Day</option>
+                      <option value="month">Month</option>
+                      <option value="year">Year</option>
+                      <option value="custom">Custom</option>
+                    </select>
                   </div>
 
-                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All") && (
+                  {periodMode === "day" && (
+                    <input type="date" className="field-input" style={periodInputStyle} value={expenseDateFrom} onChange={(e) => setPeriod("day", e.target.value)} title="Day" />
+                  )}
+                  {periodMode === "month" && (
+                    <input type="month" className="field-input" style={periodInputStyle} value={expenseDateFrom.slice(0, 7)} onChange={(e) => setPeriod("month", e.target.value)} title="Month" />
+                  )}
+                  {periodMode === "year" && (
+                    <select className="field-select" style={{ ...periodInputStyle, width: "auto" }} value={expenseDateFrom.slice(0, 4)} onChange={(e) => setPeriod("year", e.target.value)} title="Year">
+                      {expenseYears.map((y) => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  )}
+                  {periodMode === "custom" && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>From</span>
+                        <input type="date" className="field-input" style={periodInputStyle} value={expenseDateFrom} onChange={(e) => setExpenseDateFrom(e.target.value)} title="From date" />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>To</span>
+                        <input type="date" className="field-input" style={periodInputStyle} value={expenseDateTo} onChange={(e) => setExpenseDateTo(e.target.value)} title="To date" />
+                      </div>
+                    </>
+                  )}
+
+                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All" || postedByFilter !== "all") && (
                     <button
                       type="button"
                       className="btn btn-outline"
@@ -828,8 +955,10 @@ export default function DashboardPage() {
                       onClick={() => {
                         setSearch("");
                         setExpenseDateFrom("");
+                        setPeriodMode("all");
                         setExpenseDateTo("");
                         setStatusFilter("All");
+                        setPostedByFilter("all");
                       }}
                     >
                       Reset
@@ -838,10 +967,16 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {postedByFilter !== "all" && groupedLedgerExpenses.length > 0 && (
+                <div style={{ fontSize: 13, color: "var(--muted)", margin: "-6px 0 12px" }}>
+                  {groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0)} expenses · total{" "}
+                  <strong style={{ color: "var(--dark-text)" }}>{money(groupedLedgerExpenses.reduce((sum, g) => sum + g.total, 0))}</strong>
+                </div>
+              )}
               {groupedLedgerExpenses.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 24 }}>
                   No expenses match your search or date filters.
-                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All") && (
+                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All" || postedByFilter !== "all") && (
                     <div style={{ marginTop: 10 }}>
                       <button
                         type="button"
@@ -850,8 +985,10 @@ export default function DashboardPage() {
                         onClick={() => {
                           setSearch("");
                           setExpenseDateFrom("");
+                          setPeriodMode("all");
                           setExpenseDateTo("");
                           setStatusFilter("All");
+                          setPostedByFilter("all");
                         }}
                       >
                         Clear filters
@@ -990,7 +1127,7 @@ export default function DashboardPage() {
                     const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
                     const open = Number(loan.balance) > 0;
                     return (
-                      <div key={loan._id} className="expense-row static">
+                      <div key={loan._id} className="expense-row" role="button" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => setViewingLoan(loan)} onKeyDown={(e) => { if (e.key === "Enter") setViewingLoan(loan); }} title="View loan details">
                         <span className="expense-row-main">
                           <span className="expense-row-title">
                             <span className={`row-tag ${weBorrowed ? "bad" : "good"}`}>{weBorrowed ? "Borrowed" : "Lent"}</span>
@@ -1003,7 +1140,7 @@ export default function DashboardPage() {
                         <span className="expense-row-amount" style={{ color: open ? "var(--terracotta)" : "var(--muted)" }}>{open ? `${money(loan.balance)} due` : "Repaid"}</span>
                         <span className="expense-row-action">
                           {isAdmin && weBorrowed && open && (
-                            <button className="btn btn-outline btn-sm" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "repay", loan }); }}>Repay</button>
+                            <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openRepay(loan); }}>Repay</button>
                           )}
                         </span>
                       </div>
@@ -1108,6 +1245,10 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "analysis" && isAdmin && <ExpenseAnalysis companyId={companyId} userId={user.id} />}
+
+          {activeTab === "vouchers" && isAdmin && (
+            <VouchersPanel companyId={companyId} user={user} members={members} funds={availableCompanyFunds} onChanged={load} />
+          )}
 
           {activeTab === "more" && (
             <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>More</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>{[...(isAdmin ? ["funds", "transactions", "audit"] : []), "settings"].map((section) => <button key={section} className={`btn ${moreView === section ? "btn-dark" : "btn-outline"}`} onClick={() => setMoreView(section)}>{section === "funds" ? "Company Funds" : section === "transactions" ? "Ledger" : section === "audit" ? "Audit log" : "Settings"}</button>)}</div>{moreView === "funds" && isAdmin && <FundsPanel company={company} user={user} bankAccounts={bankAccounts} cashBalance={cashBalance} onChanged={(accounts, cash, newName) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash, ...(newName ? { cashAccountName: newName } : {}) }))} />}{moreView === "settings" && <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />}{moreView === "transactions" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} />}{moreView === "audit" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" />}</>
@@ -1230,11 +1371,30 @@ export default function DashboardPage() {
           customCategories={customCategories}
           hiddenStaffIds={hiddenStaffIds}
           existingExpenses={ledgerExpenses}
+          advanceBalance={Math.max(0, Number(ledgerBalances?.myAdvance || 0))}
           onCategoryAdded={(list) => setCompany((c) => ({ ...c, customCategories: list }))}
           onHiddenStaffChange={setHiddenStaffIds}
           onClose={() => setModal(null)}
           onCreated={load}
         />
+      )}
+
+      {viewingLoan && (
+        <LoanDetailModal
+          initialLoan={viewingLoan}
+          companyId={companyId}
+          user={user}
+          onClose={() => setViewingLoan(null)}
+          onRepay={isAdmin ? (loan) => { setViewingLoan(null); openRepay(loans.find((l) => String(l._id) === String(loan._id)) || loan); } : undefined}
+        />
+      )}
+
+      {voucherModal && (
+        <CreateVoucherModal companyId={companyId} user={user} members={members} funds={availableCompanyFunds} onClose={() => setVoucherModal(false)} onCreated={load} />
+      )}
+
+      {handBackOpen && (
+        <HandBackModal companyId={companyId} user={user} held={Math.max(0, Number(ledgerBalances?.myAdvance || 0))} onClose={() => setHandBackOpen(false)} onDone={load} />
       )}
 
       {moneyModal && (
@@ -1245,13 +1405,30 @@ export default function DashboardPage() {
             <label className="field-label" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
               <span>Amount (₹)</span>
               {moneyModal === "reimburse" && moneyDraft.adminUserId && payeeBills.owed > 0 && (
-                <button type="button" className="btn btn-outline" style={{ padding: "2px 10px", fontSize: 11.5 }} onClick={() => setMoneyDraft((d) => ({ ...d, amount: String(payeeBills.owed) }))}>
-                  Pay full balance · {money(payeeBills.owed)}
+                <button type="button" className="btn btn-outline" style={{ padding: "2px 10px", fontSize: 11.5 }} onClick={() => setMoneyDraft((d) => ({ ...d, amount: String(Math.max(0, roundMoney(payeeBills.owed - (d.offsetAdvance ? payeeHeld : 0)))) }))}>
+                  Pay full balance · {money(Math.max(0, payeeBills.owed - (moneyDraft.offsetAdvance ? payeeHeld : 0)))}
                 </button>
               )}
             </label>
-            <input className="field-input" type="number" min="0.01" step="0.01" max={moneyModal === "reimburse" && moneyDraft.adminUserId && payeeBills.owed > 0 ? payeeBills.owed : undefined} value={moneyDraft.amount} onChange={(event) => setMoneyDraft({ ...moneyDraft, amount: event.target.value })} required />
-            {moneyModal === "reimburse" && moneyDraft.adminUserId && <PayableBillsPreview bills={payeeBills.bills} loading={payeeBills.loading} amount={moneyDraft.amount} />}
+            <input className="field-input" type="number" min={offsetAmount > 0 ? "0" : "0.01"} step="0.01" max={moneyModal === "reimburse" && moneyDraft.adminUserId && payeeBills.owed > 0 ? payeeBills.owed : undefined} value={moneyDraft.amount} onChange={(event) => setMoneyDraft({ ...moneyDraft, amount: event.target.value })} required />
+            {moneyModal === "reimburse" && moneyDraft.adminUserId && payeeHeld > 0 && (
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 10, fontSize: 13, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={Boolean(moneyDraft.offsetAdvance)}
+                  onChange={(event) => {
+                    const on = event.target.checked;
+                    setMoneyDraft((d) => ({ ...d, offsetAdvance: on, amount: String(Math.max(0, roundMoney(payeeBills.owed - (on ? payeeHeld : 0)))) }));
+                  }}
+                  style={{ marginTop: 2 }}
+                />
+                <span>
+                  Set off the voucher balance they hold ({money(payeeHeld)})
+                  {offsetAmount > 0 && <span style={{ display: "block", color: "var(--muted)", fontSize: 12 }}>{money(offsetAmount)} taken from their balance · {money(Number(moneyDraft.amount || 0))} paid now</span>}
+                </span>
+              </label>
+            )}
+            {moneyModal === "reimburse" && moneyDraft.adminUserId && <PayableBillsPreview bills={payeeBills.bills} loading={payeeBills.loading} amount={Number(moneyDraft.amount || 0) + offsetAmount} />}
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label><select className="field-select" value={moneyDraft.fundId} onChange={(event) => setMoneyDraft({ ...moneyDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
             <select
@@ -1464,6 +1641,7 @@ export default function DashboardPage() {
               )}
             </select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={intercoDraft.reference} onChange={(event) => setIntercoDraft({ ...intercoDraft, reference: event.target.value })} />
+            {intercoModal.type !== "repay" && <><label className="field-label" style={{ display: "block", marginTop: 12 }}>Reason for borrowing (optional)</label><textarea className="field-input" rows={2} maxLength={200} placeholder="e.g. Salary payout before client payment arrives" style={{ resize: "vertical", minHeight: 60, paddingTop: 10 }} value={intercoDraft.note || ""} onChange={(event) => setIntercoDraft({ ...intercoDraft, note: event.target.value })} /></>}
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIntercoModal(null)}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : intercoModal.type === "repay" ? "Record repayment" : "Record loan"}</button></div>
           </form>}
         </Modal>

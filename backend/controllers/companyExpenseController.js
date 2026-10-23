@@ -455,6 +455,8 @@ exports.getUserCompanies = async (req, res) => {
           cashBalance: canSeeBank ? (compDoc.cashBalance || 0) : 0,
           cashAccountName: compDoc.cashAccountName || "InCash",
           userRole: isCreator ? "admin" : (m.role || "member"),
+          // name of my custom role here (made by the primary admin), shown instead of Manager/Staff
+          customRoleName: !isCreator && m.customRoleId ? ((compDoc.customRoles || []).find((r) => String(r._id) === String(m.customRoleId))?.name || null) : null,
           joinedAt: m.joinedAt,
         };
       });

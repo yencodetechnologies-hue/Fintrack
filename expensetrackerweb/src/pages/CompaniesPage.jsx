@@ -215,7 +215,7 @@ export default function CompaniesPage() {
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{c.name}</div>
                 <div style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span className="pill" style={{ background: c.userRole === "admin" ? "rgba(25, 87, 84,0.1)" : "var(--slate-border-2)", color: c.userRole === "admin" ? "var(--forest)" : "var(--dark-text)" }}>
-                    {c.userRole === "admin" ? "Manager" : "Staff"}
+                    {c.customRoleName || (c.userRole === "admin" ? "Manager" : "Staff")}
                   </span>
                   {c.details ? <span>{c.details}</span> : null}
                 </div>

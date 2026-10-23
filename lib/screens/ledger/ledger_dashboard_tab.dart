@@ -217,7 +217,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         _tile("Pending lent", _secondaryLoading ? null : inr(lentTotal), kForest,
             sub: lent.isEmpty ? "Nothing to collect" : lent.take(2).map((r) => "to ${r.name} ${inr(r.balance)}").join("\n"),
             onTap: widget.onOpenInterco),
-        _tile("Balance", inr(cash + bank), kForest,
+        _tile(s.companyName.trim().toLowerCase().endsWith("s") ? "${s.companyName}' balance" : "${s.companyName}'s balance", inr(cash + bank), kForest,
             sub: "${s.cashName} ${inr(cash)} · Bank ${inr(bank)}",
             onTap: s.can("funds") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FundsPage(scope: s))) : null),
       ],

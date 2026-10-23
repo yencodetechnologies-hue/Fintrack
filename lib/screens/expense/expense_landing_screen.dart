@@ -564,7 +564,9 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     final name = company["name"] ?? "Company";
     final details = company["details"] ?? "";
     final isAdmin = (company["userRole"] ?? "member").toString() == "admin";
-    final userRole = isAdmin ? "MANAGER" : "STAFF";
+    // a custom role made by the primary admin shows by its own name
+    final customRole = company["customRoleName"]?.toString() ?? "";
+    final userRole = customRole.isNotEmpty ? customRole.toUpperCase() : (isAdmin ? "MANAGER" : "STAFF");
 
     return Material(
       color: Colors.transparent,

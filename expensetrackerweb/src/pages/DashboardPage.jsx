@@ -834,7 +834,7 @@ export default function DashboardPage() {
                           title="View company loans"
                         />
                         <HomeTile
-                          label="Balance"
+                          label={`${company.name}${/s$/i.test(company.name.trim()) ? "'" : "'s"} balance`}
                           value={money(cashTotal + bankTotal)}
                           sub={`Cash ${money(cashTotal)} · Bank ${money(bankTotal)}`}
                           onClick={() => changeTab("funds")}

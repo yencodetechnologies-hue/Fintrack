@@ -136,7 +136,7 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
               {companies.map((c) => <option key={c._id} value={String(c._id)}>{c.name}</option>)}
             </select>
             <span className="sidebar-company-chevron" aria-hidden="true" />
-            {current && <small>{roleName ? `You're ${roleName}` : admin ? "You're a manager" : "Staff"}</small>}
+            {current && <small>{(roleName || current.customRoleName) ? `You're ${roleName || current.customRoleName}` : admin ? "You're a manager" : "Staff"}</small>}
           </div>
         )}
 

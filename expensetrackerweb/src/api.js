@@ -176,6 +176,8 @@ export const getLedgerBorrowSources = (companyId, userId) => get(ledgerUrl(`/com
 export const createCompanyLoan = (payload) => post(ledgerUrl("/loans"), payload);
 // only the person who recorded it; reversed in both companies, a paid bill or settled group is reopened
 export const deleteCompanyLoan = (loanId, userId) => post(ledgerUrl(`/loans/${loanId}/delete`), { userId });
+// a manager's own expense: they got the money back (from company Cash/Bank or a person); closes it
+export const receivedLedgerExpense = (expenseId, payload) => post(ledgerUrl(`/expenses/${expenseId}/received`), payload);
 export const repayCompanyLoan =(loanId, payload) => post(ledgerUrl(`/loans/${loanId}/repay`), payload);
 // lender's managers mark a repayment as received, choosing which of the borrower's Cash/Bank it came from
 export const receiveCompanyLoan = (loanId, payload) => post(ledgerUrl(`/loans/${loanId}/receive`), payload);

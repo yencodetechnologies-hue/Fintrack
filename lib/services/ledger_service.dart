@@ -226,6 +226,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> updatePermissions(String companyId, String userId, String role, Map<String, bool> permissions) =>
       _post("$_base/companies/$companyId/permissions", {"userId": userId, "role": role, "permissions": permissions});
 
+  /// A manager's own expense: they got the money back. body: { userId, from: company|person, fundId?, personId?, method, reference }.
+  static Future<Map<String, dynamic>> markReceived(String expenseId, Map<String, dynamic> body) =>
+      _post("$_base/expenses/$expenseId/received", body);
+
   static Future<Map<String, dynamic>> repayLoan(String loanId, Map<String, dynamic> body) =>
       _post("$_base/loans/$loanId/repay", body);
 

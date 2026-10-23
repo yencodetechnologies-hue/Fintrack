@@ -16,6 +16,7 @@ export default function ExpenseDetailModal({
   onApprove,
   onReject,
   onRecordPayment,
+  onReceived,
   onDelete,
   onVisibility,
   onReceiptsUpdated,
@@ -184,6 +185,8 @@ export default function ExpenseDetailModal({
   const primaryAction =
     isAdmin && isSubmitted && onApprove ? (
       <button type="button" className="btn btn-primary" onClick={run(onApprove)}>Approve</button>
+    ) : onReceived ? (
+      <button type="button" className="btn btn-primary" onClick={run(onReceived)}>Received</button>
     ) : isApproved && onRecordPayment ? (
       <button type="button" className="btn btn-primary" onClick={run(onRecordPayment)}>Record payment</button>
     ) : null;
@@ -302,6 +305,10 @@ export default function ExpenseDetailModal({
           )}
           {isAdmin && isSubmitted && onReject && (
             <button type="button" className="btn btn-outline" onClick={run(onReject)}>Reject</button>
+          )}
+          {/* own expense: Received is the main action; recording who paid stays available */}
+          {onReceived && isApproved && onRecordPayment && (
+            <button type="button" className="btn btn-outline" onClick={run(onRecordPayment)}>Record payment</button>
           )}
           {primaryAction}
           {!primaryAction && (

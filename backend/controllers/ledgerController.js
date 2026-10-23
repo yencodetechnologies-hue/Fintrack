@@ -206,9 +206,12 @@ const snapshot = (doc) => {
 };
 
 // FIFO: walk a person's payable credits oldest first; fully reimbursed expenses become "reimbursed".
-async function recomputeReimbursed(companyId, adminUserId) {
-  const acc = await LedgerAccount.findOne({ companyId, type: "admin_payable", userId: adminUserId });
-  if (!acc) return;
+// Walks a person's payable: every bill (credit) oldest first, and how much of it has been paid back.
+// Payments go oldest-first, except a payment tied to one bill ("Received" on that expense: a reimburse tx with
+// expenseId) which pays that bill first. Shared by recomputeReimbursed and openPayableBills so they never disagree.
+async function payableWalk(companyId, personUserId) {
+  const acc = await LedgerAccount.findOne({ companyId, type: "admin_payable", userId: personUserId });
+  if (!acc) return [];
   const entries = await LedgerEntry.find({ accountId: acc._id }).sort({ createdAt: 1 });
   let paidBack = round(entries.reduce((s, e) => s + e.debit, 0));
   const txIds = entries.filter((e) => e.credit > 0).map((e) => e.transactionId);
@@ -220,43 +223,51 @@ async function recomputeReimbursed(companyId, adminUserId) {
     if (e.credit > 0 && !txMap.has(e.transactionId.toString())) paidBack = round(paidBack - e.credit);
   }
 
+  // payments tied to one bill are kept apart from the oldest-first pool
+  const debitTxIds = entries.filter((e) => e.debit > 0).map((e) => e.transactionId);
+  const tied = await LedgerTransaction.find({ _id: { $in: debitTxIds }, reversedBy: null, type: "reimburse", expenseId: { $ne: null } }).select("expenseId");
+  const tiedTx = new Map(tied.map((t) => [t._id.toString(), t.expenseId.toString()]));
+  const tiedLeft = new Map();
   for (const e of entries) {
-    if (!(e.credit > 0)) continue;
-    const tx = txMap.get(e.transactionId.toString());
-    if (!tx) continue;
-    const covered = paidBack >= e.credit;
-    paidBack = round(paidBack - e.credit);
-    if (tx.expenseId) {
-      const expense = await Expense.findById(tx.expenseId).select("paidByAdminId");
-      await Expense.updateOne(
-        { _id: tx.expenseId, lifecycle: { $in: ["paid_by_admin", "paid_by_person", "reimbursed"] } },
-        { $set: { lifecycle: covered ? "reimbursed" : (expense?.paidByAdminId ? "paid_by_admin" : "paid_by_person") } }
-      );
-    }
+    const expenseId = e.debit > 0 ? tiedTx.get(e.transactionId.toString()) : null;
+    if (!expenseId) continue;
+    tiedLeft.set(expenseId, round((tiedLeft.get(expenseId) || 0) + e.debit));
+    paidBack = round(paidBack - e.debit);
   }
-}
 
-// Same FIFO walk as recomputeReimbursed, read-only: what is still unpaid on each of a person's bills, oldest first.
-async function openPayableBills(companyId, personUserId) {
-  const acc = await LedgerAccount.findOne({ companyId, type: "admin_payable", userId: personUserId });
-  if (!acc) return [];
-  const entries = await LedgerEntry.find({ accountId: acc._id }).sort({ createdAt: 1 });
-  let paidBack = round(entries.reduce((s, e) => s + e.debit, 0));
-  const txIds = entries.filter((e) => e.credit > 0).map((e) => e.transactionId);
-  const txs = await LedgerTransaction.find({ _id: { $in: txIds }, reversedBy: null, type: { $ne: "reversal" } });
-  const txMap = new Map(txs.map((t) => [t._id.toString(), t]));
-  for (const e of entries) {
-    if (e.credit > 0 && !txMap.has(e.transactionId.toString())) paidBack = round(paidBack - e.credit);
-  }
   const bills = [];
   for (const e of entries) {
     if (!(e.credit > 0)) continue;
     const tx = txMap.get(e.transactionId.toString());
     if (!tx) continue;
-    const covered = Math.min(e.credit, Math.max(0, paidBack));
-    paidBack = round(paidBack - e.credit);
-    const remaining = round(e.credit - covered);
-    if (remaining > 0) bills.push({ transactionId: tx._id, expenseId: tx.expenseId, memo: tx.memo, amount: e.credit, remaining, postedAt: e.createdAt });
+    const key = tx.expenseId ? tx.expenseId.toString() : null;
+    const fromTied = key ? Math.min(e.credit, tiedLeft.get(key) || 0) : 0;
+    if (fromTied > 0) tiedLeft.set(key, round(tiedLeft.get(key) - fromTied));
+    const rest = round(e.credit - fromTied);
+    const fromPool = Math.min(rest, Math.max(0, paidBack));
+    paidBack = round(paidBack - rest);
+    bills.push({ entry: e, tx, credit: e.credit, covered: round(fromTied + fromPool) });
+  }
+  return bills;
+}
+
+async function recomputeReimbursed(companyId, adminUserId) {
+  for (const { tx, credit, covered } of await payableWalk(companyId, adminUserId)) {
+    if (!tx.expenseId) continue;
+    const expense = await Expense.findById(tx.expenseId).select("paidByAdminId");
+    await Expense.updateOne(
+      { _id: tx.expenseId, lifecycle: { $in: ["paid_by_admin", "paid_by_person", "reimbursed"] } },
+      { $set: { lifecycle: covered >= credit ? "reimbursed" : (expense?.paidByAdminId ? "paid_by_admin" : "paid_by_person") } }
+    );
+  }
+}
+
+// Same walk as recomputeReimbursed, read-only: what is still unpaid on each of a person's bills, oldest first.
+async function openPayableBills(companyId, personUserId) {
+  const bills = [];
+  for (const { entry: e, tx, credit, covered } of await payableWalk(companyId, personUserId)) {
+    const remaining = round(credit - covered);
+    if (remaining > 0) bills.push({ transactionId: tx._id, expenseId: tx.expenseId, memo: tx.memo, amount: credit, remaining, postedAt: e.createdAt });
   }
   const expenses = await Expense.find({ _id: { $in: bills.map((b) => b.expenseId).filter(Boolean) } }).select("description category date");
   const byId = new Map(expenses.map((x) => [x._id.toString(), x]));
@@ -1050,6 +1061,74 @@ exports.reimburse = handle(async (req, res) => {
   };
   if (offsetAdvance) await withAdvanceLock(companyId, adminUserId, run);
   else await run();
+});
+
+// A manager's own expense (posted as themselves, so the company owes them): they record that they got the money
+// back — from the company's Cash/Bank, or from another member who paid them personally (the company then owes
+// that member instead). Closes this exact expense as reimbursed.
+// body: { userId, from: "company" | "person", fundId?, personId?, method?, reference? }
+exports.receivedExpense = handle(async (req, res) => {
+  const { userId, from, fundId, personId, method, reference } = req.body;
+  if (!["company", "person"].includes(from)) throw fail(400, "Choose who you received it from");
+  const expense = await Expense.findById(req.params.expenseId).select("-attachment -paymentReceipt");
+  if (!expense) throw fail(404, "Expense not found");
+  const companyId = expense.companyId;
+  const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if (!isAdminRole(role) || String(expense.createdBy) !== String(userId)) throw fail(403, "Only the manager who posted this expense can mark it received");
+  if (expense.groupId) throw fail(400, "Group expenses are settled with the group");
+  if (expense.logAs === "company") throw fail(400, "Company expenses are paid by the company, so there is nothing to receive");
+  const paidByMe = ["paid_by_admin", "paid_by_person"].includes(expense.lifecycle) && String(expense.paidByUserId || expense.paidByAdminId) === String(userId);
+  if (!(expense.lifecycle === "approved" && expense.status === "outstanding") && !paidByMe) {
+    throw fail(409, expense.lifecycle === "reimbursed" ? "This expense is already closed" : "Only an approved or self-paid expense can be marked received");
+  }
+  await requirePermission(companyId, userId, "reimburse");
+  const value = round(expense.amount);
+
+  let person = null;
+  if (from === "person") {
+    if (!personId || String(personId) === String(userId)) throw fail(400, "Choose who paid you");
+    if (!(await roleIn(companyId, personId))) throw fail(400, "That person is not a member of this company");
+    person = await User.findById(personId).select("name");
+  } else {
+    const available = await getEffectiveFundBalance(companyId, fundId);
+    if (available < value) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
+  }
+
+  // an approved claim becomes "paid by me" first, so there is a bill on my payable for this money to close
+  if (expense.lifecycle === "approved" && !(await acknowledgeClaim(expense, userId, userId))) {
+    throw fail(409, "This expense changed meanwhile; refresh and try again");
+  }
+  const me = await User.findById(userId).select("name");
+  const fund = from === "company" ? await fundAccount(companyId, fundId) : null;
+  const tx = await post(
+    {
+      companyId,
+      type: "reimburse",
+      expenseId: expense._id, // ties the payment to this bill (see payableWalk)
+      memo: from === "person" ? `${expense.description} · received from ${person?.name || "member"} personally` : `${expense.description} · received from company`,
+      method: method || "",
+      reference: reference || "",
+      createdBy: userId,
+      verification: from === "company" && (await needsVerification(companyId, value)) ? "pending" : null,
+    },
+    [
+      { account: await payableAccount(companyId, userId), debit: value },
+      from === "person" ? { account: await payableAccount(companyId, personId), credit: value } : { account: fund, credit: value },
+    ]
+  );
+  if (from === "company") await applyCompanyFund(companyId, fundId, -value);
+  await recomputeReimbursed(companyId, userId);
+  await audit(userId, companyId, "expense_received", "expense", expense._id, null, {
+    amount: value, from, fundId: from === "company" ? fundId || "cash" : null, personId: person ? personId : null, transactionId: tx._id,
+  });
+  if (person) {
+    notifyUsers([personId], { title: "Company owes you", body: `${me?.name || "A manager"} recorded you paid them ₹${value} for ${expense.description}`, data: { expenseId: expense._id, companyId } });
+  }
+  if (tx.verification === "pending") {
+    await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${me?.name || "A manager"} received ₹${value} for ${expense.description}`, data: { transactionId: tx._id, companyId } }, userId);
+  }
+  const updated = await Expense.findById(expense._id).select("-attachment -paymentReceipt");
+  res.json({ success: true, expense: updated, transaction: tx });
 });
 
 exports.lend = handle(async (req, res) => {

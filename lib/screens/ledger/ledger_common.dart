@@ -74,6 +74,17 @@ class LedgerScope {
       ];
 }
 
+/// A manager's own expense (posted as themselves): the company owes them, so they can mark it "Received" once
+/// they get the money back (from the company or a person). Approved, or already marked paid by them.
+bool canMarkReceived(LedgerScope s, Map<String, dynamic> e) {
+  if (!s.isAdmin || !s.can("reimburse") || idOf(e["createdBy"]) != s.userId) return false;
+  if (e["logAs"] == "company" || e["postedAs"] == "company" || e["groupId"] != null) return false;
+  final lifecycle = e["lifecycle"]?.toString();
+  final paidByMe = (lifecycle == "paid_by_admin" || lifecycle == "paid_by_person") &&
+      (idOf(e["paidByUserId"]).isNotEmpty ? idOf(e["paidByUserId"]) : idOf(e["paidByAdminId"])) == s.userId;
+  return (lifecycle == "approved" && e["status"] != "paid") || paidByMe;
+}
+
 /// "Who paid?" choices this person may record on an approved bill (switches decide which), same as the web.
 List<({String value, String label})> payerOptions(LedgerScope s, Map<String, dynamic> e) {
   final own = idOf(e["createdBy"]) == s.userId;

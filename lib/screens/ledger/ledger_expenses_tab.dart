@@ -308,6 +308,8 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
           if (handleResult(context, res, "Expense approved")) notifyLedgerChanged();
         });
       }
+    } else if (canMarkReceived(s, e)) {
+      action = _quick("Received", () => showReceivedSheet(context, s, e));
     } else if (lifecycle == "approved" && payerOptions(s, e).isNotEmpty) {
       action = _quick("Pay", () => showPaySheet(context, s, e));
     }

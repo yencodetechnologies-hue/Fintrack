@@ -139,8 +139,14 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
         ("Staff visibility", _val((e["visibleTo"] as List).isEmpty ? "All staff" : "${(e["visibleTo"] as List).length} selected staff")),
     ];
 
+    final canReceive = canMarkReceived(s, e);
     final primary = s.isAdmin && isSubmitted && s.can("approve_expenses")
         ? _button("Approve", kForest, filled: true, onTap: () => _decide(true))
+        : canReceive
+            ? _button("Received", kForest, filled: true, onTap: () {
+                _close();
+                showReceivedSheet(widget.parent, s, e);
+              })
         : canPay
             ? _button("Record payment", kForest, filled: true, onTap: () {
                 _close();
@@ -235,6 +241,12 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
               showEditExpenseSheet(widget.parent, s, e);
             }),
             if (s.isAdmin && isSubmitted && s.can("approve_expenses")) _button("Reject", kTerracotta, onTap: () => _decide(false)),
+            // own expense: Received is the main action; recording who paid stays available
+            if (canReceive && canPay)
+              _button("Record payment", kForest, onTap: () {
+                _close();
+                showPaySheet(widget.parent, s, e);
+              }),
             primary,
           ]),
         ]),
@@ -341,6 +353,113 @@ void showImageViewer(BuildContext context, String url, String label) {
 }
 
 /// Record who paid an approved expense (same choices as the web's Record payment popup).
+/// A manager's own expense: they got the money back — from company Cash/Bank, or from another member who paid
+/// them personally (the company then owes that member). Closes the expense.
+Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, dynamic> e) {
+  final amount = (e["amount"] as num?) ?? 0;
+  final others = s.members.where((m) => m["userId"].toString() != s.userId).toList();
+  var from = "company";
+  var fund = s.funds.first.id;
+  String? personId;
+  var method = "UPI";
+  final ref = TextEditingController();
+
+  Widget choice(String value, String title, String sub, String current, VoidCallback onTap) => Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: current == value ? kForest.withValues(alpha: 0.08) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: current == value ? kForest : const Color(0xFFE2E8F0), width: current == value ? 1.5 : 1),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kDark)),
+              const SizedBox(height: 2),
+              Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+            ]),
+          ),
+        ),
+      );
+
+  return showLedgerSheet(context, "Mark received", (ctx) => StatefulBuilder(builder: (ctx, set) {
+        final selected = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
+        final short = from == "company" && selected.balance < amount;
+        final person = others.where((m) => m["userId"].toString() == personId).firstOrNull;
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("${e["description"]} · ${inr(amount)} — you got this money back, so the expense closes.",
+              style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
+          const SizedBox(height: 12),
+          Text("Received from", style: labelStyle),
+          const SizedBox(height: 6),
+          Row(children: [
+            choice("company", s.companyName, "From Cash or Bank", from, () => set(() => from = "company")),
+            const SizedBox(width: 8),
+            choice("person", "A person", "They paid you; the company owes them", from, () => set(() => from = "person")),
+          ]),
+          const SizedBox(height: 10),
+          if (from == "company") ...[
+            fundDropdown(s, fund, (v) => set(() => fund = v ?? "cash"), hint: "Paid from"),
+            if (short)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text("Only ${inr(selected.balance)} available in ${selected.name}.",
+                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
+              ),
+          ] else ...[
+            DropdownButtonFormField<String>(
+              initialValue: personId,
+              isExpanded: true,
+              decoration: fieldDecoration("Who paid you?", icon: Icons.person_rounded),
+              items: others
+                  .map((m) => DropdownMenuItem(
+                        value: m["userId"].toString(),
+                        child: Text("${m["name"]} · ${m["role"] == "admin" ? "Manager" : "Staff"}", overflow: TextOverflow.ellipsis),
+                      ))
+                  .toList(),
+              onChanged: (v) => set(() => personId = v),
+            ),
+            if (person != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text("${s.companyName} will owe ${person["name"]} ${inr(amount)}.",
+                    style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
+              ),
+          ],
+          const SizedBox(height: 10),
+          methodChips(method, (m) => set(() => method = m)),
+          const SizedBox(height: 10),
+          TextField(controller: ref, decoration: fieldDecoration("Reference (optional) · UTR / cheque no.", icon: Icons.tag_rounded)),
+          const SizedBox(height: 16),
+          primaryButton(
+            "Mark received",
+            short || (from == "person" && personId == null)
+                ? null
+                : () async {
+                    final res = await LedgerService.markReceived(e["_id"].toString(), {
+                      "userId": s.userId,
+                      "from": from,
+                      if (from == "company") "fundId": fund,
+                      if (from == "person") "personId": personId,
+                      "method": method,
+                      "reference": ref.text.trim(),
+                    });
+                    if (!ctx.mounted) return;
+                    final msg = from == "person"
+                        ? "Marked received · ${s.companyName} now owes ${person?["name"] ?? "them"} ${inr(amount)}"
+                        : "Marked received · ${inr(amount)} from ${selected.name}";
+                    if (handleResult(ctx, res, msg)) {
+                      Navigator.pop(ctx);
+                      notifyLedgerChanged();
+                    }
+                  },
+          ),
+        ]);
+      }));
+}
+
 Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynamic> e) async {
   final src = await LedgerService.borrowSources(s.companyId, s.userId);
   if (!context.mounted) return;

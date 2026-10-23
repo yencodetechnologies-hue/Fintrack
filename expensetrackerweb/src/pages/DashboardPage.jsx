@@ -59,6 +59,7 @@ import PeriodFilter from "../components/PeriodFilter.jsx";
 import StaffVouchers from "../components/StaffVouchers.jsx";
 import CreateVoucherModal from "../components/CreateVoucherModal.jsx";
 import PermissionsPanel from "../components/PermissionsPanel.jsx";
+import ReceivedModal from "../components/ReceivedModal.jsx";
 import { makeCan, tabAllowed } from "../permissions.js";
 import { useCompanyLive } from "../realtime.js";
 import HandBackModal from "../components/HandBackModal.jsx";
@@ -165,6 +166,7 @@ export default function DashboardPage() {
   const [visibilityModal, setVisibilityModal] = useState(null);
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [deletingExpense, setDeletingExpense] = useState(null);
+  const [receivingExpense, setReceivingExpense] = useState(null);
   const [reversingTx, setReversingTx] = useState(null);
   const [selectedExpenseDetail, setSelectedExpenseDetail] = useState(null);
 
@@ -500,6 +502,17 @@ export default function DashboardPage() {
     } else {
       showToast(res.message || "Failed to change status", "error");
     }
+  }
+
+  // A manager's own expense (posted as themselves): the company owes them, so they can mark it "Received"
+  // once they get the money back (from the company or a person). Approved, or already marked paid by them.
+  function canMarkReceived(expense) {
+    if (!expense || !isAdmin || !can("reimburse")) return false;
+    if (String(expense.createdBy?._id || expense.createdBy) !== String(user.id)) return false;
+    if (expense.logAs === "company" || expense.postedAs === "company" || expense.groupId) return false;
+    const paidByMe = ["paid_by_admin", "paid_by_person"].includes(expense.lifecycle)
+      && String(expense.paidByUserId?._id || expense.paidByUserId || expense.paidByAdminId?._id || expense.paidByAdminId) === String(user.id);
+    return (expense.lifecycle === "approved" && expense.status !== "paid") || paidByMe;
   }
 
   // "Who paid?" choices this person may record on an approved bill (switches decide which)
@@ -1069,6 +1082,8 @@ export default function DashboardPage() {
                             <span className="expense-row-action" onClick={(e) => e.stopPropagation()}>
                               {isAdmin && expense.lifecycle === "submitted" ? (
                                 can("approve_expenses") ? <button type="button" className="btn btn-primary btn-sm" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button> : null
+                              ) : canMarkReceived(expense) ? (
+                                <button type="button" className="btn btn-primary btn-sm" onClick={() => setReceivingExpense(expense)}>Received</button>
                               ) : expense.lifecycle === "approved" && payerOptions(expense).length > 0 ? (
                                 <button
                                   type="button"
@@ -1815,6 +1830,24 @@ export default function DashboardPage() {
         </Modal>
       )}
 
+      {receivingExpense && (
+        <ReceivedModal
+          expense={receivingExpense}
+          company={company}
+          user={user}
+          members={members}
+          funds={availableCompanyFunds}
+          onClose={() => setReceivingExpense(null)}
+          onDone={() => {
+            setReceivingExpense(null);
+            setSelectedExpenseDetail(null);
+            load();
+            getLedgerExpenses(companyId, user.id).then((res) => res?.success && setLedgerExpenses(res.expenses || []));
+            getLedgerBalances(companyId, user.id).then((res) => res?.success && setLedgerBalances(res));
+          }}
+        />
+      )}
+
       {deletingExpense && (
         <ConfirmDialog
           title="Delete submitted expense?"
@@ -1848,6 +1881,7 @@ export default function DashboardPage() {
           onEdit={(exp) => setModal({ type: "edit", expense: exp })}
           onApprove={can("approve_expenses") ? (exp) => decideLedgerExpense(exp, "approve") : undefined}
           onReject={can("approve_expenses") ? (exp) => decideLedgerExpense(exp, "reject") : undefined}
+          onReceived={canMarkReceived(selectedExpenseDetail) ? (exp) => setReceivingExpense(exp) : undefined}
           onRecordPayment={payerOptions(selectedExpenseDetail).length === 0 ? undefined : (exp) => {
             setPaymentDraft({
               payer: payerOptions(exp)[0].value,

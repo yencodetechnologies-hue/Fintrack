@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_custom_roles.dart';
 
 /// Feature switches per role (web's Permissions page). The primary admin edits Managers and Staff; other managers
 /// (with "Change staff permissions") edit Staff, and can't switch on a staff feature that's off for managers.
@@ -103,6 +104,13 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
           const SizedBox(height: 12),
           if (data["canEditManagers"] == true) _section("manager", "Managers", "Every manager except the primary admin"),
           _section("staff", "Staff", "Every staff member"),
+          if (data["customRoles"] is List)
+            CustomRolesSection(
+              scope: s,
+              definitions: List<Map<String, dynamic>>.from((data["definitions"]?["custom"] as List?) ?? const []),
+              roles: List<Map<String, dynamic>>.from(data["customRoles"] as List),
+              onChanged: _load,
+            ),
         ]),
       );
     }

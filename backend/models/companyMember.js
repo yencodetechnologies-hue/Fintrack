@@ -29,6 +29,8 @@ const companyMemberSchema = new mongoose.Schema(
     },
     // Set while this person's voucher balance (advance) is being changed, so two changes can't spend it twice.
     advanceLockAt: { type: Date, default: null },
+    // a custom role the primary admin made (Company.customRoles); role above mirrors its base (manager-like = admin)
+    customRoleId: { type: mongoose.Schema.Types.ObjectId, default: null },
   },
   { timestamps: true }
 );

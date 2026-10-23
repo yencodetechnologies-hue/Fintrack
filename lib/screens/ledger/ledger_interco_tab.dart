@@ -109,7 +109,7 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, color: kMint, size: 18),
+              Icon(icon, color: Colors.white, size: 18),
               const SizedBox(width: 6),
               Flexible(child: Text(label, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5))),
             ]),

@@ -67,7 +67,7 @@ const WORKSPACE = [
 // On the company workspace, pass activeTab/onTabChange; elsewhere the workspace links open the last-used company.
 const ALL_ON = () => true;
 
-export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, activeTab, onTabChange, title }) {
+export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, roleName, activeTab, onTabChange, title }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -136,7 +136,7 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
               {companies.map((c) => <option key={c._id} value={String(c._id)}>{c.name}</option>)}
             </select>
             <span className="sidebar-company-chevron" aria-hidden="true" />
-            {current && <small>{admin ? "You're a manager" : "Staff"}</small>}
+            {current && <small>{roleName ? `You're ${roleName}` : admin ? "You're a manager" : "Staff"}</small>}
           </div>
         )}
 

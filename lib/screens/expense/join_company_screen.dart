@@ -19,8 +19,8 @@ class JoinCompanyScreen extends StatefulWidget {
 }
 
 class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
-  static const Color creamSheet = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color creamSheet = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
@@ -100,7 +100,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),

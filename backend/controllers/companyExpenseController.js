@@ -506,6 +506,9 @@ exports.getCompanyDetails = async (req, res) => {
         email: userObj.email || "",
         role: isCreator ? "admin" : (m.role || "member"),
         joinedAt: m.joinedAt,
+        // custom role made by the primary admin (name shown next to Manager/Staff)
+        customRoleId: !isCreator && m.customRoleId ? m.customRoleId : null,
+        customRoleName: !isCreator && m.customRoleId ? ((company.customRoles || []).find((r) => String(r._id) === String(m.customRoleId))?.name || null) : null,
       };
     });
 
@@ -546,7 +549,7 @@ exports.getCompanyDetails = async (req, res) => {
       members: membersList,
       currentUserRole,
       hiddenStaffIds: (ownMembership?.hiddenStaffIds || []).map(String),
-      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); return { permissionRole: p.role, myPermissions: p.perms }; })() : {}),
+      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); return { permissionRole: p.role, myPermissions: p.perms, myRoleName: p.roleName || null }; })() : {}),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -22,9 +22,9 @@ class VehicleDetailsScreen extends StatefulWidget {
 }
 
 class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
-  static const Color creamSheet = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C3826);
+  static const Color creamSheet = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
+  static const Color forestDark = Color(0xFF113F3D);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color emeraldGreen = Color(0xFF10B981);
@@ -227,7 +227,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
           children: [
             const Icon(Icons.flag_rounded, color: forestDark, size: 24),
             const SizedBox(width: 8),
-            Text("Ride Summary", style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold)),
+            Text("Ride Summary", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -303,7 +303,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               const SizedBox(height: 18),
               Text(
                 isElectric ? "Log Recharge ⚡" : "Log Refuel ⛽",
-                style: GoogleFonts.fraunces(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
+                style: GoogleFonts.inter(color: darkText, fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -428,13 +428,13 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: emeraldGreen.withValues(alpha: 0.3)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: emeraldGreen, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           name,
-          style: GoogleFonts.fraunces(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 20),
+          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 20),
         ),
         centerTitle: true,
         actions: [
@@ -505,7 +505,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                             const SizedBox(height: 4),
                             Text(
                               "${remainingRangeKm.toStringAsFixed(0)} km",
-                              style: GoogleFonts.fraunces(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.inter(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -588,7 +588,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               const SizedBox(height: 24),
 
               // 4. Ride History Section
-              Text("Recent Rides", style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("Recent Rides", style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
 
               if ((_vehicle!["rideHistory"] as List<dynamic>?) == null || (_vehicle!["rideHistory"] as List<dynamic>).isEmpty)
@@ -838,7 +838,7 @@ class FuturisticSpeedometerDashboard extends StatelessWidget {
                           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
                           child: Text(
                             isRideActive ? currentSpeed.toStringAsFixed(0) : "0",
-                            style: GoogleFonts.fraunces(
+                            style: GoogleFonts.inter(
                               fontSize: h * 0.32,
                               fontWeight: FontWeight.bold,
                               height: 0.95,

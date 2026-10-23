@@ -9,14 +9,14 @@ import 'trip_details_screen.dart';
 import 'trip_history_screen.dart';
 
 class TripsTheme {
-  static const Color scaffoldBg = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color scaffoldBg = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
-  static const Color forestDark = Color(0xFF0F261C);
-  static const Color darkText = Color(0xFF132A20);
+  static const Color forestDark = Color(0xFF113F3D);
+  static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color textMuted = Color(0xFF68786E);
+  static const Color textMuted = Color(0xFF6B7280);
   static const Color cardBg = Colors.white;
 }
 
@@ -100,7 +100,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
         ),
         title: Text(
           "Trips & Group Expenses",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 21,
@@ -265,7 +265,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                 // 2. Section Header: "Saved Trips"
                 Text(
                   "Saved Trips",
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
@@ -318,7 +318,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                             const SizedBox(height: 16),
                             Text(
                               "No Active Trips",
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: TripsTheme.forestDark,
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
@@ -438,7 +438,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                   // Trip Name
                                   Text(
                                     name,
-                                    style: GoogleFonts.fraunces(
+                                    style: GoogleFonts.inter(
                                       color: TripsTheme.darkText,
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,

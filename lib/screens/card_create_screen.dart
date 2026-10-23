@@ -37,9 +37,9 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
   bool loading = false;
   bool scanning = false;
 
-  static const Color _bg         = Color(0xFF0C5F41);
-  static const Color _forestDark = Color(0xFF0C5F41);
-  static const Color _darkText   = Color(0xFF0F261C);
+  static const Color _bg         = Color(0xFF195754);
+  static const Color _forestDark = Color(0xFF195754);
+  static const Color _darkText   = Color(0xFF1E293B);
   static const Color _terracotta = Color(0xFFB8452D);
 
   @override
@@ -448,7 +448,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
         ),
         title: Text(
           "Add Credit Card",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -494,7 +494,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
                   children: [
                     Text(
                       "Card Details",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: _darkText,

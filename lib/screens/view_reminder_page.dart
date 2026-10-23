@@ -8,8 +8,8 @@ import '../config/app_config.dart';
 import '../utils/bank_card_style.dart';
 
 // ── QFin Executive Dark Green Palette ────────────────────────────────────────
-const Color _bg        = Color(0xFF0C5F41); // Solid Executive Dark Green
-const Color _forestDark= Color(0xFF10B981); // Mint Accent
+const Color _bg        = Color(0xFF195754); // Solid Executive Dark Green
+const Color _forestDark= Color(0xFF195754); // Mint Accent
 const Color _darkText  = Colors.white;       // White Text
 const Color _terracotta= Color(0xFFB8452D); // Alert / Terracotta
 const Color _green     = Color(0xFF10B981); // Success Status
@@ -113,9 +113,9 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                       icon: Container(
                         padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF042217),
+                          color: const Color(0xFF113F3D),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
                         ),
                         child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                       ),
@@ -131,7 +131,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                         Text(
                           "BILLING AGENDA",
                           style: GoogleFonts.ibmPlexMono(
-                            color: const Color(0xFF10B981),
+                            color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.8,
@@ -141,7 +141,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                         Text(
                           "Scheduled Payments",
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.w600,
@@ -159,11 +159,11 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
             // Main Content Area
             Expanded(
               child: RefreshIndicator(
-                color: const Color(0xFF10B981),
-                backgroundColor: const Color(0xFF042217),
+                color: Colors.white,
+                backgroundColor: const Color(0xFF113F3D),
                 onRefresh: fetchReminders,
                 child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF10B981)))
+                    ? const Center(child: CircularProgressIndicator(color: Colors.white))
                     : reminders.isEmpty
                         ? Center(
                             child: Column(
@@ -173,16 +173,16 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                                   width: 72,
                                   height: 72,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF042217),
+                                    color: const Color(0xFF113F3D),
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
                                   ),
-                                  child: const Icon(Icons.notifications_off_outlined, color: Color(0xFF10B981), size: 34),
+                                  child: const Icon(Icons.notifications_off_outlined, color: Colors.white, size: 34),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   "No reminders found",
-                                  style: GoogleFonts.fraunces(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.w500,
@@ -221,10 +221,10 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                                     Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF0C5F41).withValues(alpha: 0.1),
+                                        color: const Color(0xFF195754).withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(14),
                                       ),
-                                      child: const Icon(Icons.account_balance_rounded, color: Color(0xFF0C5F41), size: 24),
+                                      child: const Icon(Icons.account_balance_rounded, color: Color(0xFF195754), size: 24),
                                     ),
                                     const SizedBox(width: 16),
                                     Column(
@@ -243,7 +243,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                                         Text(
                                           "₹${totalDueAmount.toStringAsFixed(0)}",
                                           style: GoogleFonts.inter(
-                                            color: const Color(0xFF0F261C),
+                                            color: const Color(0xFF1E293B),
                                             fontSize: 24,
                                             fontWeight: FontWeight.w800,
                                           ),
@@ -321,12 +321,12 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.notifications_active_rounded, color: Color(0xFF0C5F41), size: 16),
+                    const Icon(Icons.notifications_active_rounded, color: Color(0xFF195754), size: 16),
                     const SizedBox(width: 8),
                     Text(
                       "Notification Schedule",
                       style: GoogleFonts.inter(
-                        color: const Color(0xFF0F261C),
+                        color: const Color(0xFF1E293B),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -335,13 +335,13 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0C5F41).withValues(alpha: 0.1),
+                        color: const Color(0xFF195754).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         "${(r["reminders"] as List?)?.length ?? 0} alerts",
                         style: GoogleFonts.ibmPlexMono(
-                          color: const Color(0xFF0C5F41),
+                          color: const Color(0xFF195754),
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                         ),
@@ -364,14 +364,14 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                 child: _Btn(
                   label: "Edit",
                   icon: Icons.edit_rounded,
-                  color: const Color(0xFF0C5F41),
+                  color: const Color(0xFF195754),
                   onTap: () => showDialog(
                     context: context,
                     builder: (_) => _ConfirmDlg(
                       title: "Update Reminder",
                       message: "Do you want to update this reminder?",
                       confirmLabel: "Update",
-                      confirmColor: const Color(0xFF0C5F41),
+                      confirmColor: const Color(0xFF195754),
                       onConfirm: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -453,7 +453,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                   child: Text(
                     _fKey(item["key"]),
                     style: GoogleFonts.inter(
-                      color: const Color(0xFF0F261C),
+                      color: const Color(0xFF1E293B),
                       fontWeight: FontWeight.bold,
                       fontSize: 11.5,
                     ),
@@ -481,11 +481,11 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.access_time_rounded, color: Color(0xFF0C5F41), size: 12),
+                      const Icon(Icons.access_time_rounded, color: Color(0xFF195754), size: 12),
                       const SizedBox(width: 4),
                       Text(
                         t.toString(),
-                        style: GoogleFonts.inter(color: const Color(0xFF0F261C), fontSize: 11.5, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 11.5, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -685,14 +685,14 @@ class _ConfirmDlg extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        backgroundColor: const Color(0xFF042217),
+        backgroundColor: const Color(0xFF113F3D),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: confirmColor.withValues(alpha: 0.35)),
         ),
         title: Text(
           title,
-          style: GoogleFonts.fraunces(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
         ),
         content: Text(
           message,
@@ -715,7 +715,7 @@ class _ConfirmDlg extends StatelessWidget {
             onPressed: onConfirm,
             child: Text(
               confirmLabel,
-              style: GoogleFonts.inter(color: confirmColor == const Color(0xFF10B981) ? const Color(0xFF042217) : Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+              style: GoogleFonts.inter(color: confirmColor == const Color(0xFF10B981) ? const Color(0xFF113F3D) : Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
             ),
           ),
         ],

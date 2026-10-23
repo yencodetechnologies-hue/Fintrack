@@ -193,6 +193,11 @@ export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/comp
 // feature switches per role: GET returns my switches (+ both lists for whoever may edit them)
 export const getPermissions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/permissions?userId=${userId}`));
 export const updatePermissions = (companyId, userId, role, permissions) => post(ledgerUrl(`/companies/${companyId}/permissions`), { userId, role, permissions });
+// custom roles (primary admin only)
+export const createCustomRole = (companyId, userId, name, base) => post(ledgerUrl(`/companies/${companyId}/roles`), { userId, name, base });
+export const updateCustomRole = (companyId, roleId, userId, changes) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}`), { userId, ...changes });
+export const deleteCustomRole = (companyId, roleId, userId) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}/delete`), { userId });
+export const setMemberCustomRole = (companyId, memberUserId, userId, roleId) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/custom-role`), { userId, roleId });
 export const getLoanDetail = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}`));
 export const getLoanReceipts = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}&receipts=1`));
 export const getLedgerLoans =(companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
@@ -230,16 +235,17 @@ export const deleteLedgerExpense = (expenseId, userId) =>
   del(ledgerUrl(`/expenses/${expenseId}`), { userId });
 export const reverseLedgerTransaction = (transactionId, userId) =>
   post(ledgerUrl(`/transactions/${transactionId}/reverse`), { userId });
-export const addCompanyMember = (companyId, userId, email, role) =>
-  post(ledgerUrl(`/companies/${companyId}/members`), { userId, email, role });
+// customRoleId (primary admin only) adds them straight into a custom role
+export const addCompanyMember = (companyId, userId, email, role, customRoleId) =>
+  post(ledgerUrl(`/companies/${companyId}/members`), { userId, email, role, ...(customRoleId ? { customRoleId } : {}) });
 export const addCompanyCategory = (companyId, userId, name) =>
   post(ledgerUrl(`/companies/${companyId}/categories`), { userId, name });
 export const deleteCompanyCategory = (companyId, userId, name) =>
   post(ledgerUrl(`/companies/${companyId}/categories/delete`), { userId, name });
 export const saveVisibilityPreference = (companyId, userId, hiddenStaffIds) =>
   post(ledgerUrl(`/companies/${companyId}/visibility-preference`), { userId, hiddenStaffIds });
-export const inviteCompanyMember = (companyId, userId, email, role) =>
-  post(ledgerUrl(`/companies/${companyId}/invites`), { userId, email, role });
+export const inviteCompanyMember = (companyId, userId, email, role, customRoleId) =>
+  post(ledgerUrl(`/companies/${companyId}/invites`), { userId, email, role, ...(customRoleId ? { customRoleId } : {}) });
 export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
   post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
 export const updateCompanySettings = (companyId, payload) =>

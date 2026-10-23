@@ -6,6 +6,7 @@ const Lend = require("../models/lend");
 const Liability = require("../models/liability");
 const CompanyMember = require("../models/companyMember");
 const CompanyInvite = require("../models/companyInvite");
+const Company = require("../models/company");
 const bcrypt = require("bcryptjs");
 const nodemailer = require("nodemailer");
 
@@ -20,7 +21,15 @@ async function acceptPendingInvites(user) {
     const invites = await CompanyInvite.find({ email: String(user.email).trim().toLowerCase(), status: "pending" });
     for (const invite of invites) {
       const exists = await CompanyMember.exists({ companyId: invite.companyId, userId: user._id });
-      if (!exists) await CompanyMember.create({ companyId: invite.companyId, userId: user._id, role: invite.role });
+      if (!exists) {
+        // join into the invited custom role if it still exists, otherwise as its base role
+        let customRoleId = null;
+        if (invite.customRoleId) {
+          const company = await Company.findById(invite.companyId).select("customRoles").lean();
+          if ((company?.customRoles || []).some((r) => String(r._id) === String(invite.customRoleId))) customRoleId = invite.customRoleId;
+        }
+        await CompanyMember.create({ companyId: invite.companyId, userId: user._id, role: invite.role, customRoleId });
+      }
       invite.status = "accepted";
       invite.acceptedAt = new Date();
       await invite.save();

@@ -4,11 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/card_service.dart';
 
 class DeleteCardTheme {
-  static const Color creamSheet = Color(0xFF0C5F41);
-  static const Color forestDark = Color(0xFF0C5F41);
-  static const Color darkText = Color(0xFF0F261C);
+  static const Color creamSheet = Color(0xFF195754);
+  static const Color forestDark = Color(0xFF195754);
+  static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
-  static const Color textMuted = Color(0xFF68786E);
+  static const Color textMuted = Color(0xFF6B7280);
   static const Color cardBg = Colors.white;
 }
 
@@ -63,7 +63,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
         ),
         title: Text(
           "Delete Card",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -120,7 +120,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                       const SizedBox(height: 20),
                       Text(
                         "No Cards Found",
-                        style: GoogleFonts.fraunces(
+                        style: GoogleFonts.inter(
                           color: DeleteCardTheme.darkText,
                           fontSize: 22,
                           fontWeight: FontWeight.w600,
@@ -302,7 +302,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                   // Title
                   Text(
                     "Delete Credit Card",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: DeleteCardTheme.darkText,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,

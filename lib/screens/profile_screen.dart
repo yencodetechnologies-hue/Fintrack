@@ -340,8 +340,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showGmailDialog() {
-    const Color darkText = Color(0xFF0F261C);
-    const Color forestDark = Color(0xFF0C5F41);
+    const Color darkText = Color(0xFF1E293B);
+    const Color forestDark = Color(0xFF195754);
 
     showDialog(
       context: context,
@@ -352,7 +352,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         ),
         title: Text(
           'Gmail Bill Sync',
-          style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold),
+          style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -418,8 +418,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showYahooDialog() {
-    const Color darkText = Color(0xFF0F261C);
-    const Color forestDark = Color(0xFF0C5F41);
+    const Color darkText = Color(0xFF1E293B);
+    const Color forestDark = Color(0xFF195754);
 
     showDialog(
       context: context,
@@ -439,7 +439,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             const SizedBox(width: 10),
             Text(
               'Yahoo Bill Sync',
-              style: GoogleFonts.fraunces(color: darkText, fontWeight: FontWeight.bold),
+              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -507,7 +507,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showDeleteAccountDialog() {
-    const Color darkText = Color(0xFF0F261C);
+    const Color darkText = Color(0xFF1E293B);
     const Color terracotta = Color(0xFFB8452D);
 
     showDialog(
@@ -534,7 +534,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             const SizedBox(width: 12),
             Text(
               "Delete Account?",
-              style: GoogleFonts.fraunces(
+              style: GoogleFonts.inter(
                 color: darkText,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -587,7 +587,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   void _showLogoutDialog() {
-    const Color darkText = Color(0xFF0F261C);
+    const Color darkText = Color(0xFF1E293B);
     const Color terracotta = Color(0xFFB8452D);
 
     showDialog(
@@ -599,7 +599,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         ),
         title: Text(
           "Logout",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: darkText,
             fontWeight: FontWeight.bold,
           ),
@@ -652,14 +652,14 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     final String initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : "U";
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C5F41),
+      backgroundColor: const Color(0xFF195754),
       body: SafeArea(
         child: isDeletingAccount
             ? const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(color: Color(0xFF10B981)),
+                    CircularProgressIndicator(color: Colors.white),
                     SizedBox(height: 20),
                     Text(
                       "Purging account data...",
@@ -689,7 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                             Text(
                               "EXECUTIVE PROFILE",
                               style: GoogleFonts.ibmPlexMono(
-                                color: const Color(0xFF10B981),
+                                color: Colors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 1.8,
@@ -698,7 +698,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                             const SizedBox(height: 2),
                             Text(
                               "Account Passport",
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -760,13 +760,13 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                 height: 58,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: const Color(0xFF0C5F41),
+                                  color: const Color(0xFF195754),
                                   border: Border.all(color: const Color(0xFFD4AF37), width: 2),
                                 ),
                                 child: Center(
                                   child: Text(
                                     initial,
-                                    style: GoogleFonts.fraunces(
+                                    style: GoogleFonts.inter(
                                       color: const Color(0xFFD4AF37),
                                       fontSize: 26,
                                       fontWeight: FontWeight.bold,
@@ -785,8 +785,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     const SizedBox(height: 2),
                                     Text(
                                       widget.userName,
-                                      style: GoogleFonts.fraunces(
-                                        color: const Color(0xFF0F261C),
+                                      style: GoogleFonts.inter(
+                                        color: const Color(0xFF1E293B),
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -851,7 +851,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       Text(
                                         isLoadingStats ? "..." : "$cardCount",
                                         style: GoogleFonts.inter(
-                                          color: const Color(0xFF0F261C),
+                                          color: const Color(0xFF1E293B),
                                           fontSize: 20,
                                           fontWeight: FontWeight.w800,
                                         ),
@@ -880,7 +880,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       Text(
                                         isLoadingStats ? "..." : "$reminderCount",
                                         style: GoogleFonts.inter(
-                                          color: const Color(0xFF0F261C),
+                                          color: const Color(0xFF1E293B),
                                           fontSize: 20,
                                           fontWeight: FontWeight.w800,
                                         ),
@@ -889,7 +889,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       Text(
                                         "BILL ALERTS",
                                         style: GoogleFonts.ibmPlexMono(
-                                          color: const Color(0xFF0C5F41),
+                                          color: const Color(0xFF195754),
                                           fontSize: 9,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 1.2,
@@ -910,7 +910,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     // ── 3. SETTINGS & PREFERENCES SECTION ────────────────────
                     Text(
                       "Settings & Preferences",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         color: Colors.white,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -941,7 +941,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           _buildMenuItem(
                             icon: Icons.credit_card_rounded,
                             title: "Manage Credit Cards",
-                            color: const Color(0xFF0C5F41),
+                            color: const Color(0xFF195754),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -978,10 +978,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                 "https://cdn-icons-png.flaticon.com/512/5968/5968534.png",
                                 width: 20,
                                 height: 20,
-                                errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF0C5F41), size: 20),
+                                errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF195754), size: 20),
                               ),
                               title: gmailConnected ? "Gmail Connected (${gmailEmail ?? ''})" : "Connect Gmail",
-                              color: const Color(0xFF0C5F41),
+                              color: const Color(0xFF195754),
                               onTap: _showGmailDialog,
                             ),
                           ],
@@ -991,17 +991,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               "https://www.google.com/s2/favicons?domain=yahoo.com&sz=128",
                               width: 20,
                               height: 20,
-                              errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF0C5F41), size: 20),
+                              errorBuilder: (_, __, ___) => const Icon(Icons.mail_rounded, color: Color(0xFF195754), size: 20),
                             ),
                             title: yahooConnected ? "Yahoo Connected (${yahooEmail ?? ''})" : "Connect Yahoo",
-                            color: const Color(0xFF0C5F41),
+                            color: const Color(0xFF195754),
                             onTap: _showYahooDialog,
                           ),
                           _buildDivider(),
                           _buildMenuItem(
                             icon: Icons.balance_rounded,
                             title: "Lend & Borrow Tracker",
-                            color: const Color(0xFF0C5F41),
+                            color: const Color(0xFF195754),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -1018,7 +1018,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           _buildMenuItem(
                             icon: Icons.assignment_rounded,
                             title: "Expense Tracker",
-                            color: const Color(0xFF0C5F41),
+                            color: const Color(0xFF195754),
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -1075,7 +1075,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       title: Text(
         title,
         style: GoogleFonts.inter(
-          color: isLast ? const Color(0xFFB8452D) : const Color(0xFF0F261C),
+          color: isLast ? const Color(0xFFB8452D) : const Color(0xFF1E293B),
           fontSize: 14.5,
           fontWeight: FontWeight.w600,
         ),

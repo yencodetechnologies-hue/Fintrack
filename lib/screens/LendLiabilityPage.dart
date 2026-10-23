@@ -229,8 +229,8 @@ class LendLiabilityPage extends StatefulWidget {
 class _LendLiabilityPageState extends State<LendLiabilityPage>
     with SingleTickerProviderStateMixin {
 
-  static const Color _bg         = Color(0xFF0C5F41); // Solid Executive Dark Green
-  static const Color _forestDark = Color(0xFF10B981); // Mint Accent
+  static const Color _bg         = Color(0xFF195754); // Solid Executive Dark Green
+  static const Color _forestDark = Color(0xFF195754); // Mint Accent
   static const Color _darkText   = Colors.white;       // White Text
   static const Color _goldAccent = Color(0xFF10B981); // Mint Accent
   static const Color _terracotta = Color(0xFFB8452D); // Terracotta Accent
@@ -338,7 +338,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
             const SizedBox(width: 12),
             Text(
               "Delete Record",
-              style: GoogleFonts.fraunces(
+              style: GoogleFonts.inter(
                 color: _darkText,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -644,9 +644,9 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                       icon: Container(
                         padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF042217),
+                          color: const Color(0xFF113F3D),
                           shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
                         ),
                         child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                       ),
@@ -685,7 +685,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                         Text(
                           "Lend & Liability",
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -726,7 +726,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: idx == 0 ? const Color(0xFF0C5F41) : Colors.transparent,
+                              color: idx == 0 ? const Color(0xFF195754) : Colors.transparent,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -734,14 +734,14 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                               children: [
                                 Icon(
                                   Icons.arrow_upward_rounded,
-                                  color: idx == 0 ? Colors.white : const Color(0xFF0F261C).withValues(alpha: 0.6),
+                                  color: idx == 0 ? Colors.white : const Color(0xFF1E293B).withValues(alpha: 0.6),
                                   size: 16,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   "Lend Records",
                                   style: GoogleFonts.inter(
-                                    color: idx == 0 ? Colors.white : const Color(0xFF0F261C),
+                                    color: idx == 0 ? Colors.white : const Color(0xFF1E293B),
                                     fontSize: 13,
                                     fontWeight: idx == 0 ? FontWeight.bold : FontWeight.w600,
                                   ),
@@ -775,14 +775,14 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                               children: [
                                 Icon(
                                   Icons.arrow_downward_rounded,
-                                  color: idx == 1 ? Colors.white : const Color(0xFF0F261C).withValues(alpha: 0.6),
+                                  color: idx == 1 ? Colors.white : const Color(0xFF1E293B).withValues(alpha: 0.6),
                                   size: 16,
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
                                   "Liabilities",
                                   style: GoogleFonts.inter(
-                                    color: idx == 1 ? Colors.white : const Color(0xFF0F261C),
+                                    color: idx == 1 ? Colors.white : const Color(0xFF1E293B),
                                     fontSize: 13,
                                     fontWeight: idx == 1 ? FontWeight.bold : FontWeight.w600,
                                   ),
@@ -1063,10 +1063,10 @@ class _LendCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  static const Color _forestDark = Color(0xFF0F261C);
+  static const Color _forestDark = Color(0xFF113F3D);
   static const Color _emerald    = Color(0xFF1E7A53);
   static const Color _goldAccent = Color(0xFFD4AF37);
-  static const Color _darkText   = Color(0xFF132A20);
+  static const Color _darkText   = Color(0xFF1E293B);
 
   @override
   Widget build(BuildContext context) {
@@ -1111,7 +1111,7 @@ class _LendCard extends StatelessWidget {
                   child: Center(
                     child: Text(
                       entry.name.isNotEmpty ? entry.name[0].toUpperCase() : "?",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         color: activeColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -1236,7 +1236,7 @@ class _LiabilityCard extends StatelessWidget {
 
   static const Color _terracotta = Color(0xFFB8452D);
   static const Color _emerald    = Color(0xFF1E7A53);
-  static const Color _darkText   = Color(0xFF132A20);
+  static const Color _darkText   = Color(0xFF1E293B);
 
   @override
   Widget build(BuildContext context) {
@@ -1281,7 +1281,7 @@ class _LiabilityCard extends StatelessWidget {
                   child: Center(
                     child: Text(
                       entry.name.isNotEmpty ? entry.name[0].toUpperCase() : "?",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         color: activeColor,
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
@@ -1379,7 +1379,7 @@ class _BottomSheetForm extends StatefulWidget {
 }
 
 class _BottomSheetFormState extends State<_BottomSheetForm> {
-  static const Color _bg = Color(0xFF0C5F41);
+  static const Color _bg = Color(0xFF195754);
 
   @override
   Widget build(BuildContext context) {
@@ -1420,7 +1420,7 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
                 const SizedBox(width: 12),
                 Text(
                   widget.title,
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 19,
@@ -1505,7 +1505,7 @@ class _FormField extends StatelessWidget {
         floatingLabelStyle: GoogleFonts.inter(color: accent, fontSize: 13, fontWeight: FontWeight.w700),
         prefixIcon: Icon(icon, color: accent, size: 20),
         filled: true,
-        fillColor: const Color(0xFF0C3826),
+        fillColor: const Color(0xFF113F3D),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1),
@@ -1573,16 +1573,16 @@ class _SummaryCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0C5F41).withValues(alpha: 0.1),
+                  color: const Color(0xFF195754).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: const Color(0xFF0C5F41), size: 18),
+                child: Icon(icon, color: const Color(0xFF195754), size: 18),
               ),
               const SizedBox(width: 10),
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  color: const Color(0xFF132A20),
+                  color: const Color(0xFF1E293B),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -1592,8 +1592,8 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             "₹${amount.toStringAsFixed(2)}",
-            style: GoogleFonts.fraunces(
-              color: const Color(0xFF0F261C),
+            style: GoogleFonts.inter(
+              color: const Color(0xFF1E293B),
               fontSize: 32,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
@@ -1605,15 +1605,15 @@ class _SummaryCard extends StatelessWidget {
               _StatPill(
                 label: pendingLabel,
                 count: pendingCount,
-                color: const Color(0xFF0C5F41),
-                textColor: const Color(0xFF0C5F41),
+                color: const Color(0xFF195754),
+                textColor: const Color(0xFF195754),
               ),
               const SizedBox(width: 10),
               _StatPill(
                 label: receivedLabel,
                 count: receivedCount,
                 color: const Color(0xFF10B981),
-                textColor: const Color(0xFF0C5F41),
+                textColor: const Color(0xFF195754),
               ),
             ],
           ),
@@ -1691,8 +1691,8 @@ class _InfoChip extends StatelessWidget {
                 Text(
                   value,
                   style: large
-                      ? GoogleFonts.fraunces(color: color, fontSize: 16, fontWeight: FontWeight.bold)
-                      : GoogleFonts.inter(color: const Color(0xFF132A20), fontSize: 13, fontWeight: FontWeight.w600),
+                      ? GoogleFonts.inter(color: color, fontSize: 16, fontWeight: FontWeight.bold)
+                      : GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 13, fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],

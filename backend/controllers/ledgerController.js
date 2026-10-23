@@ -11,7 +11,7 @@ const Voucher = require("../models/voucher");
 const AdvanceReturn = require("../models/advanceReturn");
 const nodemailer = require("nodemailer");
 const { notifyUsers, notifyCompanyAdmins } = require("../services/ledgerNotify");
-const { LISTS, resolved, permissionsFor, permissionDenied } = require("../utils/permissions");
+const { LISTS, resolved, resolvedCustom, permissionsFor, permissionDenied } = require("../utils/permissions");
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -2286,6 +2286,10 @@ exports.setMemberRole = handle(async (req, res) => {
   }
   const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
   if (!member) throw fail(404, "That person is not in this company");
+  if (member.customRoleId) {
+    if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only the primary admin can change someone in a custom role");
+    member.customRoleId = null;
+  }
   const before = { role: member.role };
   member.role = role;
   await member.save();
@@ -2299,12 +2303,25 @@ exports.setMemberRole = handle(async (req, res) => {
 });
 
 // Add someone who already has an account, directly as admin or staff (no join code needed).
+// Adding/inviting straight into a custom role: primary admin only; the base role follows the custom role.
+async function inviteRole(companyId, userId, role, customRoleId) {
+  if (!customRoleId) {
+    if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
+    return { role, customRoleId: null, label: role === "admin" ? "a manager" : "staff" };
+  }
+  if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only the primary admin can add people to a custom role");
+  const company = await Company.findById(companyId).select("customRoles").lean();
+  const custom = (company?.customRoles || []).find((r) => String(r._id) === String(customRoleId));
+  if (!custom) throw fail(404, "That role no longer exists");
+  return { role: custom.base === "manager" ? "admin" : "member", customRoleId: custom._id, label: `"${custom.name}"`, name: custom.name };
+}
+
 exports.addMember = handle(async (req, res) => {
   const { companyId } = req.params;
-  const { userId, email, role } = req.body;
-  if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
+  const { userId, email } = req.body;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
   await requirePermission(companyId, userId, "members");
+  const { role, customRoleId, label, name: roleName } = await inviteRole(companyId, userId, req.body.role, req.body.customRoleId);
   const company = await Company.findById(companyId).select("name external");
   if (company.external) throw fail(400, "Outside companies can't have members");
   const user = await User.findOne({ email: String(email || "").trim() }).select("name");
@@ -2314,14 +2331,14 @@ exports.addMember = handle(async (req, res) => {
   }
   const existing = await CompanyMember.findOne({ companyId, userId: user._id });
   if (existing) throw fail(400, `${user.name} is already in this company — change their role instead`);
-  const member = await CompanyMember.create({ companyId, userId: user._id, role });
-  await audit(userId, companyId, "add_member", "member", member._id, null, { memberUserId: user._id, role });
+  const member = await CompanyMember.create({ companyId, userId: user._id, role, customRoleId });
+  await audit(userId, companyId, "add_member", "member", member._id, null, { memberUserId: user._id, role, customRoleId });
   notifyUsers([user._id], {
     title: `Added to ${company.name}`,
-    body: role === "admin" ? `You were added as an admin of ${company.name}` : `You were added to ${company.name}`,
+    body: customRoleId ? `You were added to ${company.name} as ${label}` : role === "admin" ? `You were added as an admin of ${company.name}` : `You were added to ${company.name}`,
     data: { companyId },
   });
-  res.status(201).json({ success: true, member: { userId: user._id, name: user.name, role } });
+  res.status(201).json({ success: true, member: { userId: user._id, name: user.name, role, customRoleId, customRoleName: roleName || null } });
 });
 
 // Saves which members a manager keeps unticked under "Visible To" when posting expenses.
@@ -2343,12 +2360,12 @@ exports.setVisibilityPreference = handle(async (req, res) => {
 // Email a Q Fin sign-up link to someone without an account; they join this company on sign-up.
 exports.inviteMember = handle(async (req, res) => {
   const { companyId } = req.params;
-  const { userId, role } = req.body;
+  const { userId } = req.body;
   const email = String(req.body.email || "").trim().toLowerCase();
-  if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, "Enter a valid email address");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
   await requirePermission(companyId, userId, "members");
+  const { role, customRoleId, label: roleLabel } = await inviteRole(companyId, userId, req.body.role, req.body.customRoleId);
   const company = await Company.findById(companyId).select("name external");
   if (company.external) throw fail(400, "Outside companies can't have members");
   const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2358,14 +2375,13 @@ exports.inviteMember = handle(async (req, res) => {
 
   const invite = await CompanyInvite.findOneAndUpdate(
     { companyId, email },
-    { $set: { role, invitedBy: userId, status: "pending", acceptedAt: null } },
+    { $set: { role, customRoleId, invitedBy: userId, status: "pending", acceptedAt: null } },
     { upsert: true, returnDocument: "after" }
   );
 
   const inviter = await User.findById(userId).select("name");
   const appUrl = String(process.env.WEB_APP_URL || req.get("origin") || "https://fintrack-sooty-eta.vercel.app").replace(/\/+$/, "");
   const link = `${appUrl}/signup?email=${encodeURIComponent(email)}`;
-  const roleLabel = role === "admin" ? "a manager" : "staff";
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
   const companyName = esc(company.name);
   try {
@@ -2849,9 +2865,10 @@ exports.getPermissions = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
-  const [mine, company] = await Promise.all([permissionsFor(companyId, userId), Company.findById(companyId).select("permissions").lean()]);
+  const [mine, company] = await Promise.all([permissionsFor(companyId, userId), Company.findById(companyId).select("permissions customRoles").lean()]);
   const canEditManagers = mine.role === "primary";
-  const canEditStaff = canEditManagers || (mine.role === "manager" && mine.perms.staff_permissions);
+  const managerLike = mine.role === "manager" || (mine.role === "custom" && mine.base === "manager");
+  const canEditStaff = canEditManagers || (managerLike && mine.perms.staff_permissions);
   res.json({
     success: true,
     role: mine.role,
@@ -2865,6 +2882,8 @@ exports.getPermissions = handle(async (req, res) => {
           staff: resolved(LISTS.staff, company?.permissions?.staff),
         }
       : {}),
+    // custom roles: only the primary admin manages them
+    ...(canEditManagers ? { customRoles: await customRolesView(companyId, company) } : {}),
   });
 });
 
@@ -2899,4 +2918,137 @@ exports.updatePermissions = handle(async (req, res) => {
   await Company.updateOne({ _id: companyId }, { $set: { [`permissions.${target}`]: stored } });
   await audit(userId, companyId, "update_permissions", "company", companyId, { [target]: before }, { [target]: next });
   res.json({ success: true, [target]: next });
+});
+
+// ---------- custom roles (primary admin only) ----------
+// Roles on top of Manager/Staff. Each has a base (manager-like = admin, staff-like = member, mirrored on
+// CompanyMember.role so every existing rule keeps working) and its own switches, all OFF until turned on.
+async function requirePrimary(companyId, userId) {
+  const mine = await permissionsFor(companyId, userId);
+  if (mine.role !== "primary") throw fail(403, "Only the primary admin can manage roles");
+}
+
+async function customRolesView(companyId, company) {
+  const roles = company?.customRoles || [];
+  if (!roles.length) return [];
+  const members = await CompanyMember.find({ companyId, customRoleId: { $in: roles.map((r) => r._id) } }).select("userId customRoleId").lean();
+  const users = await User.find({ _id: { $in: members.map((m) => m.userId) } }).select("name email").lean();
+  const byId = new Map(users.map((u) => [String(u._id), u]));
+  return roles.map((r) => ({
+    _id: r._id,
+    name: r.name,
+    base: r.base,
+    createdAt: r.createdAt,
+    permissions: resolvedCustom(r),
+    members: members
+      .filter((m) => String(m.customRoleId) === String(r._id))
+      .map((m) => ({ userId: m.userId, name: byId.get(String(m.userId))?.name || "Member", email: byId.get(String(m.userId))?.email || "" })),
+  }));
+}
+
+const roleNameTaken = (company, name, exceptId) =>
+  ["manager", "managers", "staff", "admin", "primary admin"].includes(name.toLowerCase()) ||
+  (company.customRoles || []).some((r) => r.name.toLowerCase() === name.toLowerCase() && String(r._id) !== String(exceptId || ""));
+
+// body: { userId, name, base: "manager" | "staff" }
+exports.createCustomRole = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, base } = req.body;
+  const name = String(req.body.name || "").trim();
+  await requirePrimary(companyId, userId);
+  if (!name) throw fail(400, "Give the role a name");
+  if (name.length > 40) throw fail(400, "Keep the role name under 40 characters");
+  if (!["manager", "staff"].includes(base)) throw fail(400, "Choose manager-like or staff-like");
+  const company = await Company.findById(companyId).select("customRoles");
+  if (roleNameTaken(company, name)) throw fail(400, `A role called "${name}" already exists`);
+  company.customRoles.push({ name, base, permissions: {}, createdBy: userId });
+  await company.save();
+  const role = company.customRoles[company.customRoles.length - 1];
+  await audit(userId, companyId, "create_role", "company", companyId, null, { roleId: role._id, name, base });
+  res.json({ success: true, role: { _id: role._id, name, base, permissions: resolvedCustom(role), members: [] } });
+});
+
+// body: { userId, name?, permissions?: { key: boolean } }
+exports.updateCustomRole = handle(async (req, res) => {
+  const { companyId, roleId } = req.params;
+  const { userId, permissions } = req.body;
+  await requirePrimary(companyId, userId);
+  const company = await Company.findById(companyId).select("customRoles");
+  const role = company.customRoles.id(roleId);
+  if (!role) throw fail(404, "Role not found");
+  const before = { name: role.name, permissions: resolvedCustom(role) };
+  if (req.body.name !== undefined) {
+    const name = String(req.body.name).trim();
+    if (!name) throw fail(400, "Give the role a name");
+    if (name.length > 40) throw fail(400, "Keep the role name under 40 characters");
+    if (roleNameTaken(company, name, roleId)) throw fail(400, `A role called "${name}" already exists`);
+    role.name = name;
+  }
+  if (permissions && typeof permissions === "object") {
+    const next = { ...(role.permissions || {}) };
+    for (const def of LISTS.custom) {
+      if (typeof permissions[def.key] !== "boolean") continue;
+      if (permissions[def.key] && def.only && def.only !== role.base) {
+        throw fail(400, `"${def.label}" only works for ${def.only}-like roles`);
+      }
+      if (permissions[def.key]) next[def.key] = true;
+      else delete next[def.key];
+    }
+    role.permissions = next;
+    company.markModified("customRoles");
+  }
+  await company.save();
+  await audit(userId, companyId, "update_role", "company", companyId, before, { roleId, name: role.name, permissions: resolvedCustom(role) });
+  res.json({ success: true, role: { _id: role._id, name: role.name, base: role.base, permissions: resolvedCustom(role) } });
+});
+
+// Deletes the role AND removes its members from the company (the web asks first, listing them).
+exports.deleteCustomRole = handle(async (req, res) => {
+  const { companyId, roleId } = req.params;
+  const { userId } = req.body;
+  await requirePrimary(companyId, userId);
+  const company = await Company.findById(companyId).select("customRoles createdBy name");
+  const role = company.customRoles.id(roleId);
+  if (!role) throw fail(404, "Role not found");
+  const members = await CompanyMember.find({ companyId, customRoleId: role._id });
+  const removed = members.filter((m) => String(m.userId) !== String(company.createdBy));
+  await CompanyMember.deleteMany({ _id: { $in: removed.map((m) => m._id) } });
+  const name = role.name;
+  company.customRoles.pull(role._id);
+  await company.save();
+  await audit(userId, companyId, "delete_role", "company", companyId, { roleId, name, members: removed.map((m) => m.userId) }, null);
+  if (removed.length) {
+    notifyUsers(removed.map((m) => m.userId), { title: "Removed from company", body: `The "${name}" role in ${company.name} was deleted, and you were removed with it`, data: { companyId } });
+  }
+  res.json({ success: true, removed: removed.length });
+});
+
+// Puts a member into a custom role (their Manager/Staff base follows it), or takes them out (roleId null → staff).
+exports.setMemberCustomRole = handle(async (req, res) => {
+  const { companyId, memberUserId } = req.params;
+  const { userId, roleId } = req.body;
+  await requirePrimary(companyId, userId);
+  const company = await Company.findById(companyId).select("customRoles createdBy name");
+  if (String(company.createdBy) === String(memberUserId)) throw fail(400, "The primary admin can't be given a role");
+  const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
+  if (!member) throw fail(404, "That person is not in this company");
+  const before = { role: member.role, customRoleId: member.customRoleId };
+  let role = null;
+  if (roleId) {
+    role = company.customRoles.id(roleId);
+    if (!role) throw fail(404, "Role not found");
+    member.customRoleId = role._id;
+    member.role = role.base === "manager" ? "admin" : "member";
+  } else {
+    member.customRoleId = null;
+    member.role = "member";
+  }
+  await member.save();
+  await audit(userId, companyId, "set_member_role", "member", member._id, before, { role: member.role, customRoleId: member.customRoleId, memberUserId });
+  notifyUsers([memberUserId], {
+    title: "Your role changed",
+    body: role ? `You are now "${role.name}" in ${company.name}` : `You are now staff in ${company.name}`,
+    data: { companyId },
+  });
+  res.json({ success: true });
 });

@@ -273,12 +273,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color forestDark = Color(0xFF0F261C); // Deep Forest Green Header
+    const Color forestDark = Color(0xFF113F3D); // Deep Forest Green Header
     const Color creamSheet = Color(0xFFF6F4EB); // Vintage Cream Sheet
-    const Color darkPill = Color(0xFF132A20); // Dark Pill Active Tab
+    const Color darkPill = Color(0xFF1E293B); // Dark Pill Active Tab
     const Color terracotta = Color(0xFFB8452D); // Terracotta Primary Button Accent
     const Color goldText = Color(0xFFD4AF37); // Vintage Muted Gold Accent
-    const Color darkText = Color(0xFF132A20);
+    const Color darkText = Color(0xFF1E293B);
     const Color mutedText = Color(0xFF6B7280);
 
     return Scaffold(
@@ -316,7 +316,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Center(
                         child: Text(
                           "Q",
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             fontSize: 32,
                             fontWeight: FontWeight.w500,
                             fontStyle: FontStyle.italic,
@@ -330,7 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Text(
                     "Welcome back to ${AppConfig.appName}",
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       fontSize: 26,
                       fontWeight: FontWeight.w500,
                       fontStyle: FontStyle.italic,

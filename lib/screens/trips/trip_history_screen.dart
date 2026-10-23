@@ -6,13 +6,13 @@ import '../../services/trip_service.dart';
 import 'trip_details_screen.dart';
 
 class TripHistoryTheme {
-  static const Color scaffoldBg = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color scaffoldBg = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
-  static const Color forestDark = Color(0xFF0F261C);
-  static const Color darkText = Color(0xFF132A20);
+  static const Color forestDark = Color(0xFF113F3D);
+  static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
-  static const Color textMuted = Color(0xFF68786E);
+  static const Color textMuted = Color(0xFF6B7280);
   static const Color cardBg = Colors.white;
 }
 
@@ -96,7 +96,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
         ),
         title: Text(
           "Trip History",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
@@ -151,7 +151,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                         const SizedBox(height: 18),
                         Text(
                           "No Past Trips in History",
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: TripHistoryTheme.forestDark,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -293,7 +293,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                             // Trip Name
                             Text(
                               name,
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: TripHistoryTheme.darkText,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,

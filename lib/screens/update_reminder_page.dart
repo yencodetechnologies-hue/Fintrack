@@ -23,9 +23,9 @@ class UpdateReminderPage extends StatefulWidget {
 }
 
 class _UpdateReminderPageState extends State<UpdateReminderPage> {
-  static const Color _bg = Color(0xFF0C5F41);
-  static const Color _forestDark = Color(0xFF0C5F41);
-  static const Color _darkText = Color(0xFF0F261C);
+  static const Color _bg = Color(0xFF195754);
+  static const Color _forestDark = Color(0xFF195754);
+  static const Color _darkText = Color(0xFF1E293B);
 
   List cards = [];
 

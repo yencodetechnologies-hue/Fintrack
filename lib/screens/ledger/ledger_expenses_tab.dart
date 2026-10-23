@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_expense_detail.dart';
-import 'ledger_period_filter.dart';
+import 'ledger_filters.dart';
 
 /// Kept for screens that list categories without a company (older imports).
 const List<String> kCategories = kBaseCategories;
@@ -127,7 +127,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
       floatingActionButton: !s.can("post_expenses") ? null : FloatingActionButton.extended(
         backgroundColor: kForestDark,
         onPressed: () => showPostExpenseSheet(context, s, existing: _expenses, advance: _myAdvance),
-        icon: const Icon(Icons.add_rounded, color: kMint),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text("Post Expense", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: _loading
@@ -168,7 +168,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                     Column(children: [
                       const SizedBox(height: 40),
                       Text(_error!, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white)),
-                      TextButton.icon(onPressed: _load, icon: const Icon(Icons.refresh_rounded, color: kMint), label: const Text("Retry", style: TextStyle(color: kMint))),
+                      TextButton.icon(onPressed: _load, icon: const Icon(Icons.refresh_rounded, color: Colors.white), label: const Text("Retry", style: TextStyle(color: Colors.white))),
                     ])
                   else if (list.isEmpty)
                     Padding(
@@ -179,7 +179,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inter(color: Colors.white70),
                         ),
-                        if (_filtering) TextButton(onPressed: _reset, child: const Text("Reset filters", style: TextStyle(color: kMint))),
+                        if (_filtering) TextButton(onPressed: _reset, child: const Text("Reset filters", style: TextStyle(color: Colors.white))),
                       ]),
                     )
                   else
@@ -191,64 +191,38 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
   }
 
   Widget _filterCard() {
-    final input = InputDecoration(
-      isDense: true,
-      filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-    );
-    Widget labelled(String label, Widget child) => Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Row(children: [
-            SizedBox(width: 70, child: Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.6)))),
-            Expanded(child: child),
-          ]),
-        );
-    return Container(
+    final postedBy = <String, String>{
+      "all": "Everyone",
+      "company": "${s.companyName} (company)",
+      "managers": "All managers",
+      "staff": "All staff",
+      for (final m in s.admins) m["userId"].toString(): "Manager · ${m["name"]}",
+      for (final m in s.staff) m["userId"].toString(): "Staff · ${m["name"]}",
+    };
+    return filterCard(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      child: Column(children: [
-        TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          decoration: input.copyWith(
-            hintText: "Search by description, staff, amount…",
-            prefixIcon: const Icon(Icons.search_rounded, size: 20),
-            suffixIcon: _search.text.isEmpty ? null : IconButton(icon: const Icon(Icons.close_rounded, size: 18), onPressed: () => setState(_search.clear)),
-          ),
+      search: FilterSearchField(controller: _search, hint: "Search description, staff, amount", onChanged: () => setState(() {})),
+      pills: [
+        filterPill(
+          icon: Icons.person_outline_rounded,
+          value: postedBy.containsKey(_postedBy) ? _postedBy : "all",
+          defaultValue: "all",
+          options: postedBy,
+          onSelected: (v) => setState(() => _postedBy = v),
+          label: _postedBy == "all" ? "Posted by: Everyone" : null,
         ),
-        labelled(
-          "Posted by",
-          DropdownButtonFormField<String>(
-            initialValue: _postedBy,
-            isExpanded: true,
-            decoration: input,
-            items: [
-              const DropdownMenuItem(value: "all", child: Text("Everyone")),
-              DropdownMenuItem(value: "company", child: Text("${s.companyName} (company)", overflow: TextOverflow.ellipsis)),
-              const DropdownMenuItem(value: "managers", child: Text("All managers")),
-              const DropdownMenuItem(value: "staff", child: Text("All staff")),
-              ...s.admins.map((m) => DropdownMenuItem(value: m["userId"].toString(), child: Text("Manager · ${m["name"]}", overflow: TextOverflow.ellipsis))),
-              ...s.staff.map((m) => DropdownMenuItem(value: m["userId"].toString(), child: Text("Staff · ${m["name"]}", overflow: TextOverflow.ellipsis))),
-            ],
-            onChanged: (v) => setState(() => _postedBy = v ?? "all"),
-          ),
-        ),
-        PeriodFilter(
+        periodPill(
+          context,
           from: _from,
           to: _to,
-          decoration: input,
           dates: _expenses.map(_dayKey),
           onChanged: (from, to) => setState(() {
             _from = from;
             _to = to;
           }),
         ),
-        if (_filtering) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: _reset, child: const Text("Reset"))),
-      ]),
+      ],
+      onClear: _filtering ? _reset : null,
     );
   }
 

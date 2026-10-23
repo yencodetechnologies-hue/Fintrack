@@ -45,7 +45,7 @@ class BankSelectorField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasSelection = selectedBankId != null;
-    const Color greenAccent = Color(0xFF0C5F41);
+    const Color greenAccent = Color(0xFF195754);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -101,7 +101,7 @@ class BankSelectorField extends StatelessWidget {
                       Text(
                         _selectedBankTitle,
                         style: GoogleFonts.inter(
-                          color: hasSelection ? const Color(0xFF0F261C) : const Color(0xFF9CA3AF),
+                          color: hasSelection ? const Color(0xFF1E293B) : const Color(0xFF9CA3AF),
                           fontSize: 15,
                           fontWeight: hasSelection ? FontWeight.bold : FontWeight.w500,
                         ),
@@ -143,7 +143,7 @@ class BankSelectorField extends StatelessWidget {
               controller: customBankController,
               onChanged: (_) => onCustomBankChanged(),
               style: GoogleFonts.inter(
-                color: const Color(0xFF0F261C),
+                color: const Color(0xFF1E293B),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -194,8 +194,8 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
   List<BankOption> _filteredBanks = indianBanks;
 
   static const Color _bg         = Colors.white;
-  static const Color _greenAccent = Color(0xFF0C5F41);
-  static const Color _darkText   = Color(0xFF0F261C);
+  static const Color _greenAccent = Color(0xFF195754);
+  static const Color _darkText   = Color(0xFF1E293B);
   static const Color _goldAccent = Color(0xFFD4AF37);
 
   @override
@@ -269,7 +269,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                 const SizedBox(width: 12),
                 Text(
                   "Select Bank",
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                     color: _darkText,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -391,7 +391,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                           child: Center(
                             child: Text(
                               bank.displayName[0].toUpperCase(),
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: isSelected ? Colors.white : _greenAccent,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 15,

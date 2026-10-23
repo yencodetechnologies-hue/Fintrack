@@ -60,8 +60,7 @@ class QFinNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color outerPillBg   = Color(0xFF073523); // Balanced deep green floating container (#073523)
-    const Color activePillBg  = Color(0xFF0C5F41); // Vibrant #0C5F41 green active pill
-    const Color mintAccent    = Color(0xFF10B981); // Mint border & glow accent
+    const Color activePillBg  = Color(0xFF195754); // Vibrant #195754 green active pill
     const Color activeTextCol = Colors.white;      // Crisp white active label/icon
     const Color unselectedCol = Color(0xFFA7F3D0); // Muted mint green for unselected icons
 
@@ -84,7 +83,7 @@ class QFinNavBar extends StatelessWidget {
             decoration: BoxDecoration(
               color: outerPillBg,
               borderRadius: BorderRadius.circular(36),
-              border: Border.all(color: const Color(0xFF0C5F41).withValues(alpha: 0.5), width: 1.2),
+              border: Border.all(color: const Color(0xFF195754).withValues(alpha: 0.5), width: 1.2),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.5),
@@ -103,7 +102,7 @@ class QFinNavBar extends StatelessWidget {
                 return Stack(
                   alignment: Alignment.centerLeft,
                   children: [
-                    // Active #0C5F41 Green Pill Indicator with Glowing Mint Border
+                    // Active #195754 Green Pill Indicator with Glowing Mint Border
                     Positioned(
                       left: activeLeft.clamp(0.0, totalWidth - itemWidth),
                       top: 0,
@@ -113,10 +112,10 @@ class QFinNavBar extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: activePillBg,
                           borderRadius: BorderRadius.circular(28),
-                          border: Border.all(color: mintAccent, width: 1.2),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.5), width: 1.2),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF0C5F41).withValues(alpha: 0.5),
+                              color: const Color(0xFF195754).withValues(alpha: 0.5),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),

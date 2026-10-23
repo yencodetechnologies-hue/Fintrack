@@ -1191,6 +1191,16 @@ a {
 @media (max-width: 640px) {
   .perm-grid { grid-template-columns: 1fr; }
 }
+/* custom roles */
+.role-base { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+.role-base.manager { background: #E0E7FF; color: #3730A3; }
+.role-base.staff { background: #E8F7EF; color: var(--forest); }
+.role-members { margin: 10px 0 6px; padding: 10px; border-radius: 12px; background: var(--slate-bg); border: 1px solid var(--slate-border-2); }
+.role-members-head { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.role-member-chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 99px; background: #fff; border: 1px solid var(--slate-border); font-size: 12.5px; font-weight: 600; }
+.role-member-chip button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; padding: 0 5px; border-radius: 99px; }
+.role-member-chip button:hover { color: var(--terracotta); }
+.role-add-member { margin-top: 8px; height: 34px; padding: 0 10px; font-size: 12.5px; }
 
 .today-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 99px; background: #E8F7EF; border: 1px solid #CBEBD9; color: var(--forest); font-size: 13.5px; font-weight: 700; line-height: 1; }
 .loan-chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
@@ -1463,6 +1473,33 @@ a {
 .home-tile { padding: 14px 16px; min-width: 0; }
 .home-tile.clickable { cursor: pointer; }
 .home-tile.clickable:hover { border-color: var(--forest); }
+
+/* Total expenses tile: period picker next to the label */
+.home-tile-label-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.tile-period {
+  appearance: none;
+  border: 0;
+  border-radius: 99px;
+  background: var(--slate-border-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center;
+  padding: 3px 20px 3px 9px;
+  font: 700 10.5px Inter, system-ui, sans-serif;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--dark-text);
+  cursor: pointer;
+}
+.tile-period.on { background-color: #E8F7EF; color: var(--forest); }
+.tile-period-dates { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+.tile-period-dates input {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 1px solid var(--slate-border);
+  border-radius: 8px;
+  padding: 3px 4px;
+  font: 600 11px Inter, system-ui, sans-serif;
+  color: var(--dark-text);
+  background: #fff;
+}
 
 .home-tile-label {
   font-size: 10.5px;

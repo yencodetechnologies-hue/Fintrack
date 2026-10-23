@@ -26,8 +26,8 @@ class GroupExpensesScreen extends StatefulWidget {
 }
 
 class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
-  static const Color bgGreen = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color bgGreen = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
@@ -390,7 +390,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                 const Padding(
                     padding: EdgeInsets.all(28),
                     child: Center(
-                        child: CircularProgressIndicator(color: mintAccent)))
+                        child: CircularProgressIndicator(color: Colors.white)))
               else if (_error != null)
                 Center(
                   child: Column(children: [
@@ -419,7 +419,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
               onPressed: _loading ? null : _addExpense,
               backgroundColor: darkSurface,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.add_rounded, color: mintAccent),
+              icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: const Text("Add expense"),
             ),
     );

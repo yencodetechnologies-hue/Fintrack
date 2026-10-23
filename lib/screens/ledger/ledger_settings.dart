@@ -80,11 +80,12 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
     final email = _email.text.trim();
     if (email.isEmpty) return toast(context, "Enter the member's email address", error: true);
     setState(() => _adding = true);
-    final res = await LedgerService.addMember(s.companyId, s.userId, email, _role);
+    final target = _inviteTarget(_role);
+    final res = await LedgerService.addMember(s.companyId, s.userId, email, target.role, customRoleId: target.customRoleId);
     if (!mounted) return;
     setState(() => _adding = false);
     if (res["success"] == true) {
-      toast(context, "${res["member"]?["name"] ?? email} added as ${_role == "admin" ? "manager" : "staff"}");
+      toast(context, "${res["member"]?["name"] ?? email} added as ${target.label}");
       _email.clear();
       notifyLedgerChanged();
       return;
@@ -93,11 +94,11 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
       final send = await confirmDialog(
         context,
         "Not a Q Fin user yet",
-        "$email is not in the user list. Send an invite link to their email? Once they sign up with this email, they'll join ${s.companyName} as ${_role == "admin" ? "a manager" : "staff"}.",
+        "$email is not in the user list. Send an invite link to their email? Once they sign up with this email, they'll join ${s.companyName} as ${target.label}.",
         confirmLabel: "Send invite",
       );
       if (!send || !mounted) return;
-      final inv = await LedgerService.inviteMember(s.companyId, s.userId, email, _role);
+      final inv = await LedgerService.inviteMember(s.companyId, s.userId, email, target.role, customRoleId: target.customRoleId);
       if (!mounted) return;
       if (handleResult(context, inv, "Invite sent to $email")) _email.clear();
       return;
@@ -118,6 +119,25 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
     final res = await LedgerService.setMemberRole(s.companyId, s.userId, m["userId"].toString(), role);
     if (!mounted) return;
     if (handleResult(context, res, role == "admin" ? "$name is now a manager" : "$name is now staff")) notifyLedgerChanged();
+  }
+
+  List<Map<String, dynamic>> get _customRoles => List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []);
+
+  // the role picker's value: "member" | "admin" | "role:" + a custom role id
+  ({String role, String? customRoleId, String label}) _inviteTarget(String value) {
+    if (value.startsWith("role:")) {
+      final id = value.substring(5);
+      final r = _customRoles.where((x) => x["_id"].toString() == id).firstOrNull;
+      return (role: r?["base"] == "manager" ? "admin" : "member", customRoleId: id, label: "\"${r?["name"] ?? "custom role"}\"");
+    }
+    return (role: value, customRoleId: null, label: value == "admin" ? "a manager" : "staff");
+  }
+
+  // primary admin only: puts a member into one of the custom roles
+  Future<void> _setCustomRole(Map<String, dynamic> m, String roleId) async {
+    final res = await LedgerService.setMemberCustomRole(s.companyId, m["userId"].toString(), s.userId, roleId);
+    if (!mounted) return;
+    if (handleResult(context, res, "Role updated")) notifyLedgerChanged();
   }
 
   Future<void> _remove(Map<String, dynamic> m) async {
@@ -256,11 +276,25 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
             card("Direct member invite", sub: "Add a registered user directly by email, or invite someone new to sign up and join.", children: [
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: fieldDecoration("colleague@example.com", icon: Icons.email_rounded)),
               const SizedBox(height: 8),
-              SegmentedButton<String>(
-                segments: const [ButtonSegment(value: "member", label: Text("Staff")), ButtonSegment(value: "admin", label: Text("Manager"))],
-                selected: {_role},
-                onSelectionChanged: (v) => setState(() => _role = v.first),
-              ),
+              // custom roles: only the primary admin can add people into them
+              if (s.isPrimary && _customRoles.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  initialValue: _role,
+                  isExpanded: true,
+                  decoration: fieldDecoration("Role", icon: Icons.badge_rounded),
+                  items: [
+                    const DropdownMenuItem(value: "member", child: Text("Staff")),
+                    const DropdownMenuItem(value: "admin", child: Text("Manager")),
+                    for (final r in _customRoles) DropdownMenuItem(value: "role:${r["_id"]}", child: Text(r["name"].toString(), overflow: TextOverflow.ellipsis)),
+                  ],
+                  onChanged: (v) => setState(() => _role = v ?? "member"),
+                )
+              else
+                SegmentedButton<String>(
+                  segments: const [ButtonSegment(value: "member", label: Text("Staff")), ButtonSegment(value: "admin", label: Text("Manager"))],
+                  selected: {_role.startsWith("role:") ? "member" : _role},
+                  onSelectionChanged: (v) => setState(() => _role = v.first),
+                ),
               const SizedBox(height: 10),
               primaryButton(_adding ? "Adding…" : "Add member", _adding ? null : _addMember),
             ]),
@@ -272,6 +306,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                 final isManager = m["role"] == "admin";
                 final isCreator = id == creatorId;
                 final isMe = id == s.userId;
+                final customRole = m["customRoleName"]?.toString() ?? "";
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(children: [
@@ -284,16 +319,28 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("${m["name"] ?? "Member"}${isMe ? " (You)" : ""}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                        Text("${isCreator ? "Manager · Creator" : (isManager ? "Manager" : "Staff")}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
+                        Text("${isCreator ? "Manager · Creator" : (customRole.isNotEmpty ? "$customRole · ${isManager ? "manager-like" : "staff-like"}" : (isManager ? "Manager" : "Staff"))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
                             style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
                       ]),
                     ),
                     if (s.isAdmin && s.can("members") && !isCreator && !isMe)
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded, color: kDark),
-                        onSelected: (v) => v == "remove" ? _remove(m) : _setRole(m, v),
+                        onSelected: (v) => v == "remove"
+                            ? _remove(m)
+                            : v.startsWith("role:")
+                                ? _setCustomRole(m, v.substring(5))
+                                : _setRole(m, v),
                         itemBuilder: (_) => [
-                          PopupMenuItem(value: isManager ? "member" : "admin", child: Text(isManager ? "Make staff" : "Make manager")),
+                          // someone in a custom role: only the primary admin can change them
+                          if (customRole.isEmpty || s.isPrimary) ...[
+                            if (customRole.isNotEmpty || !isManager) const PopupMenuItem(value: "admin", child: Text("Make manager")),
+                            if (customRole.isNotEmpty || isManager) const PopupMenuItem(value: "member", child: Text("Make staff")),
+                          ],
+                          if (s.isPrimary)
+                            for (final r in List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []))
+                              if (r["_id"].toString() != m["customRoleId"]?.toString())
+                                PopupMenuItem(value: "role:${r["_id"]}", child: Text("Make ${r["name"]}")),
                           const PopupMenuItem(value: "remove", child: Text("Remove from company", style: TextStyle(color: kTerracotta))),
                         ],
                       ),

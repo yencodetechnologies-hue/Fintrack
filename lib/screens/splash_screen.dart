@@ -17,8 +17,8 @@ class _SplashScreenState extends State<SplashScreen> {
   double _scale = 0.85;
 
   static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
-  static const Color _forestDark = Color(0xFF0F261C); // QFin Deep Forest Green
-  static const Color _darkText   = Color(0xFF132A20); // Deep Forest Dark Text
+  static const Color _forestDark = Color(0xFF113F3D); // QFin Deep Forest Green
+  static const Color _darkText   = Color(0xFF1E293B); // Deep Forest Dark Text
   static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
 
   @override
@@ -134,7 +134,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   // App Title
                   Text(
                     AppConfig.appName,
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       fontSize: 38,
                       color: _darkText,
                       fontWeight: FontWeight.bold,

@@ -18,7 +18,7 @@ import '../services/email_sync_service.dart';
 import '../services/fcm_service.dart';
 
 class CardHomeTheme {
-  static const Color background = Color(0xFF0F261C); // QFin Deep Forest Green Header / Background
+  static const Color background = Color(0xFF113F3D); // QFin Deep Forest Green Header / Background
   static const Color cardBg = Color(0xFFF6F4EB); // Vintage Cream Card Surface
   static const Color cardBorder = Color(0xFFE2DDD0); // Soft Vintage Cream Border
   static const Color borderDark = Color(0xFFE2DDD0);
@@ -26,7 +26,7 @@ class CardHomeTheme {
   static const Color primaryBlue = Color(0xFFB8452D); // Terracotta Accent
   static const Color cyanGlow = Color(0xFFD4AF37); // Vintage Gold Accent
   static const Color cyanAccent = Color(0xFFD4AF37);
-  static const Color textWhite = Color(0xFF132A20); // Dark Forest Slate Text inside Cream Cards
+  static const Color textWhite = Color(0xFF1E293B); // Dark Forest Slate Text inside Cream Cards
   static const Color textMuted = Color(0xFF6B7280); // Muted Text
 }
 
@@ -104,7 +104,7 @@ class _GridViewPageState extends State<GridViewPage> {
       return const SizedBox.shrink();
     }
 
-    const Color darkText = Color(0xFF132A20);
+    const Color darkText = Color(0xFF1E293B);
     const Color terracotta = Color(0xFFB8452D);
     const Color goldAccent = Color(0xFFD4AF37);
 
@@ -127,7 +127,7 @@ class _GridViewPageState extends State<GridViewPage> {
                 const SizedBox(width: 8),
                 Text(
                   "Action Required",
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                     color: darkText,
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
@@ -364,9 +364,9 @@ class _GridViewPageState extends State<GridViewPage> {
                     color: Colors.transparent,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF042217),
+                        color: const Color(0xFF113F3D),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35), width: 1.2),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 1.2),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.6),
@@ -384,7 +384,7 @@ class _GridViewPageState extends State<GridViewPage> {
                               children: [
                                 Text(
                                   'Notifications',
-                                  style: GoogleFonts.fraunces(
+                                  style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -395,7 +395,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                   Text(
                                     '${_selectedNotifs.length} selected',
                                     style: GoogleFonts.inter(
-                                      color: const Color(0xFF10B981),
+                                      color: Colors.white,
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -487,7 +487,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                     padding: EdgeInsets.all(32),
                                     child: Center(
                                       child: CircularProgressIndicator(
-                                        color: Color(0xFF10B981),
+                                        color: Colors.white,
                                       ),
                                     ),
                                   )
@@ -501,7 +501,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                               const Icon(
                                                 Icons.notifications_off_outlined,
                                                 size: 36,
-                                                color: Color(0xFF10B981),
+                                                color: Colors.white,
                                               ),
                                               const SizedBox(height: 8),
                                               Text(
@@ -547,17 +547,17 @@ class _GridViewPageState extends State<GridViewPage> {
                                                       right: 12,
                                                     ),
                                                     decoration: BoxDecoration(
-                                                      color: isSel ? const Color(0xFF10B981) : Colors.transparent,
+                                                      color: isSel ? Colors.white : Colors.transparent,
                                                       borderRadius: BorderRadius.circular(6),
                                                       border: Border.all(
-                                                        color: isSel ? const Color(0xFF10B981) : Colors.white54,
+                                                        color: isSel ? Colors.white : Colors.white54,
                                                       ),
                                                     ),
                                                     child: isSel
                                                         ? const Icon(
                                                             Icons.check,
                                                             size: 14,
-                                                            color: Color(0xFF042217),
+                                                            color: Color(0xFF113F3D),
                                                           )
                                                         : null,
                                                   ),
@@ -581,7 +581,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                                                 log['sentAt'] as String?,
                                                               ),
                                                               style: GoogleFonts.ibmPlexMono(
-                                                                color: const Color(0xFF10B981),
+                                                                color: Colors.white,
                                                                 fontSize: 11,
                                                               ),
                                                             ),
@@ -633,9 +633,9 @@ class _GridViewPageState extends State<GridViewPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFF0C5F41),
+          color: const Color(0xFF195754),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
         ),
         child: Text(
           label,
@@ -668,7 +668,7 @@ class _GridViewPageState extends State<GridViewPage> {
 
   @override
   Widget build(BuildContext context) {
-    const Color darkText = Color(0xFF132A20);
+    const Color darkText = Color(0xFF1E293B);
     const Color goldText = Color(0xFFD4AF37);
     const Color terracotta = Color(0xFFB8452D);
 
@@ -744,7 +744,7 @@ class _GridViewPageState extends State<GridViewPage> {
       //   "subtitle": "Track mileage, live speed, fuel usage & safe range",
       //   "icon": FontAwesomeIcons.gaugeHigh,
       //   "badge": "Live Tracking",
-      //   "color": const Color(0xFF10B981),
+      //   "color": Colors.white,
       //   "page": (context) => VehicleDashboardScreen(userId: widget.userId, userName: widget.userName),
       // },
     ];
@@ -752,7 +752,7 @@ class _GridViewPageState extends State<GridViewPage> {
     final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C5F41),
+      backgroundColor: const Color(0xFF195754),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -773,11 +773,11 @@ class _GridViewPageState extends State<GridViewPage> {
                           icon: Container(
                             padding: const EdgeInsets.all(9),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0C3826),
+                              color: const Color(0xFF113F3D),
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                             ),
-                            child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
+                            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                           ),
                           onPressed: () => Navigator.maybePop(context),
                         ),
@@ -788,11 +788,11 @@ class _GridViewPageState extends State<GridViewPage> {
                         height: 44,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0xFF0F3827),
-                          border: Border.all(color: const Color(0xFF10B981), width: 2.2),
+                          color: const Color(0xFF113F3D),
+                          border: Border.all(color: Colors.white, width: 2.2),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF10B981).withValues(alpha: 0.25),
+                              color: Colors.white.withValues(alpha: 0.25),
                               blurRadius: 10,
                               spreadRadius: 1,
                             ),
@@ -801,7 +801,7 @@ class _GridViewPageState extends State<GridViewPage> {
                         child: Center(
                           child: Text(
                             initial,
-                            style: GoogleFonts.fraunces(
+                            style: GoogleFonts.inter(
                               color: Colors.white,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -819,13 +819,13 @@ class _GridViewPageState extends State<GridViewPage> {
                     icon: Container(
                       padding: const EdgeInsets.all(9),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0C3826),
+                        color: const Color(0xFF113F3D),
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                       ),
                       child: Stack(
                         children: [
-                          const Icon(Icons.notifications_outlined, color: Color(0xFF10B981), size: 20),
+                          const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
                           if (_notifLogs.isNotEmpty)
                             Positioned(
                               right: 0,
@@ -852,7 +852,7 @@ class _GridViewPageState extends State<GridViewPage> {
               Text(
                 "FINANCIAL DASHBOARD",
                 style: GoogleFonts.ibmPlexMono(
-                  color: const Color(0xFF10B981),
+                  color: Colors.white,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 2.2,
@@ -864,7 +864,7 @@ class _GridViewPageState extends State<GridViewPage> {
                 children: [
                   Text(
                     "${_getGreeting()}, ",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: Colors.white.withValues(alpha: 0.75),
                       fontSize: 24,
                       fontWeight: FontWeight.w400,
@@ -873,7 +873,7 @@ class _GridViewPageState extends State<GridViewPage> {
                   ),
                   Text(
                     widget.userName,
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
@@ -892,7 +892,7 @@ class _GridViewPageState extends State<GridViewPage> {
                 children: [
                   Text(
                     "Quick Actions",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -901,7 +901,7 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     "Shortcuts",
                     style: GoogleFonts.ibmPlexMono(
-                      color: const Color(0xFF10B981),
+                      color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -977,7 +977,7 @@ class _GridViewPageState extends State<GridViewPage> {
                 children: [
                   Text(
                     "Management Hub",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -986,7 +986,7 @@ class _GridViewPageState extends State<GridViewPage> {
                   Text(
                     "Overview",
                     style: GoogleFonts.ibmPlexMono(
-                      color: const Color(0xFF10B981),
+                      color: Colors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

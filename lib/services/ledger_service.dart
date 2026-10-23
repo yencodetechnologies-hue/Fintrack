@@ -54,8 +54,9 @@ class LedgerService {
   static Future<Map<String, dynamic>> companyDetails(String companyId, String userId) =>
       ExpenseCompanyService.getCompanyDetails(companyId, userId);
 
-  static Future<Map<String, dynamic>> addMember(String companyId, String userId, String email, String role) =>
-      _post("$_base/companies/$companyId/members", {"userId": userId, "email": email, "role": role});
+  /// [customRoleId] (primary admin only) adds them straight into a custom role.
+  static Future<Map<String, dynamic>> addMember(String companyId, String userId, String email, String role, {String? customRoleId}) =>
+      _post("$_base/companies/$companyId/members", {"userId": userId, "email": email, "role": role, if (customRoleId != null) "customRoleId": customRoleId});
 
   static Future<Map<String, dynamic>> setMemberRole(String companyId, String userId, String memberUserId, String role) =>
       _post("$_base/companies/$companyId/members/$memberUserId/role", {"userId": userId, "role": role});
@@ -145,8 +146,8 @@ class LedgerService {
       _post("$_base/advance-returns/$returnId/decide", {"userId": userId, "accept": accept});
 
   // ---- company settings, members, categories, funds ----
-  static Future<Map<String, dynamic>> inviteMember(String companyId, String userId, String email, String role) =>
-      _post("$_base/companies/$companyId/invites", {"userId": userId, "email": email, "role": role});
+  static Future<Map<String, dynamic>> inviteMember(String companyId, String userId, String email, String role, {String? customRoleId}) =>
+      _post("$_base/companies/$companyId/invites", {"userId": userId, "email": email, "role": role, if (customRoleId != null) "customRoleId": customRoleId});
 
   static Future<Map<String, dynamic>> removeMember(String companyId, String memberUserId, String userId) =>
       _delete("$_company/company/$companyId/member/$memberUserId", {"userId": userId});
@@ -229,6 +230,22 @@ class LedgerService {
   /// A manager's own expense: they got the money back. body: { userId, from: company|person, fundId?, personId?, method, reference }.
   static Future<Map<String, dynamic>> markReceived(String expenseId, Map<String, dynamic> body) =>
       _post("$_base/expenses/$expenseId/received", body);
+
+  // ---- custom roles (primary admin only) ----
+  static Future<Map<String, dynamic>> createCustomRole(String companyId, String userId, String name, String base) =>
+      _post("$_base/companies/$companyId/roles", {"userId": userId, "name": name, "base": base});
+
+  /// changes: { name?, permissions?: { key: bool } }
+  static Future<Map<String, dynamic>> updateCustomRole(String companyId, String roleId, String userId, Map<String, dynamic> changes) =>
+      _post("$_base/companies/$companyId/roles/$roleId", {"userId": userId, ...changes});
+
+  /// Also removes the role's members from the company.
+  static Future<Map<String, dynamic>> deleteCustomRole(String companyId, String roleId, String userId) =>
+      _post("$_base/companies/$companyId/roles/$roleId/delete", {"userId": userId});
+
+  /// roleId null takes them out of the role (back to staff).
+  static Future<Map<String, dynamic>> setMemberCustomRole(String companyId, String memberUserId, String userId, String? roleId) =>
+      _post("$_base/companies/$companyId/members/$memberUserId/custom-role", {"userId": userId, "roleId": roleId});
 
   static Future<Map<String, dynamic>> repayLoan(String loanId, Map<String, dynamic> body) =>
       _post("$_base/loans/$loanId/repay", body);

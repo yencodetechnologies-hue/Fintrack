@@ -77,11 +77,12 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       cachedDetails?["hiddenStaffIds"] is List ? List<String>.from(cachedDetails!["hiddenStaffIds"].map((e) => e.toString())) : const [],
       permissions: cachedDetails?["myPermissions"] is Map ? Map<String, dynamic>.from(cachedDetails!["myPermissions"]) : null,
       permissionRole: cachedDetails?["permissionRole"]?.toString(),
+      roleName: cachedDetails?["myRoleName"]?.toString(),
     );
   }
 
   LedgerScope _buildScope(Map<String, dynamic> company, String role, List<Map<String, dynamic>> members, List<String> hidden,
-          {Map<String, dynamic>? permissions, String? permissionRole}) =>
+          {Map<String, dynamic>? permissions, String? permissionRole, String? roleName}) =>
       LedgerScope(
         userId: widget.userId,
         userName: widget.userName,
@@ -93,6 +94,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         companies: _companies,
         permissions: permissions,
         permissionRole: permissionRole,
+        roleName: roleName,
       );
 
   // every open tab (and this screen) reloads through the shared ledger-changed signal
@@ -105,7 +107,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       _companies = List<Map<String, dynamic>>.from(res["companies"]);
       if (_scope != null) {
         _scope = _buildScope(_scope!.company, _scope!.role, _scope!.members, _scope!.hiddenStaffIds,
-            permissions: _scope!.permissions, permissionRole: _scope!.permissionRole);
+            permissions: _scope!.permissions, permissionRole: _scope!.permissionRole, roleName: _scope!.roleName);
       }
     });
   }
@@ -131,6 +133,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         List<String>.from((details["hiddenStaffIds"] ?? const []).map((e) => e.toString())),
         permissions: details["myPermissions"] is Map ? Map<String, dynamic>.from(details["myPermissions"]) : null,
         permissionRole: details["permissionRole"]?.toString(),
+        roleName: details["myRoleName"]?.toString(),
       );
     });
   }
@@ -157,6 +160,8 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         build: (s) => LedgerDashboardTab(
               scope: s,
               onOpenExpenses: () => setState(() => _tab = 1),
+              // Inter-co is the third tab whenever it is shown (hidden by the "Inter-company" switch)
+              onOpenInterco: s.can("intercompany") ? () => setState(() => _tab = 2) : null,
               onOpenExpense: (e) => showExpenseDetail(context, s, e),
             )
       ),
@@ -197,7 +202,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                                 style: GoogleFonts.inter(
                                     color: Colors.white, fontWeight: c["_id"].toString() == _companyId ? FontWeight.w800 : FontWeight.w500)),
                           ),
-                          if (c["_id"].toString() == _companyId) const Icon(Icons.check_rounded, size: 18, color: kMint),
+                          if (c["_id"].toString() == _companyId) const Icon(Icons.check_rounded, size: 18, color: Colors.white),
                         ]),
                       ))
                   .toList(),
@@ -211,7 +216,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                   ),
                 ),
                 const SizedBox(width: 4),
-                const Icon(Icons.arrow_drop_down_rounded, color: kMint, size: 26),
+                const Icon(Icons.arrow_drop_down_rounded, color: Colors.white, size: 26),
               ]),
             ),
           ),
@@ -223,7 +228,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                     padding: const EdgeInsets.only(left: 16, bottom: 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(scope.isAdmin ? "You're a manager" : "You're staff",
+                      child: Text((scope.roleName?.isNotEmpty ?? false) ? "You're ${scope.roleName}" : (scope.isAdmin ? "You're a manager" : "You're staff"),
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
                     ),
                   ),
@@ -256,7 +261,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
           currentIndex: tab,
           type: BottomNavigationBarType.fixed,
           backgroundColor: kForestDark,
-          selectedItemColor: kMint,
+          selectedItemColor: Colors.white,
           unselectedItemColor: Colors.white60,
           onTap: (i) => setState(() => _tab = i),
           items: tabs.map((t) => BottomNavigationBarItem(icon: Icon(t.icon), label: t.label)).toList(),

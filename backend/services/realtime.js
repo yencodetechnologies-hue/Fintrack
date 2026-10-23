@@ -66,6 +66,7 @@ function topicsFor(base, path) {
   const p = path.toLowerCase();
   if (base === "ledger") {
     if (p.includes("/permissions")) return ["permissions"];
+    if (/\/roles|custom-role/.test(p)) return ["permissions", "members"];
     if (/\/members|\/invites/.test(p)) return ["members"];
     if (/\/settings|\/categories|visibility-preference/.test(p)) return ["company"];
     if (/^\/vouchers|\/vouchers$|advance-returns/.test(p)) return VOUCHER_TOPICS;

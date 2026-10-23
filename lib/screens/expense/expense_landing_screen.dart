@@ -23,9 +23,9 @@ class ExpenseLandingScreen extends StatefulWidget {
 }
 
 class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
-  static const Color bgGreen = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color bgGreen = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
+  static const Color forestDark = Color(0xFF195754);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
@@ -195,7 +195,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -231,7 +231,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: darkSurface.withValues(alpha: 0.55),
                       ),
-                      icon: const Icon(Icons.group_add_rounded, color: mintAccent),
+                      icon: const Icon(Icons.group_add_rounded, color: Colors.white),
                       label: Text("Create Group", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                     ),
                   ),
@@ -247,14 +247,14 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(20),
-                        child: CircularProgressIndicator(color: mintAccent),
+                        child: CircularProgressIndicator(color: Colors.white),
                       ),
                     )
                   else if (_groupsError != null)
                     Center(
                       child: TextButton.icon(
                         onPressed: _loadUserGroups,
-                        icon: const Icon(Icons.refresh, color: mintAccent),
+                        icon: const Icon(Icons.refresh, color: Colors.white),
                         label: Text("Retry loading groups", style: GoogleFonts.inter(color: Colors.white70)),
                       ),
                     )
@@ -380,7 +380,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             Text(_companiesError!, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white)),
                             TextButton.icon(
                               onPressed: () => _loadUserCompanies(showLoading: true),
-                              icon: const Icon(Icons.refresh, color: mintAccent),
+                              icon: const Icon(Icons.refresh, color: Colors.white),
                               label: Text("Retry", style: GoogleFonts.inter(color: Colors.white70)),
                             ),
                           ]),

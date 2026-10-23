@@ -36,7 +36,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
       builder: (sheetContext) {
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0C5F41),
+            color: const Color(0xFF195754),
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -111,7 +111,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0C3826),
+                      color: const Color(0xFF113F3D),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.12),
@@ -124,11 +124,11 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                           ),
                           child: const Icon(
                             Icons.credit_card_rounded,
-                            color: Color(0xFF10B981),
+                            color: Colors.white,
                             size: 20,
                           ),
                         ),
@@ -207,11 +207,11 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             messenger.showSnackBar(
                               SnackBar(
                                 behavior: SnackBarBehavior.floating,
-                                backgroundColor: const Color(0xFF0C3826),
+                                backgroundColor: const Color(0xFF113F3D),
                                 content: Text(
                                   res['message'] ?? 'Deleted',
                                   style: const TextStyle(
-                                    color: Color(0xFF10B981),
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -243,7 +243,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C5F41),
+      backgroundColor: const Color(0xFF195754),
       body: SafeArea(
         child: Column(
           children: [
@@ -259,11 +259,11 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                       icon: Container(
                         padding: const EdgeInsets.all(9),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0C3826),
+                          color: const Color(0xFF113F3D),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                         ),
-                        child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
+                        child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
                       ),
                       onPressed: () => Navigator.maybePop(context),
                     ),
@@ -277,7 +277,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                         Text(
                           "DIGITAL VAULT",
                           style: GoogleFonts.ibmPlexMono(
-                            color: const Color(0xFF10B981),
+                            color: Colors.white,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 1.8,
@@ -287,7 +287,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                         Text(
                           "Card Collection",
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
@@ -310,7 +310,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const Center(
-                        child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                        child: CircularProgressIndicator(color: Colors.white),
                       );
                     }
                     if (snapshot.hasError) {
@@ -330,19 +330,19 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                                color: Colors.white.withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.credit_card_off_rounded,
                                 size: 40,
-                                color: Color(0xFF10B981),
+                                color: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 14),
                             Text(
                               'No cards found',
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -378,14 +378,14 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             onEdit: () => showDialog(
                               context: context,
                               builder: (_) => AlertDialog(
-                                backgroundColor: const Color(0xFF042217),
+                                backgroundColor: const Color(0xFF113F3D),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                  side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
                                 ),
                                 title: Text(
                                   'Update Card',
-                                  style: GoogleFonts.fraunces(color: Colors.white, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold),
                                 ),
                                 content: Text(
                                   'Are you sure you want to update this card?',
@@ -398,7 +398,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                                   ),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF10B981),
+                                      backgroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     ),
                                     onPressed: () async {
@@ -417,7 +417,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                                         refreshCards();
                                       }
                                     },
-                                    child: Text('Update', style: GoogleFonts.inter(color: const Color(0xFF042217), fontWeight: FontWeight.bold)),
+                                    child: Text('Update', style: GoogleFonts.inter(color: const Color(0xFF113F3D), fontWeight: FontWeight.bold)),
                                   ),
                                 ],
                               ),

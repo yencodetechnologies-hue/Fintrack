@@ -11,7 +11,7 @@ class ScanCardSection extends StatelessWidget {
     this.enabled = true,
   });
 
-  static const Color _green = Color(0xFF0C5F41);
+  static const Color _green = Color(0xFF195754);
 
   @override
   Widget build(BuildContext context) {

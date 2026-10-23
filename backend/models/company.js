@@ -56,6 +56,16 @@ const companySchema = new mongoose.Schema(
     },
     // feature switches per role, see utils/permissions.js ({ manager: { key: false }, staff: { key: false } }; missing = on)
     permissions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    // roles the primary admin created on top of Manager/Staff; permissions stores only switches that are ON (all start off)
+    customRoles: [
+      {
+        name: { type: String, required: true, trim: true },
+        base: { type: String, enum: ["manager", "staff"], required: true },
+        permissions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     joinCodeCreatedAt: {
       type: Date,
     },

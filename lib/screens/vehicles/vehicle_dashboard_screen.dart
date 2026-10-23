@@ -20,9 +20,9 @@ class VehicleDashboardScreen extends StatefulWidget {
 }
 
 class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
-  static const Color creamSheet = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color creamSheet = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
+  static const Color forestDark = Color(0xFF195754);
   static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color emeraldGreen = Color(0xFF10B981);
@@ -112,13 +112,13 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: emeraldGreen, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Vehicle Dashboard",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -131,7 +131,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
         foregroundColor: Colors.white,
         elevation: 6,
         onPressed: _navigateToAddVehicle,
-        icon: const Icon(Icons.add_rounded, color: emeraldGreen),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text("Add Vehicle", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
@@ -166,7 +166,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                           const SizedBox(height: 4),
                           Text(
                             "${_vehicles.length} Vehicles Managed",
-                            style: GoogleFonts.fraunces(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -184,7 +184,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("My Vehicles", style: GoogleFonts.fraunces(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text("My Vehicles", style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
                     TextButton.icon(
                       onPressed: _navigateToAddVehicle,
                       icon: const Icon(Icons.add_circle_outline_rounded, color: emeraldGreen, size: 18),
@@ -235,7 +235,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
             child: const FaIcon(FontAwesomeIcons.car, color: forestDark, size: 32),
           ),
           const SizedBox(height: 16),
-          Text("No Vehicles Added Yet", style: GoogleFonts.fraunces(color: darkText, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("No Vehicles Added Yet", style: GoogleFonts.inter(color: darkText, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text(
             "Add your Bike, Car, or Auto to track mileage, live speed, fuel usage, and range alerts.",
@@ -357,7 +357,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                     children: [
                       Text("ESTIMATED SAFE RANGE", style: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      Text("${estRangeKm.toStringAsFixed(0)} km", style: GoogleFonts.fraunces(color: forestDark, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text("${estRangeKm.toStringAsFixed(0)} km", style: GoogleFonts.inter(color: forestDark, fontSize: 18, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Column(

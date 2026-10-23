@@ -72,7 +72,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: GoogleFonts.inter(color: Colors.white)),
-        backgroundColor: const Color(0xFF0F261C),
+        backgroundColor: const Color(0xFF113F3D),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -80,11 +80,11 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    const Color scaffoldBg = Color(0xFF0C5F41);
-    const Color darkSurface = Color(0xFF0C3826);
+    const Color scaffoldBg = Color(0xFF195754);
+    const Color darkSurface = Color(0xFF113F3D);
     const Color mintAccent = Color(0xFF10B981);
-    const Color forestDark = Color(0xFF0F261C);
-    const Color textMuted = Color(0xFF68786E);
+    const Color forestDark = Color(0xFF113F3D);
+    const Color textMuted = Color(0xFF6B7280);
 
     return Scaffold(
       backgroundColor: scaffoldBg,
@@ -99,13 +99,13 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           "Join a Trip",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
@@ -158,7 +158,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
                   const SizedBox(height: 12),
                   Text(
                     "Enter 6-Digit Trip Code",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: forestDark,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

@@ -7,8 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 export '../../services/ledger_events.dart';
 
-const Color kForest = Color(0xFF0C5F41);
-const Color kForestDark = Color(0xFF0C3826);
+const Color kForest = Color(0xFF195754);
+const Color kForestDark = Color(0xFF113F3D);
 const Color kMint = Color(0xFF10B981);
 const Color kDark = Color(0xFF1E293B);
 const Color kTerracotta = Color(0xFFB8452D);
@@ -30,6 +30,8 @@ class LedgerScope {
   final Map<String, dynamic>? permissions;
   /// "primary" (company creator / super admin) | "manager" | "staff".
   final String? permissionRole;
+  /// My custom role's name (e.g. "Incharge"), when I'm in one.
+  final String? roleName;
 
   LedgerScope({
     required this.userId,
@@ -42,12 +44,13 @@ class LedgerScope {
     this.companies = const [],
     this.permissions,
     this.permissionRole,
+    this.roleName,
   });
 
   /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
   bool can(String key) => permissions == null || permissions![key] != false;
   bool get isPrimary => permissionRole == "primary";
-  bool get canEditPermissions => isPrimary || (permissionRole == "manager" && can("staff_permissions"));
+  bool get canEditPermissions => isPrimary || ((permissionRole == "manager" || (permissionRole == "custom" && isAdmin)) && can("staff_permissions"));
   /// Managers' Settings page holds both members and company settings.
   bool get canOpenSettings => isAdmin ? (isPrimary || can("settings") || can("members")) : can("settings");
 

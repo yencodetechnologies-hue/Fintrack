@@ -191,7 +191,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     ),
                     TextButton(onPressed: () => setState(_selected.clear), child: Text("Clear", style: GoogleFonts.inter(color: Colors.white70))),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: kMint, foregroundColor: Colors.white),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kForest),
                       onPressed: () => _pay(selectedPeople),
                       child: const Text("Pay selected"),
                     ),

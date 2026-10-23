@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { setMemberCustomRole } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
 import { companyCategories } from "../utils.js";
@@ -79,10 +80,11 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       return;
     }
     setInviting(true);
-    const res = await addCompanyMember(company._id, user.id, inviteEmail.trim(), inviteRole);
+    const target = inviteTarget(inviteRole);
+    const res = await addCompanyMember(company._id, user.id, inviteEmail.trim(), target.role, target.customRoleId);
     setInviting(false);
     if (res.success) {
-      showToast(`${res.member?.name || inviteEmail} added as ${inviteRole === "admin" ? "manager" : "staff"}`);
+      showToast(`${res.member?.name || inviteEmail} added as ${target.label}`);
       setInviteEmail("");
       onChanged();
     } else if (res.code === "USER_NOT_FOUND") {
@@ -96,13 +98,36 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
     const { email, role } = pendingInvite;
     setPendingInvite(null);
     setInviting(true);
-    const res = await inviteCompanyMember(company._id, user.id, email, role);
+    const target = inviteTarget(role);
+    const res = await inviteCompanyMember(company._id, user.id, email, target.role, target.customRoleId);
     setInviting(false);
     if (res.success) {
       showToast(`Invite sent to ${email}`);
       setInviteEmail("");
     } else {
       showToast(res.message || "Failed to send invite", "error");
+    }
+  }
+
+  // primary admin only: puts a member into one of the custom roles (Permissions page)
+  const isPrimary = String(company.createdBy?._id || company.createdBy) === String(user.id);
+  // the role picker's value: "member" | "admin" | "role:<customRoleId>"
+  function inviteTarget(value) {
+    if (String(value).startsWith("role:")) {
+      const id = value.slice(5);
+      const r = (company.customRoles || []).find((x) => String(x._id) === id);
+      return { role: r?.base === "manager" ? "admin" : "member", customRoleId: id, label: `"${r?.name || "custom role"}"` };
+    }
+    return { role: value, customRoleId: null, label: value === "admin" ? "a manager" : "staff" };
+  }
+
+  async function handleCustomRole(memberUserId, roleId) {
+    const res = await setMemberCustomRole(company._id, memberUserId, user.id, roleId);
+    if (res.success) {
+      showToast("Role updated");
+      onChanged();
+    } else {
+      showToast(res.message || "Failed to change role", "error");
     }
   }
 
@@ -230,6 +255,10 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
             >
               <option value="member">Staff</option>
               <option value="admin">Manager</option>
+              {/* custom roles: only the primary admin can add people into them */}
+              {isPrimary && (company.customRoles || []).map((r) => (
+                <option key={r._id} value={`role:${r._id}`}>{r.name}</option>
+              ))}
             </select>
             <button className="btn btn-primary" disabled={inviting}>
               {inviting ? "Adding…" : "Add Member"}
@@ -278,7 +307,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
                 <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                  {isCreator ? "Owner / Creator" : m.role === "admin" ? "Manager" : "Staff"}
+                  {isCreator ? "Owner / Creator" : m.customRoleName ? `${m.customRoleName} · ${m.role === "admin" ? "manager-like" : "staff-like"}` : m.role === "admin" ? "Manager" : "Staff"}
                 </div>
               </div>
 
@@ -287,11 +316,16 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
                   <select
                     className="field-select"
                     style={{ padding: "4px 8px", fontSize: 12 }}
-                    value={m.role === "admin" ? "admin" : "member"}
-                    onChange={(e) => handleRoleChange(m.userId, e.target.value)}
+                    value={m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "admin" : "member"}
+                    disabled={Boolean(m.customRoleId) && !isPrimary}
+                    title={m.customRoleId && !isPrimary ? "Only the primary admin can change someone in a custom role" : undefined}
+                    onChange={(e) => (e.target.value.startsWith("role:") ? handleCustomRole(m.userId, e.target.value.slice(5)) : handleRoleChange(m.userId, e.target.value))}
                   >
                     <option value="member">Staff</option>
                     <option value="admin">Manager</option>
+                    {(isPrimary || m.customRoleId) && (company.customRoles || []).map((r) => (
+                      <option key={r._id} value={`role:${r._id}`} disabled={!isPrimary}>{r.name}</option>
+                    ))}
                   </select>
                   <button
                     className="btn btn-outline-danger"
@@ -393,7 +427,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       {pendingInvite && (
         <ConfirmDialog
           title="Not a Q Fin user yet"
-          message={`${pendingInvite.email} is not in the user list. Send an invite link to their email? Once they sign up with this email, they'll join ${company.name} as ${pendingInvite.role === "admin" ? "a manager" : "staff"}.`}
+          message={`${pendingInvite.email} is not in the user list. Send an invite link to their email? Once they sign up with this email, they'll join ${company.name} as ${inviteTarget(pendingInvite.role).label}.`}
           confirmLabel="Send invite"
           onConfirm={confirmSendInvite}
           onCancel={() => setPendingInvite(null)}

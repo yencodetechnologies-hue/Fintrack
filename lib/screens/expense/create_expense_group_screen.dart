@@ -17,7 +17,7 @@ class CreateExpenseGroupScreen extends StatefulWidget {
 
 class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
   // Brand color palette
-  static const Color primaryGreen = Color(0xFF0C5F41);
+  static const Color primaryGreen = Color(0xFF195754);
   static const Color darkGreen = Color(0xFF063323);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color mintLight = Color(0xFF34D399);

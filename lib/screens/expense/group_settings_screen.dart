@@ -20,8 +20,8 @@ class GroupSettingsScreen extends StatefulWidget {
 }
 
 class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
-  static const Color bgGreen = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color bgGreen = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
   static const Color mutedText = Color(0xFF64748B);
@@ -255,7 +255,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: mintAccent))
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : _error != null
                 ? Center(
                     child: Column(

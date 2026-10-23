@@ -121,6 +121,7 @@ export default function DashboardPage() {
   // feature switches for me in this company (null until loaded = everything allowed)
   const [myPermissions, setMyPermissions] = useState(null);
   const [permissionRole, setPermissionRole] = useState(null);
+  const [myRoleName, setMyRoleName] = useState(null); // custom role name, if I have one
   const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
@@ -167,6 +168,10 @@ export default function DashboardPage() {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [deletingExpense, setDeletingExpense] = useState(null);
   const [receivingExpense, setReceivingExpense] = useState(null);
+  // Home "Total expenses" tile period: all | week | month | custom (by each expense's date)
+  const [totalPeriod, setTotalPeriod] = useState("all");
+  const [totalFrom, setTotalFrom] = useState("");
+  const [totalTo, setTotalTo] = useState("");
   const [reversingTx, setReversingTx] = useState(null);
   const [selectedExpenseDetail, setSelectedExpenseDetail] = useState(null);
 
@@ -273,6 +278,7 @@ export default function DashboardPage() {
     setCurrentUserRole(detailsRes.currentUserRole || "member");
     setMyPermissions(detailsRes.myPermissions || null);
     setPermissionRole(detailsRes.permissionRole || null);
+    setMyRoleName(detailsRes.myRoleName || null);
     setHiddenStaffIds(detailsRes.hiddenStaffIds || []);
     // Show the company workspace as soon as its required details arrive.
     // The lists and totals below are secondary and should not block first paint.
@@ -740,7 +746,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppLayout companyId={companyId} isAdmin={isAdmin} can={can} permissionRole={permissionRole} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
+    <AppLayout companyId={companyId} isAdmin={isAdmin} can={can} permissionRole={permissionRole} roleName={myRoleName} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
         <div className="main-panel">
           {!pageAllowed && (
             <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 28 }}>This page is turned off for you in this company.</div>
@@ -753,7 +759,8 @@ export default function DashboardPage() {
                 {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
               </div>
               {(() => {
-                const totalSpent = ledgerExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+                const periodExpenses = expensesInPeriod(ledgerExpenses, totalPeriod, totalFrom, totalTo);
+                const totalSpent = periodExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
                 const borrowedTotal = borrowedByLender.reduce((sum, row) => sum + row.balance, 0);
                 const lentTotal = lentByBorrower.reduce((sum, row) => sum + row.balance, 0);
                 const cashTotal = availableCompanyFunds.filter((f) => f.fundId === "cash").reduce((s, f) => s + Number(f.balance || 0), 0);
@@ -769,9 +776,30 @@ export default function DashboardPage() {
                     <HomeTile
                       label="Total expenses"
                       value={money(totalSpent)}
-                      sub={`${ledgerExpenses.length} expense${ledgerExpenses.length === 1 ? "" : "s"}`}
+                      sub={`${periodExpenses.length} expense${periodExpenses.length === 1 ? "" : "s"}`}
                       onClick={() => changeTab("expenses")}
                       title="View all expenses"
+                      extra={
+                        <select
+                          className={`tile-period ${totalPeriod !== "all" ? "on" : ""}`}
+                          value={totalPeriod}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => setTotalPeriod(e.target.value)}
+                          aria-label="Period"
+                        >
+                          <option value="all">All time</option>
+                          <option value="week">This week</option>
+                          <option value="month">This month</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      }
+                      below={totalPeriod === "custom" && (
+                        <div className="tile-period-dates" onClick={(e) => e.stopPropagation()}>
+                          <input type="date" value={totalFrom} onChange={(e) => setTotalFrom(e.target.value)} aria-label="From" />
+                          <span>–</span>
+                          <input type="date" value={totalTo} onChange={(e) => setTotalTo(e.target.value)} aria-label="To" />
+                        </div>
+                      )}
                     />
                     <HomeTile
                       label={isAdmin ? "My outstanding" : "Company owes you"}
@@ -1410,7 +1438,7 @@ export default function DashboardPage() {
             <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} can={can} onChanged={load} />
           )}
 
-          {activeTab === "permissions" && <PermissionsPanel companyId={companyId} user={user} refreshKey={tick("permissions")} />}
+          {activeTab === "permissions" && <PermissionsPanel companyId={companyId} company={company} members={members} user={user} refreshKey={tick("permissions") + tick("members")} onChanged={load} />}
           </>}
         </div>
 
@@ -1912,12 +1940,40 @@ const labelStyle = {
 };
 
 // One summary tile on Home: label, big value, a short detail line (or rows), optionally clickable.
-function HomeTile({ label, value, sub, color, onClick, title }) {
+// Expenses whose date falls in the period: this week (from Monday), this month, or a custom from/to (YYYY-MM-DD).
+function expensesInPeriod(list, period, from, to) {
+  if (period === "all") return list;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let start;
+  let end;
+  if (period === "week") {
+    start = new Date(today);
+    start.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+    end = new Date(start);
+    end.setDate(start.getDate() + 7);
+  } else if (period === "month") {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  } else {
+    start = from ? new Date(`${from}T00:00:00`) : null;
+    end = to ? new Date(`${to}T00:00:00`) : null;
+    if (end) end.setDate(end.getDate() + 1);
+  }
+  return list.filter((expense) => {
+    const d = new Date(expense.date || expense.createdAt);
+    if (Number.isNaN(d.getTime())) return false;
+    return (!start || d >= start) && (!end || d < end);
+  });
+}
+
+function HomeTile({ label, value, sub, color, onClick, title, extra, below }) {
   return (
     <div className={`stat-card home-tile${onClick ? " clickable" : ""}`} onClick={onClick} title={title}>
-      <div className="home-tile-label">{label}</div>
+      <div className="home-tile-label">{extra ? <span className="home-tile-label-row"><span>{label}</span>{extra}</span> : label}</div>
       <div className="home-tile-value" style={color ? { color } : undefined}>{value}</div>
       {sub && <div className="home-tile-sub">{sub}</div>}
+      {below}
     </div>
   );
 }

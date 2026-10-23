@@ -4,9 +4,9 @@ import '../../services/brand_model_service.dart';
 import '../../services/vehicle_service.dart';
 
 // Color palette — matches QFin deep forest green executive look
-const kBackground = Color(0xFF0C5F41);
+const kBackground = Color(0xFF195754);
 const kCard = Colors.white;
-const kGreen = Color(0xFF0C5F41);
+const kGreen = Color(0xFF195754);
 const kMutedText = Color(0xFF6B7280);
 const kBodyText = Color(0xFF1E293B);
 const kBorder = Color(0xFFE2DDD0);
@@ -533,17 +533,17 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           child: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: const Color(0xFF0C3826),
+              color: const Color(0xFF113F3D),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.black.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF10B981), size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
         ),
         const SizedBox(width: 12),
         Text(
           'Add a Vehicle',
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.bold,
             color: kGreen,
@@ -852,7 +852,7 @@ class _SearchablePickerSheetState extends State<_SearchablePickerSheet> {
           // Title
           Text(
             widget.title,
-            style: GoogleFonts.fraunces(
+            style: GoogleFonts.inter(
               color: kGreen,
               fontSize: 18,
               fontWeight: FontWeight.bold,

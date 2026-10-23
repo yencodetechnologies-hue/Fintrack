@@ -6,14 +6,14 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../services/trip_service.dart';
 
 class TripDetailsTheme {
-  static const Color scaffoldBg = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
+  static const Color scaffoldBg = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
   static const Color mintAccent = Color(0xFF10B981);
-  static const Color forestDark = Color(0xFF0F261C);
-  static const Color darkText = Color(0xFF132A20);
+  static const Color forestDark = Color(0xFF113F3D);
+  static const Color darkText = Color(0xFF1E293B);
   static const Color terracotta = Color(0xFFB8452D);
   static const Color goldAccent = Color(0xFFD4AF37);
-  static const Color textMuted = Color(0xFF68786E);
+  static const Color textMuted = Color(0xFF6B7280);
   static const Color cardBg = Colors.white;
 }
 
@@ -92,7 +92,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
               Text(
                 "Invite Members",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -216,7 +216,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
               Text(
                 "Remove Member",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -348,7 +348,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                       Text(
                         "Edit Trip Details",
-                        style: GoogleFonts.fraunces(
+                        style: GoogleFonts.inter(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -611,7 +611,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
               Text(
                 isOrganizer ? "Delete Trip" : "Leave Trip",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -789,7 +789,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       children: [
                         Text(
                           "Set Custom Tally Split",
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -864,7 +864,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 currencyFormatter.format(totalBudget),
-                                style: GoogleFonts.fraunces(
+                                style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -1024,7 +1024,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                     child: Center(
                                       child: Text(
                                         mName.isNotEmpty ? mName[0].toUpperCase() : "M",
-                                        style: GoogleFonts.fraunces(
+                                        style: GoogleFonts.inter(
                                           color: Colors.white,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 14,
@@ -1220,7 +1220,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         ),
         title: Text(
           "Trip Overview",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
@@ -1438,7 +1438,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
 
                         Text(
                           name,
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: TripDetailsTheme.darkText,
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -1513,7 +1513,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       Expanded(
                         child: Text(
                           "Budget Split Breakdown",
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 19,
                             fontWeight: FontWeight.bold,
@@ -1582,7 +1582,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               backgroundColor: TripDetailsTheme.scaffoldBg.withValues(alpha: 0.08),
                               child: Text(
                                 mName.isNotEmpty ? mName[0].toUpperCase() : "M",
-                                style: GoogleFonts.fraunces(
+                                style: GoogleFonts.inter(
                                   color: TripDetailsTheme.scaffoldBg,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
@@ -1749,7 +1749,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               const SizedBox(height: 16),
               Text(
                 "Select Trip Currency",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,

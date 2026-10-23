@@ -114,9 +114,9 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
     }
   }
 
-  static const Color _bg = Color(0xFF0C5F41);
-  static const Color _forestDark = Color(0xFF0C5F41);
-  static const Color _darkText = Color(0xFF0F261C);
+  static const Color _bg = Color(0xFF195754);
+  static const Color _forestDark = Color(0xFF195754);
+  static const Color _darkText = Color(0xFF1E293B);
 
   Future<void> pickDate(bool isStatement) async {
     final picked = await showDatePicker(
@@ -473,7 +473,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
         ),
         title: Text(
           "Update Credit Card",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -519,7 +519,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
                   children: [
                     Text(
                       "Update Details",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: _darkText,

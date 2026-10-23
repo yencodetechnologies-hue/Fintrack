@@ -40,9 +40,9 @@ class AddExpenseScreen extends StatefulWidget {
 }
 
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
-  static const Color creamSheet = Color(0xFF0C5F41);
-  static const Color darkSurface = Color(0xFF0C3826);
-  static const Color forestDark = Color(0xFF0C5F41);
+  static const Color creamSheet = Color(0xFF195754);
+  static const Color darkSurface = Color(0xFF113F3D);
+  static const Color forestDark = Color(0xFF195754);
   static const Color mintAccent = Color(0xFF10B981);
   static const Color darkText = Color(0xFF1E293B);
 
@@ -128,7 +128,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              const Icon(Icons.add_circle_outline_rounded, color: mintAccent),
+              const Icon(Icons.add_circle_outline_rounded, color: Colors.white),
               const SizedBox(width: 8),
               Text("Custom Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
             ],
@@ -635,7 +635,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context),
         ),

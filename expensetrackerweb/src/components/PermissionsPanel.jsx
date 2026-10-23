@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import { getPermissions, updatePermissions } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
+import CustomRoles from "./CustomRoles.jsx";
 
 // Feature switches per role. The primary admin edits Managers and Staff; other managers (with
 // "Change staff permissions") edit Staff, and can't switch on a staff feature that's off for managers.
 // Each switch saves on its own; whatever was saved last wins.
-export default function PermissionsPanel({ companyId, user, refreshKey }) {
+export default function PermissionsPanel({ companyId, company, members = [], user, refreshKey, onChanged }) {
   const { showToast } = useToast();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -21,7 +23,7 @@ export default function PermissionsPanel({ companyId, user, refreshKey }) {
     return () => {
       active = false;
     };
-  }, [companyId, user.id, refreshKey]);
+  }, [companyId, user.id, refreshKey, reloadKey]);
 
   async function toggle(role, key, on) {
     const before = data[role];
@@ -120,6 +122,20 @@ export default function PermissionsPanel({ companyId, user, refreshKey }) {
         {data.canEditManagers && section("manager", "Managers", "Every manager except the primary admin")}
         {section("staff", "Staff", "Every staff member")}
       </div>
+      {data.customRoles && (
+        <CustomRoles
+          companyId={companyId}
+          company={company}
+          user={user}
+          members={members}
+          definitions={data.definitions.custom || []}
+          roles={data.customRoles}
+          onChanged={() => {
+            setReloadKey((k) => k + 1);
+            onChanged?.();
+          }}
+        />
+      )}
     </>
   );
 }

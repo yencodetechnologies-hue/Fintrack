@@ -6,14 +6,17 @@ import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_vouchers.dart';
+import 'ledger_funds.dart';
 
 /// Company Home, same content per role as the web's Home tab.
 class LedgerDashboardTab extends StatefulWidget {
   final LedgerScope scope;
   final VoidCallback onOpenExpenses;
+  /// Opens the Inter-co tab (null when that tab is hidden).
+  final VoidCallback? onOpenInterco;
   /// Opens one expense's details; falls back to the Expenses tab when not given.
   final void Function(Map<String, dynamic> expense)? onOpenExpense;
-  const LedgerDashboardTab({super.key, required this.scope, required this.onOpenExpenses, this.onOpenExpense});
+  const LedgerDashboardTab({super.key, required this.scope, required this.onOpenExpenses, this.onOpenInterco, this.onOpenExpense});
 
   @override
   State<LedgerDashboardTab> createState() => _LedgerDashboardTabState();
@@ -34,6 +37,9 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
   List<Map<String, dynamic>> _pending = [];
   bool _loading = true;
   bool _secondaryLoading = true;
+  // Total expenses tile: all | week | month | custom (by each expense's date)
+  String _totalPeriod = "all";
+  DateTimeRange? _totalRange;
 
   @override
   void initState() {
@@ -97,9 +103,93 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
     return d != null && d.year == now.year && d.month == now.month && d.day == now.day;
   }
 
+  /// Expenses in the Total expenses tile's period (this week starts Monday).
+  List<Map<String, dynamic>> get _periodExpenses {
+    if (_totalPeriod == "all") return _expenses;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    late DateTime start, end;
+    if (_totalPeriod == "week") {
+      start = today.subtract(Duration(days: now.weekday - 1));
+      end = start.add(const Duration(days: 7));
+    } else if (_totalPeriod == "month") {
+      start = DateTime(now.year, now.month, 1);
+      end = DateTime(now.year, now.month + 1, 1);
+    } else {
+      final r = _totalRange;
+      if (r == null) return _expenses;
+      start = DateTime(r.start.year, r.start.month, r.start.day);
+      end = DateTime(r.end.year, r.end.month, r.end.day + 1);
+    }
+    return _expenses.where((e) {
+      final d = DateTime.tryParse((e["date"] ?? e["createdAt"])?.toString() ?? "")?.toLocal();
+      return d != null && !d.isBefore(start) && d.isBefore(end);
+    }).toList();
+  }
+
+  String get _periodLabel => switch (_totalPeriod) {
+        "week" => "This week",
+        "month" => "This month",
+        "custom" when _totalRange != null =>
+          "${DateFormat("dd MMM").format(_totalRange!.start)} – ${DateFormat("dd MMM").format(_totalRange!.end)}",
+        _ => "All time",
+      };
+
+  Future<void> _choosePeriod(String period) async {
+    if (period != "custom") return setState(() => _totalPeriod = period);
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: _totalRange ?? DateTimeRange(start: DateTime(now.year, now.month, 1), end: now),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _totalPeriod = "custom";
+      _totalRange = picked;
+    });
+  }
+
+  // small "All time ▾" pill inside the Total expenses tile
+  Widget _periodPill() => PopupMenuButton<String>(
+        tooltip: "Period",
+        position: PopupMenuPosition.under,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        onSelected: _choosePeriod,
+        itemBuilder: (_) => const {"all": "All time", "week": "This week", "month": "This month", "custom": "Custom dates…"}
+            .entries
+            .map((o) => PopupMenuItem(
+                  value: o.key,
+                  height: 38,
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(o.value,
+                          style: GoogleFonts.inter(
+                              fontSize: 13.5, fontWeight: o.key == _totalPeriod ? FontWeight.w700 : FontWeight.w500, color: o.key == _totalPeriod ? kForest : kDark)),
+                    ),
+                    if (o.key == _totalPeriod) const Icon(Icons.check_rounded, size: 18, color: kForest),
+                  ]),
+                ))
+            .toList(),
+        child: Container(
+          padding: const EdgeInsets.only(left: 8, right: 3, top: 2, bottom: 2),
+          decoration: BoxDecoration(
+            color: _totalPeriod == "all" ? const Color(0xFFF1F5F9) : kForest.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(99),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "all" ? kDark.withValues(alpha: 0.7) : kForest)),
+            Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "all" ? kDark.withValues(alpha: 0.6) : kForest),
+          ]),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final totalSpent = _expenses.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0));
+    final periodExpenses = _periodExpenses;
+    final totalSpent = periodExpenses.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0));
     final myOwed = (_balances?["myOwed"] as num?) ?? 0;
     final myAdvance = (_balances?["myAdvance"] as num?) ?? 0;
     final borrowed = _loanTotals(borrowed: true);
@@ -113,7 +203,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
 
     final tiles = <Widget>[
       _tile("Total expenses", _loading ? null : inr(totalSpent), kForest,
-          sub: "${_expenses.length} expense${_expenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses),
+          sub: "${periodExpenses.length} expense${periodExpenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses, trailing: _periodPill()),
       _tile(s.isAdmin ? "My outstanding" : "Company owes you", balancesReady ? inr(myOwed) : null, myOwed > 0 ? kTerracotta : kForest,
           sub: s.isAdmin ? "Owed to all people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}" : "Paid by you, not yet reimbursed"),
       if (!s.isAdmin)
@@ -122,10 +212,14 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             onTap: myAdvance > 0 && s.can("vouchers") ? () => showHandBackSheet(context, s, myAdvance, onDone: _load) : null),
       if (s.isAdmin) ...[
         _tile("Pending borrowed", _secondaryLoading ? null : inr(borrowedTotal), borrowedTotal > 0 ? kTerracotta : kForest,
-            sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.take(2).map((r) => "from ${r.name} ${inr(r.balance)}").join("\n")),
+            sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.take(2).map((r) => "from ${r.name} ${inr(r.balance)}").join("\n"),
+            onTap: widget.onOpenInterco),
         _tile("Pending lent", _secondaryLoading ? null : inr(lentTotal), kForest,
-            sub: lent.isEmpty ? "Nothing to collect" : lent.take(2).map((r) => "to ${r.name} ${inr(r.balance)}").join("\n")),
-        _tile("Balance", inr(cash + bank), kForest, sub: "${s.cashName} ${inr(cash)} · Bank ${inr(bank)}"),
+            sub: lent.isEmpty ? "Nothing to collect" : lent.take(2).map((r) => "to ${r.name} ${inr(r.balance)}").join("\n"),
+            onTap: widget.onOpenInterco),
+        _tile("Balance", inr(cash + bank), kForest,
+            sub: "${s.cashName} ${inr(cash)} · Bank ${inr(bank)}",
+            onTap: s.can("funds") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FundsPage(scope: s))) : null),
       ],
     ];
 
@@ -139,7 +233,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(children: [
                 Expanded(child: Text(_balancesError!, style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5))),
-                TextButton(onPressed: _load, child: Text("Retry", style: GoogleFonts.inter(color: kMint, fontWeight: FontWeight.bold))),
+                TextButton(onPressed: _load, child: Text("Retry", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold))),
               ]),
             ),
           _pairs(tiles),
@@ -269,7 +363,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
       );
 
   /// Summary tile; a null value shows a shimmer while it loads.
-  Widget _tile(String label, String? value, Color color, {String? sub, VoidCallback? onTap}) => Material(
+  Widget _tile(String label, String? value, Color color, {String? sub, VoidCallback? onTap, Widget? trailing}) => Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
@@ -278,8 +372,14 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label.toUpperCase(),
-                  style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+              Row(children: [
+                Expanded(
+                  child: Text(label.toUpperCase(),
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                ),
+                if (trailing != null) trailing,
+              ]),
               const SizedBox(height: 5),
               if (value == null)
                 const _ShimmerBox(width: 92, height: 20)
@@ -307,7 +407,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, color: kMint, size: 19),
+              Icon(icon, color: Colors.white, size: 19),
               const SizedBox(width: 8),
               Flexible(child: Text(label, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
             ]),

@@ -616,7 +616,7 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
         floatingActionButton: FloatingActionButton.extended(
           backgroundColor: kForestDark,
           onPressed: () => showCreateVoucherSheet(context, s, onDone: _load),
-          icon: const Icon(Icons.add_rounded, color: kMint),
+          icon: const Icon(Icons.add_rounded, color: Colors.white),
           label: Text("Create voucher", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
         body: d == null
@@ -700,7 +700,7 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
                       value: _filter,
                       dropdownColor: kForestDark,
                       style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600),
-                      iconEnabledColor: kMint,
+                      iconEnabledColor: Colors.white,
                       underline: const SizedBox.shrink(),
                       items: const [
                         DropdownMenuItem(value: "all", child: Text("All")),

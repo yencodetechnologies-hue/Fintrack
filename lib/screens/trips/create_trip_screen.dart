@@ -121,7 +121,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg, style: GoogleFonts.inter(color: Colors.white)),
-        backgroundColor: const Color(0xFF0F261C),
+        backgroundColor: const Color(0xFF113F3D),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -129,12 +129,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const Color scaffoldBg = Color(0xFF0C5F41);
-    const Color darkSurface = Color(0xFF0C3826);
+    const Color scaffoldBg = Color(0xFF195754);
+    const Color darkSurface = Color(0xFF113F3D);
     const Color mintAccent = Color(0xFF10B981);
-    const Color darkText = Color(0xFF132A20);
+    const Color darkText = Color(0xFF1E293B);
     const Color terracotta = Color(0xFFB8452D);
-    const Color textMuted = Color(0xFF68786E);
+    const Color textMuted = Color(0xFF6B7280);
 
     final dateFmt = DateFormat("MMM d, yyyy");
 
@@ -151,13 +151,13 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
-            child: const Icon(Icons.arrow_back_rounded, color: mintAccent, size: 20),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
           ),
           onPressed: () => Navigator.pop(context, _createdTrip != null),
         ),
         title: Text(
           "Create New Trip",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 22,
@@ -546,7 +546,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         const SizedBox(height: 10),
         Text(
           "Trip Created Successfully!",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -581,8 +581,8 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                 data: joinCode,
                 version: QrVersions.auto,
                 size: 130.0,
-                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0C5F41)),
-                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0C5F41)),
+                eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF195754)),
+                dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF195754)),
               ),
               const SizedBox(height: 10),
               Text(
@@ -593,7 +593,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
               SelectableText(
                 joinCode,
                 style: GoogleFonts.ibmPlexMono(
-                  color: const Color(0xFF0C5F41),
+                  color: const Color(0xFF195754),
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 3,
@@ -630,7 +630,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
     return Text(
       text,
       style: GoogleFonts.inter(
-        color: const Color(0xFF132A20),
+        color: const Color(0xFF1E293B),
         fontWeight: FontWeight.w700,
         fontSize: 13.5,
       ),
@@ -661,7 +661,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       builder: (sheetCtx) {
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFF0C5F41),
+            color: Color(0xFF195754),
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -685,7 +685,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
               const SizedBox(height: 16),
               Text(
                 "Select Trip Currency",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -714,7 +714,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                           decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF0C3826) : Colors.white,
+                            color: isSelected ? const Color(0xFF113F3D) : Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.08),
@@ -727,7 +727,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                               Text(
                                 "${c["code"]} (${c["symbol"]})",
                                 style: GoogleFonts.ibmPlexMono(
-                                  color: isSelected ? Colors.white : const Color(0xFF132A20),
+                                  color: isSelected ? Colors.white : const Color(0xFF1E293B),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                 ),
@@ -737,7 +737,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 child: Text(
                                   c["name"]!,
                                   style: GoogleFonts.inter(
-                                    color: isSelected ? Colors.white70 : const Color(0xFF68786E),
+                                    color: isSelected ? Colors.white70 : const Color(0xFF6B7280),
                                     fontSize: 13,
                                   ),
                                   overflow: TextOverflow.ellipsis,
@@ -763,12 +763,12 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
   InputDecoration _inputDeco(String hint, {String? prefix, IconData? prefixIcon}) {
     return InputDecoration(
       prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: const Color(0xFF68786E), size: 18)
+          ? Icon(prefixIcon, color: const Color(0xFF6B7280), size: 18)
           : null,
       prefixText: prefix,
-      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF132A20), fontWeight: FontWeight.bold, fontSize: 15),
+      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF1E293B), fontWeight: FontWeight.bold, fontSize: 15),
       hintText: hint,
-      hintStyle: GoogleFonts.inter(color: const Color(0xFF68786E).withValues(alpha: 0.5), fontSize: 12.5),
+      hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280).withValues(alpha: 0.5), fontSize: 12.5),
       filled: true,
       fillColor: const Color(0xFFF8FAFC),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -782,7 +782,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF0C5F41), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF195754), width: 1.5),
       ),
     );
   }

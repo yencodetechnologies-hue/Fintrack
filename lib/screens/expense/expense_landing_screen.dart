@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
+import '../../services/ledger_service.dart';
 import '../ledger/ledger_home_screen.dart';
 import 'create_expense_group_screen.dart';
 import 'group_expenses_screen.dart';
@@ -35,6 +36,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   List<Map<String, dynamic>> _userCompanies = [];
   List<Map<String, dynamic>> _userGroups = [];
   bool _loadingGroups = false;
+  String? _companiesError;
   String? _groupsError;
 
   @override
@@ -55,7 +57,14 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       setState(() => _isLoading = true);
     }
     try {
-      final companies = await ExpenseCompanyService.getUserCompanies(widget.userId);
+      final res = await LedgerService.userCompanies(widget.userId);
+      if (res["success"] != true || res["companies"] is! List) {
+        if (mounted && _userCompanies.isEmpty) {
+          setState(() => _companiesError = res["message"]?.toString() ?? "Could not load your companies. Check your connection.");
+        }
+        return;
+      }
+      final companies = List<Map<String, dynamic>>.from(res["companies"]).where((c) => c["external"] != true).toList();
       companies.sort((a, b) {
         final aDateRaw = a["createdAt"] ?? a["updatedAt"];
         final bDateRaw = b["createdAt"] ?? b["updatedAt"];
@@ -66,6 +75,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       if (!mounted) return;
       setState(() {
         _userCompanies = companies;
+        _companiesError = null;
       });
     } catch (_) {
     } finally {
@@ -191,7 +201,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
         ),
         title: Text(
           "Expense Tracker",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -200,7 +210,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       ),
       body: RefreshIndicator(
         color: mintAccent,
-        onRefresh: _loadUserCompanies,
+        onRefresh: () => _showGroups ? _loadUserGroups() : _loadUserCompanies(),
         child: SafeArea(
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
@@ -319,7 +329,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             onTap: _openJoinCompany,
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
-                              height: 42,
+                              height: 46,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -364,6 +374,17 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
 
                       if (_isLoading) ...[
                         const _CompanyListShimmer(),
+                      ] else if (_companiesError != null && _userCompanies.isEmpty) ...[
+                        Center(
+                          child: Column(children: [
+                            Text(_companiesError!, textAlign: TextAlign.center, style: GoogleFonts.inter(color: Colors.white)),
+                            TextButton.icon(
+                              onPressed: () => _loadUserCompanies(showLoading: true),
+                              icon: const Icon(Icons.refresh, color: mintAccent),
+                              label: Text("Retry", style: GoogleFonts.inter(color: Colors.white70)),
+                            ),
+                          ]),
+                        ),
                       ] else if (_userCompanies.isNotEmpty) ...[
                         // Section Header: My Companies List
                         Row(
@@ -371,7 +392,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                           children: [
                             Text(
                               "My Companies",
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -404,7 +425,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                         // Empty State if User Has No Companies Yet
                         Text(
                           "Get Started",
-                          style: GoogleFonts.fraunces(
+                          style: GoogleFonts.inter(
                             color: Colors.white,
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -542,8 +563,8 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
   Widget _buildCompanyCard(Map<String, dynamic> company) {
     final name = company["name"] ?? "Company";
     final details = company["details"] ?? "";
-    final userRole = (company["userRole"] ?? "member").toString().toUpperCase();
-    final isAdmin = userRole == "ADMIN";
+    final isAdmin = (company["userRole"] ?? "member").toString() == "admin";
+    final userRole = isAdmin ? "MANAGER" : "STAFF";
 
     return Material(
       color: Colors.transparent,
@@ -576,7 +597,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                 child: Center(
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : "C",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,

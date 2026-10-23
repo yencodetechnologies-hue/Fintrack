@@ -11,6 +11,7 @@ const Voucher = require("../models/voucher");
 const AdvanceReturn = require("../models/advanceReturn");
 const nodemailer = require("nodemailer");
 const { notifyUsers, notifyCompanyAdmins } = require("../services/ledgerNotify");
+const { LISTS, resolved, permissionsFor, permissionDenied } = require("../utils/permissions");
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -48,6 +49,12 @@ async function requireRole(companyId, userId, allowed) {
 }
 
 const isAdminRole = (r) => r === "admin" || r === "super_admin";
+
+// a feature switch the primary admin (or a manager, for staff) turned off for this person's role
+async function requirePermission(companyId, userId, key) {
+  const denied = await permissionDenied(companyId, userId, key);
+  if (denied) throw fail(403, denied);
+}
 
 // ---------- accounts ----------
 async function getAccount(companyId, spec) {
@@ -401,6 +408,8 @@ exports.createExpense = handle(async (req, res) => {
     : [...allowedMembers];
 
   const isCompanyPost = isAdminRole(role) && (postAs === "company" || logAs === "company");
+  await requirePermission(companyId, userId, "post_expenses");
+  if (isCompanyPost) await requirePermission(companyId, userId, "post_as_company");
 
   // Opt-in (the web sends checkDuplicate) so other clients keep posting as before.
   if (req.body.checkDuplicate && !req.body.confirmDuplicate) {
@@ -563,6 +572,7 @@ async function decide(req, res, target) {
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
   await requireRole(expense.companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(expense.companyId, userId, "approve_expenses");
   const before = snapshot(expense);
   const approveAndApply = async () => {
     const approved = await Expense.findOneAndUpdate(
@@ -604,6 +614,7 @@ exports.payExpense = handle(async (req, res) => {
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   const isAdmin = isAdminRole(role);
   const staffBorrow = payer === "borrow" && !isAdmin;
+  await requirePermission(companyId, userId, staffBorrow ? "borrow" : payer === "borrow" ? "intercompany" : "record_payments");
   const recordedPayerId = paidByUserId || userId;
   if (paidByUserId && payer !== "person") throw fail(400, "A recorded person payer requires a personal payment");
   if (paidByUserId && String(expense.createdBy) !== String(userId)) throw fail(403, "Only the expense creator can record another member as the payer");
@@ -739,6 +750,7 @@ exports.setExpenseVisibility = handle(async (req, res) => {
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
   await requireRole(expense.companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(expense.companyId, userId, "edit_expenses");
   const creatorRole = await roleIn(expense.companyId, expense.createdBy);
   if (expense.isAdminCreated === false && !isAdminRole(creatorRole)) throw fail(400, "Visibility can only be edited for an admin-created expense");
   const members = await CompanyMember.find({ companyId: expense.companyId }).distinct("userId");
@@ -766,6 +778,7 @@ exports.deleteExpense = handle(async (req, res) => {
   if (!isAdmin && !isCreator) {
     throw fail(403, "You can only delete your own expenses");
   }
+  await requirePermission(expense.companyId, userId, "edit_expenses");
   if (!isAdmin && expense.lifecycle !== "submitted") {
     throw fail(400, "Staff can only delete expenses before approval");
   }
@@ -791,6 +804,7 @@ exports.updateExpense = handle(async (req, res) => {
   if (!isAdmin && !isCreator) {
     throw fail(403, "You can only edit your own expenses");
   }
+  await requirePermission(expense.companyId, userId, "edit_expenses");
 
   // Staff can only edit before approval
   if (!isAdmin && expense.lifecycle && expense.lifecycle !== "submitted") {
@@ -845,6 +859,7 @@ exports.changePayerType = handle(async (req, res) => {
   if (!isAdminRole(role) || String(expense.createdBy) !== String(userId)) {
     throw fail(403, "Only the manager who created this expense can change who paid it");
   }
+  await requirePermission(companyId, userId, "record_payments");
   if (expense.groupId) throw fail(400, "Group expenses are settled with the group");
   if (expense.lifecycle === "reimbursed") throw fail(400, "You were already reimbursed for this expense, so it can't be switched");
   const current = expense.lifecycle === "paid_by_company" && expense.payerType === "company" ? "company"
@@ -917,10 +932,11 @@ exports.updateExpenseReceipts = handle(async (req, res) => {
   const { userId, attachment, paymentReceipt } = req.body;
   if (!userId) throw fail(400, "User ID is required");
   const isImage = (v) => typeof v === "string" && v.startsWith("data:image/");
+  // an empty string removes that receipt (managers only, checked below); an expense may have none
+  const valid = (v) => v === undefined || v === "" || isImage(v);
   if (attachment === undefined && paymentReceipt === undefined) throw fail(400, "Attach a receipt to upload");
-  if ((attachment !== undefined && !isImage(attachment)) || (paymentReceipt !== undefined && !isImage(paymentReceipt))) {
-    throw fail(400, "Receipts must be image files");
-  }
+  if (!valid(attachment) || !valid(paymentReceipt)) throw fail(400, "Receipts must be image files");
+  const removing = attachment === "" || paymentReceipt === "";
   const expense = await Expense.findById(req.params.expenseId);
   if (!expense) throw fail(404, "Expense not found");
   // receipts are evidence, not amounts, so managers may fix them at any status;
@@ -928,24 +944,33 @@ exports.updateExpenseReceipts = handle(async (req, res) => {
   const role = await requireRole(expense.companyId, userId, ["employee", "admin", "super_admin"]);
   if (!isAdminRole(role)) {
     const ownSubmitted = String(expense.createdBy) === String(userId) && expense.lifecycle === "submitted";
+    if (removing) throw fail(403, "Only managers can remove receipts");
     if (!ownSubmitted || paymentReceipt !== undefined) throw fail(403, "Only managers can change receipts after approval");
   }
+  await requirePermission(expense.companyId, userId, removing ? "remove_receipts" : "edit_expenses");
 
-  const changed = [];
-  if (attachment !== undefined) { expense.attachment = attachment; changed.push("attachment"); }
-  if (paymentReceipt !== undefined) { expense.paymentReceipt = paymentReceipt; changed.push("paymentReceipt"); }
+  const replaced = [];
+  const removed = [];
+  for (const [field, value] of [["attachment", attachment], ["paymentReceipt", paymentReceipt]]) {
+    if (value === undefined) continue;
+    expense[field] = value;
+    (value === "" ? removed : replaced).push(field);
+  }
   await expense.save();
-  await audit(userId, expense.companyId, "update_receipts", "expense", expense._id, null, { replaced: changed });
+  await audit(userId, expense.companyId, removed.length && !replaced.length ? "remove_receipts" : "update_receipts", "expense", expense._id, null, { replaced, removed });
   res.json({ success: true, hasAttachment: expense.hasAttachment, hasPaymentReceipt: expense.hasPaymentReceipt });
 });
 
 // ---------- reimburse & lend ----------
 exports.reimburse = handle(async (req, res) => {
   const { companyId, userId, adminUserId, amount, fundId, method, reference, offsetAdvance } = req.body;
+  // paidBy "self": the manager pays the person out of their own pocket, so the company now owes the manager instead
+  const bySelf = req.body.paidBy === "self";
   const value = round(parseFloat(amount) || 0);
   if (value < 0) throw fail(400, "Enter a valid amount");
   if (!adminUserId) throw fail(400, "Choose who to reimburse");
   const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "reimburse");
   const targetRole = await roleIn(companyId, adminUserId);
   if (!targetRole) throw fail(400, "The payee must be a member of this company");
   if (adminUserId.toString() === userId.toString()) throw fail(403, "You cannot reimburse yourself");
@@ -960,7 +985,7 @@ exports.reimburse = handle(async (req, res) => {
     if (!(value > 0) && !(offset > 0)) throw fail(400, "Enter a valid amount");
     const settled = round(value + offset);
     if (settled > owed) throw fail(400, `Amount exceeds the open balance (₹${owed})`);
-    if (value > 0) {
+    if (value > 0 && !bySelf) {
       const available = await getEffectiveFundBalance(companyId, fundId);
       if (available < value) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
     }
@@ -990,7 +1015,18 @@ exports.reimburse = handle(async (req, res) => {
       await audit(userId, companyId, "advance_offset", "transaction", offsetTx._id, null, { adminUserId, amount: offset });
     }
     let tx = null;
-    if (value > 0) {
+    const payer = bySelf ? await User.findById(userId).select("name") : null;
+    if (value > 0 && bySelf) {
+      // person's payable goes down, the paying manager's goes up; company Cash/Bank is untouched
+      tx = await post(
+        { companyId, type: "reimburse", memo: `Paid by ${payer?.name || "manager"} personally`, method: method || "", reference: reference || "", createdBy: userId },
+        [
+          { account: await payableAccount(companyId, adminUserId), debit: value },
+          { account: await payableAccount(companyId, userId), credit: value },
+        ]
+      );
+      await audit(userId, companyId, "reimburse_by_self", "transaction", tx._id, null, { adminUserId, amount: value });
+    } else if (value > 0) {
       tx = await post(
         { companyId, type: "reimburse", memo: "Admin reimbursement", method: method || "", reference: reference || "", createdBy: userId, verification: (await needsVerification(companyId, value)) ? "pending" : null },
         [
@@ -1003,8 +1039,9 @@ exports.reimburse = handle(async (req, res) => {
     }
     await recomputeReimbursed(companyId, adminUserId);
     const lead = tx || offsetTx;
-    const body = value > 0 && offset > 0 ? `₹${value} paid back to you, ₹${offset} taken from your voucher balance`
-      : value > 0 ? `₹${value} paid back to you` : `₹${offset} taken from your voucher balance`;
+    const paidLine = bySelf ? `₹${value} paid to you by ${payer?.name || "a manager"}` : `₹${value} paid back to you`;
+    const body = value > 0 && offset > 0 ? `${paidLine}, ₹${offset} taken from your voucher balance`
+      : value > 0 ? paidLine : `₹${offset} taken from your voucher balance`;
     notifyUsers([adminUserId], { title: "You were reimbursed", body, data: { transactionId: lead._id, companyId } });
     if (tx?.verification === "pending") await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Reimbursement of ₹${value}`, data: { transactionId: tx._id, companyId } }, userId);
     const openAfter = (await openPayableBills(companyId, adminUserId)).length + (claims.length - acknowledged);
@@ -1020,6 +1057,7 @@ exports.lend = handle(async (req, res) => {
   const value = round(parseFloat(amount));
   if (!(value > 0)) throw fail(400, "Enter a valid amount");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "reimburse");
   const tx = await post(
     { companyId, type: "lend", memo: "Admin loan to company", method: method || "", reference: reference || "", createdBy: userId },
     [
@@ -1147,6 +1185,7 @@ exports.listTransactions = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "ledger_audit");
   const txs = await LedgerTransaction.find({ companyId }).populate("createdBy", "name").sort({ createdAt: -1 }).limit(200).lean();
   const entries = await LedgerEntry.find({ transactionId: { $in: txs.map((t) => t._id) } }).populate("accountId", "name type").lean();
   const byTx = {};
@@ -1158,6 +1197,7 @@ exports.auditLog = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "ledger_audit");
   const logs = await AuditLog.find({ companyId })
     .select("-before -after")
     .populate("userId", "name")
@@ -1286,7 +1326,7 @@ exports.loanDetail = handle(async (req, res) => {
 
   const borrowerId = loan.borrowerCompanyId?._id;
   // every lookup below is independent, so they run together (one round trip to the database instead of a dozen)
-  const [expense, audits, g, repaymentTxs, issueAlive] = await Promise.all([
+  const [expense, audits, g, repaymentTxs, issueAlive, lenderMarks] = await Promise.all([
     loan.expenseId ? Expense.findById(loan.expenseId).select("-attachment -paymentReceipt").populate("createdBy", "name").populate("approvedBy", "name").lean() : null,
     loan.expenseId
       ? AuditLog.find({ objectId: loan.expenseId, action: { $in: ["request_payer_confirmation", "accept_payer"] } }).select("action userId at").sort({ at: -1 }).populate("userId", "name").lean()
@@ -1294,7 +1334,10 @@ exports.loanDetail = handle(async (req, res) => {
     loan.groupId ? ExpenseGroup.findById(loan.groupId).select("name createdBy settledAt settledAmount").populate("createdBy", "name").lean() : null,
     LedgerTransaction.find({ loanId: loan._id, companyId: borrowerId, type: "loan_repayment" }).populate("createdBy", "name").sort({ createdAt: 1 }).lean(),
     LedgerTransaction.exists({ _id: { $in: loan.transactionIds }, reversedBy: null, type: { $ne: "reversal" } }),
+    AuditLog.find({ objectId: loan._id, action: "repay_marked_by_lender" }).select("after").lean(),
   ]);
+  // repayments the lender marked as received (rather than the borrower paying them)
+  const markedByLender = new Set(lenderMarks.flatMap((a) => (a.after?.transactions || []).map(String)));
 
   let initiatedBy = loan.createdBy ? { _id: loan.createdBy._id, name: loan.createdBy.name } : null;
   let confirmedBy = null;
@@ -1330,6 +1373,7 @@ exports.loanDetail = handle(async (req, res) => {
     method: t.method,
     reference: t.reference,
     reversed: Boolean(t.reversedBy),
+    byLender: markedByLender.has(String(t._id)),
   }));
   // same rule as loanBalance(), from the rows already loaded
   const repaid = repayments.filter((r) => !r.reversed).reduce((s, r) => s + r.amount, 0);
@@ -1343,6 +1387,7 @@ exports.createLoan = handle(async (req, res) => {
   const value = round(parseFloat(amount));
   if (!(value > 0) || !borrowerCompanyId || !lenderCompanyId || String(borrowerCompanyId) === String(lenderCompanyId)) throw fail(400, "Choose two companies and a valid amount");
   await requireRole(borrowerCompanyId, userId, ["admin", "super_admin"]);
+  await requirePermission(borrowerCompanyId, userId, "intercompany");
   const [borrower, lender] = await Promise.all([Company.findById(borrowerCompanyId), Company.findById(lenderCompanyId)]);
   if (!borrower || !lender) throw fail(404, "Company not found");
   const loan = await CompanyLoan.create({ borrowerCompanyId, lenderCompanyId, amount: value, source: "direct", method: method || "", reference: reference || "", note: note || "", createdBy: userId });
@@ -1362,35 +1407,143 @@ exports.createLoan = handle(async (req, res) => {
   res.status(201).json({ success: true, loan: loanView(loan, value) });
 });
 
-exports.repayLoan = handle(async (req, res) => {
-  const { loanId } = req.params;
-  const { userId, amount, fundId, method, reference, note } = req.body;
-  const value = round(parseFloat(amount));
-  const loan = await CompanyLoan.findById(loanId);
-  if (!loan) throw fail(404, "Loan not found");
-  await requireRole(loan.borrowerCompanyId, userId, ["admin", "super_admin"]);
-  const locked = await CompanyLoan.findOneAndUpdate({ _id: loanId, repaymentLock: false }, { $set: { repaymentLock: true } }, { returnDocument: "after" });
+// Posts one repayment on both companies' books (borrower: Cash/Bank out; lender: what they're owed goes down).
+// Used by the borrower's "Repay" and by the lender's "Received". `fundId` is always the BORROWER's Cash/Bank.
+async function recordLoanRepayment(loan, userId, { value, fundId, method, reference, note, lenderFundId }, byLender) {
+  const locked = await CompanyLoan.findOneAndUpdate({ _id: loan._id, repaymentLock: false }, { $set: { repaymentLock: true } }, { returnDocument: "after" });
   if (!locked) throw fail(409, "A repayment is already being recorded");
   try {
+    let shortBy = 0;
     const balance = await loanBalance(loan);
-    if (!(value > 0) || value > balance) throw fail(400, `Repayment must be positive and no more than the outstanding balance (₹${balance})`);
-    const [borrower, lender] = await Promise.all([Company.findById(loan.borrowerCompanyId), Company.findById(loan.lenderCompanyId)]);
-    const available = await getEffectiveFundBalance(borrower._id, fundId);
-    if (available < value) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
+    if (!(value > 0) || value > balance) throw fail(400, `${byLender ? "Received amount" : "Repayment"} must be positive and no more than the outstanding balance (₹${balance})`);
+    const [borrower, lender, actor] = await Promise.all([Company.findById(loan.borrowerCompanyId), Company.findById(loan.lenderCompanyId), User.findById(userId).select("name")]);
+    if (!borrower.external) {
+      if (fundId && fundId !== "cash" && !(borrower.bankAccounts || []).some((b) => String(b._id) === String(fundId))) throw fail(400, `Choose one of ${borrower.name}'s accounts`);
+      // the borrower paying out of their own books must have the money; the lender only confirms money that
+      // already arrived, so the borrower's recorded balance doesn't block it (the account may dip below zero)
+      const available = await getEffectiveFundBalance(borrower._id, fundId);
+      shortBy = round(Math.max(0, value - available));
+      if (!byLender && shortBy > 0) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available)`);
+    }
+    const who = actor?.name || "a manager";
     const routeId = newRouteId();
     const txs = await postAll([
-      [{ companyId: borrower._id, type: "loan_repayment", loanId: loan._id, routeId, memo: note || `Repayment to ${lender.name}`, method: method || "", reference: reference || "", createdBy: userId }, [{ account: await intercoAccount(borrower._id, lender), debit: value }, { account: await fundAccount(borrower._id, fundId), credit: value }]],
-      [{ companyId: lender._id, type: "loan_repayment", loanId: loan._id, routeId, memo: note || `Repayment from ${borrower.name}`, method: method || "", reference: reference || "", createdBy: userId }, [{ account: await fundAccount(lender._id, lender.external ? "cash" : (req.body.lenderFundId || "cash")), debit: value }, { account: await intercoAccount(lender._id, borrower), credit: value }]],
+      [{ companyId: borrower._id, type: "loan_repayment", loanId: loan._id, routeId, memo: note || (byLender ? `Repayment to ${lender.name} (marked received by ${who})` : `Repayment to ${lender.name}`), method: method || "", reference: reference || "", createdBy: userId }, [{ account: await intercoAccount(borrower._id, lender), debit: value }, { account: await fundAccount(borrower._id, borrower.external ? "cash" : fundId), credit: value }]],
+      [{ companyId: lender._id, type: "loan_repayment", loanId: loan._id, routeId, memo: note || (byLender ? `Received from ${borrower.name}` : `Repayment from ${borrower.name}`), method: method || "", reference: reference || "", createdBy: userId }, [{ account: await fundAccount(lender._id, lender.external ? "cash" : (lenderFundId || "cash")), debit: value }, { account: await intercoAccount(lender._id, borrower), credit: value }]],
     ]);
     await applyIfTracked(borrower, fundId, -value);
-    await audit(userId, borrower._id, "repay", "loan", loan._id, { balance }, { amount: value, transactions: txs.map((t) => t._id) });
-    await audit(userId, lender._id, "loan_repaid", "loan", loan._id, { balance }, { amount: value, transactions: txs.map((t) => t._id) });
-    await notifyCompanyAdmins(borrower._id, { title: "Company loan repayment recorded", body: `Repaid ₹${value} to ${lender.name}`, data: { loanId: loan._id, companyId: borrower._id } }, userId);
-    await notifyCompanyAdmins(lender._id, { title: "Company loan repaid", body: `${borrower.name} repaid ₹${value} · ${lender.name}`, data: { loanId: loan._id, companyId: lender._id } }, userId);
-    res.json({ success: true, loan: loanView(loan, await loanBalance(loan)), transactions: txs });
+    const ids = { amount: value, transactions: txs.map((t) => t._id) };
+    await audit(userId, borrower._id, byLender ? "repay_marked_by_lender" : "repay", "loan", loan._id, { balance }, ids);
+    await audit(userId, lender._id, byLender ? "loan_repayment_received" : "loan_repaid", "loan", loan._id, { balance }, ids);
+    if (byLender) {
+      await notifyCompanyAdmins(borrower._id, { title: "Loan repayment marked received", body: `${lender.name} marked ₹${value} as received · ${borrower.name}${shortBy > 0 ? ` · the account it came from is now ₹${shortBy} below zero, please check` : ""}`, data: { loanId: loan._id, companyId: borrower._id } }, userId);
+      await notifyCompanyAdmins(lender._id, { title: "Company loan repayment received", body: `${who} marked ₹${value} received from ${borrower.name}`, data: { loanId: loan._id, companyId: lender._id } }, userId);
+    } else {
+      await notifyCompanyAdmins(borrower._id, { title: "Company loan repayment recorded", body: `Repaid ₹${value} to ${lender.name}`, data: { loanId: loan._id, companyId: borrower._id } }, userId);
+      await notifyCompanyAdmins(lender._id, { title: "Company loan repaid", body: `${borrower.name} repaid ₹${value} · ${lender.name}`, data: { loanId: loan._id, companyId: lender._id } }, userId);
+    }
+    return { loan: loanView(loan, await loanBalance(loan)), transactions: txs, borrowerShort: shortBy };
   } finally {
-    await CompanyLoan.updateOne({ _id: loanId }, { $set: { repaymentLock: false } });
+    await CompanyLoan.updateOne({ _id: loan._id }, { $set: { repaymentLock: false } });
   }
+}
+
+exports.repayLoan = handle(async (req, res) => {
+  const { userId, amount, fundId, method, reference, note, lenderFundId } = req.body;
+  const loan = await CompanyLoan.findById(req.params.loanId);
+  if (!loan) throw fail(404, "Loan not found");
+  await requireRole(loan.borrowerCompanyId, userId, ["admin", "super_admin"]);
+  await requirePermission(loan.borrowerCompanyId, userId, "intercompany");
+  const result = await recordLoanRepayment(loan, userId, { value: round(parseFloat(amount)), fundId, method, reference, note, lenderFundId }, false);
+  res.json({ success: true, ...result });
+});
+
+// The LENDER's managers mark money as received; they pick which of the borrower's Cash/Bank it came out of.
+exports.receiveLoan = handle(async (req, res) => {
+  const { userId, amount, borrowerFundId, method, reference, note } = req.body;
+  const loan = await CompanyLoan.findById(req.params.loanId);
+  if (!loan) throw fail(404, "Loan not found");
+  await requireRole(loan.lenderCompanyId, userId, ["admin", "super_admin"]);
+  await requirePermission(loan.lenderCompanyId, userId, "intercompany");
+  const result = await recordLoanRepayment(loan, userId, { value: round(parseFloat(amount)), fundId: borrowerFundId || "cash", method, reference, note }, true);
+  res.json({ success: true, ...result });
+});
+
+// Names of the borrower's Cash/Bank accounts, for the lender's "Received" form (no balances: they're the other company's).
+exports.loanBorrowerFunds = handle(async (req, res) => {
+  const loan = await CompanyLoan.findById(req.params.loanId);
+  if (!loan) throw fail(404, "Loan not found");
+  await requireRole(loan.lenderCompanyId, req.query.userId, ["admin", "super_admin"]);
+  await requirePermission(loan.lenderCompanyId, req.query.userId, "intercompany");
+  const borrower = await Company.findById(loan.borrowerCompanyId).select("name external cashAccountName bankAccounts");
+  const funds = borrower.external
+    ? []
+    : [
+        { fundId: "cash", name: borrower.cashAccountName || "InCash" },
+        ...(borrower.bankAccounts || []).map((b) => ({ fundId: String(b._id), name: `${b.bankName}${b.accountNumber ? ` ••${String(b.accountNumber).slice(-4)}` : ""}` })),
+      ];
+  res.json({ success: true, borrower: { _id: borrower._id, name: borrower.name }, funds });
+});
+
+// The person who recorded a borrow can delete it: every leg is reversed in BOTH companies (the lender's
+// "lent" side included), the borrower's Cash/Bank is put back, and a bill or group it paid is reopened.
+// Not allowed once repayments exist, so real repayments are never silently undone.
+exports.deleteLoan = handle(async (req, res) => {
+  const { userId } = req.body;
+  const loan = await CompanyLoan.findById(req.params.loanId);
+  if (!loan) throw fail(404, "Loan not found");
+  if (!loan.createdBy || String(loan.createdBy) !== String(userId)) throw fail(403, "Only the person who recorded this borrow can delete it");
+  await requirePermission(loan.borrowerCompanyId, userId, "intercompany");
+  const repaid = await LedgerTransaction.exists({ loanId: loan._id, type: "loan_repayment", reversedBy: null });
+  if (repaid) throw fail(400, "This loan already has repayments, so it can't be deleted");
+
+  // same lock as repayments, so a repayment and a delete can't run together
+  const locked = await CompanyLoan.findOneAndUpdate({ _id: loan._id, repaymentLock: false }, { $set: { repaymentLock: true } }, { returnDocument: "after" });
+  if (!locked) throw fail(409, "This loan is being updated; try again in a moment");
+
+  const [borrower, lender] = await Promise.all([Company.findById(loan.borrowerCompanyId).select("name"), Company.findById(loan.lenderCompanyId).select("name")]);
+  const label = `${lender?.name || "lender"} → ${borrower?.name || "borrower"} ₹${loan.amount}`;
+  try {
+    // the loan's own legs plus anything sharing their route (both companies' books)
+    const own = await LedgerTransaction.find({ _id: { $in: loan.transactionIds }, reversedBy: null, type: { $ne: "reversal" } });
+    const routeIds = [...new Set(own.map((t) => t.routeId).filter(Boolean))];
+    const legs = routeIds.length
+      ? await LedgerTransaction.find({ $or: [{ _id: { $in: own.map((t) => t._id) } }, { routeId: { $in: routeIds } }], reversedBy: null, type: { $ne: "reversal" } })
+      : own;
+    const payables = [];
+    for (const leg of legs) {
+      const { accounts } = await postReversal(leg, userId, `Loan deleted: ${label}`);
+      payables.push(...accounts.filter((a) => a.type === "admin_payable"));
+    }
+    for (const a of payables) await recomputeReimbursed(a.companyId, a.userId);
+
+    if (loan.expenseId) {
+      await Expense.updateOne(
+        { _id: loan.expenseId },
+        { $set: { lifecycle: "approved", status: "outstanding", payerType: "unpaid", payerCompanyId: null, payerConfirmation: null, paidByAdminId: null, paidByUserId: null, transactionId: null, verification: null } }
+      );
+    }
+    if (loan.groupId) {
+      await ExpenseGroup.updateOne(
+        { _id: loan.groupId },
+        { $set: { settlementStatus: "active", settlementType: null, settlementCompanyId: null, settlementLoanId: null, settledAmount: null, settledBy: null, settledAt: null, settlementLock: false } }
+      );
+    }
+    await CompanyLoan.deleteOne({ _id: loan._id });
+  } catch (e) {
+    await CompanyLoan.updateOne({ _id: loan._id }, { $set: { repaymentLock: false } });
+    throw e;
+  }
+
+  const snapshotOfLoan = { amount: loan.amount, source: loan.source, note: loan.note, borrowerCompanyId: loan.borrowerCompanyId, lenderCompanyId: loan.lenderCompanyId, expenseId: loan.expenseId, groupId: loan.groupId };
+  await audit(userId, loan.borrowerCompanyId, "delete", "loan", loan._id, snapshotOfLoan, null);
+  await audit(userId, loan.lenderCompanyId, "delete", "loan", loan._id, snapshotOfLoan, null);
+  await notifyCompanyAdmins([loan.borrowerCompanyId, loan.lenderCompanyId], {
+    title: "Company loan deleted",
+    body: `${label} was deleted and reversed in both companies`,
+    data: { companyId: loan.borrowerCompanyId },
+  }, userId);
+  res.json({ success: true });
 });
 
 exports.settleExpenseGroup = handle(async (req, res) => {
@@ -1513,6 +1666,7 @@ exports.confirmExpensePayer = handle(async (req, res) => {
   if (!expense || expense.lifecycle !== "awaiting_confirmation") throw fail(404, "Expense awaiting confirmation not found");
   if (!expense.payerCompanyId) throw fail(400, "No payer company is recorded");
   await requireRole(expense.payerCompanyId, userId, ["admin", "super_admin"]);
+  await requirePermission(expense.payerCompanyId, userId, "intercompany");
   expense = await Expense.findOneAndUpdate(
     { _id: expense._id, lifecycle: "awaiting_confirmation", payerConfirmation: "pending" },
     { $set: { payerConfirmation: "processing" } },
@@ -1574,6 +1728,7 @@ exports.verifyTransaction = handle(async (req, res) => {
   const tx = await LedgerTransaction.findById(req.params.transactionId);
   if (!tx) throw fail(404, "Transaction not found");
   await requireRole(tx.companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(tx.companyId, userId, "verify");
   if (tx.verification !== "pending") throw fail(400, "This payment is not waiting for verification");
   if (tx.createdBy.toString() === userId.toString()) throw fail(403, "A second admin must verify this payment");
   const filter = tx.routeId ? { routeId: tx.routeId } : { _id: tx._id };
@@ -1618,6 +1773,7 @@ exports.routedPayment = handle(async (req, res) => {
   if (!(value > 0)) throw fail(400, "Enter a valid amount");
   if (!companyId || !adminUserId) throw fail(400, "A routed payment must name the company and the admin");
   const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "intercompany");
   if (!isAdminRole(await roleIn(companyId, adminUserId))) throw fail(400, "Payee must be an admin of this company");
   if (adminUserId.toString() === userId.toString()) throw fail(403, "You cannot reimburse yourself");
   const owed = await adminOwed(companyId, adminUserId);
@@ -1681,6 +1837,7 @@ exports.updateCompanySettings = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId, gstin, currency, verificationThreshold } = req.body;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "settings");
   const company = await Company.findById(companyId);
   const before = { gstin: company.gstin, currency: company.currency, verificationThreshold: company.verificationThreshold, cashAccountName: company.cashAccountName };
   if (gstin !== undefined) company.gstin = String(gstin).trim().toUpperCase();
@@ -1752,6 +1909,7 @@ exports.report = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId, from, to, category } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "reports");
   res.json({ success: true, report: await companyReport(companyId, from, to, category) });
 });
 
@@ -1766,6 +1924,7 @@ exports.addCategory = handle(async (req, res) => {
   if (!name) throw fail(400, "Category name is required");
   if (name.length > 40) throw fail(400, "Keep the category name under 40 characters");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "settings");
   const company = await Company.findById(companyId).select("customCategories hiddenCategories");
   if (!company) throw fail(404, "Company not found");
   const hidden = (company.hiddenCategories || []).find((c) => sameName(c, name));
@@ -1786,6 +1945,7 @@ exports.deleteCategory = handle(async (req, res) => {
   const name = String(req.body.name || "").trim();
   if (!name) throw fail(400, "Category name is required");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "settings");
   const company = await Company.findById(companyId).select("customCategories hiddenCategories");
   if (!company) throw fail(404, "Company not found");
   const isCustom = (company.customCategories || []).some((c) => sameName(c, name));
@@ -1803,6 +1963,7 @@ exports.expenseAnalysis = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "analysis");
   const months = Math.min(24, Math.max(3, parseInt(req.query.months, 10) || 12));
   const IST = 5.5 * 60 * 60 * 1000;
   const ist = (d) => new Date(new Date(d).getTime() + IST);
@@ -1898,6 +2059,7 @@ exports.outstandingReport = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "reports");
   const company = await Company.findById(companyId).select("createdBy");
 
   // people: recorded payables + approved claims (owed to them) and submitted expenses awaiting approval
@@ -1984,6 +2146,7 @@ exports.exportCsv = handle(async (req, res) => {
   const { userId, from, to, scope } = req.query;
   const full = scope === "full";
   await requireRole(companyId, userId, full ? ["super_admin"] : ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "reports");
 
   const txQuery = full ? {} : { companyId };
   const period = periodFilter(from, to);
@@ -2037,6 +2200,7 @@ exports.setMemberRole = handle(async (req, res) => {
   const { userId, role } = req.body;
   if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "members");
   const company = await Company.findById(companyId).select("createdBy name");
   if (company.createdBy && company.createdBy.toString() === String(memberUserId)) {
     throw fail(400, "The company creator is always an admin");
@@ -2061,6 +2225,7 @@ exports.addMember = handle(async (req, res) => {
   const { userId, email, role } = req.body;
   if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "members");
   const company = await Company.findById(companyId).select("name external");
   if (company.external) throw fail(400, "Outside companies can't have members");
   const user = await User.findOne({ email: String(email || "").trim() }).select("name");
@@ -2104,6 +2269,7 @@ exports.inviteMember = handle(async (req, res) => {
   if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fail(400, "Enter a valid email address");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "members");
   const company = await Company.findById(companyId).select("name external");
   if (company.external) throw fail(400, "Outside companies can't have members");
   const escaped = email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2249,7 +2415,7 @@ async function undoVoucherRecords(tx, userId) {
   if (tx.type === "voucher_claim" && tx.voucherId) {
     await Voucher.updateOne(
       { _id: tx.voucherId, status: "claimed" },
-      { $set: { status: "open", claimedAmount: 0, fromAdvance: 0, owedToRecipient: 0, expenseId: null, claimTxId: null, claimedAt: null } }
+      { $set: { status: "open", claimedAmount: 0, fromAdvance: 0, owedToRecipient: 0, expenseId: null, claimTxId: null, claimedAt: null, closedBy: null, closedAt: null } }
     );
     if (tx.expenseId) await Expense.updateOne({ _id: tx.expenseId }, { $set: { lifecycle: "rejected", status: "outstanding", transactionId: null, advanceUsed: 0 } });
   }
@@ -2258,7 +2424,7 @@ async function undoVoucherRecords(tx, userId) {
   }
 }
 
-const voucherPopulate = (q) => q.populate("recipientId", "name").populate("createdBy", "name").populate("cancelledBy", "name");
+const voucherPopulate = (q) => q.populate("recipientId", "name").populate("createdBy", "name").populate("cancelledBy", "name").populate("closedBy", "name");
 
 exports.createVoucher = handle(async (req, res) => {
   const { companyId } = req.params;
@@ -2269,6 +2435,7 @@ exports.createVoucher = handle(async (req, res) => {
   if (!["company", "manager"].includes(fundedBy)) throw fail(400, "Choose who funds the voucher: company or manager");
   if (!recipientId) throw fail(400, "Choose who receives the voucher");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "vouchers");
   if ((await roleIn(companyId, recipientId)) !== "employee") throw fail(400, "Vouchers can be given to staff only");
 
   let fund = null;
@@ -2341,31 +2508,31 @@ exports.listVouchers = handle(async (req, res) => {
   res.json({ success: true, role, vouchers, returns, people, myAdvance });
 });
 
-exports.claimVoucher = handle(async (req, res) => {
-  const { userId, amount, category, description, attachment, date } = req.body;
+// Records what was spent from a voucher, always in the recipient's name. Used by Claim (the staff member)
+// and Close (the manager who created it). Same money rules either way: under-spend stays as the
+// recipient's balance, over-spend comes from their held balance first and the rest is owed to them.
+async function settleVoucher(found, actorId, body, closing) {
+  const { amount, category, description, attachment, date } = body;
   const value = round(parseFloat(amount));
-  if (!(value > 0)) throw fail(400, "Enter the amount you spent");
+  if (!(value > 0)) throw fail(400, closing ? "Enter the amount used" : "Enter the amount you spent");
   if (attachment && !(typeof attachment === "string" && attachment.startsWith("data:image/"))) throw fail(400, "Receipts must be image files");
-  const found = await Voucher.findById(req.params.voucherId);
-  if (!found) throw fail(404, "Voucher not found");
-  if (String(found.recipientId) !== String(userId)) throw fail(403, "Only the person who received this voucher can claim it");
   const companyId = found.companyId;
-  await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  const recipientId = found.recipientId;
 
   let voucher;
   let expense;
-  await withAdvanceLock(companyId, userId, async () => {
+  await withAdvanceLock(companyId, recipientId, async () => {
     voucher = await Voucher.findOneAndUpdate({ _id: found._id, status: "open" }, { $set: { status: "claiming" } }, { returnDocument: "after" });
-    if (!voucher) throw fail(409, "This voucher was already claimed or cancelled");
+    if (!voucher) throw fail(409, "This voucher was already claimed, closed or cancelled");
     try {
-      // this voucher is no longer "open", so the held balance now includes it: claim from it first, then from the rest
-      const available = Math.max(0, await heldAdvance(companyId, userId));
+      // this voucher is no longer "open", so the held balance now includes it: use it first, then the rest
+      const available = Math.max(0, await heldAdvance(companyId, recipientId));
       const fromAdvance = round(Math.min(value, available));
       const owedToRecipient = round(value - fromAdvance);
       const cat = String(category || "").trim() || "General";
       expense = await Expense.create({
         companyId,
-        createdBy: userId,
+        createdBy: recipientId,
         isAdminCreated: false,
         amount: value,
         description: String(description || "").trim() || voucher.purpose,
@@ -2381,12 +2548,24 @@ exports.claimVoucher = handle(async (req, res) => {
         advanceUsed: fromAdvance,
       });
       const lines = [{ account: await expenseAccount(companyId, cat), debit: value }];
-      if (fromAdvance > 0) lines.push({ account: await advanceAccount(companyId, userId), credit: fromAdvance });
-      if (owedToRecipient > 0) lines.push({ account: await payableAccount(companyId, userId), credit: owedToRecipient });
-      const tx = await post({ companyId, type: "voucher_claim", expenseId: expense._id, voucherId: voucher._id, memo: `Voucher claim: ${expense.description}`, createdBy: userId }, lines);
+      if (fromAdvance > 0) lines.push({ account: await advanceAccount(companyId, recipientId), credit: fromAdvance });
+      if (owedToRecipient > 0) lines.push({ account: await payableAccount(companyId, recipientId), credit: owedToRecipient });
+      const tx = await post(
+        { companyId, type: "voucher_claim", expenseId: expense._id, voucherId: voucher._id, memo: `${closing ? "Voucher closed" : "Voucher claim"}: ${expense.description}`, createdBy: actorId },
+        lines
+      );
       expense.transactionId = tx._id;
       await expense.save();
-      Object.assign(voucher, { status: "claimed", claimedAmount: value, fromAdvance, owedToRecipient, expenseId: expense._id, claimTxId: tx._id, claimedAt: new Date() });
+      Object.assign(voucher, {
+        status: "claimed",
+        claimedAmount: value,
+        fromAdvance,
+        owedToRecipient,
+        expenseId: expense._id,
+        claimTxId: tx._id,
+        claimedAt: new Date(),
+        ...(closing ? { closedBy: actorId, closedAt: new Date() } : {}),
+      });
       await voucher.save();
     } catch (e) {
       if (expense && !expense.transactionId) await Expense.deleteOne({ _id: expense._id });
@@ -2398,25 +2577,82 @@ exports.claimVoucher = handle(async (req, res) => {
   if (!BASE_EXPENSE_CATEGORIES.includes(expense.category)) {
     await Company.updateOne({ _id: companyId }, { $addToSet: { customCategories: expense.category } });
   }
-  await audit(userId, companyId, "claim", "voucher", voucher._id, null, { amount: value, fromAdvance: voucher.fromAdvance, owedToRecipient: voucher.owedToRecipient, expenseId: expense._id });
-  const claimer = await User.findById(userId).select("name");
+  await audit(actorId, companyId, closing ? "close" : "claim", "voucher", voucher._id, null, {
+    amount: value,
+    fromAdvance: voucher.fromAdvance,
+    owedToRecipient: voucher.owedToRecipient,
+    expenseId: expense._id,
+    recipientId,
+  });
+  return { voucher, expense, value };
+}
+
+const voucherTail = (voucher, value) => {
   const left = round(voucher.amount - value);
-  const tail = left > 0 ? ` · ₹${left} stays with them` : voucher.owedToRecipient > 0 ? ` · ₹${voucher.owedToRecipient} owed to them` : "";
-  await notifyCompanyAdmins(companyId, { title: "Voucher claimed", body: `${claimer?.name || "Staff"} claimed ₹${value} of ₹${voucher.amount} for ${voucher.purpose}${tail}`, data: { voucherId: voucher._id, expenseId: expense._id, companyId } }, userId);
+  return left > 0 ? ` · ₹${left} stays with them` : voucher.owedToRecipient > 0 ? ` · ₹${voucher.owedToRecipient} owed to them` : "";
+};
+
+exports.claimVoucher = handle(async (req, res) => {
+  const { userId } = req.body;
+  const found = await Voucher.findById(req.params.voucherId);
+  if (!found) throw fail(404, "Voucher not found");
+  if (String(found.recipientId) !== String(userId)) throw fail(403, "Only the person who received this voucher can claim it");
+  await requireRole(found.companyId, userId, ["employee", "admin", "super_admin"]);
+  await requirePermission(found.companyId, userId, "vouchers");
+  const { voucher, expense, value } = await settleVoucher(found, userId, req.body, false);
+
+  const claimer = await User.findById(userId).select("name");
+  await notifyCompanyAdmins(found.companyId, {
+    title: "Voucher claimed",
+    body: `${claimer?.name || "Staff"} claimed ₹${value} of ₹${voucher.amount} for ${voucher.purpose}${voucherTail(voucher, value)}`,
+    data: { voucherId: voucher._id, expenseId: expense._id, companyId: found.companyId },
+  }, userId);
   res.json({
     success: true,
     voucher: await voucherPopulate(Voucher.findById(voucher._id)),
     expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt"),
-    myAdvance: await heldAdvance(companyId, userId),
+    myAdvance: await heldAdvance(found.companyId, userId),
   });
 });
 
-exports.cancelVoucher = handle(async (req, res) => {
+// The manager who created a voucher closes it for the staff member: recorded as that staff member's use, amount editable.
+exports.closeVoucher = handle(async (req, res) => {
+  const { userId } = req.body;
+  const found = await Voucher.findById(req.params.voucherId);
+  if (!found) throw fail(404, "Voucher not found");
+  await requireRole(found.companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(found.companyId, userId, "vouchers");
+  if (String(found.createdBy) !== String(userId)) throw fail(403, "Only the manager who created this voucher can close it");
+  const { voucher, expense, value } = await settleVoucher(found, userId, req.body, true);
+
+  const [closer, recipient] = await Promise.all([User.findById(userId).select("name"), User.findById(found.recipientId).select("name")]);
+  notifyUsers([found.recipientId], {
+    title: "Voucher closed",
+    body: `${closer?.name || "Your manager"} closed ${voucher.purpose}: ₹${value} recorded as used by you${voucherTail(voucher, value).replace("them", "you")}`,
+    data: { voucherId: voucher._id, expenseId: expense._id, companyId: found.companyId },
+  }, userId);
+  await notifyCompanyAdmins(found.companyId, {
+    title: "Voucher closed",
+    body: `${closer?.name || "A manager"} closed ${voucher.purpose} for ${recipient?.name || "staff"}: ₹${value} of ₹${voucher.amount}${voucherTail(voucher, value)}`,
+    data: { voucherId: voucher._id, expenseId: expense._id, companyId: found.companyId },
+  }, userId);
+  res.json({
+    success: true,
+    voucher: await voucherPopulate(Voucher.findById(voucher._id)),
+    expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt"),
+  });
+});
+
+// Cancel and Delete share this: only the creating manager, only while unclaimed; the money goes back where it
+// came from (company Cash/Bank, or off the manager's owed balance). The voucher is left marked "cancelled".
+async function returnVoucherMoney(req, verb) {
   const { userId } = req.body;
   const found = await Voucher.findById(req.params.voucherId);
   if (!found) throw fail(404, "Voucher not found");
   const companyId = found.companyId;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "vouchers");
+  if (String(found.createdBy) !== String(userId)) throw fail(403, `Only the manager who created this voucher can ${verb} it`);
 
   await withAdvanceLock(companyId, found.recipientId, async () => {
     const voucher = await Voucher.findOneAndUpdate(
@@ -2424,24 +2660,45 @@ exports.cancelVoucher = handle(async (req, res) => {
       { $set: { status: "cancelled", cancelledBy: userId, cancelledAt: new Date() } },
       { returnDocument: "after" }
     );
-    if (!voucher) throw fail(409, "Only an unclaimed voucher can be cancelled");
+    if (!voucher) throw fail(409, `Only an unclaimed voucher can be ${verb === "delete" ? "deleted" : "cancelled"}`);
     try {
       if (voucher.fundedBy === "manager" && (await adminOwed(companyId, voucher.createdBy)) < voucher.amount) {
-        throw fail(400, "The manager who funded this voucher has already been reimbursed for it, so it can't be cancelled");
+        throw fail(400, `The manager who funded this voucher has already been reimbursed for it, so it can't be ${verb === "delete" ? "deleted" : "cancelled"}`);
       }
       const issue = voucher.issueTxId ? await LedgerTransaction.findById(voucher.issueTxId) : null;
-      // the money goes back where it came from: company Cash/Bank, or off the manager's owed balance
-      if (issue && !issue.reversedBy) await postReversal(issue, userId, `Voucher cancelled: ${voucher.purpose}`);
+      if (issue && !issue.reversedBy) await postReversal(issue, userId, `Voucher ${verb === "delete" ? "deleted" : "cancelled"}: ${voucher.purpose}`);
       if (voucher.fundedBy === "manager") await recomputeReimbursed(companyId, voucher.createdBy);
     } catch (e) {
       await Voucher.updateOne({ _id: voucher._id, status: "cancelled" }, { $set: { status: "open", cancelledBy: null, cancelledAt: null } });
       throw e;
     }
   });
+  return found;
+}
 
-  await audit(userId, companyId, "cancel", "voucher", found._id, { status: "open" }, { status: "cancelled" });
-  notifyUsers([found.recipientId], { title: "Voucher cancelled", body: `₹${found.amount} for ${found.purpose} was cancelled`, data: { voucherId: found._id, companyId } }, userId);
+exports.cancelVoucher = handle(async (req, res) => {
+  const found = await returnVoucherMoney(req, "cancel");
+  const { userId } = req.body;
+  await audit(userId, found.companyId, "cancel", "voucher", found._id, { status: "open" }, { status: "cancelled" });
+  notifyUsers([found.recipientId], { title: "Voucher cancelled", body: `₹${found.amount} for ${found.purpose} was cancelled`, data: { voucherId: found._id, companyId: found.companyId } }, userId);
   res.json({ success: true, voucher: await voucherPopulate(Voucher.findById(found._id)) });
+});
+
+// Same as cancel, then the voucher is removed from every list. The ledger keeps the issue and its reversal,
+// and the audit log keeps what was deleted.
+exports.deleteVoucher = handle(async (req, res) => {
+  const found = await returnVoucherMoney(req, "delete");
+  const { userId } = req.body;
+  await Voucher.deleteOne({ _id: found._id });
+  await audit(userId, found.companyId, "delete", "voucher", found._id, {
+    purpose: found.purpose,
+    amount: found.amount,
+    recipientId: found.recipientId,
+    fundedBy: found.fundedBy,
+    fundName: found.fundName,
+  }, null);
+  notifyUsers([found.recipientId], { title: "Voucher removed", body: `₹${found.amount} for ${found.purpose} was withdrawn`, data: { companyId: found.companyId } }, userId);
+  res.json({ success: true });
 });
 
 // Staff asks to hand back unused balance; nothing moves until a manager confirms they received the cash.
@@ -2451,6 +2708,7 @@ exports.requestAdvanceReturn = handle(async (req, res) => {
   const value = round(parseFloat(amount));
   if (!(value > 0)) throw fail(400, "Enter a valid amount");
   await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  await requirePermission(companyId, userId, "vouchers");
   const held = await heldAdvance(companyId, userId);
   const pending = await AdvanceReturn.find({ companyId, userId, status: { $in: ["pending", "processing"] } }).select("amount");
   const free = round(held - pending.reduce((s, r) => s + r.amount, 0));
@@ -2468,6 +2726,7 @@ exports.decideAdvanceReturn = handle(async (req, res) => {
   if (!found) throw fail(404, "Hand-back not found");
   const companyId = found.companyId;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "vouchers");
   if (String(found.userId) === String(userId)) throw fail(403, "Another manager must confirm your hand-back");
 
   let advanceReturn;
@@ -2503,4 +2762,62 @@ exports.decideAdvanceReturn = handle(async (req, res) => {
     data: { advanceReturnId: advanceReturn._id, companyId },
   }, userId);
   res.json({ success: true, advanceReturn });
+});
+
+// ---------- feature permissions ----------
+// Everyone in the company can read their own switches (the apps hide what's off); editors also get both lists.
+exports.getPermissions = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  const [mine, company] = await Promise.all([permissionsFor(companyId, userId), Company.findById(companyId).select("permissions").lean()]);
+  const canEditManagers = mine.role === "primary";
+  const canEditStaff = canEditManagers || (mine.role === "manager" && mine.perms.staff_permissions);
+  res.json({
+    success: true,
+    role: mine.role,
+    mine: mine.perms,
+    canEditManagers,
+    canEditStaff,
+    ...(canEditStaff
+      ? {
+          definitions: LISTS,
+          manager: resolved(LISTS.manager, company?.permissions?.manager),
+          staff: resolved(LISTS.staff, company?.permissions?.staff),
+        }
+      : {}),
+  });
+});
+
+// body: { userId, role: "manager" | "staff", permissions: { key: boolean } }
+// Primary admin: both lists. Other managers (with "Change staff permissions"): the staff list, and they can't
+// switch on a staff feature that is off for managers.
+exports.updatePermissions = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, role: target, permissions } = req.body;
+  if (!["manager", "staff"].includes(target)) throw fail(400, "Choose manager or staff permissions");
+  if (!permissions || typeof permissions !== "object") throw fail(400, "Permissions are required");
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  const mine = await permissionsFor(companyId, userId);
+  if (target === "manager" && mine.role !== "primary") throw fail(403, "Only the primary admin can change manager permissions");
+  if (target === "staff" && mine.role !== "primary" && !mine.perms.staff_permissions) throw fail(403, '"Change staff permissions" is turned off for managers in this company');
+
+  const company = await Company.findById(companyId).select("permissions");
+  const before = resolved(LISTS[target], company.permissions?.[target]);
+  const next = { ...before };
+  for (const def of LISTS[target]) {
+    if (typeof permissions[def.key] === "boolean") next[def.key] = permissions[def.key];
+  }
+  if (target === "staff" && mine.role !== "primary") {
+    for (const def of LISTS.staff) {
+      if (next[def.key] && !before[def.key] && def.needs && !mine.perms[def.needs]) {
+        throw fail(403, `You can't turn on "${def.label}" for staff because it's off for managers`);
+      }
+    }
+  }
+  // only switched-off keys are stored, so features added later start switched on
+  const stored = Object.fromEntries(Object.entries(next).filter(([, on]) => !on).map(([key]) => [key, false]));
+  await Company.updateOne({ _id: companyId }, { $set: { [`permissions.${target}`]: stored } });
+  await audit(userId, companyId, "update_permissions", "company", companyId, { [target]: before }, { [target]: next });
+  res.json({ success: true, [target]: next });
 });

@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
+const http = require("http");
+const realtime = require("./services/realtime");
 const cors = require("cors");
 const connectDB = require("./config/db");
 
@@ -32,7 +34,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-Socket-Id"],
     optionsSuccessStatus: 200,
   })
 );
@@ -73,10 +75,11 @@ const vehicleRoutes = require("./routes/vehicleRoutes");
 app.use("/api/vehicles", vehicleRoutes);
 
 const companyExpenseRoutes = require("./routes/companyExpenseRoutes");
-app.use("/api/company-expense", companyExpenseRoutes);
+// writes are announced live to the company's members (services/realtime.js)
+app.use("/api/company-expense", realtime.announceWrites("company-expense"), companyExpenseRoutes);
 
 const ledgerRoutes = require("./routes/ledgerRoutes");
-app.use("/api/ledger", ledgerRoutes);
+app.use("/api/ledger", realtime.announceWrites("ledger"), ledgerRoutes);
 
 
 // Public Privacy Policy Endpoint
@@ -146,7 +149,9 @@ async function startServer() {
   require("./jobs/reminderCron");
   require("./jobs/emailSyncCron");
   require("./jobs/ledgerDayCloseCron");
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = http.createServer(app);
+  realtime.init(server);
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
 }

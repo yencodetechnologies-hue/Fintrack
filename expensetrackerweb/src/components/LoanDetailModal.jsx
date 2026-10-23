@@ -35,7 +35,7 @@ const Loading = ({ text }) => (
 
 // Inter-company loan: which bill it paid, who started the payment and who confirmed it, and the repayments.
 // initialLoan is the row from the list, so the header shows at once while the rest loads.
-export default function LoanDetailModal({ initialLoan, companyId, user, onClose, onRepay }) {
+export default function LoanDetailModal({ initialLoan, companyId, user, onClose, onRepay, onReceive, onDelete, refreshKey }) {
   const loanId = initialLoan._id;
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -53,7 +53,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
       }
     });
     return () => { active = false; };
-  }, [loanId, user.id]);
+  }, [loanId, user.id, refreshKey]);
 
   const loan = data?.loan || initialLoan;
   const { bill = null, group = null, initiatedBy = null, confirmedBy = null, repayments = [] } = data || {};
@@ -74,10 +74,10 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
     <Modal onClose={onClose} maxWidth={560}>
       {/* Header */}
       <div style={{ paddingRight: 44 }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          <span className={`row-tag ${weBorrowed ? "bad" : "good"}`}>{weBorrowed ? "Borrowed" : "Lent"}</span>
-          <span className="pill pill-category" style={{ fontSize: 11 }}>{sourceLabel}</span>
-          {!open && <span className="row-tag good">Repaid</span>}
+        <div className="loan-chips-row">
+          <span className={`loan-chip ${weBorrowed ? "bad" : "good"}`}>{weBorrowed ? "Borrowed" : "Lent"}</span>
+          <span className="loan-chip">{sourceLabel}</span>
+          {!open && <span className="loan-chip good">Repaid</span>}
         </div>
         <h2 style={{ margin: 0, fontSize: 20 }}>{weBorrowed ? `Loan from ${lender}` : `Loan to ${borrower}`}</h2>
         <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>Recorded {formatDateTime(loan.createdAt)}</div>
@@ -150,7 +150,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--dark-text)", wordBreak: "break-word" }}>{bill.description}</div>
                 <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{bill.category || "General"} · {formatDate(bill.date)}</div>
               </div>
-              <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 18, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
+              <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 18, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
             </div>
             {(bill.postedBy || bill.approvedBy) && (
               <div className="loan-bill-meta">
@@ -183,7 +183,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                   {[group.createdBy && `Group admin ${group.createdBy}`, group.settledAt && `Settled ${formatDate(group.settledAt)}`].filter(Boolean).join(" · ")}
                 </div>
               </div>
-              {group.amount != null && <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 18, color: "var(--forest)" }}>{money(group.amount)}</div>}
+              {group.amount != null && <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 18, color: "var(--forest)" }}>{money(group.amount)}</div>}
             </div>
           </div>
         </section>
@@ -194,7 +194,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
         <section className="loan-section">
           <h3>Repayments</h3>
           {repayments.length === 0 ? (
-            <div className="loan-empty">No repayments yet{open && weBorrowed ? " — use Repay below when you pay it back." : "."}</div>
+            <div className="loan-empty">No repayments yet{!open ? "." : weBorrowed ? " — use Repay below when you pay it back." : " — use Received below when they pay you back."}</div>
           ) : (
             <ol className="loan-timeline">
               {repayments.map((r) => (
@@ -204,7 +204,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                     <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{formatDate(r.date)}</span>
                   </div>
                   <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                    {[r.by && `by ${r.by}`, r.method, r.reference && `Ref ${r.reference}`, r.reversed && "reversed"].filter(Boolean).join(" · ")}
+                    {[r.by && `by ${r.by}`, r.byLender && "marked received by lender", r.method, r.reference && `Ref ${r.reference}`, r.reversed && "reversed"].filter(Boolean).join(" · ")}
                   </div>
                 </li>
               ))}
@@ -216,7 +216,14 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
       <div style={{ display: "flex", gap: 10, marginTop: 22 }}>
         <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Close</button>
         {weBorrowed && open && onRepay && <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => onRepay(loan)}>Repay {money(balance)}</button>}
+        {!weBorrowed && open && onReceive && !loan.borrowerCompanyId?.external && <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => onReceive(loan)}>Mark received</button>}
       </div>
+      {/* only the person who recorded the borrow, and only before any repayment */}
+      {onDelete && String(loan.createdBy?._id || loan.createdBy) === String(user.id) && (data ? repayments.filter((r) => !r.reversed).length === 0 : !(Number(loan.repaid) > 0)) && (
+        <div style={{ textAlign: "center", marginTop: 10 }}>
+          <button type="button" className="voucher-ticket-link" onClick={() => onDelete(loan)}>Delete this borrow</button>
+        </div>
+      )}
     </Modal>
   );
 }

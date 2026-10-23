@@ -14,7 +14,7 @@ export default function AuthLayout({ children }) {
             marginBottom: 28,
           }}
         >
-          <span style={{ fontFamily: "Fraunces, serif", fontSize: 26, color: "#FDE68A" }}>Q</span>
+          <span style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 26, color: "#FDE68A" }}>Q</span>
         </div>
         <h1 style={{ color: "#fff", fontSize: 44, maxWidth: 520, lineHeight: 1.15, margin: "0 0 18px" }}>
           Track shared company expenses, without the spreadsheet.

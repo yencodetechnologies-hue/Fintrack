@@ -44,12 +44,12 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
       _loadingCompanies = true;
       _companyError = null;
     });
-    final companies = await ExpenseCompanyService.getAllAvailableCompanies(widget.userId);
+    final companies = (await ExpenseCompanyService.getUserCompanies(widget.userId)).where((c) => c["external"] != true).toList();
     if (!mounted) return;
     setState(() {
       _loadingCompanies = false;
       _availableCompanies = companies;
-      _companyError = companies.isEmpty ? "Could not load companies. Tap to retry." : null;
+      _companyError = companies.isEmpty ? "Join or create a company first. Tap to retry." : null;
     });
   }
 
@@ -234,7 +234,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
           const SizedBox(width: 14),
           Text(
             "Create Group",
-            style: GoogleFonts.fraunces(
+            style: GoogleFonts.inter(
               color: Colors.white,
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -276,7 +276,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
         const SizedBox(height: 10),
         Text(
           "Set up a group",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontSize: 26,
             fontWeight: FontWeight.bold,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:card/services/expense_company_service.dart';
 import '../config/app_config.dart';
+import 'ledger_live.dart';
 
 class LedgerService {
   static const String _base = AppConfig.ledger;
@@ -18,10 +19,16 @@ class LedgerService {
     }
   }
 
+  // our live-connection id rides along with writes, so the server doesn't echo our own change back to us
+  static Map<String, String> get _headers => {
+        "Content-Type": "application/json",
+        if (LedgerLive.socketId != null) "X-Socket-Id": LedgerLive.socketId!,
+      };
+
   static Future<Map<String, dynamic>> _post(String url, Map<String, dynamic> body) async {
     try {
       final res = await http
-          .post(Uri.parse(url), headers: {"Content-Type": "application/json"}, body: jsonEncode(body))
+          .post(Uri.parse(url), headers: _headers, body: jsonEncode(body))
           .timeout(const Duration(seconds: 45));
       return _parse(res);
     } catch (e) {
@@ -59,12 +66,117 @@ class LedgerService {
   static Future<Map<String, dynamic>> userCompanies(String userId) =>
       _get("$_company/user/$userId/companies");
 
-  // ---- expenses ----
+  static Future<Map<String, dynamic>> _delete(String url, Map<String, dynamic> body) async {
+    try {
+      final req = http.Request("DELETE", Uri.parse(url))
+        ..headers.addAll(_headers)
+        ..body = jsonEncode(body);
+      final streamed = await req.send().timeout(const Duration(seconds: 30));
+      return _parse(await http.Response.fromStream(streamed));
+    } catch (e) {
+      return {"success": false, "message": "Network error. Check your connection."};
+    }
+  }
+
+  // ---- expenses (same endpoints as the web) ----
+  // Full list without receipt images; payer names and flags included.
   static Future<Map<String, dynamic>> expenses(String companyId, String userId) =>
-      ExpenseCompanyService.fetchCompanyExpenses(companyId, userId: userId, summary: true, ledgerOnly: true);
+      _get("$_base/companies/$companyId/expenses?userId=$userId");
 
   static Future<Map<String, dynamic>> expenseReceipts(String expenseId, String userId) =>
-      _get("$_company/expense/$expenseId/receipts?userId=$userId");
+      _get("$_base/expenses/$expenseId/receipts?userId=$userId");
+
+  static Future<Map<String, dynamic>> updateExpense(String id, Map<String, dynamic> body) =>
+      _post("$_base/expenses/$id/update", body);
+
+  static Future<Map<String, dynamic>> updateReceipts(String id, String userId, {String? attachment, String? paymentReceipt}) =>
+      _post("$_base/expenses/$id/receipts", {
+        "userId": userId,
+        if (attachment != null) "attachment": attachment,
+        if (paymentReceipt != null) "paymentReceipt": paymentReceipt,
+      });
+
+  static Future<Map<String, dynamic>> changePayerType(String id, String userId, String payerType, {String? fundId}) =>
+      _post("$_base/expenses/$id/payer-type", {"userId": userId, "payerType": payerType, if (fundId != null) "fundId": fundId});
+
+  /// A person's open bills oldest first (the Reimburse preview).
+  static Future<Map<String, dynamic>> payableBills(String companyId, String personId, String userId) =>
+      _get("$_base/companies/$companyId/payables/$personId?userId=$userId");
+
+  // ---- reports ----
+  static Future<Map<String, dynamic>> outstanding(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/outstanding?userId=$userId");
+
+  static Future<Map<String, dynamic>> analysis(String companyId, String userId, {int months = 12}) =>
+      _get("$_base/companies/$companyId/analysis?userId=$userId&months=$months");
+
+  // ---- loans ----
+  static Future<Map<String, dynamic>> loanDetail(String loanId, String userId) =>
+      _get("$_base/loans/$loanId?userId=$userId");
+
+  static Future<Map<String, dynamic>> loanReceipts(String loanId, String userId) =>
+      _get("$_base/loans/$loanId?userId=$userId&receipts=1");
+
+  // ---- vouchers ----
+  static Future<Map<String, dynamic>> vouchers(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/vouchers?userId=$userId");
+
+  static Future<Map<String, dynamic>> createVoucher(String companyId, Map<String, dynamic> body) =>
+      _post("$_base/companies/$companyId/vouchers", body);
+
+  static Future<Map<String, dynamic>> claimVoucher(String voucherId, Map<String, dynamic> body) =>
+      _post("$_base/vouchers/$voucherId/claim", body);
+
+  /// The manager who created a voucher records what the staff member used, in their name.
+  static Future<Map<String, dynamic>> closeVoucher(String voucherId, Map<String, dynamic> body) =>
+      _post("$_base/vouchers/$voucherId/close", body);
+
+  /// Creator only, before the claim: money goes back and the voucher is removed from the lists.
+  static Future<Map<String, dynamic>> deleteVoucher(String voucherId, String userId) =>
+      _post("$_base/vouchers/$voucherId/delete", {"userId": userId});
+
+  static Future<Map<String, dynamic>> cancelVoucher(String voucherId, String userId) =>
+      _post("$_base/vouchers/$voucherId/cancel", {"userId": userId});
+
+  static Future<Map<String, dynamic>> requestAdvanceReturn(String companyId, String userId, num amount, String note) =>
+      _post("$_base/companies/$companyId/advance-returns", {"userId": userId, "amount": amount, "note": note});
+
+  static Future<Map<String, dynamic>> decideAdvanceReturn(String returnId, String userId, bool accept) =>
+      _post("$_base/advance-returns/$returnId/decide", {"userId": userId, "accept": accept});
+
+  // ---- company settings, members, categories, funds ----
+  static Future<Map<String, dynamic>> inviteMember(String companyId, String userId, String email, String role) =>
+      _post("$_base/companies/$companyId/invites", {"userId": userId, "email": email, "role": role});
+
+  static Future<Map<String, dynamic>> removeMember(String companyId, String memberUserId, String userId) =>
+      _delete("$_company/company/$companyId/member/$memberUserId", {"userId": userId});
+
+  static Future<Map<String, dynamic>> deleteCompany(String companyId, String userId) =>
+      _post("$_company/company/$companyId/delete", {"userId": userId});
+
+  static Future<Map<String, dynamic>> saveVisibilityPreference(String companyId, String userId, List<String> hiddenStaffIds) =>
+      _post("$_base/companies/$companyId/visibility-preference", {"userId": userId, "hiddenStaffIds": hiddenStaffIds});
+
+  static Future<Map<String, dynamic>> addCategory(String companyId, String userId, String name) =>
+      _post("$_base/companies/$companyId/categories", {"userId": userId, "name": name});
+
+  static Future<Map<String, dynamic>> deleteCategory(String companyId, String userId, String name) =>
+      _post("$_base/companies/$companyId/categories/delete", {"userId": userId, "name": name});
+
+  static Future<Map<String, dynamic>> addBankAccount(String companyId, Map<String, dynamic> body) =>
+      _post("$_company/company/$companyId/bank-accounts", body);
+
+  static Future<Map<String, dynamic>> deleteBankAccount(String companyId, String accountId, String userId) =>
+      _post("$_company/company/$companyId/bank-accounts/$accountId/delete", {"userId": userId});
+
+  static Future<Map<String, dynamic>> addIncome(String companyId, Map<String, dynamic> body) =>
+      _post("$_company/company/$companyId/income", body);
+
+  static Future<Map<String, dynamic>> incomeHistory(String companyId, String userId) =>
+      _get("$_company/company/$companyId/income?userId=$userId");
+
+  static Future<Map<String, dynamic>> updateCashAccountName(String companyId, String userId, String name) =>
+      _post("$_company/company/$companyId/cash-account-name", {"userId": userId, "cashAccountName": name});
 
   static Future<Map<String, dynamic>> dashboardExpenses(String companyId, String userId) =>
       _get("$_base/companies/$companyId/expenses?userId=$userId&summary=1");
@@ -102,8 +214,27 @@ class LedgerService {
 
   static Future<Map<String, dynamic>> createLoan(Map<String, dynamic> body) => _post("$_base/loans", body);
 
+  /// Only the person who recorded it; reversed in both companies, a paid bill or settled group is reopened.
+  static Future<Map<String, dynamic>> deleteLoan(String loanId, String userId) =>
+      _post("$_base/loans/$loanId/delete", {"userId": userId});
+
+  /// Feature switches per role: my switches, plus both lists for whoever may edit them.
+  static Future<Map<String, dynamic>> permissions(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/permissions?userId=$userId");
+
+  /// role: "manager" | "staff"; permissions: { key: bool }.
+  static Future<Map<String, dynamic>> updatePermissions(String companyId, String userId, String role, Map<String, bool> permissions) =>
+      _post("$_base/companies/$companyId/permissions", {"userId": userId, "role": role, "permissions": permissions});
+
   static Future<Map<String, dynamic>> repayLoan(String loanId, Map<String, dynamic> body) =>
       _post("$_base/loans/$loanId/repay", body);
+
+  /// Lender's managers mark a repayment as received; borrowerFundId is the borrower's Cash/Bank it came from.
+  static Future<Map<String, dynamic>> receiveLoan(String loanId, Map<String, dynamic> body) =>
+      _post("$_base/loans/$loanId/receive", body);
+
+  static Future<Map<String, dynamic>> loanBorrowerFunds(String loanId, String userId) =>
+      _get("$_base/loans/$loanId/borrower-funds?userId=$userId");
 
   static Future<Map<String, dynamic>> settleExpenseGroup(String groupId, Map<String, dynamic> body) =>
       _post("$_base/groups/$groupId/settle", body);

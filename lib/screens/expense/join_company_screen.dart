@@ -106,7 +106,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
         ),
         title: Text(
           "Join Company",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -136,7 +136,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
                 children: [
                   Text(
                     "Enter 6-Digit Code",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: darkText,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

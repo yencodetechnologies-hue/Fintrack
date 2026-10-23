@@ -3,7 +3,14 @@
 const LIVE_API_BASE = "https://fintrack.yencodetechnologies.in";
 const isLocalPage = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const DEFAULT_API_BASE = isLocalPage ? "http://localhost:3009" : LIVE_API_BASE;
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
+
+// set by realtime.js; sent with writes so the server doesn't announce our own change back to us
+let socketId = null;
+export function setSocketId(id) {
+  socketId = id;
+}
+const liveHeaders = () => (socketId ? { "X-Socket-Id": socketId } : {});
 
 function getApiBase() {
   return API_BASE;
@@ -31,7 +38,7 @@ async function post(url, body) {
   try {
     const res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...liveHeaders() },
       body: JSON.stringify(body),
     });
     return await parse(res);
@@ -61,7 +68,7 @@ async function del(url, body) {
   try {
     const res = await fetch(url, {
       method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...liveHeaders() },
       body: JSON.stringify(body),
     });
     return await parse(res);
@@ -167,7 +174,12 @@ export const verifyLedgerTransaction = (transactionId, userId) => post(ledgerUrl
 export const payLedgerExpense = (expenseId, payload) => post(ledgerUrl(`/expenses/${expenseId}/pay`), payload);
 export const getLedgerBorrowSources = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/borrow-sources?userId=${userId}`));
 export const createCompanyLoan = (payload) => post(ledgerUrl("/loans"), payload);
-export const repayCompanyLoan = (loanId, payload) => post(ledgerUrl(`/loans/${loanId}/repay`), payload);
+// only the person who recorded it; reversed in both companies, a paid bill or settled group is reopened
+export const deleteCompanyLoan = (loanId, userId) => post(ledgerUrl(`/loans/${loanId}/delete`), { userId });
+export const repayCompanyLoan =(loanId, payload) => post(ledgerUrl(`/loans/${loanId}/repay`), payload);
+// lender's managers mark a repayment as received, choosing which of the borrower's Cash/Bank it came from
+export const receiveCompanyLoan = (loanId, payload) => post(ledgerUrl(`/loans/${loanId}/receive`), payload);
+export const getLoanBorrowerFunds = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}/borrower-funds?userId=${userId}`));
 export const lendToCompany = (payload) => post(ledgerUrl("/lend"), payload);
 export const getPayableBills = (companyId, personId, userId) =>
   get(ledgerUrl(`/companies/${companyId}/payables/${personId}?userId=${userId}`));
@@ -176,6 +188,9 @@ export const routedCompanyPayment = (payload) => post(ledgerUrl("/routed-payment
 export const getLedgerPayerConfirmations = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/payer-confirmations?userId=${userId}`));
 export const confirmLedgerPayer = (expenseId, userId, accept, fundId) => post(ledgerUrl(`/expenses/${expenseId}/payer-confirmation`), { userId, accept, ...(fundId ? { fundId } : {}) });
 export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/intercompany?userId=${userId}`));
+// feature switches per role: GET returns my switches (+ both lists for whoever may edit them)
+export const getPermissions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/permissions?userId=${userId}`));
+export const updatePermissions = (companyId, userId, role, permissions) => post(ledgerUrl(`/companies/${companyId}/permissions`), { userId, role, permissions });
 export const getLoanDetail = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}`));
 export const getLoanReceipts = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}&receipts=1`));
 export const getLedgerLoans =(companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
@@ -232,6 +247,10 @@ export const getVouchers = (companyId, userId) => get(ledgerUrl(`/companies/${co
 export const createVoucher = (companyId, payload) => post(ledgerUrl(`/companies/${companyId}/vouchers`), payload);
 export const claimVoucher = (voucherId, payload) => post(ledgerUrl(`/vouchers/${voucherId}/claim`), payload);
 export const cancelVoucher = (voucherId, userId) => post(ledgerUrl(`/vouchers/${voucherId}/cancel`), { userId });
+// the manager who created a voucher records what the staff member used, in their name
+// creator only, before the claim: money goes back and the voucher is removed from the lists
+export const deleteVoucher = (voucherId, userId) => post(ledgerUrl(`/vouchers/${voucherId}/delete`), { userId });
+export const closeVoucher =(voucherId, payload) => post(ledgerUrl(`/vouchers/${voucherId}/close`), payload);
 export const requestAdvanceReturn = (companyId, userId, amount, note) =>
   post(ledgerUrl(`/companies/${companyId}/advance-returns`), { userId, amount, note });
 export const decideAdvanceReturn = (returnId, userId, accept) =>

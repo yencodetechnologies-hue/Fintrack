@@ -21,6 +21,9 @@ import {
   getLedgerBorrowSources,
   createCompanyLoan,
   repayCompanyLoan,
+  receiveCompanyLoan,
+  getLoanBorrowerFunds,
+  deleteCompanyLoan,
   payLedgerExpense,
   getLedgerPayerConfirmations,
   confirmLedgerPayer,
@@ -51,14 +54,18 @@ import PayableBillsPreview from "../components/PayableBillsPreview.jsx";
 import OutstandingReport from "../components/OutstandingReport.jsx";
 import ExpenseAnalysis from "../components/ExpenseAnalysis.jsx";
 import VouchersPanel from "../components/VouchersPanel.jsx";
+import PaymentsPanel from "../components/PaymentsPanel.jsx";
+import PeriodFilter from "../components/PeriodFilter.jsx";
 import StaffVouchers from "../components/StaffVouchers.jsx";
 import CreateVoucherModal from "../components/CreateVoucherModal.jsx";
+import PermissionsPanel from "../components/PermissionsPanel.jsx";
+import { makeCan, tabAllowed } from "../permissions.js";
+import { useCompanyLive } from "../realtime.js";
 import HandBackModal from "../components/HandBackModal.jsx";
 import LoanDetailModal from "../components/LoanDetailModal.jsx";
 
 const TODAY_KEY = new Date().toDateString();
 const roundMoney = (n) => Math.round(n * 100) / 100;
-const periodInputStyle = { height: 38, padding: "0 10px", fontSize: 13, width: 150, marginBottom: 0 };
 
 function getExpenseDateKey(expense) {
   const raw = expense.date || expense.createdAt;
@@ -110,6 +117,9 @@ export default function DashboardPage() {
   const [company, setCompany] = useState(null);
   const [members, setMembers] = useState([]);
   const [currentUserRole, setCurrentUserRole] = useState("member");
+  // feature switches for me in this company (null until loaded = everything allowed)
+  const [myPermissions, setMyPermissions] = useState(null);
+  const [permissionRole, setPermissionRole] = useState(null);
   const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
@@ -117,14 +127,16 @@ export default function DashboardPage() {
   const [viewMode] = useState("company");
   // the open tab lives in the URL (?tab=) so the sidebar on any page can open it and a refresh keeps it
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState(() => searchParams.get("tab") || "home");
+  // old links to the removed "More" page land on Settings (its sections are sidebar items now)
+  const tabFromUrl = (tab) => (tab === "more" ? "settings" : tab);
+  const [activeTab, setActiveTab] = useState(() => tabFromUrl(searchParams.get("tab")) || "home");
   const changeTab = useCallback((tab) => {
     setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
   }, [setSearchParams]);
   const urlTab = searchParams.get("tab");
   useEffect(() => {
-    if (urlTab) setActiveTab(urlTab);
+    if (urlTab) setActiveTab(tabFromUrl(urlTab));
   }, [urlTab]);
   const [companies, setCompanies] = useState([]);
   const [ledgerExpenses, setLedgerExpenses] = useState([]);
@@ -135,16 +147,17 @@ export default function DashboardPage() {
   const [payerRequests, setPayerRequests] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [report, setReport] = useState(null);
-  const [moreView, setMoreView] = useState("funds");
   const [intercoModal, setIntercoModal] = useState(null);
   const [intercoDraft, setIntercoDraft] = useState({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
   const [intercoSaving, setIntercoSaving] = useState(false);
+  const [borrowerFunds, setBorrowerFunds] = useState(null);
   const [moneyModal, setMoneyModal] = useState("");
   const [payeeBills, setPayeeBills] = useState({ loading: false, bills: [], owed: 0 });
   const [moneyDraft, setMoneyDraft] = useState({ adminUserId: "", amount: "", fundId: "cash", method: "UPI", reference: "", offsetAdvance: false });
   const [voucherModal, setVoucherModal] = useState(false);
   const [handBackOpen, setHandBackOpen] = useState(false);
   const [viewingLoan, setViewingLoan] = useState(null);
+  const [deletingLoan, setDeletingLoan] = useState(null);
   const [routeDraft, setRouteDraft] = useState({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" });
   const [paymentDraft, setPaymentDraft] = useState({ payer: "admin", fundId: "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
   const [payerFundSelections, setPayerFundSelections] = useState({});
@@ -166,13 +179,13 @@ export default function DashboardPage() {
   const [expenseDateFrom, setExpenseDateFrom] = useState("");
   // Expenses tab: "all", "company" (posted as the company), "managers", "staff", or one person's user id
   const [postedByFilter, setPostedByFilter] = useState("all");
-  // Expenses tab period: all time, one day, one month, one year, or a custom From/To range
-  const [periodMode, setPeriodMode] = useState("all");
   const [expenseDateTo, setExpenseDateTo] = useState("");
 
   const [modal, setModal] = useState(null); // {type, expense?}
 
   const isAdmin = currentUserRole === "admin";
+  const can = useMemo(() => makeCan(myPermissions), [myPermissions]);
+  const pageAllowed = tabAllowed(activeTab, { admin: isAdmin, can, permissionRole });
   const showCompanyTotals = isAdmin && viewMode === "company";
   const bankAccounts = company?.bankAccounts || [];
   const cashBalance = company?.cashBalance || 0;
@@ -256,6 +269,8 @@ export default function DashboardPage() {
     rememberCompany(companyId);
     setMembers(detailsRes.members || []);
     setCurrentUserRole(detailsRes.currentUserRole || "member");
+    setMyPermissions(detailsRes.myPermissions || null);
+    setPermissionRole(detailsRes.permissionRole || null);
     setHiddenStaffIds(detailsRes.hiddenStaffIds || []);
     // Show the company workspace as soon as its required details arrive.
     // The lists and totals below are secondary and should not block first paint.
@@ -269,9 +284,28 @@ export default function DashboardPage() {
   useEffect(() => {
     setLoading(true);
     load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
   }, [load]);
+
+  // Live updates instead of polling: the server says which parts of this company changed, and only those
+  // reload. Each topic has a counter; a section reloads when one of its topics' counters moves.
+  const [liveTicks, setLiveTicks] = useState({});
+  const onLive = useCallback((topics) => {
+    const all = topics.includes("*");
+    if (all || topics.some((t) => ["company", "members", "permissions", "funds"].includes(t))) load();
+    setLiveTicks((cur) => {
+      const next = { ...cur };
+      for (const t of topics) next[t] = (next[t] || 0) + 1;
+      return next;
+    });
+  }, [load]);
+  useCompanyLive(companyId, user.id, onLive);
+  const tick = (...topics) => topics.reduce((sum, t) => sum + (liveTicks[t] || 0), liveTicks["*"] || 0);
+  const tabTick =
+    activeTab === "home" ? tick("expenses", "balances", "loans", "ledger")
+      : activeTab === "expenses" ? tick("expenses", "balances")
+        : activeTab === "interco" ? tick("loans", "balances", "expenses")
+          : tick("expenses");
+  const reportTick = tick("expenses", "balances", "loans");
 
   // Fetch only the data needed by the currently opened workspace section.
   useEffect(() => {
@@ -307,7 +341,8 @@ export default function DashboardPage() {
     }
 
     return () => { active = false; };
-  }, [activeTab, company, companyId, user.id]);
+    // tabTick: reload this tab's lists when a live update touches them
+  }, [activeTab, company, companyId, user.id, tabTick]);
 
   const loadReport = useCallback(async (from = reportFrom, to = reportTo, cat = reportCategory) => {
     setLoadingReport(true);
@@ -319,12 +354,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activeTab !== "reports") return;
     loadReport();
-  }, [activeTab, loadReport]);
+  }, [activeTab, loadReport, reportTick]);
 
   useEffect(() => {
     if (!isAdmin || activeTab !== "interco") return;
     getLedgerPayerConfirmations(companyId, user.id).then((res) => { if (res.success) setPayerRequests(res.expenses || []); });
-  }, [activeTab, companyId, user.id, isAdmin]);
+  }, [activeTab, companyId, user.id, isAdmin, tabTick]);
 
   const categories = useMemo(() => {
     const set = new Set(["All"]);
@@ -379,33 +414,6 @@ export default function DashboardPage() {
     }
     return groups;
   }, [filtered]);
-
-  // Day / month / year pickers fill the same From–To range the list is filtered by.
-  function setPeriod(mode, value) {
-    if (!value) return;
-    if (mode === "day") {
-      setExpenseDateFrom(value);
-      setExpenseDateTo(value);
-    } else if (mode === "month") {
-      const [y, m] = value.split("-").map(Number);
-      setExpenseDateFrom(`${value}-01`);
-      setExpenseDateTo(`${value}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`);
-    } else if (mode === "year") {
-      setExpenseDateFrom(`${value}-01-01`);
-      setExpenseDateTo(`${value}-12-31`);
-    }
-  }
-
-  function choosePeriod(mode) {
-    setPeriodMode(mode);
-    const today = getExpenseDateKey({ date: new Date() });
-    if (mode === "all") {
-      setExpenseDateFrom("");
-      setExpenseDateTo("");
-    } else if (mode === "day") setPeriod("day", today);
-    else if (mode === "month") setPeriod("month", today.slice(0, 7));
-    else if (mode === "year") setPeriod("year", today.slice(0, 4));
-  }
 
   const expenseYears = useMemo(() => {
     const years = new Set([String(new Date().getFullYear())]);
@@ -494,6 +502,22 @@ export default function DashboardPage() {
     }
   }
 
+  // "Who paid?" choices this person may record on an approved bill (switches decide which)
+  function payerOptions(expense) {
+    const own = String(expense?.createdBy?._id || expense?.createdBy) === String(user.id);
+    if (isAdmin) {
+      return [
+        ...(can("record_payments") ? [{ value: "admin", label: "Paid by me" }, { value: "company", label: "Paid by company" }] : []),
+        ...(can("intercompany") ? [{ value: "borrow", label: "Borrowed from a company" }] : []),
+      ];
+    }
+    return [
+      { value: "person", label: "Paid by me" },
+      ...(own ? [{ value: "company", label: "Paid by company" }] : []),
+      ...(can("borrow") ? [{ value: "borrow", label: "Borrowed from a company" }] : []),
+    ];
+  }
+
   async function decideLedgerExpense(expense, action) {
     const request = action === "approve" ? approveLedgerExpense : rejectLedgerExpense;
     const res = await request(expense._id, user.id);
@@ -535,12 +559,15 @@ export default function DashboardPage() {
   async function submitIntercoAction(event) {
     event.preventDefault();
     setIntercoSaving(true);
-    const result = intercoModal?.type === "repay"
+    const kind = intercoModal?.type;
+    const result = kind === "receive"
+      ? await receiveCompanyLoan(intercoModal.loan._id, { userId: user.id, amount: Number(intercoDraft.amount), borrowerFundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference })
+      : kind === "repay"
       ? await repayCompanyLoan(intercoModal.loan._id, { userId: user.id, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference })
       : await createCompanyLoan({ userId: user.id, borrowerCompanyId: companyId, lenderCompanyId: intercoDraft.companyId, amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference, note: (intercoDraft.note || "").trim() });
     setIntercoSaving(false);
     if (result.success) {
-      showToast(intercoModal?.type === "repay" ? "Loan repayment recorded" : "Company loan recorded");
+      showToast(kind === "receive" ? (result.borrowerShort > 0 ? `Marked as received · ${intercoModal.loan.borrowerCompanyId?.name || "The borrower"}'s account is now ${money(result.borrowerShort)} below zero` : "Marked as received") :kind === "repay" ? "Loan repayment recorded" : "Company loan recorded");
       setIntercoModal(null);
       setIntercoDraft({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
       load();
@@ -652,9 +679,30 @@ export default function DashboardPage() {
     } else showToast(result.message || "Could not record transaction", "error");
   }
 
+  async function confirmDeleteLoan() {
+    const loan = deletingLoan;
+    setDeletingLoan(null);
+    const res = await deleteCompanyLoan(loan._id, user.id);
+    if (res.success) {
+      showToast("Borrow deleted and reversed in both companies");
+      load();
+    } else showToast(res.message || "Could not delete this borrow", "error");
+  }
+
   function openRepay(loan) {
     setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" });
     setIntercoModal({ type: "repay", loan });
+  }
+
+  async function openReceive(loan) {
+    setBorrowerFunds(null);
+    setIntercoDraft({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
+    setIntercoModal({ type: "receive", loan });
+    const res = await getLoanBorrowerFunds(loan._id, user.id);
+    if (res.success) {
+      setBorrowerFunds(res.funds);
+      setIntercoDraft((draft) => ({ ...draft, fundId: res.funds[0]?.fundId || "cash" }));
+    } else showToast(res.message || "Could not load the borrower's accounts", "error");
   }
 
   async function submitRoutedPayment(event) {
@@ -679,13 +727,17 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppLayout companyId={companyId} isAdmin={isAdmin} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
+    <AppLayout companyId={companyId} isAdmin={isAdmin} can={can} permissionRole={permissionRole} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
         <div className="main-panel">
+          {!pageAllowed && (
+            <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 28 }}>This page is turned off for you in this company.</div>
+          )}
+          {pageAllowed && <>
           {activeTab === "home" && (
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 20 }}>
                 <h1 style={{ fontSize: 26, margin: 0 }}>Home</h1>
-                <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>
+                {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
               </div>
               {(() => {
                 const totalSpent = ledgerExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
@@ -719,7 +771,7 @@ export default function DashboardPage() {
                         label="Voucher balance"
                         value={money(Math.max(0, Number(ledgerBalances?.myAdvance || 0)))}
                         sub={Number(ledgerBalances?.myAdvance) > 0 ? "Company money with you · tap to hand back" : "No voucher money with you"}
-                        onClick={Number(ledgerBalances?.myAdvance) > 0 ? () => setHandBackOpen(true) : undefined}
+                        onClick={Number(ledgerBalances?.myAdvance) > 0 && can("vouchers") ? () => setHandBackOpen(true) : undefined}
                         title="Hand back unused voucher money"
                       />
                     )}
@@ -744,7 +796,7 @@ export default function DashboardPage() {
                           label="Balance"
                           value={money(cashTotal + bankTotal)}
                           sub={`Cash ${money(cashTotal)} · Bank ${money(bankTotal)}`}
-                          onClick={() => { changeTab("more"); setMoreView("funds"); }}
+                          onClick={() => changeTab("funds")}
                           title="View company funds"
                         />
                       </>
@@ -752,8 +804,17 @@ export default function DashboardPage() {
                   </div>
                 );
               })()}
-              {isAdmin && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("reimburse"); }}>Reimburse person</button><button className="btn btn-outline" onClick={() => setVoucherModal(true)}>Create voucher</button></div>}
-              {!isAdmin && <StaffVouchers companyId={companyId} company={company} user={user} refreshKey={company} onChanged={load} />}
+              {isAdmin && (can("reimburse") || can("vouchers")) && <div className="m-action-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>{can("reimburse") && <><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("reimburse"); }}>Reimburse person</button></>}{can("vouchers") && <button className="btn btn-outline" onClick={() => setVoucherModal(true)}>Create voucher</button>}</div>}
+              <StaffVouchers companyId={companyId} company={company} user={user} isAdmin={isAdmin} can={can} refreshKey={tick("vouchers", "balances")} onChanged={load} />
+              {/* Home lists only expenses posted today; the rest live on the Expenses page */}
+              <div style={{ marginBottom: 10 }}>
+                <span className="today-chip">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
+                  </svg>
+                  Today · {formatDate(new Date())}
+                </span>
+              </div>
               {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
                 <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
               ) : (
@@ -775,25 +836,22 @@ export default function DashboardPage() {
                     })}
                 </div>
               )}
-              {isAdmin && (
+              {/* only shown when something is waiting for a second manager */}
+              {isAdmin && can("verify") && pendingVerification.length > 0 && (
                 <>
                   <h2 style={{ margin: "22px 0 12px", fontSize: 19 }}>Pending verification</h2>
-                  {pendingVerification.length === 0 ? (
-                    <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>Nothing waiting for verification.</div>
-                  ) : (
-                    <div className="card expense-list">
-                      {pendingVerification.map((transaction) => (
-                        <div key={transaction._id} className="expense-row static">
-                          <span className="expense-row-main">
-                            <span className="expense-row-title">{transaction.memo || transaction.type}</span>
-                            <span className="expense-row-meta">{transaction.createdBy?.name || "Manager"} · {formatDate(transaction.createdAt)}</span>
-                          </span>
-                          <span className="expense-row-amount">{money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}</span>
-                          <span className="expense-row-action"><button className="btn btn-primary btn-sm" onClick={() => verifyTransaction(transaction)}>Verify</button></span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <div className="card expense-list">
+                    {pendingVerification.map((transaction) => (
+                      <div key={transaction._id} className="expense-row static">
+                        <span className="expense-row-main">
+                          <span className="expense-row-title">{transaction.memo || transaction.type}</span>
+                          <span className="expense-row-meta">{transaction.createdBy?.name || "Manager"} · {formatDate(transaction.createdAt)}</span>
+                        </span>
+                        <span className="expense-row-amount">{money(transaction.entries?.reduce((sum, entry) => sum + Number(entry.debit || 0), 0))}</span>
+                        <span className="expense-row-action"><button className="btn btn-primary btn-sm" onClick={() => verifyTransaction(transaction)}>Verify</button></span>
+                      </div>
+                    ))}
+                  </div>
                 </>
               )}
             </>
@@ -803,10 +861,10 @@ export default function DashboardPage() {
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
                 <h1 style={{ fontSize: 26, margin: 0 }}>Expenses</h1>
-                <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>
+                {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
               </div>
               <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and track company expense submissions.</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              <div className="m-chip-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
                 {["All", "Submitted", "Approved", ...(isAdmin ? ["Verify"] : [])].map((filter) => (
                   <button
                     key={filter}
@@ -819,7 +877,7 @@ export default function DashboardPage() {
               </div>
 
               <div
-                className="card"
+                className="card m-filter-bar"
                 style={{
                   marginBottom: 18,
                   padding: "10px 14px",
@@ -906,46 +964,12 @@ export default function DashboardPage() {
                     </select>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Period</span>
-                    <select
-                      className="field-select"
-                      style={{ ...periodInputStyle, width: "auto", minWidth: 110 }}
-                      value={periodMode}
-                      onChange={(e) => choosePeriod(e.target.value)}
-                      title="Filter by day, month, year or a custom range"
-                    >
-                      <option value="all">All time</option>
-                      <option value="day">Day</option>
-                      <option value="month">Month</option>
-                      <option value="year">Year</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </div>
-
-                  {periodMode === "day" && (
-                    <input type="date" className="field-input" style={periodInputStyle} value={expenseDateFrom} onChange={(e) => setPeriod("day", e.target.value)} title="Day" />
-                  )}
-                  {periodMode === "month" && (
-                    <input type="month" className="field-input" style={periodInputStyle} value={expenseDateFrom.slice(0, 7)} onChange={(e) => setPeriod("month", e.target.value)} title="Month" />
-                  )}
-                  {periodMode === "year" && (
-                    <select className="field-select" style={{ ...periodInputStyle, width: "auto" }} value={expenseDateFrom.slice(0, 4)} onChange={(e) => setPeriod("year", e.target.value)} title="Year">
-                      {expenseYears.map((y) => <option key={y} value={y}>{y}</option>)}
-                    </select>
-                  )}
-                  {periodMode === "custom" && (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>From</span>
-                        <input type="date" className="field-input" style={periodInputStyle} value={expenseDateFrom} onChange={(e) => setExpenseDateFrom(e.target.value)} title="From date" />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>To</span>
-                        <input type="date" className="field-input" style={periodInputStyle} value={expenseDateTo} onChange={(e) => setExpenseDateTo(e.target.value)} title="To date" />
-                      </div>
-                    </>
-                  )}
+                  <PeriodFilter
+                    from={expenseDateFrom}
+                    to={expenseDateTo}
+                    years={expenseYears}
+                    onChange={(from, to) => { setExpenseDateFrom(from); setExpenseDateTo(to); }}
+                  />
 
                   {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All" || postedByFilter !== "all") && (
                     <button
@@ -955,7 +979,6 @@ export default function DashboardPage() {
                       onClick={() => {
                         setSearch("");
                         setExpenseDateFrom("");
-                        setPeriodMode("all");
                         setExpenseDateTo("");
                         setStatusFilter("All");
                         setPostedByFilter("all");
@@ -985,8 +1008,7 @@ export default function DashboardPage() {
                         onClick={() => {
                           setSearch("");
                           setExpenseDateFrom("");
-                          setPeriodMode("all");
-                          setExpenseDateTo("");
+                            setExpenseDateTo("");
                           setStatusFilter("All");
                           setPostedByFilter("all");
                         }}
@@ -1046,13 +1068,13 @@ export default function DashboardPage() {
                             <span className="expense-row-amount">{money(expense.amount)}</span>
                             <span className="expense-row-action" onClick={(e) => e.stopPropagation()}>
                               {isAdmin && expense.lifecycle === "submitted" ? (
-                                <button type="button" className="btn btn-primary btn-sm" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button>
-                              ) : expense.lifecycle === "approved" ? (
+                                can("approve_expenses") ? <button type="button" className="btn btn-primary btn-sm" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button> : null
+                              ) : expense.lifecycle === "approved" && payerOptions(expense).length > 0 ? (
                                 <button
                                   type="button"
                                   className="btn btn-primary btn-sm"
                                   onClick={() => {
-                                    setPaymentDraft({ payer: isAdmin ? "admin" : "person", fundId: availableCompanyFunds[0]?.fundId || "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
+                                    setPaymentDraft({ payer: payerOptions(expense)[0].value, fundId: availableCompanyFunds[0]?.fundId || "cash", sourceCompanyId: "", method: "UPI", reference: "", paymentReceipt: "" });
                                     setModal({ type: "ledgerPay", expense });
                                   }}
                                 >
@@ -1072,7 +1094,7 @@ export default function DashboardPage() {
 
           {activeTab === "interco" && (
             <>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><h1 style={{ fontSize: 26, margin: 0 }}>Inter-company</h1>{isAdmin && <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button><button className="btn btn-dark" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Borrow from a company</button></div>}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><h1 style={{ fontSize: 26, margin: 0 }}>Inter-company</h1>{isAdmin && can("intercompany") && <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button><button className="btn btn-dark" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Borrow from a company</button></div>}</div>
               {isAdmin && payerRequests.length > 0 && (
                 <>
                   <h2 style={{ fontSize: 18, marginTop: 22 }}>Payment confirmations</h2>
@@ -1088,8 +1110,10 @@ export default function DashboardPage() {
                           <select className="field-select" style={{ height: 30, padding: "0 8px", fontSize: 12 }} value={payerFundSelections[expense._id] || availableCompanyFunds[0]?.fundId || "cash"} onChange={(event) => setPayerFundSelections((current) => ({ ...current, [expense._id]: event.target.value }))}>
                             {availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name}</option>)}
                           </select>
+                          {can("intercompany") && <>
                           <button className="btn btn-outline btn-sm" onClick={() => respondToPayerRequest(expense, false)}>Reject</button>
                           <button className="btn btn-primary btn-sm" onClick={() => respondToPayerRequest(expense, true)}>Accept</button>
+                          </>}
                         </span>
                       </div>
                     ))}
@@ -1138,9 +1162,15 @@ export default function DashboardPage() {
                           </span>
                         </span>
                         <span className="expense-row-amount" style={{ color: open ? "var(--terracotta)" : "var(--muted)" }}>{open ? `${money(loan.balance)} due` : "Repaid"}</span>
-                        <span className="expense-row-action">
-                          {isAdmin && weBorrowed && open && (
+                        <span className="expense-row-action" style={{ display: "flex", gap: 6 }}>
+                          {isAdmin && can("intercompany") && weBorrowed && open && (
                             <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openRepay(loan); }}>Repay</button>
+                          )}
+                          {isAdmin && can("intercompany") && !weBorrowed && open && !loan.borrowerCompanyId?.external && (
+                            <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openReceive(loan); }}>Received</button>
+                          )}
+                          {can("intercompany") && String(loan.createdBy?._id || loan.createdBy) === String(user.id) && !(Number(loan.repaid) > 0) && (
+                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeletingLoan(loan); }}>Delete</button>
                           )}
                         </span>
                       </div>
@@ -1155,24 +1185,10 @@ export default function DashboardPage() {
             <>
               <h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Reports</h1>
               <div className="card" style={{ marginBottom: 18, padding: 14 }}>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <div className="m-stack" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                   <div>
-                    <label className="field-label">From Date</label>
-                    <input
-                      className="field-input"
-                      type="date"
-                      value={reportFrom}
-                      onChange={(e) => setReportFrom(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="field-label">To Date</label>
-                    <input
-                      className="field-input"
-                      type="date"
-                      value={reportTo}
-                      onChange={(e) => setReportTo(e.target.value)}
-                    />
+                    <label className="field-label">Period</label>
+                    <PeriodFilter label="" from={reportFrom} to={reportTo} years={expenseYears} onChange={(from, to) => { setReportFrom(from); setReportTo(to); }} />
                   </div>
                   <div>
                     <label className="field-label">Category</label>
@@ -1212,47 +1228,64 @@ export default function DashboardPage() {
                 </div>
               ) : report ? (
                 <div className="card">
-                  <div className="profile-detail">
-                    <span className="field-label">Expenses</span>
-                    <strong>{money(report.expenses)}</strong>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+                    <h3 style={{ margin: 0, fontSize: 16 }}>Summary</h3>
+                    <a
+                      className="btn btn-primary"
+                      href={getLedgerExportUrl(companyId, user.id, reportFrom, reportTo, reportCategory)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Export CSV
+                    </a>
                   </div>
-                  <div className="profile-detail">
-                    <span className="field-label">Paid by managers</span>
-                    <strong>{money(report.paidByAdmins)}</strong>
-                  </div>
-                  <div className="profile-detail">
-                    <span className="field-label">Owed to managers</span>
-                    <strong>{money(report.owedToAdmins)}</strong>
-                  </div>
-                  <div className="profile-detail">
-                    <span className="field-label">Inter-company net</span>
-                    <strong>{money(report.intercompanyNet)}</strong>
-                  </div>
-                  <a
-                    className="btn btn-primary"
-                    href={getLedgerExportUrl(companyId, user.id, reportFrom, reportTo, reportCategory)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Export CSV
-                  </a>
+                  {(() => {
+                    const net = Number(report.intercompanyNet || 0);
+                    const tiles = [
+                      { label: "EXPENSES", value: money(report.expenses), sub: "Paid in this period" },
+                      { label: "PAID BY MANAGERS", value: money(report.paidByAdmins), sub: "Paid out of their own pocket" },
+                      { label: "OWED TO MANAGERS", value: money(report.owedToAdmins), sub: "Not yet reimbursed", color: Number(report.owedToAdmins) > 0 ? "var(--terracotta)" : undefined },
+                      {
+                        label: "INTER-COMPANY NET",
+                        value: net < 0 ? `We owe ${money(-net)}` : net > 0 ? `Owed to us ${money(net)}` : money(0),
+                        sub: net < 0 ? "Net owed to other companies" : net > 0 ? "Net other companies owe us" : "Settled with other companies",
+                        color: net < 0 ? "var(--terracotta)" : net > 0 ? "var(--forest)" : undefined,
+                      },
+                    ];
+                    return (
+                      <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12 }}>
+                        {tiles.map((t) => (
+                          <div key={t.label} className="stat-card" style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 700, letterSpacing: 0.6, marginBottom: 6 }}>{t.label}</div>
+                            <div style={{ fontSize: 20, fontWeight: 800, color: t.color || "var(--dark-text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.value}</div>
+                            <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>{t.sub}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="card" style={{ color: "var(--muted)" }}>No report data.</div>
               )}
-              <OutstandingReport companyId={companyId} userId={user.id} />
+              <OutstandingReport companyId={companyId} userId={user.id} refreshKey={reportTick} />
             </>
           )}
 
-          {activeTab === "analysis" && isAdmin && <ExpenseAnalysis companyId={companyId} userId={user.id} />}
+          {activeTab === "analysis" && isAdmin && <ExpenseAnalysis companyId={companyId} userId={user.id} refreshKey={tick("expenses")} />}
 
           {activeTab === "vouchers" && isAdmin && (
-            <VouchersPanel companyId={companyId} user={user} members={members} funds={availableCompanyFunds} onChanged={load} />
+            <VouchersPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("vouchers", "balances")} />
           )}
 
-          {activeTab === "more" && (
-            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>More</h1><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>{[...(isAdmin ? ["funds", "transactions", "audit"] : []), "settings"].map((section) => <button key={section} className={`btn ${moreView === section ? "btn-dark" : "btn-outline"}`} onClick={() => setMoreView(section)}>{section === "funds" ? "Company Funds" : section === "transactions" ? "Ledger" : section === "audit" ? "Audit log" : "Settings"}</button>)}</div>{moreView === "funds" && isAdmin && <FundsPanel company={company} user={user} bankAccounts={bankAccounts} cashBalance={cashBalance} onChanged={(accounts, cash, newName) => setCompany((c) => ({ ...c, bankAccounts: accounts, cashBalance: cash, ...(newName ? { cashAccountName: newName } : {}) }))} />}{moreView === "settings" && <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />}{moreView === "transactions" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} />}{moreView === "audit" && <LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" />}</>
+          {activeTab === "payments" && isAdmin && (
+            <PaymentsPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("balances", "expenses")} />
           )}
+
+          {activeTab === "transactions" && isAdmin && (
+            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Ledger</h1><LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} refreshKey={tick("ledger")} /></>
+          )}
+          {activeTab === "audit" && isAdmin && <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Audit log</h1><LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" refreshKey={tick("ledger")} /></>}
 
           {activeTab === "ledger" && (
             <>
@@ -1346,6 +1379,7 @@ export default function DashboardPage() {
               user={user}
               bankAccounts={bankAccounts}
               cashBalance={cashBalance}
+              refreshKey={tick("funds")}
               onChanged={(accounts, cash, newName) =>
                 setCompany((c) => ({
                   ...c,
@@ -1358,8 +1392,11 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "settings" && (
-            <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} onChanged={load} />
+            <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} can={can} onChanged={load} />
           )}
+
+          {activeTab === "permissions" && <PermissionsPanel companyId={companyId} user={user} refreshKey={tick("permissions")} />}
+          </>}
         </div>
 
       {modal?.type === "add" && (
@@ -1367,6 +1404,7 @@ export default function DashboardPage() {
           company={company}
           user={user}
           isAdmin={isAdmin}
+          canPostAsCompany={can("post_as_company")}
           members={members}
           customCategories={customCategories}
           hiddenStaffIds={hiddenStaffIds}
@@ -1385,7 +1423,21 @@ export default function DashboardPage() {
           companyId={companyId}
           user={user}
           onClose={() => setViewingLoan(null)}
-          onRepay={isAdmin ? (loan) => { setViewingLoan(null); openRepay(loans.find((l) => String(l._id) === String(loan._id)) || loan); } : undefined}
+          refreshKey={tick("loans")}
+          onRepay={isAdmin && can("intercompany") ? (loan) => { setViewingLoan(null); openRepay(loans.find((l) => String(l._id) === String(loan._id)) || loan); } : undefined}
+          onReceive={isAdmin && can("intercompany") ? (loan) => { setViewingLoan(null); openReceive(loans.find((l) => String(l._id) === String(loan._id)) || loan); } : undefined}
+          onDelete={can("intercompany") ? (loan) => { setViewingLoan(null); setDeletingLoan(loan); } : undefined}
+        />
+      )}
+
+      {deletingLoan && (
+        <ConfirmDialog
+          title="Delete this borrow?"
+          message={`${deletingLoan.lenderCompanyId?.name || "Lender"} → ${deletingLoan.borrowerCompanyId?.name || "borrower"} · ${money(deletingLoan.amount)} will be reversed in both companies' books.${deletingLoan.source === "expense" ? " The bill it paid goes back to Approved · unpaid." : deletingLoan.source === "group" ? " The group it settled is reopened." : ` ${deletingLoan.borrowerCompanyId?.name || "The borrower"}'s Cash/Bank is put back.`} This can't be undone.`}
+          confirmLabel="Delete borrow"
+          danger
+          onConfirm={confirmDeleteLoan}
+          onCancel={() => setDeletingLoan(null)}
         />
       )}
 
@@ -1457,9 +1509,7 @@ export default function DashboardPage() {
           <form onSubmit={submitLedgerPayment}>
             <label className="field-label">Who paid?</label>
             <select className="field-select" value={paymentDraft.payer} onChange={(event) => setPaymentDraft({ ...paymentDraft, payer: event.target.value })}>
-              <option value={isAdmin ? "admin" : "person"}>Paid by me</option>
-              {(isAdmin || String(modal.expense.createdBy?._id || modal.expense.createdBy) === user.id) && <option value="company">Paid by company</option>}
-              <option value="borrow">Borrowed from a company</option>
+              {payerOptions(modal.expense).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
             {paymentDraft.payer === "company" && (() => {
               const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
@@ -1598,7 +1648,7 @@ export default function DashboardPage() {
 
       {intercoModal && (
         <Modal onClose={() => setIntercoModal(null)} maxWidth={460}>
-          <h2 style={{ marginTop: 0 }}>{intercoModal.type === "repay" ? "Repay company loan" : intercoModal.type === "routed" ? "Routed payment to manager" : "Borrow from a company"}</h2>
+          <h2 style={{ marginTop: 0 }}>{intercoModal.type === "receive" ? "Mark repayment received" : intercoModal.type === "repay" ? "Repay company loan" : intercoModal.type === "routed" ? "Routed payment to manager" : "Borrow from a company"}</h2>
           {intercoModal.type === "routed" ? <form onSubmit={submitRoutedPayment}>
             <label className="field-label">Source company</label><select className="field-select" value={routeDraft.sourceCompanyId} onChange={(event) => setRouteDraft({ ...routeDraft, sourceCompanyId: event.target.value })} required><option value="">Choose company</option>{borrowSources.map((source) => <option key={source._id} value={source._id}>{source.name}</option>)}</select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Manager being paid</label><select className="field-select" value={routeDraft.adminUserId} onChange={(event) => setRouteDraft({ ...routeDraft, adminUserId: event.target.value })} required><option value="">Choose manager</option>{members.filter((member) => member.role === "admin" && member.userId !== user.id).map((member) => <option key={member.userId} value={member.userId}>{member.name}</option>)}</select>
@@ -1623,9 +1673,11 @@ export default function DashboardPage() {
           <form onSubmit={submitIntercoAction}>
             {intercoModal.type === "borrow" && <><label className="field-label">Lender company</label><select className="field-select" value={intercoDraft.companyId} onChange={(event) => setIntercoDraft({ ...intercoDraft, companyId: event.target.value })} required><option value="">Choose company</option>{borrowSources.map((source) => <option key={source._id} value={source._id}>{source.name}</option>)}</select></>}
             {intercoModal.type === "borrow" && <p style={{ color: "var(--muted)", fontSize: 13, margin: "10px 0 0" }}>{(borrowSources.find((s) => s._id === intercoDraft.companyId)?.name || "Lender company")} → <strong>{company.name}</strong>. The amount is added to the fund you pick below and shows as owed to the lender.</p>}
+            {intercoModal.type === "receive" && <p style={{ color: "var(--muted)" }}>{intercoModal.loan.borrowerCompanyId?.name || "Borrower"} → <strong>{company.name}</strong> · Outstanding balance: {money(intercoModal.loan.balance)}. The amount comes off what they owe you and out of the account you pick below.</p>}
             {intercoModal.type === "repay" && <p style={{ color: "var(--muted)" }}><strong>{company.name}</strong> → {intercoModal.loan.lenderCompanyId?.name || "lender"} · Outstanding balance: {money(intercoModal.loan.balance)}</p>}
-            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" max={intercoModal.type === "repay" ? intercoModal.loan.balance : undefined} value={intercoDraft.amount} onChange={(event) => setIntercoDraft({ ...intercoDraft, amount: event.target.value })} required />
-            <label className="field-label" style={{ display: "block", marginTop: 12 }}>{intercoModal.type === "repay" ? `Pay from (${company.name})` : `Receive into (${company.name})`}</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Amount (₹)</label><input className="field-input" type="number" min="0.01" step="0.01" max={intercoModal.type === "repay" || intercoModal.type === "receive" ? intercoModal.loan.balance : undefined} value={intercoDraft.amount} onChange={(event) => setIntercoDraft({ ...intercoDraft, amount: event.target.value })} required />
+            {intercoModal.type === "receive" ? <><label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from ({intercoModal.loan.borrowerCompanyId?.name || "borrower"}'s account)</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })} disabled={!borrowerFunds} required>{!borrowerFunds && <option value="">Loading…</option>}{(borrowerFunds || []).map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name}</option>)}</select></> : <>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>{intercoModal.type === "repay" ? `Pay from (${company.name})` : `Receive into (${company.name})`}</label><select className="field-select" value={intercoDraft.fundId} onChange={(event) => setIntercoDraft({ ...intercoDraft, fundId: event.target.value })}>{availableCompanyFunds.map((fund) => <option key={fund.fundId} value={fund.fundId}>{fund.name} · {money(fund.balance)}</option>)}</select></>}
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
             <select
               className="field-select"
@@ -1641,8 +1693,8 @@ export default function DashboardPage() {
               )}
             </select>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label><input className="field-input" value={intercoDraft.reference} onChange={(event) => setIntercoDraft({ ...intercoDraft, reference: event.target.value })} />
-            {intercoModal.type !== "repay" && <><label className="field-label" style={{ display: "block", marginTop: 12 }}>Reason for borrowing (optional)</label><textarea className="field-input" rows={2} maxLength={200} placeholder="e.g. Salary payout before client payment arrives" style={{ resize: "vertical", minHeight: 60, paddingTop: 10 }} value={intercoDraft.note || ""} onChange={(event) => setIntercoDraft({ ...intercoDraft, note: event.target.value })} /></>}
-            <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIntercoModal(null)}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : intercoModal.type === "repay" ? "Record repayment" : "Record loan"}</button></div>
+            {intercoModal.type !== "repay" && intercoModal.type !== "receive" && <><label className="field-label" style={{ display: "block", marginTop: 12 }}>Reason for borrowing (optional)</label><textarea className="field-input" rows={2} maxLength={200} placeholder="e.g. Salary payout before client payment arrives" style={{ resize: "vertical", minHeight: 60, paddingTop: 10 }} value={intercoDraft.note || ""} onChange={(event) => setIntercoDraft({ ...intercoDraft, note: event.target.value })} /></>}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}><button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setIntercoModal(null)}>Cancel</button><button className="btn btn-primary" style={{ flex: 1 }} disabled={intercoSaving}>{intercoSaving ? "Saving…" : intercoModal.type === "receive" ? "Mark received" : intercoModal.type === "repay" ? "Record repayment" : "Record loan"}</button></div>
           </form>}
         </Modal>
       )}
@@ -1790,14 +1842,15 @@ export default function DashboardPage() {
           expense={selectedExpenseDetail}
           user={user}
           isAdmin={isAdmin}
+          can={can}
           company={company}
           onClose={() => setSelectedExpenseDetail(null)}
           onEdit={(exp) => setModal({ type: "edit", expense: exp })}
-          onApprove={(exp) => decideLedgerExpense(exp, "approve")}
-          onReject={(exp) => decideLedgerExpense(exp, "reject")}
-          onRecordPayment={(exp) => {
+          onApprove={can("approve_expenses") ? (exp) => decideLedgerExpense(exp, "approve") : undefined}
+          onReject={can("approve_expenses") ? (exp) => decideLedgerExpense(exp, "reject") : undefined}
+          onRecordPayment={payerOptions(selectedExpenseDetail).length === 0 ? undefined : (exp) => {
             setPaymentDraft({
-              payer: isAdmin ? "admin" : "person",
+              payer: payerOptions(exp)[0].value,
               fundId: availableCompanyFunds[0]?.fundId || "cash",
               sourceCompanyId: "",
               method: "UPI",
@@ -1836,18 +1889,18 @@ function HomeTile({ label, value, sub, color, onClick, title }) {
 }
 
 const bigNumberStyle = {
-  fontFamily: "Fraunces, serif",
+  fontFamily: "Inter, system-ui, sans-serif",
   fontSize: 22,
   fontWeight: 700,
   color: "var(--forest)",
 };
 
-function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse }) {
+function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, refreshKey }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // quiet reload (no spinner) so live updates don't flash the list
   const fetchRows = useCallback(() => {
-    setLoading(true);
     loader(companyId, userId).then((result) => {
       setRows(result.transactions || result.logs || []);
       setLoading(false);
@@ -1856,7 +1909,7 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse })
 
   useEffect(() => {
     fetchRows();
-  }, [fetchRows]);
+  }, [fetchRows, refreshKey]);
 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 35 }}><div className="spinner dark" /></div>;
   if (!rows.length) return <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>No {title.toLowerCase()} records yet.</div>;

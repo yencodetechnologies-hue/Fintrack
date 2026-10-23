@@ -137,7 +137,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
     if (!_isCreator || _isSettled || _total <= 0) return;
     setState(() => _settling = true);
     final companies =
-        await ExpenseCompanyService.getAllAvailableCompanies(widget.userId);
+        (await ExpenseCompanyService.getUserCompanies(widget.userId)).where((c) => c["external"] != true).toList();
     if (!mounted) return;
     final lenders = companies
         .where((company) => _id(company["_id"]) != _companyId)
@@ -152,7 +152,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
           title: Text("Settle $_groupName",
-              style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -301,7 +301,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(_groupName,
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             tooltip: "Group settings",
@@ -323,7 +323,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                   style: GoogleFonts.inter(color: Colors.white70)),
               const SizedBox(height: 5),
               Text("Group expenses",
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                       color: Colors.white,
                       fontSize: 23,
                       fontWeight: FontWeight.bold)),
@@ -346,7 +346,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                                   fontWeight: FontWeight.bold)),
                           const SizedBox(height: 5),
                           Text(_money(_total),
-                              style: GoogleFonts.fraunces(
+                              style: GoogleFonts.inter(
                                   color: darkSurface,
                                   fontSize: 25,
                                   fontWeight: FontWeight.bold)),

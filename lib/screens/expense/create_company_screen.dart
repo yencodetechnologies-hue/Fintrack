@@ -98,7 +98,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
               const SizedBox(height: 16),
               Text(
                 "Company Created!",
-                style: GoogleFonts.fraunces(
+                style: GoogleFonts.inter(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -106,7 +106,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                "Your 6-digit company join code is ready. Share this code with members to let them join.",
+                "Your 6-digit join code is ready. Share it with staff so they can join. It is valid for 5 minutes; you can generate a new one any time in Settings.",
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: Colors.white.withValues(alpha: 0.75),
@@ -217,7 +217,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
         ),
         title: Text(
           "Create Company",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -247,7 +247,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                 children: [
                   Text(
                     "Set Up Organization",
-                    style: GoogleFonts.fraunces(
+                    style: GoogleFonts.inter(
                       color: darkText,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

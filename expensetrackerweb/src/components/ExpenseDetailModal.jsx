@@ -3,11 +3,13 @@ import Modal from "./Modal.jsx";
 import { getLedgerExpenseReceipts, updateLedgerExpenseReceipts } from "../api.js";
 import { expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, postedByName } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 
 export default function ExpenseDetailModal({
   expense,
   user,
   isAdmin,
+  can = () => true,
   company,
   onClose,
   onEdit,
@@ -20,6 +22,7 @@ export default function ExpenseDetailModal({
 }) {
   const { showToast } = useToast();
   const [uploadingField, setUploadingField] = useState("");
+  const [removingField, setRemovingField] = useState("");
   const [receipts, setReceipts] = useState({
     attachment: expense?.attachment || "",
     paymentReceipt: expense?.paymentReceipt || "",
@@ -85,10 +88,27 @@ export default function ExpenseDetailModal({
   const paidByMe = lifecycle === "paid_by_admin" && String(expense.paidByAdminId?._id || expense.paidByAdminId) === String(user.id);
   const creatorCanSwitchPayer = isAdmin && isCreator && (isApproved || lifecycle === "paid_by_company" || paidByMe);
   const canEdit =
-    (isAdmin && !isPaid && !isAwaitingPayer) || (!isAdmin && isSubmitted && isCreator && !isPaid) || creatorCanSwitchPayer;
+    (can("edit_expenses") && ((isAdmin && !isPaid && !isAwaitingPayer) || (!isAdmin && isSubmitted && isCreator && !isPaid))) ||
+    (creatorCanSwitchPayer && (can("edit_expenses") || can("record_payments")));
 
   // managers can fix receipt images at any status
-  const canReplaceReceipts = isAdmin;
+  const canReplaceReceipts = isAdmin && can("edit_expenses");
+  const canRemoveReceipts = isAdmin && can("remove_receipts");
+
+  // managers only: an expense may stay without any receipt
+  async function removeReceipt(field) {
+    setRemovingField("");
+    setUploadingField(field);
+    const res = await updateLedgerExpenseReceipts(expense._id, user.id, { [field]: "" });
+    setUploadingField("");
+    if (res.success) {
+      setReceipts((current) => ({ ...current, [field]: "" }));
+      showToast(field === "attachment" ? "Bill receipt removed" : "Payment proof removed");
+      onReceiptsUpdated?.();
+    } else {
+      showToast(res.message || "Could not remove the receipt", "error");
+    }
+  }
 
   async function replaceReceipt(field, file) {
     if (!file) return;
@@ -125,13 +145,13 @@ export default function ExpenseDetailModal({
   );
 
   const canDelete =
-    (isAdmin && !isPaid) || (!isAdmin && isSubmitted && isCreator);
+    can("edit_expenses") && ((isAdmin && !isPaid) || (!isAdmin && isSubmitted && isCreator));
 
   const isCompanyPost = expense.logAs === "company" || expense.postedAs === "company";
   const nameOf = (ref, fallback) => (ref && typeof ref === "object" ? ref.name : fallback);
   const fundLabel = expense.fundName || (expense.fundType === "cash" ? (company?.cashAccountName || "InCash") : "");
   const paymentText = [expense.payerMethod, fundLabel].filter(Boolean).join(" · ");
-  const hasReceiptSection = canReplaceReceipts || expense.hasAttachment || expense.hasPaymentReceipt || receipts.attachment || receipts.paymentReceipt;
+  const hasReceiptSection = canReplaceReceipts || canRemoveReceipts || expense.hasAttachment || expense.hasPaymentReceipt || receipts.attachment || receipts.paymentReceipt;
   const run = (fn) => () => {
     fn(expense);
     onClose();
@@ -193,7 +213,7 @@ export default function ExpenseDetailModal({
       <h2 style={{ margin: "14px 0 2px", fontSize: 21, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>
         {expense.description}
       </h2>
-      <div style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>
+      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>
         {money(expense.amount)}
       </div>
 
@@ -237,11 +257,31 @@ export default function ExpenseDetailModal({
                 ))}
             </div>
           )}
-          {canReplaceReceipts && !loadingReceipts && (
+          {(canReplaceReceipts || canRemoveReceipts) && !loadingReceipts && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-              {replaceButton("attachment", receipts.attachment ? "Replace bill receipt" : "Add bill receipt")}
-              {(isPaid || receipts.paymentReceipt) && replaceButton("paymentReceipt", receipts.paymentReceipt ? "Replace payment proof" : "Add payment proof")}
+              {canReplaceReceipts && replaceButton("attachment", receipts.attachment ? "Replace bill receipt" : "Add bill receipt")}
+              {canReplaceReceipts && (isPaid || receipts.paymentReceipt) && replaceButton("paymentReceipt", receipts.paymentReceipt ? "Replace payment proof" : "Add payment proof")}
+              {canRemoveReceipts && receipts.attachment && (
+                <button type="button" className="btn btn-outline-danger" style={{ fontSize: 12, padding: "6px 12px" }} disabled={Boolean(uploadingField)} onClick={() => setRemovingField("attachment")}>
+                  Remove bill receipt
+                </button>
+              )}
+              {canRemoveReceipts && receipts.paymentReceipt && (
+                <button type="button" className="btn btn-outline-danger" style={{ fontSize: 12, padding: "6px 12px" }} disabled={Boolean(uploadingField)} onClick={() => setRemovingField("paymentReceipt")}>
+                  Remove payment proof
+                </button>
+              )}
             </div>
+          )}
+          {removingField && (
+            <ConfirmDialog
+              title={removingField === "attachment" ? "Remove bill receipt?" : "Remove payment proof?"}
+              message={`The ${removingField === "attachment" ? "bill receipt" : "payment proof"} image is deleted from "${expense.description}". The expense itself stays as it is; you can add a new image any time.`}
+              confirmLabel="Remove"
+              danger
+              onConfirm={() => removeReceipt(removingField)}
+              onCancel={() => setRemovingField("")}
+            />
           )}
         </div>
       )}
@@ -254,7 +294,7 @@ export default function ExpenseDetailModal({
           )}
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {isAdmin && onVisibility && (
+          {isAdmin && can("edit_expenses") && onVisibility && (
             <button type="button" className="btn btn-outline" onClick={run(onVisibility)}>Visibility</button>
           )}
           {canEdit && onEdit && (

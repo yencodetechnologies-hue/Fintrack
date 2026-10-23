@@ -27,6 +27,8 @@ router.post("/routed-payments", c.routedPayment);
 router.get("/companies/:companyId/intercompany", c.intercompanyBalances);
 router.get("/companies/:companyId/borrow-sources", c.listCompaniesForBorrow);
 router.post("/companies/:companyId/settings", c.updateCompanySettings);
+router.get("/companies/:companyId/permissions", c.getPermissions);
+router.post("/companies/:companyId/permissions", c.updatePermissions);
 router.get("/companies/:companyId/report", c.report);
 router.get("/companies/:companyId/outstanding", c.outstandingReport);
 router.get("/companies/:companyId/analysis", c.expenseAnalysis);
@@ -44,11 +46,16 @@ router.get("/companies/:companyId/payer-confirmations", c.listPayerConfirmations
 router.post("/loans", c.createLoan);
 router.get("/loans/:loanId", c.loanDetail);
 router.post("/loans/:loanId/repay", c.repayLoan);
+router.post("/loans/:loanId/receive", c.receiveLoan);
+router.get("/loans/:loanId/borrower-funds", c.loanBorrowerFunds);
+router.post("/loans/:loanId/delete", c.deleteLoan);
 router.post("/groups/:groupId/settle", c.settleExpenseGroup);
 router.get("/companies/:companyId/vouchers", c.listVouchers);
 router.post("/companies/:companyId/vouchers", c.createVoucher);
 router.post("/vouchers/:voucherId/claim", c.claimVoucher);
 router.post("/vouchers/:voucherId/cancel", c.cancelVoucher);
+router.post("/vouchers/:voucherId/close", c.closeVoucher);
+router.post("/vouchers/:voucherId/delete", c.deleteVoucher);
 router.post("/companies/:companyId/advance-returns", c.requestAdvanceReturn);
 router.post("/advance-returns/:returnId/decide", c.decideAdvanceReturn);
 

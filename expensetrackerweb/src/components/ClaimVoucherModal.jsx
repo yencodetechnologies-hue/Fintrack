@@ -1,13 +1,16 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
-import { claimVoucher } from "../api.js";
+import { claimVoucher, closeVoucher } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { companyCategories, fileToBase64, formatDate, money } from "../utils.js";
 
 const rowStyle = { display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", fontSize: 13 };
 
 // The voucher's recipient records what they actually spent; the money was already given, so nobody pays it again.
-export default function ClaimVoucherModal({ voucher, company, user, held = 0, onClose, onClaimed }) {
+// mode="close": the manager who created it records what the staff member used, saved in the staff member's name.
+export default function ClaimVoucherModal({ voucher, company, user, held = 0, mode = "claim", onClose, onClaimed }) {
+  const closing = mode === "close";
+  const staffName = voucher.recipientId?.name || "the staff member";
   const { showToast } = useToast();
   const [amount, setAmount] = useState(String(voucher.amount));
   const [category, setCategory] = useState("General");
@@ -28,12 +31,14 @@ export default function ClaimVoucherModal({ voucher, company, user, held = 0, on
 
   async function submit(event) {
     event.preventDefault();
-    if (!(value > 0)) return showToast("Enter the amount you spent", "error");
+    if (!(value > 0)) return showToast(closing ? "Enter the amount used" : "Enter the amount you spent", "error");
     setSaving(true);
-    const res = await claimVoucher(voucher._id, { userId: user.id, amount: value, category, attachment: attachment || undefined });
+    const payload = { userId: user.id, amount: value, category, attachment: attachment || undefined };
+    const res = closing ? await closeVoucher(voucher._id, payload) : await claimVoucher(voucher._id, payload);
     setSaving(false);
-    if (!res.success) return showToast(res.message || "Could not claim voucher", "error");
-    showToast(left > 0 ? `Claimed ${money(value)} · ${money(left)} stays with you` : `Claimed ${money(value)}`);
+    if (!res.success) return showToast(res.message || (closing ? "Could not close voucher" : "Could not claim voucher"), "error");
+    if (closing) showToast(left > 0 ? `Voucher closed · ${money(left)} stays with ${staffName}` : `Voucher closed · ${money(value)} used by ${staffName}`);
+    else showToast(left > 0 ? `Claimed ${money(value)} · ${money(left)} stays with you` : `Claimed ${money(value)}`);
     onClaimed?.(res);
     onClose();
   }
@@ -44,8 +49,12 @@ export default function ClaimVoucherModal({ voucher, company, user, held = 0, on
 
   return (
     <Modal onClose={onClose} maxWidth={460}>
-      <h2 style={{ marginTop: 0, marginBottom: 4 }}>Claim voucher</h2>
-      <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>Enter what you actually spent. The money was already given to you.</p>
+      <h2 style={{ marginTop: 0, marginBottom: 4 }}>{closing ? "Close voucher" : "Claim voucher"}</h2>
+      <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--muted)" }}>
+        {closing
+          ? `Record what ${staffName} actually used. It is saved as ${staffName}'s expense and the voucher is marked as used.`
+          : "Enter what you actually spent. The money was already given to you."}
+      </p>
 
       <div className="voucher-card" style={{ marginBottom: 14 }}>
         <div style={{ ...rowStyle, paddingTop: 0 }}><span style={{ color: "var(--muted)" }}>Purpose</span><strong style={{ textAlign: "right" }}>{voucher.purpose}</strong></div>
@@ -56,13 +65,13 @@ export default function ClaimVoucherModal({ voucher, company, user, held = 0, on
       </div>
 
       <form onSubmit={submit}>
-        <label className="field-label">Amount spent (₹)</label>
+        <label className="field-label">{closing ? "Amount used (₹)" : "Amount spent (₹)"}</label>
         <input className="field-input" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
         {value > 0 && (
           <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 600, color: owed > 0 ? "var(--terracotta)" : "var(--forest)" }}>
-            {left > 0 && `${money(left)} stays with you as your voucher balance.`}
-            {extra > 0 && fromHeld > 0 && `${money(fromHeld)} comes from your voucher balance. `}
-            {owed > 0 && `The company will owe you ${money(owed)}.`}
+            {left > 0 && (closing ? `${money(left)} stays with ${staffName} as their voucher balance.` : `${money(left)} stays with you as your voucher balance.`)}
+            {extra > 0 && fromHeld > 0 && (closing ? `${money(fromHeld)} comes from ${staffName}'s voucher balance. ` : `${money(fromHeld)} comes from your voucher balance. `)}
+            {owed > 0 && (closing ? `The company will owe ${staffName} ${money(owed)}.` : `The company will owe you ${money(owed)}.`)}
             {value === voucher.amount && "Uses the full voucher."}
           </div>
         )}
@@ -83,7 +92,7 @@ export default function ClaimVoucherModal({ voucher, company, user, held = 0, on
 
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving}>{saving ? "Claiming…" : "Proceed to claim"}</button>
+          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving}>{saving ? (closing ? "Closing…" : "Claiming…") : closing ? "Close voucher" : "Proceed to claim"}</button>
         </div>
       </form>
     </Modal>

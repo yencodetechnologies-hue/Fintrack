@@ -231,7 +231,7 @@ export default function GroupDashboardPage() {
                     Shared group expenses
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <button className="btn btn-outline" onClick={() => setMembersModal(true)}>
                     Staff ({group.members?.length || 0})
                   </button>
@@ -258,7 +258,7 @@ export default function GroupDashboardPage() {
                   <div className="field-label">TOTAL RECORDED</div>
                   <div
                     style={{
-                      fontFamily: "Fraunces, serif",
+                      fontFamily: "Inter, system-ui, sans-serif",
                       fontWeight: 700,
                       color: "var(--forest)",
                       fontSize: 28,

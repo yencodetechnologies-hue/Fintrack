@@ -52,7 +52,7 @@ function PeopleTable({ title, rows }) {
 }
 
 // Who the company owes right now (managers, staff) and where it stands with other companies.
-export default function OutstandingReport({ companyId, userId }) {
+export default function OutstandingReport({ companyId, userId, refreshKey }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -66,7 +66,7 @@ export default function OutstandingReport({ companyId, userId }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   return (
     <section style={{ marginTop: 28 }}>
@@ -80,7 +80,7 @@ export default function OutstandingReport({ companyId, userId }) {
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner" /></div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
+          <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
             <Tile label="OWED TO MANAGERS" value={data.totals.owedToManagers} color="var(--terracotta)" />
             <Tile label="OWED TO STAFF" value={data.totals.owedToStaff} color="var(--terracotta)" />
             <Tile label="WE OWE COMPANIES" value={data.totals.weOweCompanies} color="var(--terracotta)" />

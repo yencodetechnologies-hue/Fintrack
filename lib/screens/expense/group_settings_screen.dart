@@ -178,7 +178,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                   children: [
                     Expanded(
                         child: Text("Add members",
-                            style: GoogleFonts.fraunces(
+                            style: GoogleFonts.inter(
                                 fontSize: 21, fontWeight: FontWeight.bold))),
                     IconButton(
                         onPressed: () => Navigator.pop(sheetContext),
@@ -251,7 +251,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text("Group settings",
-            style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+            style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
       ),
       body: SafeArea(
         child: _loading
@@ -278,7 +278,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                       padding: const EdgeInsets.all(20),
                       children: [
                         Text(widget.groupName,
-                            style: GoogleFonts.fraunces(
+                            style: GoogleFonts.inter(
                                 color: Colors.white,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold)),

@@ -104,7 +104,7 @@ function RankedBars({ rows, nameKey, extra }) {
 }
 
 // Manager-only view of spending patterns: trend, categories, people, weekdays, outliers, repeats.
-export default function ExpenseAnalysis({ companyId, userId }) {
+export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
   const [months, setMonths] = useState(12);
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -121,7 +121,7 @@ export default function ExpenseAnalysis({ companyId, userId }) {
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const s = data?.summary;
   const change = s?.changePct;
@@ -146,7 +146,7 @@ export default function ExpenseAnalysis({ companyId, userId }) {
         <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><div className="spinner" /></div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
+          <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
             <Tile
               label="THIS MONTH"
               value={money(s.thisMonth)}

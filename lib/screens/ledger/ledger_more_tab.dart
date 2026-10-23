@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_funds.dart';
+import 'ledger_settings.dart';
+import 'ledger_vouchers.dart';
+import 'ledger_payments.dart';
+import 'ledger_permissions.dart';
 
 class LedgerMoreTab extends StatelessWidget {
   final LedgerScope scope;
@@ -25,9 +29,13 @@ class LedgerMoreTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
       children: [
-        if (scope.isAdmin) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
-        if (scope.isAdmin) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),
-        item(Icons.settings_rounded, "Settings", "Company details and members", _SettingsPage(scope: scope)),
+        if (scope.isAdmin && scope.can("vouchers")) item(Icons.confirmation_number_rounded, "Vouchers", "Money given to staff up front, claims and hand-backs", VouchersPage(scope: scope)),
+        if (scope.isAdmin && scope.can("reimburse")) item(Icons.payments_rounded, "Payments", "Pay staff and managers, by company or yourself", PaymentsPage(scope: scope)),
+        if (scope.isAdmin && scope.can("funds")) item(Icons.account_balance_wallet_rounded, "Company funds", "${scope.cashName}, bank accounts and income", FundsPage(scope: scope)),
+        if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
+        if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),
+        if (scope.canOpenSettings) item(Icons.settings_rounded, "Settings", "Company details and members", SettingsPage(scope: scope)),
+        if (scope.canEditPermissions) item(Icons.admin_panel_settings_rounded, "Permissions", "Turn features on or off for managers and staff", PermissionsPage(scope: scope)),
       ],
     );
   }
@@ -39,20 +47,26 @@ Widget _page(String title, Widget body) => Theme(data: sheetTheme, child: Scaffo
         backgroundColor: kForest,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: Text(title, style: GoogleFonts.fraunces(fontWeight: FontWeight.bold)),
+        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
       ),
       body: body,
     ));
 
 const Map<String, String> _txLabels = {
-  "admin_paid": "Paid by admin",
+  "admin_paid": "Paid by manager",
   "company_paid": "Paid by company",
   "borrowed": "Paid with borrowed money",
-  "reimburse": "Admin reimbursed",
-  "lend": "Admin loan to company",
+  "reimburse": "Reimbursement",
+  "lend": "Manager loan to company",
   "intercompany": "Inter-company",
   "routed": "Routed payment",
+  "loan_repayment": "Loan repayment",
   "reversal": "Reversal",
+  "voucher_issue": "Voucher given",
+  "voucher_claim": "Voucher claimed",
+  "advance_used": "Voucher balance used",
+  "advance_offset": "Voucher balance set off",
+  "advance_return": "Voucher balance handed back",
 };
 
 class _LedgerPage extends StatefulWidget {
@@ -66,6 +80,9 @@ class _LedgerPage extends StatefulWidget {
 class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
   @override
   void onLedgerChanged() => _load();
+
+  @override
+  Set<String> get ledgerTopics => const {"ledger"};
 
   List<Map<String, dynamic>> _txs = [];
   bool _loading = true;
@@ -182,6 +199,9 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
   @override
   void onLedgerChanged() => _load();
 
+  @override
+  Set<String> get ledgerTopics => const {"ledger"};
+
   List<Map<String, dynamic>> _logs = [];
   bool _loading = true;
   String? _error;
@@ -280,7 +300,7 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("${nameOf(l["userId"], "Someone")} · ${l["action"]} ${l["object"]}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
+                                    Text("${nameOf(l["userId"], "Someone")} · ${l["action"].toString().replaceAll("_", " ")} ${l["object"].toString().replaceAll("advance_return", "hand-back").replaceAll("_", " ")}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
                                     Text(at == null ? "" : DateFormat("dd MMM yyyy, hh:mm a").format(at), style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
                                   ],
                                 ),
@@ -297,219 +317,3 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
   }
 }
 
-class _SettingsPage extends StatefulWidget {
-  final LedgerScope scope;
-  const _SettingsPage({required this.scope});
-
-  @override
-  State<_SettingsPage> createState() => _SettingsPageState();
-}
-
-class _SettingsPageState extends State<_SettingsPage> with LedgerAutoRefresh {
-  late List<Map<String, dynamic>> _members = widget.scope.members;
-
-  // Only members and the join code refresh live; the form fields keep whatever is being typed.
-  @override
-  void onLedgerChanged() async {
-    final res = await LedgerService.companyDetails(widget.scope.companyId, widget.scope.userId);
-    if (!mounted || res["success"] != true) return;
-    final company = Map<String, dynamic>.from(res["company"]);
-    setState(() {
-      _members = List<Map<String, dynamic>>.from(res["members"] ?? const []);
-      if (company["joinCode"] != null) _joinCode = company["joinCode"].toString();
-      _codeCreated = DateTime.tryParse(company["joinCodeCreatedAt"]?.toString() ?? "")?.toLocal() ?? _codeCreated;
-    });
-  }
-
-  late final _gstin = TextEditingController(text: widget.scope.company["gstin"]?.toString() ?? "");
-  late final _currency = TextEditingController(text: widget.scope.company["currency"]?.toString() ?? "INR");
-  late final _threshold = TextEditingController(text: widget.scope.company["verificationThreshold"]?.toString() ?? "");
-  bool _saving = false;
-  late String _joinCode = widget.scope.company["joinCode"]?.toString() ?? "------";
-  late DateTime? _codeCreated = DateTime.tryParse(widget.scope.company["joinCodeCreatedAt"]?.toString() ?? "")?.toLocal();
-
-  bool get _codeExpired => _codeCreated == null || DateTime.now().difference(_codeCreated!).inMinutes >= 5;
-
-  Future<void> _newCode() async {
-    final res = await LedgerService.regenerateJoinCode(widget.scope.companyId, widget.scope.userId);
-    if (!mounted) return;
-    if (handleResult(context, res, "New code generated — valid for 5 minutes")) {
-      setState(() {
-        _joinCode = res["joinCode"].toString();
-        _codeCreated = DateTime.now();
-      });
-    }
-  }
-
-  Future<void> _setRole(Map<String, dynamic> m, String role) async {
-    final name = m["name"]?.toString() ?? "this member";
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => Theme(
-        data: sheetTheme,
-        child: AlertDialog(
-          title: Text(role == "admin" ? "Make $name an admin?" : "Make $name staff?"),
-          content: Text(role == "admin"
-              ? "They will be able to approve, pay and reimburse expenses, and see all company data."
-              : "They will see staff expenses and admin expenses shared with them."),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
-            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("Confirm")),
-          ],
-        ),
-      ),
-    );
-    if (ok != true) return;
-    final res = await LedgerService.setMemberRole(widget.scope.companyId, widget.scope.userId, m["userId"].toString(), role);
-    if (!mounted) return;
-    if (handleResult(context, res, role == "admin" ? "$name is now an admin" : "$name is now staff")) widget.scope.reload();
-  }
-
-  void _openAddMember() {
-    final email = TextEditingController();
-    String role = "admin";
-    showLedgerSheet(context, "Add member", (ctx) => StatefulBuilder(
-          builder: (ctx, set) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("They must already have a Q Fin account. No join code needed.",
-                  style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
-              const SizedBox(height: 12),
-              TextField(controller: email, keyboardType: TextInputType.emailAddress, decoration: fieldDecoration("Their account email", icon: Icons.email_rounded)),
-              const SizedBox(height: 12),
-              Text("Role", style: labelStyle),
-              const SizedBox(height: 6),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: "admin", label: Text("Admin")),
-                  ButtonSegment(value: "member", label: Text("Staff")),
-                ],
-                selected: {role},
-                onSelectionChanged: (v) => set(() => role = v.first),
-              ),
-              const SizedBox(height: 16),
-              primaryButton("Add to ${widget.scope.companyName}", () async {
-                final res = await LedgerService.addMember(widget.scope.companyId, widget.scope.userId, email.text.trim(), role);
-                if (!ctx.mounted) return;
-                if (handleResult(ctx, res, "${res["member"]?["name"] ?? "Member"} added as ${role == "admin" ? "admin" : "staff"}")) {
-                  Navigator.pop(ctx);
-                  widget.scope.reload();
-                }
-              }),
-            ],
-          ),
-        ));
-  }
-
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    final res = await LedgerService.updateSettings(widget.scope.companyId, {
-      "userId": widget.scope.userId,
-      "gstin": _gstin.text.trim(),
-      "currency": _currency.text.trim(),
-      "verificationThreshold": _threshold.text.trim().isEmpty ? null : double.tryParse(_threshold.text.trim()),
-    });
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (handleResult(context, res, "Settings saved")) widget.scope.reload();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final s = widget.scope;
-    return _page(
-      "Settings",
-      ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (s.isAdmin)
-            ledgerCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Join code", style: labelStyle),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _joinCode,
-                          style: GoogleFonts.fraunces(
-                            fontSize: 30,
-                            letterSpacing: 6,
-                            fontWeight: FontWeight.bold,
-                            color: _codeExpired ? kDark.withValues(alpha: 0.35) : kForest,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: "Copy",
-                        icon: const Icon(Icons.copy_rounded, color: kForest),
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: _joinCode));
-                          toast(context, "Code copied");
-                        },
-                      ),
-                    ],
-                  ),
-                  Text(
-                    _codeExpired ? "Expired — generate a new code to invite someone." : "Valid for 5 minutes after it's generated.",
-                    style: GoogleFonts.inter(fontSize: 11.5, color: _codeExpired ? kTerracotta : kDark.withValues(alpha: 0.6)),
-                  ),
-                  const SizedBox(height: 10),
-                  primaryButton("Generate new code", _newCode, color: kForestDark),
-                ],
-              ),
-            ),
-          ledgerCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(s.companyName, style: GoogleFonts.fraunces(fontSize: 18, fontWeight: FontWeight.bold, color: kDark)),
-                const SizedBox(height: 12),
-                TextField(controller: _gstin, enabled: s.isAdmin, decoration: fieldDecoration("GSTIN", icon: Icons.badge_rounded)),
-                const SizedBox(height: 10),
-                TextField(controller: _currency, enabled: s.isAdmin, decoration: fieldDecoration("Currency", icon: Icons.currency_exchange_rounded)),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _threshold,
-                  enabled: s.isAdmin,
-                  keyboardType: TextInputType.number,
-                  decoration: fieldDecoration("Verification threshold ₹ (empty = off)", icon: Icons.verified_user_rounded),
-                ),
-                const SizedBox(height: 6),
-                Text("Payments above this need a second admin to verify.", style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
-                if (s.isAdmin) ...[const SizedBox(height: 14), primaryButton(_saving ? "Saving..." : "Save", _saving ? null : _save)],
-              ],
-            ),
-          ),
-          sectionTitle("Members (${_members.length})"),
-          if (s.isAdmin) ...[
-            primaryButton("+ Add member", _openAddMember, color: kForestDark),
-            const SizedBox(height: 10),
-          ],
-          ..._members.map((m) {
-            final memberId = m["userId"].toString();
-            final isAdminRole = m["role"] == "admin";
-            final isCreator = idOf(s.company["createdBy"]) == memberId;
-            return ledgerCard(
-              padding: EdgeInsets.zero,
-              child: ListTile(
-                leading: CircleAvatar(backgroundColor: kForest, child: Text((m["name"]?.toString() ?? "M")[0].toUpperCase(), style: const TextStyle(color: Colors.white))),
-                title: Text(m["name"]?.toString() ?? "Member", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                subtitle: Text(isCreator ? "Admin · Creator" : (isAdminRole ? "Admin" : "Staff")),
-                trailing: s.isAdmin && !isCreator
-                    ? TextButton(
-                        onPressed: () => _setRole(m, isAdminRole ? "member" : "admin"),
-                        child: Text(isAdminRole ? "Make staff" : "Make admin",
-                            style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: isAdminRole ? kTerracotta : kForest)),
-                      )
-                    : null,
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}

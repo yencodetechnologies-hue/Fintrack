@@ -14,7 +14,7 @@ import {
 import { useToast } from "../context/ToastContext.jsx";
 import { useNavigate } from "react-router-dom";
 
-export default function SettingsPanel({ company, members, user, isAdmin, onChanged }) {
+export default function SettingsPanel({ company, members, user, isAdmin, can = () => true, onChanged }) {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -75,7 +75,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
   async function handleAddMember(e) {
     e.preventDefault();
     if (!inviteEmail.trim()) {
-      showToast("Enter staff email address", "error");
+      showToast("Enter the member's email address", "error");
       return;
     }
     setInviting(true);
@@ -171,7 +171,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         Manage the join code, direct invites, staff roles, and company configuration.
       </p>
 
-      {isAdmin && (
+      {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <div className="field-label" style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Join Code</span>
@@ -185,7 +185,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
                 fontSize: 32,
                 fontWeight: 800,
                 letterSpacing: 6,
-                fontFamily: "Fraunces, serif",
+                fontFamily: "Inter, system-ui, sans-serif",
                 color: isExpired ? "var(--muted)" : "var(--forest)",
               }}
             >
@@ -206,9 +206,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && can("members") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
-          <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Direct Staff Invite</h3>
+          <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Direct Member Invite</h3>
           <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
             Add a registered user directly by email, or invite someone new to sign up and join.
           </p>
@@ -232,13 +232,19 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
               <option value="admin">Manager</option>
             </select>
             <button className="btn btn-primary" disabled={inviting}>
-              {inviting ? "Adding…" : "Add Staff"}
+              {inviting ? "Adding…" : "Add Member"}
             </button>
           </form>
         </div>
       )}
 
-      <h3 style={{ fontSize: 16, marginBottom: 10 }}>Staff ({members.length})</h3>
+      {/* the count is staff only; managers (incl. the creator) are listed but not counted */}
+      <h3 style={{ fontSize: 16, marginBottom: 10 }}>
+        Staff ({members.filter((m) => m.role !== "admin").length})
+        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 8 }}>
+          · {members.filter((m) => m.role === "admin").length} manager{members.filter((m) => m.role === "admin").length === 1 ? "" : "s"}
+        </span>
+      </h3>
       <div className="card" style={{ maxWidth: 560, padding: 6, marginBottom: 28 }}>
         {members.map((m, idx) => {
           const isCreator = String(company.createdBy) === String(m.userId);
@@ -276,7 +282,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
                 </div>
               </div>
 
-              {isAdmin && !isCreator && (
+              {isAdmin && can("members") && !isCreator && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <select
                     className="field-select"
@@ -301,7 +307,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         })}
       </div>
 
-      {isAdmin && (
+      {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h3 style={{ fontSize: 16, margin: "0 0 4px" }}>Expense categories</h3>
@@ -315,7 +321,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         </div>
       )}
 
-      {isAdmin && (
+      {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Company Configuration</h3>
           <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
@@ -364,7 +370,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, onChang
         </div>
       )}
 
-      {isAdmin && (
+      {/* only the primary admin (company creator) can delete the company */}
+      {String(company.createdBy?._id || company.createdBy) === String(user.id) && (
         <>
           <h3 style={{ fontSize: 16, marginBottom: 10, color: "var(--terracotta)" }}>Danger Zone</h3>
           <div className="card" style={{ maxWidth: 560, borderColor: "var(--terracotta-soft)" }}>

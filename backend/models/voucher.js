@@ -22,6 +22,9 @@ const voucherSchema = new mongoose.Schema(
     issueTxId: { type: ObjectId, ref: "LedgerTransaction", default: null },
     claimTxId: { type: ObjectId, ref: "LedgerTransaction", default: null },
     claimedAt: { type: Date, default: null },
+    // set when the manager who created it closed it on the staff member's behalf
+    closedBy: { type: ObjectId, ref: "User", default: null },
+    closedAt: { type: Date, default: null },
     cancelledBy: { type: ObjectId, ref: "User", default: null },
     cancelledAt: { type: Date, default: null },
   },

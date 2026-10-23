@@ -130,7 +130,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: [
               const Icon(Icons.add_circle_outline_rounded, color: mintAccent),
               const SizedBox(width: 8),
-              Text("Custom Category", style: GoogleFonts.fraunces(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+              Text("Custom Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
             ],
           ),
           content: Column(
@@ -266,7 +266,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               children: [
                 Text(
                   "Select Category",
-                  style: GoogleFonts.fraunces(
+                  style: GoogleFonts.inter(
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                     color: darkText,
@@ -400,7 +400,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   children: [
                     Text(
                       "Visible To Members",
-                      style: GoogleFonts.fraunces(
+                      style: GoogleFonts.inter(
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
                         color: darkText,
@@ -641,7 +641,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         ),
         title: Text(
           "Add Expense",
-          style: GoogleFonts.fraunces(
+          style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
             fontSize: 22,

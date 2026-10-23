@@ -54,6 +54,8 @@ const companySchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // feature switches per role, see utils/permissions.js ({ manager: { key: false }, staff: { key: false } }; missing = on)
+    permissions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
     joinCodeCreatedAt: {
       type: Date,
     },

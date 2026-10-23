@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 export '../../services/ledger_events.dart';
@@ -19,6 +22,14 @@ class LedgerScope {
   final String role; // employee | admin | super_admin
   final List<Map<String, dynamic>> members;
   final Future<void> Function() reload;
+  /// Members this manager last unticked under "Visible to" (remembered on the server).
+  final List<String> hiddenStaffIds;
+  /// Every company the user belongs to (with userRole), for the company switcher and "Paying company".
+  final List<Map<String, dynamic>> companies;
+  /// My feature switches here (backend utils/permissions.js); null until loaded = everything allowed.
+  final Map<String, dynamic>? permissions;
+  /// "primary" (company creator / super admin) | "manager" | "staff".
+  final String? permissionRole;
 
   LedgerScope({
     required this.userId,
@@ -27,7 +38,23 @@ class LedgerScope {
     required this.role,
     required this.members,
     required this.reload,
+    this.hiddenStaffIds = const [],
+    this.companies = const [],
+    this.permissions,
+    this.permissionRole,
   });
+
+  /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
+  bool can(String key) => permissions == null || permissions![key] != false;
+  bool get isPrimary => permissionRole == "primary";
+  bool get canEditPermissions => isPrimary || (permissionRole == "manager" && can("staff_permissions"));
+  /// Managers' Settings page holds both members and company settings.
+  bool get canOpenSettings => isAdmin ? (isPrimary || can("settings") || can("members")) : can("settings");
+
+  /// Other registered companies this user manages; they can pay this company's bills (booked as a loan).
+  List<Map<String, dynamic>> get managedOtherCompanies => companies
+      .where((c) => c["_id"].toString() != companyId && c["userRole"] == "admin" && c["external"] != true)
+      .toList();
 
   String get companyId => company["_id"].toString();
   String get companyName => company["name"]?.toString() ?? "Company";
@@ -36,6 +63,89 @@ class LedgerScope {
   List<Map<String, dynamic>> get bankAccounts =>
       List<Map<String, dynamic>>.from(company["bankAccounts"] ?? const []);
   List<Map<String, dynamic>> get admins => members.where((m) => m["role"] == "admin").toList();
+  List<Map<String, dynamic>> get staff => members.where((m) => m["role"] != "admin").toList();
+  num get cashBalance => (company["cashBalance"] as num?) ?? 0;
+  String get cashName => (company["cashAccountName"]?.toString().trim().isNotEmpty ?? false) ? company["cashAccountName"].toString() : "Cash";
+
+  /// Cash first, then each bank account, with the balance shown on the web's fund pickers.
+  List<({String id, String name, num balance})> get funds => [
+        (id: "cash", name: cashName, balance: cashBalance),
+        ...bankAccounts.map((b) => (id: b["_id"].toString(), name: bankLabel(b), balance: (b["balance"] as num?) ?? 0)),
+      ];
+}
+
+/// "Who paid?" choices this person may record on an approved bill (switches decide which), same as the web.
+List<({String value, String label})> payerOptions(LedgerScope s, Map<String, dynamic> e) {
+  final own = idOf(e["createdBy"]) == s.userId;
+  if (s.isAdmin) {
+    return [
+      if (s.can("record_payments")) ...[(value: "admin", label: "Paid by me"), (value: "company", label: "Paid by company")],
+      if (s.can("intercompany")) (value: "borrow", label: "Borrowed from a company"),
+    ];
+  }
+  return [
+    (value: "person", label: "Paid by me"),
+    if (own) (value: "company", label: "Paid by company"),
+    if (s.can("borrow")) (value: "borrow", label: "Borrowed from a company"),
+  ];
+}
+
+/// Categories offered on the web: the base list, then the company's own, minus any a manager removed.
+const List<String> kBaseCategories = ["General", "Food & Dining", "Travel & Transport", "Office Supplies", "Utilities", "Software & Tech", "Other"];
+
+List<String> companyCategories(Map<String, dynamic> company) {
+  final hidden = List<String>.from(company["hiddenCategories"] ?? const []).map((c) => c.toLowerCase()).toSet();
+  final seen = <String>{};
+  return [...kBaseCategories, ...List<String>.from(company["customCategories"] ?? const [])].where((c) {
+    final key = c.trim().toLowerCase();
+    if (key.isEmpty || hidden.contains(key) || seen.contains(key)) return false;
+    seen.add(key);
+    return true;
+  }).toList();
+}
+
+/// "HDFC Bank – Acme Pvt Ltd (…1234)", same as the web's bankAccountLabel.
+String bankLabel(Map<String, dynamic> b) {
+  final holder = (b["accountHolder"]?.toString().isNotEmpty ?? false) ? " – ${b["accountHolder"]}" : "";
+  final n = (b["accountNumber"] ?? "").toString();
+  final last4 = n.isEmpty ? "" : " (…${n.length > 4 ? n.substring(n.length - 4) : n})";
+  return "${b["bankName"] ?? "Bank"}$holder$last4";
+}
+
+/// Status text naming who actually paid, same wording as the web's expenseStatusLabel.
+String expenseStatusLabel(Map<String, dynamic> e, String companyName) {
+  final lifecycle = e["lifecycle"]?.toString() ?? "submitted";
+  String n(dynamic ref) => ref is Map ? (ref["name"]?.toString() ?? "") : "";
+  switch (lifecycle) {
+    case "paid_by_company":
+      if (e["payerType"] == "other_company") return "Paid by ${n(e["payerCompanyId"]).isEmpty ? "another company" : n(e["payerCompanyId"])}";
+      return "Paid by ${n(e["companyId"]).isEmpty ? companyName : n(e["companyId"])}";
+    case "paid_by_admin":
+    case "paid_by_person":
+      final who = n(e["paidByUserId"]).isNotEmpty ? n(e["paidByUserId"]) : n(e["paidByAdminId"]);
+      return who.isNotEmpty ? "Paid by $who" : (lifecycle == "paid_by_admin" ? "Paid by manager" : "Paid by staff");
+    case "paid_by_voucher":
+      return "Paid by voucher";
+    case "awaiting_confirmation":
+      return "Awaiting ${n(e["payerCompanyId"]).isEmpty ? "payer" : n(e["payerCompanyId"])} confirmation";
+    default:
+      return kLifecycleLabels[lifecycle] ?? lifecycle.replaceAll("_", " ");
+  }
+}
+
+/// Who posted it: the company for company-posted expenses, otherwise the person (web's postedByName).
+String postedByName(Map<String, dynamic> e, String companyName) {
+  final companyPost = e["logAs"] == "company" || e["postedAs"] == "company";
+  if (companyPost) return e["companyId"] is Map ? (e["companyId"]["name"]?.toString() ?? companyName) : companyName;
+  return nameOf(e["createdBy"], "Staff");
+}
+
+/// Status dot colour, same groups as the web list: rejected / approved+paid / reimbursed / waiting.
+Color statusTone(String? lifecycle) {
+  if (lifecycle == "rejected") return kTerracotta;
+  if (lifecycle == "reimbursed") return kForest;
+  if (lifecycle == "approved" || (lifecycle?.startsWith("paid") ?? false)) return kMint;
+  return kAmber;
 }
 
 String inr(dynamic v) => "₹${NumberFormat("#,##0.00", "en_IN").format((v as num?) ?? 0)}";
@@ -55,12 +165,13 @@ String nameOf(dynamic ref, [String fallback = "Member"]) =>
     ref is Map ? (ref["name"]?.toString() ?? fallback) : fallback;
 
 const Map<String, String> kLifecycleLabels = {
-  "submitted": "Submitted",
-  "approved": "Approved",
+  "submitted": "Awaiting approval",
+  "approved": "Approved · unpaid",
   "rejected": "Rejected",
-  "paid_by_admin": "Paid by admin",
-  "paid_by_person": "Paid by person",
+  "paid_by_admin": "Paid by manager",
+  "paid_by_person": "Paid by staff",
   "paid_by_company": "Paid by company",
+  "paid_by_voucher": "Paid by voucher",
   "awaiting_confirmation": "Awaiting confirmation",
   "reimbursed": "Reimbursed",
 };
@@ -76,6 +187,7 @@ Color lifecycleColor(String? s) {
     case "reimbursed":
     case "paid_by_company":
     case "paid_by_person":
+    case "paid_by_voucher":
       return kMint;
     default:
       return const Color(0xFF2563EB);
@@ -97,7 +209,7 @@ Widget ledgerCard({required Widget child, EdgeInsets padding = const EdgeInsets.
 
 Widget sectionTitle(String text) => Padding(
       padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
-      child: Text(text, style: GoogleFonts.fraunces(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+      child: Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
     );
 
 TextStyle get labelStyle => GoogleFonts.inter(color: kDark, fontWeight: FontWeight.bold, fontSize: 13);
@@ -236,7 +348,7 @@ Future<T?> showLedgerSheet<T>(BuildContext context, String title, Widget Functio
                 child: Container(width: 38, height: 4, decoration: BoxDecoration(color: kDark.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10))),
               ),
               const SizedBox(height: 14),
-              Text(title, style: GoogleFonts.fraunces(color: kDark, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(title, style: GoogleFonts.inter(color: kDark, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 14),
               Builder(builder: builder),
             ],
@@ -320,22 +432,61 @@ class _BusyButtonState extends State<_BusyButton> {
       );
 }
 
-/// Dropdown of "cash" plus the company's bank accounts.
+/// Dropdown of Cash plus the company's bank accounts, each with its balance (like the web).
+/// Callers start `value` at "cash" so a fund is always chosen.
 Widget fundDropdown(LedgerScope scope, String? value, ValueChanged<String?> onChanged, {String hint = "Bank or cash"}) {
   return DropdownButtonFormField<String>(
-    initialValue: value,
+    initialValue: value ?? "cash",
     isExpanded: true,
     decoration: fieldDecoration(hint, icon: Icons.account_balance_rounded),
-    items: [
-      const DropdownMenuItem(value: "cash", child: Text("Cash / InCash")),
-      ...scope.bankAccounts.map((b) {
-        final n = (b["accountNumber"] ?? "").toString();
-        final last4 = n.length > 4 ? n.substring(n.length - 4) : n;
-        return DropdownMenuItem(value: b["_id"].toString(), child: Text("${b["bankName"]} •••• $last4", overflow: TextOverflow.ellipsis));
-      }),
-    ],
+    items: scope.funds
+        .map((f) => DropdownMenuItem(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis)))
+        .toList(),
     onChanged: onChanged,
   );
+}
+
+/// Yes/no question in the app's sheet style; resolves to true only on confirm.
+Future<bool> confirmDialog(BuildContext context, String title, String message, {String confirmLabel = "Confirm", bool danger = false}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => Theme(
+      data: sheetTheme,
+      child: AlertDialog(
+        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
+        content: Text(message, style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.75), height: 1.4)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmLabel, style: TextStyle(color: danger ? kTerracotta : kForest, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    ),
+  );
+  return ok == true;
+}
+
+/// Picks an image (camera or gallery) and returns it as a data URL, the format the server stores.
+Future<String?> pickReceiptImage(BuildContext context) async {
+  final source = await showModalBottomSheet<ImageSource>(
+    context: context,
+    builder: (ctx) => Theme(
+      data: sheetTheme,
+      child: SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(leading: const Icon(Icons.photo_camera_rounded), title: const Text("Take a photo"), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
+          ListTile(leading: const Icon(Icons.photo_library_rounded), title: const Text("Choose from gallery"), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
+        ]),
+      ),
+    ),
+  );
+  if (source == null) return null;
+  final img = await ImagePicker().pickImage(source: source, maxWidth: 1400, imageQuality: 72);
+  if (img == null) return null;
+  final bytes = await File(img.path).readAsBytes();
+  return "data:image/jpeg;base64,${base64Encode(bytes)}";
 }
 
 const List<String> kMethods = ["UPI", "Bank", "Cash", "Card"];

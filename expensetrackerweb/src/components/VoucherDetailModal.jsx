@@ -10,7 +10,8 @@ const subStyle = { display: "block", fontSize: 11.5, color: "var(--muted)", font
 const round = (n) => Math.round(n * 100) / 100;
 
 // Everything about one voucher: who got it, who paid for it, and how it was claimed (with the claim receipt).
-export default function VoucherDetailModal({ voucher, user, onClose, onCancel }) {
+export default function VoucherDetailModal({ voucher, user, onClose, onCancel, onDelete, onCloseVoucher }) {
+  const isCreator = String(voucher.createdBy?._id || voucher.createdBy) === String(user.id);
   const [receipt, setReceipt] = useState({ loading: Boolean(voucher.expenseId), src: "" });
 
   useEffect(() => {
@@ -39,6 +40,7 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel })
     claimed && left > 0 && ["Left with staff", <span key="left" style={{ color: "var(--terracotta)", fontWeight: 700 }}>{money(left)}<span style={subStyle}>Kept as their voucher balance</span></span>],
     claimed && fromHeld > 0 && ["From earlier balance", money(fromHeld)],
     claimed && voucher.owedToRecipient > 0 && ["Company owes staff", <span key="owed" style={{ color: "var(--terracotta)", fontWeight: 700 }}>{money(voucher.owedToRecipient)}<span style={subStyle}>Spent more than they held</span></span>],
+    voucher.closedBy && ["Closed by", <span key="closed">{voucher.closedBy.name}<span style={subStyle}>Recorded as used by {voucher.recipientId?.name || "staff"} · {formatDateTime(voucher.closedAt)}</span></span>],
     voucher.status === "cancelled" && ["Cancelled by", voucher.cancelledBy?.name || "Manager"],
     voucher.status === "cancelled" && voucher.cancelledAt && ["Cancelled on", formatDateTime(voucher.cancelledAt)],
   ].filter(Boolean);
@@ -49,7 +51,7 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel })
         <span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span>
       </div>
       <h2 style={{ margin: "14px 0 2px", fontSize: 21, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>{voucher.purpose}</h2>
-      <div style={{ fontFamily: "Fraunces, serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
+      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
 
       <dl style={boxStyle}>
         {rows.map(([label, value], idx) => (
@@ -76,7 +78,13 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel })
       )}
 
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-        {voucher.status === "open" && onCancel && (
+        {voucher.status === "open" && isCreator && onCloseVoucher && (
+          <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => onCloseVoucher(voucher)}>Close voucher</button>
+        )}
+        {voucher.status === "open" && isCreator && onDelete && (
+          <button type="button" className="btn btn-outline-danger" style={{ flex: 1 }} onClick={() => onDelete(voucher)}>Delete</button>
+        )}
+        {voucher.status === "open" && isCreator && onCancel && (
           <button type="button" className="btn btn-outline-danger" style={{ flex: 1 }} onClick={() => onCancel(voucher)}>Cancel voucher</button>
         )}
         <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Close</button>

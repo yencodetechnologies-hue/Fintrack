@@ -6,6 +6,7 @@ const CompanyIncome = require("../models/companyIncome");
 const Settlement = require("../models/settlement");
 const User = require("../models/user");
 const { ExpenseGroup } = require("../models/expenseGroup");
+const { permissionsFor, permissionDenied } = require("../utils/permissions");
 
 // Helper to generate a unique 6-digit numeric join code
 const generateJoinCode = async () => {
@@ -545,6 +546,7 @@ exports.getCompanyDetails = async (req, res) => {
       members: membersList,
       currentUserRole,
       hiddenStaffIds: (ownMembership?.hiddenStaffIds || []).map(String),
+      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); return { permissionRole: p.role, myPermissions: p.perms }; })() : {}),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -563,6 +565,8 @@ exports.regenerateJoinCode = async (req, res) => {
     if (!isAdmin) {
       return res.status(403).json({ success: false, message: "Only Admin can regenerate join code" });
     }
+    const denied = await permissionDenied(companyId, userId, "settings");
+    if (denied) return res.status(403).json({ success: false, message: denied });
 
     const newCode = await generateJoinCode();
     const company = await Company.findByIdAndUpdate(
@@ -619,9 +623,16 @@ exports.removeMember = async (req, res) => {
     if (!caller || caller.role !== "admin") {
       return res.status(403).json({ success: false, message: "Only Admin can remove members" });
     }
+    const denied = await permissionDenied(companyId, userId, "members");
+    if (denied) return res.status(403).json({ success: false, message: denied });
 
     if (memberUserId === userId) {
       return res.status(400).json({ success: false, message: "Admin cannot remove themselves" });
+    }
+
+    const company = await Company.findById(companyId).select("createdBy").lean();
+    if (company?.createdBy && company.createdBy.toString() === String(memberUserId)) {
+      return res.status(400).json({ success: false, message: "The company's creator can't be removed" });
     }
 
     await CompanyMember.findOneAndDelete({ companyId, userId: memberUserId });
@@ -1169,11 +1180,13 @@ exports.deleteCompany = async (req, res) => {
       return res.status(400).json({ success: false, message: "User ID is required" });
     }
 
-    const adminUserIds = await getCompanyAdminUserIds(companyId);
-    const isAdmin = adminUserIds.includes(userId.toString());
-
-    if (!isAdmin) {
-      return res.status(403).json({ success: false, message: "Only an Admin can delete the company ledger" });
+    // only the primary admin (the person who created the company) may delete it
+    const company = await Company.findById(companyId).select("createdBy").lean();
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+    if (!company.createdBy || company.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({ success: false, message: "Only the company's creator can delete the company" });
     }
 
     await Company.findByIdAndDelete(companyId);
@@ -1328,6 +1341,8 @@ exports.updateCashAccountName = async (req, res) => {
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can edit cash account name" });
     }
+    const denied = await permissionDenied(companyId, userId, "funds");
+    if (denied) return res.status(403).json({ success: false, message: denied });
     const name = String(cashAccountName || "").trim();
     if (!name) {
       return res.status(400).json({ success: false, message: "Cash account name cannot be empty" });
@@ -1359,6 +1374,8 @@ exports.addBankAccount = async (req, res) => {
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can manage bank accounts" });
     }
+    const denied = await permissionDenied(companyId, userId, "funds");
+    if (denied) return res.status(403).json({ success: false, message: denied });
     if (!bankName || !String(bankName).trim() || !accountNumber || !String(accountNumber).trim()) {
       return res.status(400).json({ success: false, message: "Bank name and account number are required" });
     }
@@ -1387,6 +1404,8 @@ exports.deleteBankAccount = async (req, res) => {
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can manage bank accounts" });
     }
+    const denied = await permissionDenied(companyId, userId, "funds");
+    if (denied) return res.status(403).json({ success: false, message: denied });
     const existing = await Company.findById(companyId);
     const acct = existing && existing.bankAccounts.id(accountId);
     if (acct && acct.balance !== 0) {
@@ -1451,6 +1470,8 @@ exports.addIncome = async (req, res) => {
     if (!userId || !adminUserIds.includes(userId.toString())) {
       return res.status(403).json({ success: false, message: "Only Admin can add income" });
     }
+    const denied = await permissionDenied(companyId, userId, "funds");
+    if (denied) return res.status(403).json({ success: false, message: denied });
     const value = parseFloat(amount);
     if (!(value > 0)) {
       return res.status(400).json({ success: false, message: "Enter a valid amount" });

@@ -110,7 +110,7 @@ export default function ExpenseCard({
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{expense.description}</div>
-          <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, fontSize: 16 }}>{money(expense.amount)}</div>
+          <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 16 }}>{money(expense.amount)}</div>
         </div>
         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{subtext}</div>
       </div>

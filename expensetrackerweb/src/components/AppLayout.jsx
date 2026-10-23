@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { getUserCompanies } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import { tabAllowed } from "../permissions.js";
 
 const LAST_COMPANY_KEY = "et_selected_company";
 
@@ -34,8 +35,13 @@ const ICONS = {
   interco: ["m17 2 4 4-4 4", "M3 6h18", "m7 22-4-4 4-4", "M21 18H3"],
   reports: ["M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z", "M14 2v6h6", "M16 13H8", "M16 17H8"],
   analysis: ["M3 3v18h18", "m19 9-5 5-4-4-3 3"],
+  payments: ["M12 2v20", "M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"],
   vouchers: ["M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z", "M13 5v2", "M13 17v2", "M13 11v2"],
-  more: ["M5 12h.01", "M12 12h.01", "M19 12h.01"],
+  funds: ["M3 21h18", "M3 10h18", "m5 6 7-3 7 3", "M4 10v11", "M20 10v11", "M8 14v3", "M12 14v3", "M16 14v3"],
+  transactions: ["M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20", "M8 7h8", "M8 11h6"],
+  audit: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", "m9 12 2 2 4-4"],
+  permissions: ["M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", "M12 8v4", "M12 16h.01"],
+  settings: ["M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"],
   companies: ["M3 21h18", "M5 21V7l7-4 7 4v14", "M9 21v-6h6v6"],
   groups: ["M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2", "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z", "M22 21v-2a4 4 0 0 0-3-3.87", "M16 3.13a4 4 0 0 1 0 7.75"],
   profile: ["M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", "M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"],
@@ -49,12 +55,19 @@ const WORKSPACE = [
   { tab: "reports", label: "Reports", adminOnly: true },
   { tab: "analysis", label: "Analysis", adminOnly: true },
   { tab: "vouchers", label: "Vouchers", adminOnly: true },
-  { tab: "more", label: "More" },
+  { tab: "payments", label: "Payments", adminOnly: true },
+  { tab: "funds", label: "Company Funds", adminOnly: true },
+  { tab: "transactions", label: "Ledger", adminOnly: true },
+  { tab: "audit", label: "Audit log", adminOnly: true },
+  { tab: "settings", label: "Settings" },
+  { tab: "permissions", label: "Permissions", adminOnly: true },
 ];
 
 // Every signed-in page: full-height sidebar on the left, the opened page on the right.
 // On the company workspace, pass activeTab/onTabChange; elsewhere the workspace links open the last-used company.
-export default function AppLayout({ children, companyId, isAdmin, activeTab, onTabChange, title }) {
+const ALL_ON = () => true;
+
+export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, activeTab, onTabChange, title }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,7 +143,7 @@ export default function AppLayout({ children, companyId, isAdmin, activeTab, onT
         {current && (
           <>
             <div className="sidebar-section-label">Workspace</div>
-            {WORKSPACE.filter((item) => !item.adminOnly || admin).map((item) => (
+            {WORKSPACE.filter((item) => (!item.adminOnly || admin) && (!onWorkspace ? item.tab !== "permissions" : tabAllowed(item.tab, { admin, can, permissionRole }))).map((item) => (
               <button
                 key={item.tab}
                 type="button"

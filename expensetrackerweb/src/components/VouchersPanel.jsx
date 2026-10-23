@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { cancelVoucher, decideAdvanceReturn, getVouchers } from "../api.js";
+import { cancelVoucher, decideAdvanceReturn, deleteVoucher, getVouchers } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { formatDate, money, VOUCHER_STATUS as STATUS } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import CreateVoucherModal from "./CreateVoucherModal.jsx";
 import VoucherDetailModal from "./VoucherDetailModal.jsx";
+import ClaimVoucherModal from "./ClaimVoucherModal.jsx";
 
 const th = { textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--muted)", padding: "8px 10px", borderBottom: "1px solid var(--slate-border)" };
 const td = { padding: "9px 10px", fontSize: 13, borderBottom: "1px solid var(--slate-border-2)" };
@@ -12,13 +13,16 @@ const num = { ...td, textAlign: "right", whiteSpace: "nowrap" };
 
 
 // Managers: every voucher, what each staff member holds, and hand-backs to confirm.
-export default function VouchersPanel({ companyId, user, members, funds, onChanged }) {
+export default function VouchersPanel({ companyId, company, user, members, funds, onChanged, refreshKey }) {
   const { showToast } = useToast();
   const [data, setData] = useState(null);
   const [filter, setFilter] = useState("all");
   const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState(null);
+  const [deleting, setDeleting] = useState(null);
   const [viewing, setViewing] = useState(null);
+  // open voucher the creating manager is closing on the staff member's behalf
+  const [closingVoucher, setClosingVoucher] = useState(null);
   const [busy, setBusy] = useState("");
 
   const load = useCallback(async () => {
@@ -29,7 +33,7 @@ export default function VouchersPanel({ companyId, user, members, funds, onChang
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const changed = () => {
     load();
@@ -44,6 +48,16 @@ export default function VouchersPanel({ companyId, user, members, funds, onChang
       showToast(`Voucher cancelled · ${money(voucher.amount)} returned`);
       changed();
     } else showToast(res.message || "Could not cancel voucher", "error");
+  }
+
+  async function confirmDelete() {
+    const voucher = deleting;
+    setDeleting(null);
+    const res = await deleteVoucher(voucher._id, user.id);
+    if (res.success) {
+      showToast(`Voucher deleted · ${money(voucher.amount)} returned`);
+      changed();
+    } else showToast(res.message || "Could not delete voucher", "error");
   }
 
   async function decide(ret, accept) {
@@ -73,7 +87,7 @@ export default function VouchersPanel({ companyId, user, members, funds, onChang
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner dark" /></div>
       ) : (
         <>
-          <div className="home-tiles staff" style={{ maxWidth: 840, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+          <div className="home-tiles staff m-voucher-tiles" style={{ maxWidth: 840, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
             <div className="stat-card home-tile"><div className="home-tile-label">Given (not cancelled)</div><div className="home-tile-value">{money(totals.given)}</div></div>
             <div className="stat-card home-tile"><div className="home-tile-label">Open, not claimed</div><div className="home-tile-value">{money(totals.open)}</div></div>
             <div className="stat-card home-tile"><div className="home-tile-label">Held by staff</div><div className="home-tile-value" style={{ color: totals.held > 0 ? "var(--terracotta)" : undefined }}>{money(totals.held)}</div></div>
@@ -171,11 +185,24 @@ export default function VouchersPanel({ companyId, user, members, funds, onChang
                         </span>
                       )}
                       {v.status === "cancelled" && v.cancelledBy && <span className="expense-row-meta">Cancelled by {v.cancelledBy.name} · {formatDate(v.cancelledAt)}</span>}
+                      {v.closedBy && <span className="expense-row-meta">Closed by {v.closedBy.name} · {formatDate(v.closedAt)}</span>}
                     </span>
                     <span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span>
                     <span className="expense-row-amount">{money(v.amount)}</span>
                     <span className="expense-row-action">
-                      {v.status === "open" && <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setCancelling(v); }}>Cancel</button>}
+                      {v.status === "open" && (
+                        <span style={{ display: "flex", gap: 6 }}>
+                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
+                            <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setClosingVoucher(v); }}>Close</button>
+                          )}
+                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
+                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setCancelling(v); }}>Cancel</button>
+                          )}
+                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
+                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeleting(v); }}>Delete</button>
+                          )}
+                        </span>
+                      )}
                     </span>
                   </div>
                 );
@@ -189,7 +216,28 @@ export default function VouchersPanel({ companyId, user, members, funds, onChang
         <CreateVoucherModal companyId={companyId} user={user} members={members} funds={funds} onClose={() => setCreating(false)} onCreated={changed} />
       )}
       {viewing && (
-        <VoucherDetailModal voucher={viewing} user={user} onClose={() => setViewing(null)} onCancel={(v) => { setViewing(null); setCancelling(v); }} />
+        <VoucherDetailModal voucher={viewing} user={user} onClose={() => setViewing(null)} onCancel={(v) => { setViewing(null); setCancelling(v); }} onDelete={(v) => { setViewing(null); setDeleting(v); }} onCloseVoucher={(v) => { setViewing(null); setClosingVoucher(v); }} />
+      )}
+      {closingVoucher && (
+        <ClaimVoucherModal
+          mode="close"
+          voucher={closingVoucher}
+          company={company}
+          user={user}
+          held={Math.max(0, Number((data?.people || []).find((p) => String(p.userId) === String(closingVoucher.recipientId?._id || closingVoucher.recipientId))?.held || 0))}
+          onClose={() => setClosingVoucher(null)}
+          onClaimed={changed}
+        />
+      )}
+      {deleting && (
+        <ConfirmDialog
+          title="Delete voucher?"
+          message={`${money(deleting.amount)} for "${deleting.purpose}" goes back to ${deleting.fundedBy === "company" ? deleting.fundName || "the company fund" : `${deleting.createdBy?.name || "the manager"} (removed from what the company owes them)`}, and the voucher is removed from the lists. Use Cancel instead to keep it listed as cancelled.`}
+          confirmLabel="Delete voucher"
+          danger
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleting(null)}
+        />
       )}
       {cancelling && (
         <ConfirmDialog

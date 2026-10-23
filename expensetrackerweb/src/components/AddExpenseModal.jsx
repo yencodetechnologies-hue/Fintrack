@@ -9,6 +9,7 @@ export default function AddExpenseModal({
   company,
   user,
   isAdmin,
+  canPostAsCompany = true,
   members,
   customCategories,
   hiddenStaffIds = [],
@@ -147,7 +148,7 @@ export default function AddExpenseModal({
       </div>
 
       <form onSubmit={handleSubmit}>
-        {isAdmin && (
+        {isAdmin && canPostAsCompany && (
           <div style={{ marginBottom: 16 }}>
             <label className="field-label" style={{ marginBottom: 6 }}>Post expense as</label>
             <div className={`segmented-toggle ${postAs === "company" ? "active-second" : ""}`} role="tablist">

@@ -3,7 +3,7 @@ import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory, updateC
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, formatDate, money } from "../utils.js";
 
-export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged }) {
+export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged, refreshKey }) {
   const { showToast } = useToast();
   const [accounts, setAccounts] = useState(bankAccounts);
   const [cash, setCash] = useState(cashBalance);
@@ -41,7 +41,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
     getIncomeHistory(company._id, user.id).then((res) => {
       if (res.success) setIncome(res.income || []);
     });
-  }, [company._id, user.id]);
+  }, [company._id, user.id, refreshKey]);
 
   function handleStartEditCashName() {
     setEditCashNameInput(cashName);
@@ -345,7 +345,7 @@ function FundTile({
           </div>
         )}
         {subtitle && <div style={{ fontSize: 11.5, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 2 }}>{subtitle}</div>}
-        <div style={{ fontFamily: "Fraunces, serif", fontWeight: 700, color: "var(--forest)", fontSize: 19, marginTop: 8 }}>
+        <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, color: "var(--forest)", fontSize: 19, marginTop: 8 }}>
           {money(balance)}
         </div>
       </div>

@@ -3,9 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 
-/// Primary admin only (web's Custom roles): roles on top of Manager/Staff. Each has a base (manager-like members
-/// see everything and are auto-approved, staff-like post for approval), its own switches (all start OFF) and its
-/// members. Deleting a role removes its members from the company.
+/// Web's Custom roles (primary admin, or "Manage custom roles"): a role is just a name; every ability — staff,
+/// manager and admin powers — is its own switch, all OFF. "All admin access" turns them all on. Deleting a role
+/// removes its members from the company.
 class CustomRolesSection extends StatefulWidget {
   final LedgerScope scope;
   final List<Map<String, dynamic>> definitions;
@@ -25,7 +25,6 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
   Map<String, bool> _values(Map<String, dynamic> role) =>
       _local[role["_id"].toString()] ?? Map<String, bool>.from((role["permissions"] as Map? ?? const {}).map((k, v) => MapEntry(k.toString(), v == true)));
 
-  bool _blocked(Map<String, dynamic> def, Map<String, dynamic> role) => def["only"] != null && def["only"] != role["base"];
 
   /// Runs a save; on success toasts [ok], refreshes everyone and returns the response, otherwise shows the error.
   Future<Map<String, dynamic>?> _run(Future<Map<String, dynamic>> Function() call, {String? ok}) async {
@@ -58,58 +57,29 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
     final id = role["_id"].toString();
     _local.remove(id);
     _run(() => LedgerService.updateCustomRole(s.companyId, id, s.userId, {
-          "permissions": {for (final d in widget.definitions) d["key"].toString(): on && !_blocked(d, role)},
+          "permissions": {for (final d in widget.definitions) d["key"].toString(): on && d["key"] != "full_admin"},
         }));
   }
 
   Future<void> _addRole() async {
     final name = TextEditingController();
-    var base = "staff";
-    await showLedgerSheet(context, "Add role", (ctx) => StatefulBuilder(builder: (ctx, set) {
-          Widget choice(String value, String title, String sub) => Expanded(
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () => set(() => base = value),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: base == value ? kForest.withValues(alpha: 0.08) : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: base == value ? kForest : const Color(0xFFE2E8F0), width: base == value ? 1.5 : 1),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kDark)),
-                      const SizedBox(height: 2),
-                      Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
-                    ]),
-                  ),
-                ),
-              );
-          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Every switch starts off; you turn on what this role may do.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.65))),
-            const SizedBox(height: 12),
-            TextField(controller: name, maxLength: 40, autofocus: true, decoration: fieldDecoration("Role name, e.g. Accountant", icon: Icons.badge_rounded)),
-            Text("Works like", style: labelStyle),
-            const SizedBox(height: 6),
-            Row(children: [
-              choice("manager", "Manager-like", "Sees all expenses; own posts approved straight away"),
-              const SizedBox(width: 8),
-              choice("staff", "Staff-like", "Sees own expenses; posts wait for approval"),
-            ]),
-            const SizedBox(height: 16),
-            primaryButton("Create role", () async {
-              final n = name.text.trim();
-              if (n.isEmpty) return toast(ctx, "Give the role a name", error: true);
-              final res = await LedgerService.createCustomRole(s.companyId, s.userId, n, base);
-              if (!ctx.mounted) return;
-              if (handleResult(ctx, res, "\"$n\" created · all switches are off")) {
-                Navigator.pop(ctx);
-                notifyLedgerChanged();
-                widget.onChanged();
-              }
-            }),
-          ]);
-        }));
+    await showLedgerSheet(context, "Add role", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("Every switch starts off; you turn on what this role may do.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.65))),
+          const SizedBox(height: 12),
+          TextField(controller: name, maxLength: 40, autofocus: true, decoration: fieldDecoration("Role name, e.g. Accountant", icon: Icons.badge_rounded)),
+          const SizedBox(height: 8),
+          primaryButton("Create role", () async {
+            final n = name.text.trim();
+            if (n.isEmpty) return toast(ctx, "Give the role a name", error: true);
+            final res = await LedgerService.createCustomRole(s.companyId, s.userId, n);
+            if (!ctx.mounted) return;
+            if (handleResult(ctx, res, "\"$n\" created · turn on what it can do")) {
+              Navigator.pop(ctx);
+              notifyLedgerChanged();
+              widget.onChanged();
+            }
+          }),
+        ]));
     name.dispose();
   }
 
@@ -170,7 +140,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
           ),
         ]),
       ),
-      Text("Make your own roles, like Accountant. Every switch starts off — turn on only what the role needs. Only you can change roles or put people in them.",
+      Text("Make your own roles, like Accountant. Every ability — staff, manager and admin — is a switch, and all start off. Turn on only what the role needs.",
           style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
       const SizedBox(height: 12),
       if (widget.roles.isEmpty)
@@ -182,13 +152,15 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
 
   Widget _roleCard(Map<String, dynamic> role) {
     final values = _values(role);
-    final usable = widget.definitions.where((d) => !_blocked(d, role)).toList();
-    final onCount = usable.where((d) => values[d["key"]] == true).length;
+    final full = values["full_admin"] == true;
+    final onCount = widget.definitions.where((d) => full || values[d["key"]] == true).length;
     final members = List<Map<String, dynamic>>.from(role["members"] ?? const []);
     final creatorId = idOf(s.company["createdBy"]);
     final inRole = members.map((m) => idOf(m["userId"])).toSet();
     final candidates = s.members.where((m) => m["userId"].toString() != creatorId && !inRole.contains(m["userId"].toString())).toList();
     final manager = role["base"] == "manager";
+    // a heading above the first switch of each group (Access, Expenses, Money, Reports, Company, Admin powers)
+    bool startsGroup(int i) => i == 0 || widget.definitions[i]["group"] != widget.definitions[i - 1]["group"];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -200,22 +172,15 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(role["name"]?.toString() ?? "Role", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: kDark)),
               const SizedBox(height: 4),
-              Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: manager ? const Color(0xFFE0E7FF) : const Color(0xFFE8F7EF), borderRadius: BorderRadius.circular(99)),
-                  child: Text(manager ? "Manager-like" : "Staff-like",
-                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: manager ? const Color(0xFF3730A3) : kForest)),
-                ),
-                Text("${members.length} member${members.length == 1 ? "" : "s"}", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
-              ]),
+              Text("${members.length} member${members.length == 1 ? "" : "s"}${full ? " · all admin access" : manager ? " · manager-level access" : ""}",
+                  style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             ]),
           ),
           Container(
             margin: const EdgeInsets.only(right: 4),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: const Color(0xFFE8F7EF), border: Border.all(color: const Color(0xFFCBEBD9)), borderRadius: BorderRadius.circular(99)),
-            child: Text("$onCount/${usable.length} on", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: kForest)),
+            child: Text("$onCount/${widget.definitions.length} on", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: kForest)),
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded, color: kDark),
@@ -227,7 +192,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
           ),
         ]),
         Row(children: [
-          TextButton(onPressed: _busy ? null : () => _setAll(role, true), child: const Text("Turn all on")),
+          TextButton(onPressed: _busy || full ? null : () => _setAll(role, true), child: const Text("Turn all on")),
           Text("·", style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.4))),
           TextButton(style: TextButton.styleFrom(foregroundColor: kTerracotta), onPressed: _busy ? null : () => _setAll(role, false), child: const Text("Turn all off")),
         ]),
@@ -277,19 +242,26 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
           ]),
         ),
         for (var i = 0; i < widget.definitions.length; i++) ...[
-          if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          if (startsGroup(i))
+            Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: 2),
+              child: Text((widget.definitions[i]["group"]?.toString() ?? "").toUpperCase(),
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: kForest)),
+            )
+          else
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
           Builder(builder: (_) {
             final def = widget.definitions[i];
             final key = def["key"].toString();
-            final blocked = _blocked(def, role);
-            final on = !blocked && values[key] == true;
-            final hint = blocked ? "Only for ${def["only"]}-like roles" : def["hint"]?.toString();
+            final included = full && key != "full_admin";
+            final on = included || values[key] == true;
+            final hint = included ? "Included in All admin access" : def["hint"]?.toString();
             return SwitchListTile(
               contentPadding: const EdgeInsets.only(right: 4),
               value: on,
               activeThumbColor: Colors.white,
               activeTrackColor: kForest,
-              onChanged: blocked || _busy ? null : (v) => _toggle(role, key, v),
+              onChanged: included || _busy ? null : (v) => _toggle(role, key, v),
               title: Text(def["label"].toString(),
                   style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: on ? kDark : kDark.withValues(alpha: 0.5))),
               subtitle: hint == null || hint.isEmpty ? null : Text(hint, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),

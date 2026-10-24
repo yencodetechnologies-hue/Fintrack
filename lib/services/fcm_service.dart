@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -6,12 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../firebase_options.dart';
 import '../screens/view_reminder_page.dart';
+import '../screens/ledger/ledger_home_screen.dart';
 import 'api_service.dart';
 import 'ledger_events.dart';
 import 'user_storage.dart';
 
 const String _paymentReminderChannelId = 'payment_reminder';
 const String _paymentReminderChannelName = 'Payment Reminders';
+// company expense tracker updates (expenses, approvals, vouchers, loans…) — separate so either can be muted
+const String _companyChannelId = 'company_updates';
+const String _companyChannelName = 'Company updates';
 
 /// Top-level background handler — must be a top-level or static function.
 @pragma('vm:entry-point')
@@ -99,8 +104,8 @@ class FCMService {
 
     await _localNotifications.initialize(
       settings: initSettings,
-      onDidReceiveNotificationResponse: (_) {
-        _handleNotificationClick(navKey);
+      onDidReceiveNotificationResponse: (response) {
+        _handleNotificationClick(navKey, _decodePayload(response.payload));
       },
     );
 
@@ -112,6 +117,14 @@ class FCMService {
         _paymentReminderChannelId,
         _paymentReminderChannelName,
         description: 'Credit card payment reminder notifications',
+        importance: Importance.high,
+      ),
+    );
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _companyChannelId,
+        _companyChannelName,
+        description: 'Expenses, approvals, payments, vouchers and loans in your companies',
         importance: Importance.high,
       ),
     );
@@ -133,10 +146,11 @@ class FCMService {
 
     if (body.isEmpty && notification == null) return;
 
-    const androidDetails = AndroidNotificationDetails(
-      _paymentReminderChannelId,
-      _paymentReminderChannelName,
-      channelDescription: 'Credit card payment reminder notifications',
+    final company = message.data['type'] == 'ledger';
+    final androidDetails = AndroidNotificationDetails(
+      company ? _companyChannelId : _paymentReminderChannelId,
+      company ? _companyChannelName : _paymentReminderChannelName,
+      channelDescription: company ? 'Expenses, approvals, payments, vouchers and loans in your companies' : 'Credit card payment reminder notifications',
       importance: Importance.high,
       priority: Priority.high,
       icon: '@mipmap/launcher_icon',
@@ -151,11 +165,12 @@ class FCMService {
       id: message.hashCode,
       title: title,
       body: body,
-      notificationDetails: const NotificationDetails(
+      notificationDetails: NotificationDetails(
         android: androidDetails,
         iOS: iosDetails,
       ),
-      payload: message.data['type']?.toString(),
+      // the whole data map, so a tap can open the right company
+      payload: jsonEncode(message.data),
     );
   }
 
@@ -191,12 +206,12 @@ class FCMService {
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _handleNotificationClick(navKey);
+      _handleNotificationClick(navKey, message.data);
     });
 
     final initialMessage = await messaging.getInitialMessage();
     if (initialMessage != null) {
-      _handleNotificationClick(navKey);
+      _handleNotificationClick(navKey, initialMessage.data);
     }
 
     messaging.onTokenRefresh.listen((token) async {
@@ -242,15 +257,45 @@ class FCMService {
     }
   }
 
+  static Map<String, dynamic> _decodePayload(String? payload) {
+    if (payload == null || payload.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(payload);
+      return decoded is Map<String, dynamic> ? decoded : const {};
+    } catch (_) {
+      return {"type": payload}; // older payloads carried only the type
+    }
+  }
+
+  /// Company notifications (type "ledger") open that company's workspace; everything else opens the card
+  /// reminders, as before.
   static Future<void> _handleNotificationClick(
-    GlobalKey<NavigatorState> navKey,
-  ) async {
+    GlobalKey<NavigatorState> navKey, [
+    Map<String, dynamic> data = const {},
+  ]) async {
     await Future.delayed(const Duration(milliseconds: 500));
 
     final userId = await UserStorage.getUserId();
     final userName = await UserStorage.getUserName();
+    if (userId == null) return;
 
-    if (userId != null) {
+    final companyId = data['companyId']?.toString() ?? '';
+    if (data['type'] == 'ledger' && companyId.isNotEmpty) {
+      notifyLedgerChanged();
+      navKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => LedgerHomeScreen(
+            userId: userId,
+            userName: userName ?? "User",
+            companies: const [],
+            initialCompanyId: companyId,
+          ),
+        ),
+      );
+      return;
+    }
+
+    {
       navKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => ViewReminderPage(

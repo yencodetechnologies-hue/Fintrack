@@ -110,7 +110,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
   }
 
   // primary admin only: puts a member into one of the custom roles (Permissions page)
-  const isPrimary = String(company.createdBy?._id || company.createdBy) === String(user.id);
+  // the primary admin, or a custom role with "Manage custom roles"
+  const isPrimary = String(company.createdBy?._id || company.createdBy) === String(user.id) || can("manage_roles");
   // the role picker's value: "member" | "admin" | "role:<customRoleId>"
   function inviteTarget(value) {
     if (String(value).startsWith("role:")) {
@@ -307,7 +308,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
                 <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                  {isCreator ? "Owner / Creator" : m.customRoleName ? `${m.customRoleName} · ${m.role === "admin" ? "manager-like" : "staff-like"}` : m.role === "admin" ? "Manager" : "Staff"}
+                  {isCreator ? "Owner / Creator" : m.customRoleName ? m.customRoleName : m.role === "admin" ? "Manager" : "Staff"}
                 </div>
               </div>
 
@@ -405,7 +406,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       )}
 
       {/* only the primary admin (company creator) can delete the company */}
-      {String(company.createdBy?._id || company.createdBy) === String(user.id) && (
+      {(String(company.createdBy?._id || company.createdBy) === String(user.id) || can("delete_company")) && (
         <>
           <h3 style={{ fontSize: 16, marginBottom: 10, color: "var(--terracotta)" }}>Danger Zone</h3>
           <div className="card" style={{ maxWidth: 560, borderColor: "var(--terracotta-soft)" }}>

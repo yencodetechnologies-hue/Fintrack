@@ -4,7 +4,8 @@ const User = require("../models/user");
 const DEFAULT_TITLE = "Q Fin Test";
 const DEFAULT_BODY = "This is a test push notification from the Fintrack backend.";
 
-function buildPushMessage({ title, body, data = {}, type = "test_notification" }) {
+// channelId: the Android notification category (the app creates payment_reminder and company_updates)
+function buildPushMessage({ title, body, data = {}, type = "test_notification", channelId = "payment_reminder" }) {
   return {
     notification: {
       title,
@@ -13,7 +14,7 @@ function buildPushMessage({ title, body, data = {}, type = "test_notification" }
     android: {
       priority: "high",
       notification: {
-        channelId: "payment_reminder",
+        channelId,
         sound: "default",
         color: "#00D9FF",
         defaultSound: true,
@@ -64,6 +65,7 @@ async function sendPushToTokens(tokens, payload) {
         tokenSuffix: token.slice(-8),
         success: false,
         error: error.message,
+        code: error.code,
       });
     }
   }

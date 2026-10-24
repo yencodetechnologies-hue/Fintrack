@@ -122,6 +122,7 @@ export default function DashboardPage() {
   const [myPermissions, setMyPermissions] = useState(null);
   const [permissionRole, setPermissionRole] = useState(null);
   const [myRoleName, setMyRoleName] = useState(null); // custom role name, if I have one
+  const [canReverse, setCanReverse] = useState(false); // super admin, or a role with "Reverse ledger transactions"
   const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [summary, setSummary] = useState({ totalReceivable: 0, totalPayable: 0, totalCompanySpent: 0, netBalance: 0 });
@@ -168,8 +169,13 @@ export default function DashboardPage() {
   const [savingVisibility, setSavingVisibility] = useState(false);
   const [deletingExpense, setDeletingExpense] = useState(null);
   const [receivingExpense, setReceivingExpense] = useState(null);
+  // Home "My outstanding" tile → Payments, scrolled to "Your outstanding"
+  const [focusOwnOutstanding, setFocusOwnOutstanding] = useState(false);
+  useEffect(() => {
+    if (activeTab !== "payments") setFocusOwnOutstanding(false);
+  }, [activeTab]);
   // Home "Total expenses" tile period: all | week | month | custom (by each expense's date)
-  const [totalPeriod, setTotalPeriod] = useState("all");
+  const [totalPeriod, setTotalPeriod] = useState("month"); // default: this month
   const [totalFrom, setTotalFrom] = useState("");
   const [totalTo, setTotalTo] = useState("");
   const [reversingTx, setReversingTx] = useState(null);
@@ -279,6 +285,7 @@ export default function DashboardPage() {
     setMyPermissions(detailsRes.myPermissions || null);
     setPermissionRole(detailsRes.permissionRole || null);
     setMyRoleName(detailsRes.myRoleName || null);
+    setCanReverse(Boolean(detailsRes.canReverse));
     setHiddenStaffIds(detailsRes.hiddenStaffIds || []);
     // Show the company workspace as soon as its required details arrive.
     // The lists and totals below are secondary and should not block first paint.
@@ -780,18 +787,16 @@ export default function DashboardPage() {
                       onClick={() => changeTab("expenses")}
                       title="View all expenses"
                       extra={
-                        <select
-                          className={`tile-period ${totalPeriod !== "all" ? "on" : ""}`}
-                          value={totalPeriod}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setTotalPeriod(e.target.value)}
-                          aria-label="Period"
-                        >
-                          <option value="all">All time</option>
-                          <option value="week">This week</option>
-                          <option value="month">This month</option>
-                          <option value="custom">Custom</option>
-                        </select>
+                        // a small pill; the real select sits invisibly on top (keeps 16px text so phones don't zoom)
+                        <span className={`tile-period ${totalPeriod !== "month" ? "on" : ""}`} onClick={(e) => e.stopPropagation()}>
+                          {{ all: "All time", week: "This week", month: "This month", custom: "Custom" }[totalPeriod]}
+                          <select value={totalPeriod} onChange={(e) => setTotalPeriod(e.target.value)} aria-label="Period">
+                            <option value="all">All time</option>
+                            <option value="week">This week</option>
+                            <option value="month">This month</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </span>
                       }
                       below={totalPeriod === "custom" && (
                         <div className="tile-period-dates" onClick={(e) => e.stopPropagation()}>
@@ -803,6 +808,8 @@ export default function DashboardPage() {
                     />
                     <HomeTile
                       label={isAdmin ? "My outstanding" : "Company owes you"}
+                      onClick={isAdmin && can("reimburse") ? () => { setFocusOwnOutstanding(true); changeTab("payments"); } : undefined}
+                      title={isAdmin && can("reimburse") ? "Pay your outstanding from company funds" : undefined}
                       value={money(ledgerBalances?.myOwed)}
                       color={Number(ledgerBalances?.myOwed) > 0 ? "var(--terracotta)" : undefined}
                       sub={isAdmin ? `Owed to all people ${money(ledgerBalances?.totalOwedToAdmins)}` : "Paid by you, not yet reimbursed"}
@@ -1322,11 +1329,11 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "payments" && isAdmin && (
-            <PaymentsPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("balances", "expenses")} />
+            <PaymentsPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("balances", "expenses")} focusOwn={focusOwnOutstanding} />
           )}
 
           {activeTab === "transactions" && isAdmin && (
-            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Ledger</h1><LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={(tx) => setReversingTx(tx)} refreshKey={tick("ledger")} /></>
+            <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Ledger</h1><LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerTransactions} title="Ledger" isAdmin={isAdmin} onReverse={canReverse ? (tx) => setReversingTx(tx) : undefined} refreshKey={tick("ledger")} /></>
           )}
           {activeTab === "audit" && isAdmin && <><h1 style={{ fontSize: 26, margin: "0 0 18px" }}>Audit log</h1><LedgerHistory companyId={companyId} userId={user.id} loader={getLedgerAuditLog} title="Audit log" refreshKey={tick("ledger")} /></>}
 
@@ -2006,7 +2013,7 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, r
   return (
     <div className="card expense-list">
       {rows.map((row) => {
-        const canReverse = isAdmin && title === "Ledger" && !row.reversedBy && row.type !== "reversal";
+        const canReverse = isAdmin && onReverse && title === "Ledger" && !row.reversedBy && row.type !== "reversal";
         const total = Array.isArray(row.entries) ? row.entries.reduce((sum, entry) => sum + Number(entry.debit || 0), 0) : null;
         return (
           <div key={row._id} className="expense-row static">

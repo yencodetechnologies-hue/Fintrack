@@ -11,7 +11,7 @@ const Voucher = require("../models/voucher");
 const AdvanceReturn = require("../models/advanceReturn");
 const nodemailer = require("nodemailer");
 const { notifyUsers, notifyCompanyAdmins } = require("../services/ledgerNotify");
-const { LISTS, resolved, resolvedCustom, permissionsFor, permissionDenied } = require("../utils/permissions");
+const { LISTS, resolved, resolvedCustom, roleBase, hasPower, permissionsFor, permissionDenied } = require("../utils/permissions");
 
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
@@ -223,15 +223,21 @@ async function payableWalk(companyId, personUserId) {
     if (e.credit > 0 && !txMap.has(e.transactionId.toString())) paidBack = round(paidBack - e.credit);
   }
 
-  // payments tied to one bill are kept apart from the oldest-first pool
+  // payments tied to one bill are kept apart from the oldest-first pool: tied to the bill's own transaction
+  // ("Your outstanding" pay) or to its expense ("Received")
   const debitTxIds = entries.filter((e) => e.debit > 0).map((e) => e.transactionId);
-  const tied = await LedgerTransaction.find({ _id: { $in: debitTxIds }, reversedBy: null, type: "reimburse", expenseId: { $ne: null } }).select("expenseId");
-  const tiedTx = new Map(tied.map((t) => [t._id.toString(), t.expenseId.toString()]));
+  const tied = await LedgerTransaction.find({
+    _id: { $in: debitTxIds },
+    reversedBy: null,
+    type: "reimburse",
+    $or: [{ settlesTransactionId: { $ne: null } }, { expenseId: { $ne: null } }],
+  }).select("expenseId settlesTransactionId");
+  const tiedTx = new Map(tied.map((t) => [t._id.toString(), t.settlesTransactionId ? `tx:${t.settlesTransactionId}` : `exp:${t.expenseId}`]));
   const tiedLeft = new Map();
   for (const e of entries) {
-    const expenseId = e.debit > 0 ? tiedTx.get(e.transactionId.toString()) : null;
-    if (!expenseId) continue;
-    tiedLeft.set(expenseId, round((tiedLeft.get(expenseId) || 0) + e.debit));
+    const key = e.debit > 0 ? tiedTx.get(e.transactionId.toString()) : null;
+    if (!key) continue;
+    tiedLeft.set(key, round((tiedLeft.get(key) || 0) + e.debit));
     paidBack = round(paidBack - e.debit);
   }
 
@@ -240,9 +246,15 @@ async function payableWalk(companyId, personUserId) {
     if (!(e.credit > 0)) continue;
     const tx = txMap.get(e.transactionId.toString());
     if (!tx) continue;
-    const key = tx.expenseId ? tx.expenseId.toString() : null;
-    const fromTied = key ? Math.min(e.credit, tiedLeft.get(key) || 0) : 0;
-    if (fromTied > 0) tiedLeft.set(key, round(tiedLeft.get(key) - fromTied));
+    let fromTied = 0;
+    for (const key of [`tx:${tx._id}`, tx.expenseId ? `exp:${tx.expenseId}` : null]) {
+      if (!key || fromTied >= e.credit) continue;
+      const take = Math.min(round(e.credit - fromTied), tiedLeft.get(key) || 0);
+      if (take > 0) {
+        tiedLeft.set(key, round(tiedLeft.get(key) - take));
+        fromTied = round(fromTied + take);
+      }
+    }
     const rest = round(e.credit - fromTied);
     const fromPool = Math.min(rest, Math.max(0, paidBack));
     paidBack = round(paidBack - rest);
@@ -462,7 +474,7 @@ exports.createExpense = handle(async (req, res) => {
     hasAttachment: Boolean(attachment),
     visibleTo: chosenVisibility,
     // an admin posting an expense has effectively approved it; company expense is marked paid by company; staff expenses wait for an admin
-    lifecycle: isCompanyPost ? "paid_by_company" : (isAdminRole(role) ? "approved" : "submitted"),
+    lifecycle: isCompanyPost ? "paid_by_company" : (isAdminRole(role) && (await autoApproves(companyId, userId)) ? "approved" : "submitted"),
     approvedBy: isAdminRole(role) ? userId : null,
     status: isCompanyPost ? "paid" : "outstanding",
     logAs: isCompanyPost ? "company" : "self",
@@ -546,12 +558,14 @@ exports.listExpenses = handle(async (req, res) => {
       hasPaymentReceipt: Boolean(expense.hasPaymentReceipt),
     }));
   }
-  if (!isAdminRole(role)) {
+  const mine = isAdminRole(role) ? await permissionsFor(companyId, userId) : null;
+  if (!isAdminRole(role) || (mine?.role === "custom" && !mine.perms.view_all)) {
     const admins = new Set(await adminIds(companyId));
     const company = await Company.findById(companyId).select("createdBy");
     if (company?.createdBy) admins.add(String(company.createdBy));
     expenses = expenses.filter((e) => {
       const creator = String(e.createdBy?._id || e.createdBy);
+      if (creator === String(userId)) return true;
       const adminCreated = e.isAdminCreated === true || (e.isAdminCreated !== false && admins.has(creator));
       return !adminCreated || (e.visibleTo || []).some((id) => String(id) === String(userId));
     });
@@ -1131,6 +1145,100 @@ exports.receivedExpense = handle(async (req, res) => {
   res.json({ success: true, expense: updated, transaction: tx });
 });
 
+// A manager pays off their OWN outstanding from company Cash/Bank — all of it or chosen bills (company only,
+// never "by self"). items: [{ transactionId }] for recorded bills, [{ expenseId }] for approved claims.
+// Each bill gets its own reimbursement tied to it, so exactly the chosen bills close.
+// Or { amount }: that much is spread over the bills oldest first (by bill date); the last one may be part-paid.
+// body: { userId, items | amount, fundId, method?, reference? }
+exports.payOwnOutstanding = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, items, fundId, method, reference } = req.body;
+  const byAmount = !(Array.isArray(items) && items.length) && req.body.amount !== undefined && req.body.amount !== null && req.body.amount !== "";
+  if (!byAmount && !(Array.isArray(items) && items.length)) throw fail(400, "Choose at least one bill to pay");
+  const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if (!isAdminRole(role)) throw fail(403, "Only managers can pay their own outstanding");
+  await requirePermission(companyId, userId, "reimburse");
+
+  const open = await openPayableBills(companyId, userId);
+  const claims = await pendingClaims(companyId, userId);
+  const picked = [];
+  if (byAmount) {
+    let left = round(parseFloat(req.body.amount));
+    if (!(left > 0)) throw fail(400, "Enter a valid amount");
+    const all = [
+      ...open.map((bill) => ({ kind: "bill", bill, amount: round(bill.remaining), label: bill.description, date: bill.date || bill.postedAt })),
+      ...claims.map((claim) => ({ kind: "claim", claim, amount: round(claim.amount), label: claim.description, date: claim.date || claim.createdAt })),
+    ].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const owed = round(all.reduce((s, x) => s + x.amount, 0));
+    if (left > owed + 0.001) throw fail(400, `You are owed only ₹${owed}`);
+    for (const x of all) {
+      if (!(left > 0)) break;
+      const take = round(Math.min(left, x.amount));
+      picked.push({ ...x, amount: take, partial: take < x.amount });
+      left = round(left - take);
+    }
+  }
+  for (const item of byAmount ? [] : items) {
+    if (item?.transactionId) {
+      const bill = open.find((b) => String(b.transactionId) === String(item.transactionId));
+      if (!bill) throw fail(409, "One of the bills is already paid or changed; refresh and try again");
+      picked.push({ kind: "bill", bill, amount: bill.remaining, label: bill.description });
+    } else if (item?.expenseId) {
+      const claim = claims.find((c) => String(c._id) === String(item.expenseId));
+      if (!claim) throw fail(409, "One of the expenses is already paid or changed; refresh and try again");
+      picked.push({ kind: "claim", claim, amount: round(claim.amount), label: claim.description });
+    }
+  }
+  if (!picked.length) throw fail(400, "Choose at least one bill to pay");
+  const total = round(picked.reduce((s, p) => s + p.amount, 0));
+  const available = await getEffectiveFundBalance(companyId, fundId);
+  if (available < total) throw fail(400, `Insufficient balance in the selected fund (₹${available.toFixed(2)} available, ₹${total.toFixed(2)} needed)`);
+
+  const fund = await fundAccount(companyId, fundId);
+  const me = await User.findById(userId).select("name");
+  const verify = await needsVerification(companyId, total);
+  const txs = [];
+  let paid = 0;
+  for (const p of picked) {
+    let creditTxId;
+    if (p.kind === "claim") {
+      // an approved claim becomes a bill on my payable first, then the payment closes it
+      if (!(await acknowledgeClaim(p.claim, userId, userId))) continue;
+      creditTxId = (await Expense.findById(p.claim._id).select("transactionId"))?.transactionId;
+    } else {
+      creditTxId = p.bill.transactionId;
+    }
+    const tx = await post(
+      {
+        companyId,
+        type: "reimburse",
+        settlesTransactionId: creditTxId,
+        expenseId: p.kind === "claim" ? p.claim._id : p.bill.expenseId || null,
+        memo: `${p.label} · ${me?.name || "manager"}'s own outstanding paid by company${p.partial ? " (part)" : ""}`,
+        method: method || "",
+        reference: reference || "",
+        createdBy: userId,
+        verification: verify ? "pending" : null,
+      },
+      [
+        { account: await payableAccount(companyId, userId), debit: p.amount },
+        { account: fund, credit: p.amount },
+      ]
+    );
+    await applyCompanyFund(companyId, fundId, -p.amount);
+    txs.push(tx);
+    paid = round(paid + p.amount);
+  }
+  await recomputeReimbursed(companyId, userId);
+  await audit(userId, companyId, "pay_own_outstanding", "transaction", txs[0]?._id || null, null, {
+    amount: paid, bills: txs.length, fundId: fundId || "cash", transactions: txs.map((t) => t._id),
+  });
+  if (verify && txs.length) {
+    await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${me?.name || "A manager"} paid their own outstanding · ₹${paid}`, data: { transactionId: txs[0]._id, companyId } }, userId);
+  }
+  res.json({ success: true, paid, bills: txs.length, closed: picked.filter((x) => !x.partial).length, owed: round((await adminOwed(companyId, userId)) + (await pendingClaims(companyId, userId)).reduce((s, c) => s + c.amount, 0)) });
+});
+
 exports.lend = handle(async (req, res) => {
   const { companyId, userId, amount, fundId, method, reference } = req.body;
   const value = round(parseFloat(amount));
@@ -1155,7 +1263,11 @@ exports.reverseTransaction = handle(async (req, res) => {
   const { userId } = req.body;
   const original = await LedgerTransaction.findById(req.params.transactionId);
   if (!original) throw fail(404, "Transaction not found");
-  await requireRole(original.companyId, userId, ["super_admin"]);
+  const reverser = await requireRole(original.companyId, userId, ["admin", "super_admin"]);
+  if (reverser !== "super_admin") {
+    const mine = await permissionsFor(original.companyId, userId);
+    if (!(mine.role === "custom" && mine.perms.reverse_transactions)) throw fail(403, "You do not have permission for this action");
+  }
   if (original.reversedBy) throw fail(400, "This transaction has already been reversed");
   if (original.type === "reversal") throw fail(400, "A reversal cannot be reversed");
 
@@ -1617,11 +1729,13 @@ exports.deleteLoan = handle(async (req, res) => {
   const snapshotOfLoan = { amount: loan.amount, source: loan.source, note: loan.note, borrowerCompanyId: loan.borrowerCompanyId, lenderCompanyId: loan.lenderCompanyId, expenseId: loan.expenseId, groupId: loan.groupId };
   await audit(userId, loan.borrowerCompanyId, "delete", "loan", loan._id, snapshotOfLoan, null);
   await audit(userId, loan.lenderCompanyId, "delete", "loan", loan._id, snapshotOfLoan, null);
-  await notifyCompanyAdmins([loan.borrowerCompanyId, loan.lenderCompanyId], {
-    title: "Company loan deleted",
-    body: `${label} was deleted and reversed in both companies`,
-    data: { companyId: loan.borrowerCompanyId },
-  }, userId);
+  for (const co of [loan.borrowerCompanyId, loan.lenderCompanyId]) {
+    await notifyCompanyAdmins(co, {
+      title: "Company loan deleted",
+      body: `${label} was deleted and reversed in both companies`,
+      data: { companyId: co },
+    }, userId);
+  }
   res.json({ success: true });
 });
 
@@ -1727,11 +1841,14 @@ exports.settleExpenseGroup = handle(async (req, res) => {
     await group.save();
     await audit(userId, borrower._id, "settle_group_borrowed", "expense_group", group._id, before, { ...snapshot(group), loanId: loan._id, amount: total });
     await audit(userId, lender._id, "group_loan_created", "loan", loan._id, null, { borrowerCompanyId: borrower._id, groupId: group._id, amount: total });
-    await notifyCompanyAdmins([borrower._id, lender._id], {
-      title: "Group settlement recorded",
-      body: `${borrower.name} owes ${lender.name} ₹${total} for ${group.name}`,
-      data: { groupId: group._id, loanId: loan._id },
-    }, userId);
+    // one copy per company, each tagged with its own company so a tap opens the right one
+    for (const co of [borrower, lender]) {
+      await notifyCompanyAdmins(co._id, {
+        title: "Group settlement recorded",
+        body: `${borrower.name} owes ${lender.name} ₹${total} for ${group.name}`,
+        data: { groupId: group._id, loanId: loan._id, companyId: co._id },
+      }, userId);
+    }
     settled = true;
     return res.json({ success: true, group, loan: loanView(loan, total), total });
   } finally {
@@ -1841,7 +1958,9 @@ exports.intercompanyTransfer = handle(async (req, res) => {
     ],
   ]);
   await audit(userId, to._id, "intercompany", "transaction", txs[0]._id, null, { from: from._id, to: to._id, amount: value });
-  await notifyCompanyAdmins([from._id, to._id], { title: "Inter-company payment", body: `${from.name} → ${to.name} · ₹${value}`, data: { transactionId: txs[0]._id } }, userId);
+  for (const co of [from, to]) {
+    await notifyCompanyAdmins(co._id, { title: "Inter-company payment", body: `${from.name} → ${to.name} · ₹${value}`, data: { transactionId: txs[0]._id, companyId: co._id } }, userId);
+  }
   res.json({ success: true, transactions: txs });
 });
 
@@ -1880,7 +1999,9 @@ exports.routedPayment = handle(async (req, res) => {
   await audit(userId, companyId, "routed_payment", "transaction", txs[0]._id, null, { source: source._id, adminUserId, amount: value });
   await audit(userId, source._id, "routed_payment", "loan", loan._id, null, { companyId, adminUserId, amount: value });
   notifyUsers([adminUserId], { title: "You were reimbursed", body: `₹${value} paid to you via ${source.name}`, data: { transactionId: txs[0]._id, companyId } });
-  await notifyCompanyAdmins([companyId, source._id], { title: "Borrowed from another company", body: `${source.name} → ${company.name} → admin · ₹${value}`, data: { transactionId: txs[0]._id } }, userId);
+  for (const co of [companyId, source._id]) {
+    await notifyCompanyAdmins(co, { title: "Borrowed from another company", body: `${source.name} → ${company.name} → admin · ₹${value}`, data: { transactionId: txs[0]._id, companyId: co } }, userId);
+  }
   if (verification) await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `Routed payment of ₹${value}`, data: { transactionId: txs[0]._id, companyId } }, userId);
   res.json({ success: true, transactions: txs, owed: await adminOwed(companyId, adminUserId) });
 });
@@ -2287,7 +2408,7 @@ exports.setMemberRole = handle(async (req, res) => {
   const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
   if (!member) throw fail(404, "That person is not in this company");
   if (member.customRoleId) {
-    if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only the primary admin can change someone in a custom role");
+    if (!hasPower(await permissionsFor(companyId, userId), "manage_roles")) throw fail(403, "Only the primary admin can change someone in a custom role");
     member.customRoleId = null;
   }
   const before = { role: member.role };
@@ -2309,11 +2430,11 @@ async function inviteRole(companyId, userId, role, customRoleId) {
     if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
     return { role, customRoleId: null, label: role === "admin" ? "a manager" : "staff" };
   }
-  if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only the primary admin can add people to a custom role");
+  if (!hasPower(await permissionsFor(companyId, userId), "manage_roles")) throw fail(403, "Only the primary admin can add people to a custom role");
   const company = await Company.findById(companyId).select("customRoles").lean();
   const custom = (company?.customRoles || []).find((r) => String(r._id) === String(customRoleId));
   if (!custom) throw fail(404, "That role no longer exists");
-  return { role: custom.base === "manager" ? "admin" : "member", customRoleId: custom._id, label: `"${custom.name}"`, name: custom.name };
+  return { role: roleBase(custom) === "manager" ? "admin" : "member", customRoleId: custom._id, label: `"${custom.name}"`, name: custom.name };
 }
 
 exports.addMember = handle(async (req, res) => {
@@ -2866,9 +2987,10 @@ exports.getPermissions = handle(async (req, res) => {
   const { userId } = req.query;
   await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   const [mine, company] = await Promise.all([permissionsFor(companyId, userId), Company.findById(companyId).select("permissions customRoles").lean()]);
-  const canEditManagers = mine.role === "primary";
+  const canEditManagers = hasPower(mine, "manager_permissions");
   const managerLike = mine.role === "manager" || (mine.role === "custom" && mine.base === "manager");
-  const canEditStaff = canEditManagers || (managerLike && mine.perms.staff_permissions);
+  const canManageRoles = hasPower(mine, "manage_roles");
+  const canEditStaff = canEditManagers || canManageRoles || (managerLike && mine.perms.staff_permissions);
   res.json({
     success: true,
     role: mine.role,
@@ -2883,7 +3005,8 @@ exports.getPermissions = handle(async (req, res) => {
         }
       : {}),
     // custom roles: only the primary admin manages them
-    ...(canEditManagers ? { customRoles: await customRolesView(companyId, company) } : {}),
+    canManageRoles,
+    ...(canManageRoles ? { customRoles: await customRolesView(companyId, company) } : {}),
   });
 });
 
@@ -2897,8 +3020,10 @@ exports.updatePermissions = handle(async (req, res) => {
   if (!permissions || typeof permissions !== "object") throw fail(400, "Permissions are required");
   await requireRole(companyId, userId, ["admin", "super_admin"]);
   const mine = await permissionsFor(companyId, userId);
-  if (target === "manager" && mine.role !== "primary") throw fail(403, "Only the primary admin can change manager permissions");
-  if (target === "staff" && mine.role !== "primary" && !mine.perms.staff_permissions) throw fail(403, '"Change staff permissions" is turned off for managers in this company');
+  if (target === "manager" && !hasPower(mine, "manager_permissions")) throw fail(403, "Only the primary admin can change manager permissions");
+  if (target === "staff" && mine.role !== "primary" && !mine.perms.staff_permissions && !hasPower(mine, "manager_permissions")) {
+    throw fail(403, '"Change staff permissions" is turned off for managers in this company');
+  }
 
   const company = await Company.findById(companyId).select("permissions");
   const before = resolved(LISTS[target], company.permissions?.[target]);
@@ -2906,7 +3031,7 @@ exports.updatePermissions = handle(async (req, res) => {
   for (const def of LISTS[target]) {
     if (typeof permissions[def.key] === "boolean") next[def.key] = permissions[def.key];
   }
-  if (target === "staff" && mine.role !== "primary") {
+  if (target === "staff" && mine.role !== "primary" && !hasPower(mine, "manager_permissions")) {
     for (const def of LISTS.staff) {
       if (next[def.key] && !before[def.key] && def.needs && !mine.perms[def.needs]) {
         throw fail(403, `You can't turn on "${def.label}" for staff because it's off for managers`);
@@ -2925,7 +3050,18 @@ exports.updatePermissions = handle(async (req, res) => {
 // CompanyMember.role so every existing rule keeps working) and its own switches, all OFF until turned on.
 async function requirePrimary(companyId, userId) {
   const mine = await permissionsFor(companyId, userId);
-  if (mine.role !== "primary") throw fail(403, "Only the primary admin can manage roles");
+  if (!hasPower(mine, "manage_roles")) throw fail(403, "Only the primary admin can manage roles");
+}
+
+// Manager-level access follows the switches: everyone in the role is stored as admin (manager-level) or member.
+async function syncRoleMembers(companyId, role) {
+  await CompanyMember.updateMany({ companyId, customRoleId: role._id }, { $set: { role: roleBase(role) === "manager" ? "admin" : "member" } });
+}
+
+// A manager-level member's own posts are approved straight away, except in a custom role without "auto_approve".
+async function autoApproves(companyId, userId) {
+  const mine = await permissionsFor(companyId, userId);
+  return mine.role !== "custom" || mine.perms.auto_approve === true;
 }
 
 async function customRolesView(companyId, company) {
@@ -2937,7 +3073,7 @@ async function customRolesView(companyId, company) {
   return roles.map((r) => ({
     _id: r._id,
     name: r.name,
-    base: r.base,
+    base: roleBase(r),
     createdAt: r.createdAt,
     permissions: resolvedCustom(r),
     members: members
@@ -2950,15 +3086,15 @@ const roleNameTaken = (company, name, exceptId) =>
   ["manager", "managers", "staff", "admin", "primary admin"].includes(name.toLowerCase()) ||
   (company.customRoles || []).some((r) => r.name.toLowerCase() === name.toLowerCase() && String(r._id) !== String(exceptId || ""));
 
-// body: { userId, name, base: "manager" | "staff" }
+// body: { userId, name } — every switch starts off
 exports.createCustomRole = handle(async (req, res) => {
   const { companyId } = req.params;
-  const { userId, base } = req.body;
+  const { userId } = req.body;
+  const base = "staff";
   const name = String(req.body.name || "").trim();
   await requirePrimary(companyId, userId);
   if (!name) throw fail(400, "Give the role a name");
   if (name.length > 40) throw fail(400, "Keep the role name under 40 characters");
-  if (!["manager", "staff"].includes(base)) throw fail(400, "Choose manager-like or staff-like");
   const company = await Company.findById(companyId).select("customRoles");
   if (roleNameTaken(company, name)) throw fail(400, `A role called "${name}" already exists`);
   company.customRoles.push({ name, base, permissions: {}, createdBy: userId });
@@ -2988,18 +3124,17 @@ exports.updateCustomRole = handle(async (req, res) => {
     const next = { ...(role.permissions || {}) };
     for (const def of LISTS.custom) {
       if (typeof permissions[def.key] !== "boolean") continue;
-      if (permissions[def.key] && def.only && def.only !== role.base) {
-        throw fail(400, `"${def.label}" only works for ${def.only}-like roles`);
-      }
       if (permissions[def.key]) next[def.key] = true;
       else delete next[def.key];
     }
     role.permissions = next;
+    role.base = roleBase(role);
     company.markModified("customRoles");
   }
   await company.save();
+  await syncRoleMembers(companyId, role);
   await audit(userId, companyId, "update_role", "company", companyId, before, { roleId, name: role.name, permissions: resolvedCustom(role) });
-  res.json({ success: true, role: { _id: role._id, name: role.name, base: role.base, permissions: resolvedCustom(role) } });
+  res.json({ success: true, role: { _id: role._id, name: role.name, base: roleBase(role), permissions: resolvedCustom(role) } });
 });
 
 // Deletes the role AND removes its members from the company (the web asks first, listing them).
@@ -3038,7 +3173,7 @@ exports.setMemberCustomRole = handle(async (req, res) => {
     role = company.customRoles.id(roleId);
     if (!role) throw fail(404, "Role not found");
     member.customRoleId = role._id;
-    member.role = role.base === "manager" ? "admin" : "member";
+    member.role = roleBase(role) === "manager" ? "admin" : "member";
   } else {
     member.customRoleId = null;
     member.role = "member";

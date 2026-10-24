@@ -5,6 +5,7 @@ import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_dashboard_tab.dart' show BillsPreview;
 import 'ledger_period_filter.dart';
+import 'ledger_own_outstanding.dart';
 
 num _round(num n) => (n * 100).round() / 100;
 num _max(num a, num b) => a > b ? a : b;
@@ -206,6 +207,8 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   Text("Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
                       style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
                   const SizedBox(height: 12),
+                  // what the company owes me: pay all or chosen bills, from company funds only
+                  OwnOutstandingCard(scope: s, onPaid: _load),
                   _tiles([
                     _tile("Total owed", inr(sum(people)), "$waiting ${waiting == 1 ? "person" : "people"} waiting", sum(people) > 0 ? kTerracotta : kForest),
                     _tile("Owed to managers", inr(sum(people.where((p) => p.role == "manager"))), "Paid out of their own pocket", const Color(0xFF1D4ED8)),
@@ -464,7 +467,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     final meta = [
       p.claims > 0 ? "${inr(p.claims)} in approved claims" : p.owed > 0 ? "Paid out of pocket" : "Nothing owed",
       if (p.advance > 0) "holds ${inr(p.advance)} voucher money",
-      if (me && p.owed > 0) "another manager pays you",
+      if (me && p.owed > 0) "pay it under Your outstanding above",
     ].join(" · ");
     return InkWell(
       onTap: _payable(p) ? () => setState(() => _selected.contains(p.userId) ? _selected.remove(p.userId) : _selected.add(p.userId)) : null,

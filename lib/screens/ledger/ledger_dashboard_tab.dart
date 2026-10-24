@@ -7,6 +7,7 @@ import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_vouchers.dart';
 import 'ledger_funds.dart';
+import 'ledger_payments.dart';
 
 /// Company Home, same content per role as the web's Home tab.
 class LedgerDashboardTab extends StatefulWidget {
@@ -38,7 +39,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
   bool _loading = true;
   bool _secondaryLoading = true;
   // Total expenses tile: all | week | month | custom (by each expense's date)
-  String _totalPeriod = "all";
+  String _totalPeriod = "month"; // default: this month
   DateTimeRange? _totalRange;
 
   @override
@@ -176,12 +177,12 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         child: Container(
           padding: const EdgeInsets.only(left: 8, right: 3, top: 2, bottom: 2),
           decoration: BoxDecoration(
-            color: _totalPeriod == "all" ? const Color(0xFFF1F5F9) : kForest.withValues(alpha: 0.1),
+            color: _totalPeriod == "month" ? const Color(0xFFF1F5F9) : kForest.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(99),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "all" ? kDark.withValues(alpha: 0.7) : kForest)),
-            Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "all" ? kDark.withValues(alpha: 0.6) : kForest),
+            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "month" ? kDark.withValues(alpha: 0.7) : kForest)),
+            Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "month" ? kDark.withValues(alpha: 0.6) : kForest),
           ]),
         ),
       );
@@ -205,7 +206,9 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
       _tile("Total expenses", _loading ? null : inr(totalSpent), kForest,
           sub: "${periodExpenses.length} expense${periodExpenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses, trailing: _periodPill()),
       _tile(s.isAdmin ? "My outstanding" : "Company owes you", balancesReady ? inr(myOwed) : null, myOwed > 0 ? kTerracotta : kForest,
-          sub: s.isAdmin ? "Owed to all people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}" : "Paid by you, not yet reimbursed"),
+          sub: s.isAdmin ? "Owed to all people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}" : "Paid by you, not yet reimbursed",
+          // managers: open Payments, where "Your outstanding" is at the top
+          onTap: s.isAdmin && s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s))) : null),
       if (!s.isAdmin)
         _tile("Voucher balance", balancesReady ? inr(myAdvance > 0 ? myAdvance : 0) : null, kForest,
             sub: myAdvance > 0 ? "Company money with you · tap to hand back" : "No voucher money with you",
@@ -372,14 +375,19 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(
-                  child: Text(label.toUpperCase(),
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-                ),
-                if (trailing != null) trailing,
-              ]),
+              // same height on every tile, so amounts and sub-lines line up across the row
+              SizedBox(
+                height: 20,
+                child: Row(children: [
+                  Expanded(
+                    child: Text(label.toUpperCase(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                  ),
+                  if (trailing != null) trailing,
+                ]),
+              ),
               const SizedBox(height: 5),
               if (value == null)
                 const _ShimmerBox(width: 92, height: 20)

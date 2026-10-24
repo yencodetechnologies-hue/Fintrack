@@ -5,13 +5,14 @@ import { formatDate, money, PAYMENT_METHODS } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
+import OwnOutstanding from "./OwnOutstanding.jsx";
 
 const round = (n) => Math.round(n * 100) / 100;
 const initial = (name) => String(name || "?").trim().charAt(0).toUpperCase();
 
 // Managers: pay off everything the company owes any staff member or manager, by company funds or out of
 // their own pocket ("by self": the company then owes the paying manager instead). One person or many at once.
-export default function PaymentsPanel({ companyId, company, user, members, funds, onChanged, refreshKey }) {
+export default function PaymentsPanel({ companyId, company, user, members, funds, onChanged, refreshKey, focusOwn = false }) {
   const { showToast } = useToast();
   const [balances, setBalances] = useState(null);
   const [txs, setTxs] = useState([]);
@@ -136,6 +137,8 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
       </div>
       <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.</p>
 
+      <OwnOutstanding companyId={companyId} company={company} user={user} funds={funds} focus={focusOwn} refreshKey={refreshKey} onPaid={() => { load(); onChanged?.(); }} />
+
       {!balances ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner dark" /></div>
       ) : (
@@ -217,7 +220,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                     <span className="payments-actions">
                       {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
                       {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
-                      {me && p.owed > 0 && <span className="payments-meta">Another manager pays you</span>}
+                      {me && p.owed > 0 && <span className="payments-meta">Pay it under Your outstanding above</span>}
                     </span>
                   </div>
                 );

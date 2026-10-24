@@ -101,6 +101,10 @@ class LedgerService {
       _post("$_base/expenses/$id/payer-type", {"userId": userId, "payerType": payerType, if (fundId != null) "fundId": fundId});
 
   /// A person's open bills oldest first (the Reimburse preview).
+  /// A manager pays off their own outstanding from company funds. body: { userId, items: [{transactionId}|{expenseId}], fundId, method, reference }.
+  static Future<Map<String, dynamic>> payOwnOutstanding(String companyId, Map<String, dynamic> body) =>
+      _post("$_base/companies/$companyId/payables/self-pay", body);
+
   static Future<Map<String, dynamic>> payableBills(String companyId, String personId, String userId) =>
       _get("$_base/companies/$companyId/payables/$personId?userId=$userId");
 
@@ -232,8 +236,9 @@ class LedgerService {
       _post("$_base/expenses/$expenseId/received", body);
 
   // ---- custom roles (primary admin only) ----
-  static Future<Map<String, dynamic>> createCustomRole(String companyId, String userId, String name, String base) =>
-      _post("$_base/companies/$companyId/roles", {"userId": userId, "name": name, "base": base});
+  /// A role is just a name; every switch starts off.
+  static Future<Map<String, dynamic>> createCustomRole(String companyId, String userId, String name) =>
+      _post("$_base/companies/$companyId/roles", {"userId": userId, "name": name});
 
   /// changes: { name?, permissions?: { key: bool } }
   static Future<Map<String, dynamic>> updateCustomRole(String companyId, String roleId, String userId, Map<String, dynamic> changes) =>

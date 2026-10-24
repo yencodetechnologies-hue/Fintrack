@@ -551,7 +551,10 @@ exports.getCompanyDetails = async (req, res) => {
       members: membersList,
       currentUserRole,
       hiddenStaffIds: (ownMembership?.hiddenStaffIds || []).map(String),
-      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); return { permissionRole: p.role, myPermissions: p.perms, myRoleName: p.roleName || null }; })() : {}),
+      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); const u = await User.findById(userId).select("platformRole").lean();
+        // reversing ledger entries: the super admin, or a custom role with "Reverse ledger transactions"
+        const canReverse = u?.platformRole === "super_admin" || (p.role === "custom" && p.perms.reverse_transactions === true);
+        return { permissionRole: p.role, myPermissions: p.perms, myRoleName: p.roleName || null, canReverse }; })() : {}),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -1190,7 +1193,7 @@ exports.deleteCompany = async (req, res) => {
     if (!company) {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
-    if (!company.createdBy || company.createdBy.toString() !== userId.toString()) {
+    if ((!company.createdBy || company.createdBy.toString() !== userId.toString()) && !(await permissionsFor(companyId, userId)).perms?.delete_company) {
       return res.status(403).json({ success: false, message: "Only the company's creator can delete the company" });
     }
 

@@ -277,7 +277,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: fieldDecoration("colleague@example.com", icon: Icons.email_rounded)),
               const SizedBox(height: 8),
               // custom roles: only the primary admin can add people into them
-              if (s.isPrimary && _customRoles.isNotEmpty)
+              if (s.canManageRoles && _customRoles.isNotEmpty)
                 DropdownButtonFormField<String>(
                   initialValue: _role,
                   isExpanded: true,
@@ -319,7 +319,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("${m["name"] ?? "Member"}${isMe ? " (You)" : ""}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                        Text("${isCreator ? "Manager · Creator" : (customRole.isNotEmpty ? "$customRole · ${isManager ? "manager-like" : "staff-like"}" : (isManager ? "Manager" : "Staff"))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
+                        Text("${isCreator ? "Manager · Creator" : (customRole.isNotEmpty ? customRole : (isManager ? "Manager" : "Staff"))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
                             style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
                       ]),
                     ),
@@ -333,11 +333,11 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                                 : _setRole(m, v),
                         itemBuilder: (_) => [
                           // someone in a custom role: only the primary admin can change them
-                          if (customRole.isEmpty || s.isPrimary) ...[
+                          if (customRole.isEmpty || s.canManageRoles) ...[
                             if (customRole.isNotEmpty || !isManager) const PopupMenuItem(value: "admin", child: Text("Make manager")),
                             if (customRole.isNotEmpty || isManager) const PopupMenuItem(value: "member", child: Text("Make staff")),
                           ],
-                          if (s.isPrimary)
+                          if (s.canManageRoles)
                             for (final r in List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []))
                               if (r["_id"].toString() != m["customRoleId"]?.toString())
                                 PopupMenuItem(value: "role:${r["_id"]}", child: Text("Make ${r["name"]}")),
@@ -362,8 +362,8 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
             Text("Payments above this need a second manager to verify.", style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
             if (s.isAdmin && s.can("settings")) ...[const SizedBox(height: 12), primaryButton("Save settings", _save)],
           ]),
-          // only the primary admin (company creator) can delete the company
-          if (creatorId == s.userId)
+          // the primary admin (company creator), or a custom role with "Delete the company"
+          if (creatorId == s.userId || s.permissions?["delete_company"] == true)
             card("Danger zone", titleColor: kTerracotta, sub: "Deleting the company removes it and all its expenses for everyone.", children: [
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: kTerracotta, side: const BorderSide(color: kTerracotta)),

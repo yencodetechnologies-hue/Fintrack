@@ -35,21 +35,55 @@ const STAFF_PERMISSIONS = [
   { key: "settings", label: "See company settings & join code", needs: "settings" },
 ];
 
-// Custom roles (Company.customRoles) list every switch; all start OFF. `only` marks switches that can't work for
-// the other base: manager-only features stay off on a staff-like role, staff-style borrowing on a manager-like one.
-const STAFF_USABLE = new Set(["post_expenses", "edit_expenses", "record_payments", "intercompany", "vouchers", "settings"]);
+// Custom roles (Company.customRoles) don't start from Manager or Staff: every ability is its own switch, all OFF.
+// Behind the scenes a role whose switches go beyond what staff can do gets manager-level access (see roleBase), and
+// the "view_all" / "auto_approve" switches decide what managers get automatically.
+const mgr = (key) => MANAGER_PERMISSIONS.find((p) => p.key === key);
 const CUSTOM_PERMISSIONS = [
-  ...MANAGER_PERMISSIONS.map((p) => (STAFF_USABLE.has(p.key) ? p : { ...p, only: "manager" })),
-  { key: "borrow", label: "Borrow from another company to pay their bill", hint: "Staff-style borrowing", only: "staff" },
+  { key: "view_all", label: "See all company expenses", hint: "Otherwise: staff expenses, their own, and ones shared with them", group: "Access" },
+  { key: "auto_approve", label: "Their own expenses are approved automatically", hint: "Otherwise they wait for approval", group: "Access" },
+  { ...mgr("post_expenses"), group: "Expenses" },
+  { ...mgr("post_as_company"), group: "Expenses" },
+  { ...mgr("approve_expenses"), label: "Approve / reject expenses", group: "Expenses" },
+  { ...mgr("edit_expenses"), group: "Expenses" },
+  { ...mgr("record_payments"), group: "Expenses" },
+  { ...mgr("verify"), group: "Expenses" },
+  { ...mgr("remove_receipts"), group: "Expenses" },
+  { key: "borrow", label: "Borrow from another company to pay their own bill", group: "Expenses" },
+  { ...mgr("reimburse"), group: "Money" },
+  { ...mgr("intercompany"), group: "Money" },
+  { ...mgr("vouchers"), group: "Money" },
+  { ...mgr("funds"), group: "Money" },
+  { ...mgr("reports"), group: "Reports" },
+  { ...mgr("analysis"), group: "Reports" },
+  { ...mgr("ledger_audit"), group: "Reports" },
+  { ...mgr("members"), group: "Company" },
+  { ...mgr("settings"), group: "Company" },
+  { ...mgr("staff_permissions"), group: "Company" },
+  { key: "manager_permissions", label: "Change manager permissions", group: "Admin powers" },
+  { key: "manage_roles", label: "Manage custom roles", hint: "Create, change and delete roles, and put people in them", group: "Admin powers" },
+  { key: "reverse_transactions", label: "Reverse ledger transactions", group: "Admin powers" },
+  { key: "delete_company", label: "Delete the company", group: "Admin powers" },
+  { key: "full_admin", label: "All admin access", hint: "Everything the primary admin can do — turns every switch on", group: "Admin powers" },
 ];
+
+// Switches a plain staff member can already use; turning on anything else gives the role manager-level access.
+const STAFF_SAFE = new Set(["post_expenses", "edit_expenses", "record_payments", "intercompany", "vouchers", "settings", "borrow"]);
 
 const LISTS = { manager: MANAGER_PERMISSIONS, staff: STAFF_PERMISSIONS, custom: CUSTOM_PERMISSIONS };
 
-// A custom role's switches: ON only where saved ON and usable for its base.
+// A custom role's switches: ON only where saved ON; "All admin access" turns every one on.
 function resolvedCustom(role) {
+  const full = role?.permissions?.full_admin === true;
   const out = {};
-  for (const p of CUSTOM_PERMISSIONS) out[p.key] = Boolean(role?.permissions?.[p.key] === true && (!p.only || p.only === role.base));
+  for (const p of CUSTOM_PERMISSIONS) out[p.key] = full || role?.permissions?.[p.key] === true;
   return out;
+}
+
+// "manager" when any switch beyond staff abilities is on (its members are stored as admin so those features work).
+function roleBase(role) {
+  const perms = resolvedCustom(role);
+  return Object.entries(perms).some(([key, on]) => on && !STAFF_SAFE.has(key)) ? "manager" : "staff";
 }
 
 function resolved(list, stored) {
@@ -76,7 +110,7 @@ async function permissionsFor(companyId, userId) {
   if (!member) return { role: null, perms: {} };
   const custom = member.customRoleId ? (company.customRoles || []).find((r) => String(r._id) === String(member.customRoleId)) : null;
   if (custom) {
-    return { role: "custom", roleId: String(custom._id), roleName: custom.name, base: custom.base, perms: resolvedCustom(custom) };
+    return { role: "custom", roleId: String(custom._id), roleName: custom.name, base: roleBase(custom), perms: resolvedCustom(custom) };
   }
   if (member.role === "admin") return { role: "manager", perms: resolved(MANAGER_PERMISSIONS, company.permissions?.manager) };
   return { role: "staff", perms: resolved(STAFF_PERMISSIONS, company.permissions?.staff) };
@@ -93,4 +127,7 @@ async function permissionDenied(companyId, userId, key) {
   return `"${def?.label || key}" is turned off for ${group} in this company`;
 }
 
-module.exports = { MANAGER_PERMISSIONS, STAFF_PERMISSIONS, CUSTOM_PERMISSIONS, LISTS, resolved, resolvedCustom, permissionsFor, permissionDenied };
+// an admin power: the primary admin, or a custom role with that switch (or All admin access)
+const hasPower = (mine, key) => mine?.role === "primary" || (mine?.role === "custom" && mine.perms?.[key] === true);
+
+module.exports = { MANAGER_PERMISSIONS, STAFF_PERMISSIONS, CUSTOM_PERMISSIONS, LISTS, resolved, resolvedCustom, roleBase, hasPower, permissionsFor, permissionDenied };

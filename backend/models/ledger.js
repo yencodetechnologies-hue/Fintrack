@@ -26,6 +26,8 @@ const transactionSchema = new Schema(
     method: { type: String, default: "" },
     reference: { type: String, default: "" },
     expenseId: { type: ObjectId, ref: "Expense", default: null },
+    // a reimbursement aimed at one bill on a person's payable (the credit transaction it pays), see payableWalk
+    settlesTransactionId: { type: ObjectId, default: null },
     loanId: { type: ObjectId, ref: "CompanyLoan", default: null },
     voucherId: { type: ObjectId, ref: "Voucher", default: null },
     advanceReturnId: { type: ObjectId, ref: "AdvanceReturn", default: null },

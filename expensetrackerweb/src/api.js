@@ -185,6 +185,8 @@ export const getLoanBorrowerFunds = (loanId, userId) => get(ledgerUrl(`/loans/${
 export const lendToCompany = (payload) => post(ledgerUrl("/lend"), payload);
 export const getPayableBills = (companyId, personId, userId) =>
   get(ledgerUrl(`/companies/${companyId}/payables/${personId}?userId=${userId}`));
+// a manager pays off their own outstanding from company funds: items [{ transactionId } | { expenseId }]
+export const payOwnOutstanding = (companyId, payload) => post(ledgerUrl(`/companies/${companyId}/payables/self-pay`), payload);
 export const reimburseAdmin = (payload) => post(ledgerUrl("/reimbursements"), payload);
 export const routedCompanyPayment = (payload) => post(ledgerUrl("/routed-payments"), payload);
 export const getLedgerPayerConfirmations = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/payer-confirmations?userId=${userId}`));
@@ -194,7 +196,7 @@ export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/comp
 export const getPermissions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/permissions?userId=${userId}`));
 export const updatePermissions = (companyId, userId, role, permissions) => post(ledgerUrl(`/companies/${companyId}/permissions`), { userId, role, permissions });
 // custom roles (primary admin only)
-export const createCustomRole = (companyId, userId, name, base) => post(ledgerUrl(`/companies/${companyId}/roles`), { userId, name, base });
+export const createCustomRole = (companyId, userId, name) => post(ledgerUrl(`/companies/${companyId}/roles`), { userId, name });
 export const updateCustomRole = (companyId, roleId, userId, changes) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}`), { userId, ...changes });
 export const deleteCustomRole = (companyId, roleId, userId) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}/delete`), { userId });
 export const setMemberCustomRole = (companyId, memberUserId, userId, roleId) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/custom-role`), { userId, roleId });

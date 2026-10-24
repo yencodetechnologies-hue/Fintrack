@@ -17,7 +17,11 @@ const TAB_PERMISSION = {
 };
 
 export function tabAllowed(tab, { admin, can, permissionRole }) {
-  if (tab === "permissions") return permissionRole === "primary" || ((permissionRole === "manager" || (permissionRole === "custom" && admin)) && can("staff_permissions"));
+  if (tab === "permissions") {
+    if (permissionRole === "primary") return true;
+    if (permissionRole === "custom" && (can("manager_permissions") || can("manage_roles"))) return true;
+    return (permissionRole === "manager" || (permissionRole === "custom" && admin)) && can("staff_permissions");
+  }
   // managers: the Settings page holds both members and company settings
   if (tab === "settings") return admin ? can("settings") || can("members") || permissionRole === "primary" : can("settings");
   const key = TAB_PERMISSION[tab];

@@ -168,7 +168,10 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
                                 ],
                               ),
                             )),
-                        if (widget.scope.isSuperAdmin && !reversed && t["type"] != "reversal")
+                        // the super admin, or a custom role with "Reverse ledger transactions"
+                        if ((widget.scope.isSuperAdmin || (widget.scope.permissionRole == "custom" && widget.scope.permissions?["reverse_transactions"] == true)) &&
+                            !reversed &&
+                            t["type"] != "reversal")
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(

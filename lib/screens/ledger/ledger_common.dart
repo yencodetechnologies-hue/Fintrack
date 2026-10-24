@@ -50,7 +50,12 @@ class LedgerScope {
   /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
   bool can(String key) => permissions == null || permissions![key] != false;
   bool get isPrimary => permissionRole == "primary";
-  bool get canEditPermissions => isPrimary || ((permissionRole == "manager" || (permissionRole == "custom" && isAdmin)) && can("staff_permissions"));
+  bool get canEditPermissions =>
+      isPrimary ||
+      (permissionRole == "custom" && permissions != null && (permissions!["manager_permissions"] == true || permissions!["manage_roles"] == true)) ||
+      ((permissionRole == "manager" || (permissionRole == "custom" && isAdmin)) && can("staff_permissions"));
+  /// The primary admin, or a custom role with "Manage custom roles".
+  bool get canManageRoles => isPrimary || (permissionRole == "custom" && permissions?["manage_roles"] == true);
   /// Managers' Settings page holds both members and company settings.
   bool get canOpenSettings => isAdmin ? (isPrimary || can("settings") || can("members")) : can("settings");
 

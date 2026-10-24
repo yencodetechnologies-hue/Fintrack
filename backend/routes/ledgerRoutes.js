@@ -20,6 +20,7 @@ router.post("/expenses/:expenseId/payer-type", c.changePayerType);
 router.post("/expenses/:expenseId/received", c.receivedExpense);
 router.get("/companies/:companyId/balances", c.balances);
 router.get("/companies/:companyId/payables/:personId", c.payableBills);
+router.post("/companies/:companyId/payables/self-pay", c.payOwnOutstanding);
 router.get("/companies/:companyId/transactions", c.listTransactions);
 router.get("/companies/:companyId/audit-log", c.auditLog);
 

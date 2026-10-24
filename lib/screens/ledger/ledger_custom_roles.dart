@@ -226,7 +226,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
                     .map((m) => PopupMenuItem(
                           value: m["userId"].toString(),
                           child: Text(
-                              "${m["name"]} · ${(m["customRoleName"]?.toString().isNotEmpty ?? false) ? m["customRoleName"] : (m["role"] == "admin" ? "Manager" : "Staff")}",
+                              "${m["name"]} · ${(m["customRoleName"]?.toString().isNotEmpty ?? false) ? m["customRoleName"] : s.roleLabel(m["role"])}",
                               overflow: TextOverflow.ellipsis),
                         ))
                     .toList(),

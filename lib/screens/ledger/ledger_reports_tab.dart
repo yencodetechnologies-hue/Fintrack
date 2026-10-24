@@ -224,7 +224,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
                   child: Column(children: [
                     _row("Expenses", _report?["expenses"]),
                     _row("Paid by managers", _report?["paidByAdmins"]),
-                    _row("Owed to managers", _report?["owedToAdmins"]),
+                    _row("Owed to ${s.managersName.toLowerCase()}", _report?["owedToAdmins"]),
                     _row("Inter-company net", _report?["intercompanyNet"]),
                   ]),
                 )
@@ -305,8 +305,8 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
           _statTile("AWAITING APPROVAL", (t["awaitingApproval"] as num?) ?? 0),
           _statTile("VOUCHER MONEY WITH STAFF", (t["advanceHeld"] as num?) ?? 0),
         ]),
-        _people("Managers", List<Map<String, dynamic>>.from(d["managers"] ?? const [])),
-        _people("Staff", List<Map<String, dynamic>>.from(d["staff"] ?? const [])),
+        _people(widget.scope.managersName, List<Map<String, dynamic>>.from(d["managers"] ?? const [])),
+        _people(widget.scope.staffsName, List<Map<String, dynamic>>.from(d["staff"] ?? const [])),
         _panel(
           title: "Companies",
           child: (d["companies"] as List? ?? const []).isEmpty

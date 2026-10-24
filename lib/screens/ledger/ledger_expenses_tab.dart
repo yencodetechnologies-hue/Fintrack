@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
+import 'ledger_description_field.dart';
 import 'ledger_expense_detail.dart';
 import 'ledger_filters.dart';
 
@@ -125,6 +127,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     return Scaffold(
       backgroundColor: kForest,
       floatingActionButton: !s.can("post_expenses") ? null : FloatingActionButton.extended(
+        heroTag: "post-expense-expenses",
         backgroundColor: kForestDark,
         onPressed: () => showPostExpenseSheet(context, s, existing: _expenses, advance: _myAdvance),
         icon: const Icon(Icons.add_rounded, color: Colors.white),
@@ -194,10 +197,10 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     final postedBy = <String, String>{
       "all": "Everyone",
       "company": "${s.companyName} (company)",
-      "managers": "All managers",
-      "staff": "All staff",
-      for (final m in s.admins) m["userId"].toString(): "Manager · ${m["name"]}",
-      for (final m in s.staff) m["userId"].toString(): "Staff · ${m["name"]}",
+      "managers": "All ${s.managersName.toLowerCase()}",
+      "staff": "All ${s.staffsName.toLowerCase()}",
+      for (final m in s.admins) m["userId"].toString(): "${s.managerName} · ${m["name"]}",
+      for (final m in s.staff) m["userId"].toString(): "${s.staffName} · ${m["name"]}",
     };
     return filterCard(
       margin: const EdgeInsets.only(bottom: 12),
@@ -451,7 +454,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
               if (insufficient)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text("Insufficient balance: ${inr(selectedFund.balance)} available",
+                  child: Text("Insufficient balance: ${inr(selectedFund.balance)} available. You can add money when you submit.",
                       style: GoogleFonts.inter(color: kTerracotta, fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
             ],
@@ -501,11 +504,13 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
               IconButton(onPressed: () => set(() => addingCategory = false), icon: const Icon(Icons.close_rounded)),
             ]),
           const SizedBox(height: 10),
-          TextField(
+          DescriptionField(
+            companyId: s.companyId,
+            userId: s.userId,
+            kind: "expense",
             controller: desc,
             onChanged: (_) => set(() {}),
-            textCapitalization: TextCapitalization.sentences,
-            decoration: fieldDecoration("Description / Purpose *", icon: Icons.notes_rounded),
+            hint: "Description / Purpose *",
           ),
           if (dup != null)
             Container(
@@ -571,7 +576,12 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
               ]),
             ),
           const SizedBox(height: 16),
-          primaryButton(insufficient ? "Insufficient fund balance" : "Submit Expense", insufficient ? null : () => submit(ctx)),
+          primaryButton(insufficient ? "Add money & submit" : "Submit Expense", () async {
+            if (!(amt > 0) || desc.text.trim().isEmpty) return toast(ctx, "Enter a valid amount and description", error: true);
+            if (insufficient && !await topUpFund(ctx, s, selectedFund, amt)) return;
+            if (!ctx.mounted) return;
+            await submit(ctx);
+          }),
         ]);
       }));
 }

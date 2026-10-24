@@ -1153,6 +1153,16 @@ exports.receivedExpense = handle(async (req, res) => {
 exports.payOwnOutstanding = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId, items, fundId, method, reference } = req.body;
+  const note = String(req.body.note || "").trim().slice(0, 200); // optional description, saved on each payment
+  // optional payment date (YYYY-MM-DD, an IST day); today keeps the current time, a past day is booked at noon IST
+  let paidOn = new Date();
+  const istToday = new Date(Date.now() + 330 * 60000).toISOString().slice(0, 10);
+  const day = String(req.body.date || "").slice(0, 10);
+  if (day && day !== istToday) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || isNaN(new Date(day).getTime())) throw fail(400, "Enter a valid payment date");
+    if (day > istToday) throw fail(400, "Payment date can't be in the future");
+    paidOn = new Date(`${day}T12:00:00+05:30`);
+  }
   const byAmount = !(Array.isArray(items) && items.length) && req.body.amount !== undefined && req.body.amount !== null && req.body.amount !== "";
   if (!byAmount && !(Array.isArray(items) && items.length)) throw fail(400, "Choose at least one bill to pay");
   const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
@@ -1214,7 +1224,9 @@ exports.payOwnOutstanding = handle(async (req, res) => {
         type: "reimburse",
         settlesTransactionId: creditTxId,
         expenseId: p.kind === "claim" ? p.claim._id : p.bill.expenseId || null,
-        memo: `${p.label} · ${me?.name || "manager"}'s own outstanding paid by company${p.partial ? " (part)" : ""}`,
+        memo: `${note ? `${note} · ` : ""}${p.label} · ${me?.name || "manager"}'s own outstanding paid by company${p.partial ? " (part)" : ""}`,
+        note,
+        date: paidOn,
         method: method || "",
         reference: reference || "",
         createdBy: userId,
@@ -1231,7 +1243,7 @@ exports.payOwnOutstanding = handle(async (req, res) => {
   }
   await recomputeReimbursed(companyId, userId);
   await audit(userId, companyId, "pay_own_outstanding", "transaction", txs[0]?._id || null, null, {
-    amount: paid, bills: txs.length, fundId: fundId || "cash", transactions: txs.map((t) => t._id),
+    amount: paid, bills: txs.length, fundId: fundId || "cash", note, transactions: txs.map((t) => t._id),
   });
   if (verify && txs.length) {
     await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${me?.name || "A manager"} paid their own outstanding · ₹${paid}`, data: { transactionId: txs[0]._id, companyId } }, userId);
@@ -2054,6 +2066,25 @@ exports.updateCompanySettings = handle(async (req, res) => {
   res.json({ success: true, company: after });
 });
 
+// Company logo, shown on the company tiles. Only the primary admin (creator / full Admin) may set or remove it.
+const LOGO_MAX_CHARS = 400 * 1024; // the clients send ~256px images, far below this
+exports.setCompanyLogo = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.body;
+  const logo = String(req.body.logo || "");
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only the company Admin can change the logo");
+  if (logo && !/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) throw fail(400, "Logo must be a PNG, JPG or WebP image");
+  if (logo.length > LOGO_MAX_CHARS) throw fail(400, "Logo image is too large");
+  const company = await Company.findById(companyId).select("logo");
+  if (!company) throw fail(404, "Company not found");
+  const had = Boolean(company.logo);
+  company.logo = logo;
+  await company.save();
+  await audit(userId, companyId, "update", "company", company._id, { logo: had ? "[image]" : "" }, { logo: logo ? "[image]" : "" });
+  res.json({ success: true, logo });
+});
+
 // Companies any admin of this company belongs to, plus companies it already deals with (incl. external ones added inline).
 exports.listCompaniesForBorrow = handle(async (req, res) => {
   const { companyId } = req.params;
@@ -2407,6 +2438,10 @@ exports.setMemberRole = handle(async (req, res) => {
   }
   const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
   if (!member) throw fail(404, "That person is not in this company");
+  if (member.isAdmin) {
+    if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only an Admin can change another Admin");
+    member.isAdmin = false;
+  }
   if (member.customRoleId) {
     if (!hasPower(await permissionsFor(companyId, userId), "manage_roles")) throw fail(403, "Only the primary admin can change someone in a custom role");
     member.customRoleId = null;
@@ -2415,9 +2450,10 @@ exports.setMemberRole = handle(async (req, res) => {
   member.role = role;
   await member.save();
   await audit(userId, companyId, "change_role", "member", member._id, before, { role, memberUserId });
+  const names = await builtInRoleNames(companyId);
   notifyUsers([memberUserId], {
-    title: role === "admin" ? "You're now an admin" : "Your role changed",
-    body: role === "admin" ? `You can now approve and pay expenses in ${company.name}` : `You are now staff in ${company.name}`,
+    title: "Your role changed",
+    body: `You are now ${role === "admin" ? names.manager : names.staff} in ${company.name}`,
     data: { companyId },
   });
   res.json({ success: true });
@@ -2428,7 +2464,8 @@ exports.setMemberRole = handle(async (req, res) => {
 async function inviteRole(companyId, userId, role, customRoleId) {
   if (!customRoleId) {
     if (!ROLES.includes(role)) throw fail(400, "Role must be admin or staff");
-    return { role, customRoleId: null, label: role === "admin" ? "a manager" : "staff" };
+    const names = await builtInRoleNames(companyId);
+    return { role, customRoleId: null, label: `"${role === "admin" ? names.manager : names.staff}"` };
   }
   if (!hasPower(await permissionsFor(companyId, userId), "manage_roles")) throw fail(403, "Only the primary admin can add people to a custom role");
   const company = await Company.findById(companyId).select("customRoles").lean();
@@ -3083,7 +3120,10 @@ async function customRolesView(companyId, company) {
 }
 
 const roleNameTaken = (company, name, exceptId) =>
-  ["manager", "managers", "staff", "admin", "primary admin"].includes(name.toLowerCase()) ||
+  ["manager", "managers", "staff", "admin", "primary admin", company.roleNames?.manager, company.roleNames?.staff]
+    .filter(Boolean)
+    .map((n) => n.toLowerCase())
+    .includes(name.toLowerCase()) ||
   (company.customRoles || []).some((r) => r.name.toLowerCase() === name.toLowerCase() && String(r._id) !== String(exceptId || ""));
 
 // body: { userId, name } — every switch starts off
@@ -3095,7 +3135,7 @@ exports.createCustomRole = handle(async (req, res) => {
   await requirePrimary(companyId, userId);
   if (!name) throw fail(400, "Give the role a name");
   if (name.length > 40) throw fail(400, "Keep the role name under 40 characters");
-  const company = await Company.findById(companyId).select("customRoles");
+  const company = await Company.findById(companyId).select("customRoles roleNames");
   if (roleNameTaken(company, name)) throw fail(400, `A role called "${name}" already exists`);
   company.customRoles.push({ name, base, permissions: {}, createdBy: userId });
   await company.save();
@@ -3109,7 +3149,7 @@ exports.updateCustomRole = handle(async (req, res) => {
   const { companyId, roleId } = req.params;
   const { userId, permissions } = req.body;
   await requirePrimary(companyId, userId);
-  const company = await Company.findById(companyId).select("customRoles");
+  const company = await Company.findById(companyId).select("customRoles roleNames");
   const role = company.customRoles.id(roleId);
   if (!role) throw fail(404, "Role not found");
   const before = { name: role.name, permissions: resolvedCustom(role) };
@@ -3167,7 +3207,9 @@ exports.setMemberCustomRole = handle(async (req, res) => {
   if (String(company.createdBy) === String(memberUserId)) throw fail(400, "The primary admin can't be given a role");
   const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
   if (!member) throw fail(404, "That person is not in this company");
-  const before = { role: member.role, customRoleId: member.customRoleId };
+  const before = { role: member.role, customRoleId: member.customRoleId, isAdmin: member.isAdmin };
+  if (member.isAdmin && (await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only an Admin can change another Admin");
+  member.isAdmin = false;
   let role = null;
   if (roleId) {
     role = company.customRoles.id(roleId);
@@ -3186,4 +3228,101 @@ exports.setMemberCustomRole = handle(async (req, res) => {
     data: { companyId },
   });
   res.json({ success: true });
+});
+
+// ---------- names of the built-in roles ----------
+// A company can call its managers and staff something else (e.g. "Supervisor" / "Employee"); blank = default.
+async function builtInRoleNames(companyId) {
+  const company = await Company.findById(companyId).select("roleNames").lean();
+  return { manager: company?.roleNames?.manager || "Manager", staff: company?.roleNames?.staff || "Staff" };
+}
+
+// body: { userId, manager?, staff? } — "" puts the default back. Primary admin or "Manage custom roles".
+exports.renameBuiltInRoles = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.body;
+  await requirePrimary(companyId, userId);
+  const company = await Company.findById(companyId).select("roleNames customRoles");
+  const before = { manager: company.roleNames?.manager || "", staff: company.roleNames?.staff || "" };
+  const next = { ...before };
+  for (const key of ["manager", "staff"]) {
+    if (req.body[key] === undefined) continue;
+    const name = String(req.body[key] || "").trim();
+    if (name.length > 30) throw fail(400, "Keep role names under 30 characters");
+    next[key] = name;
+  }
+  const shown = { manager: next.manager || "Manager", staff: next.staff || "Staff" };
+  if (shown.manager.toLowerCase() === shown.staff.toLowerCase()) throw fail(400, "The two roles need different names");
+  for (const key of ["manager", "staff"]) {
+    if ((company.customRoles || []).some((r) => r.name.toLowerCase() === shown[key].toLowerCase())) {
+      throw fail(400, `A custom role is already called "${shown[key]}"`);
+    }
+  }
+  company.roleNames = next;
+  await company.save();
+  await audit(userId, companyId, "rename_roles", "company", companyId, before, next);
+  res.json({ success: true, roleNames: shown });
+});
+
+// ---------- Admins ----------
+// Only an Admin (the creator, or someone an Admin made Admin) can make or unmake an Admin. Admins have full access
+// like the creator. The creator is always Admin. body: { userId, admin: boolean }
+exports.setMemberAdmin = handle(async (req, res) => {
+  const { companyId, memberUserId } = req.params;
+  const { userId, admin } = req.body;
+  if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only an Admin can make someone an Admin");
+  const company = await Company.findById(companyId).select("createdBy name");
+  if (String(company.createdBy) === String(memberUserId)) throw fail(400, "The company's creator is always an Admin");
+  const member = await CompanyMember.findOne({ companyId, userId: memberUserId });
+  if (!member) throw fail(404, "That person is not in this company");
+  const before = { role: member.role, isAdmin: member.isAdmin, customRoleId: member.customRoleId };
+  if (admin) {
+    member.isAdmin = true;
+    member.role = "admin";
+    member.customRoleId = null;
+  } else {
+    member.isAdmin = false; // stays a manager
+  }
+  await member.save();
+  await audit(userId, companyId, admin ? "make_admin" : "remove_admin", "member", member._id, before, { memberUserId, isAdmin: member.isAdmin });
+  const names = await builtInRoleNames(companyId);
+  notifyUsers([memberUserId], {
+    title: admin ? "You're now an Admin" : "Your role changed",
+    body: admin ? `You now have full Admin access in ${company.name}` : `You are now ${names.manager} in ${company.name}`,
+    data: { companyId },
+  });
+  res.json({ success: true });
+});
+
+// Past descriptions for the "description" fields, newest first and de-duplicated (case-insensitive).
+// kind: expense (expense descriptions; staff only see their own), payment (payment notes), fund (income descriptions)
+const CompanyIncome = require("../models/companyIncome");
+const DESCRIPTION_SOURCES = {
+  expense: (companyId, userId, admin) => ({
+    model: Expense,
+    field: "description",
+    match: { companyId, lifecycle: { $ne: null }, ...(admin ? {} : { createdBy: userId }) },
+  }),
+  payment: (companyId) => ({ model: LedgerTransaction, field: "note", match: { companyId } }),
+  fund: (companyId) => ({ model: CompanyIncome, field: "description", match: { companyId } }),
+};
+
+exports.descriptionSuggestions = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, kind } = req.query;
+  const source = DESCRIPTION_SOURCES[kind];
+  if (!source) throw fail(400, "Unknown description type");
+  const role = await requireRole(companyId, userId, ["admin", "employee", "super_admin"]);
+  if (kind !== "expense" && !isAdminRole(role)) return res.json({ success: true, descriptions: [] });
+  const { model, field, match } = source(new mongoose.Types.ObjectId(companyId), new mongoose.Types.ObjectId(userId), isAdminRole(role));
+  const rows = await model.aggregate([
+    { $match: { ...match, [field]: { $type: "string", $nin: ["", null] } } },
+    { $project: { text: { $trim: { input: `$${field}` } }, createdAt: 1 } },
+    { $match: { text: { $ne: "" } } },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: { $toLower: "$text" }, text: { $first: "$text" }, last: { $first: "$createdAt" }, uses: { $sum: 1 } } },
+    { $sort: { last: -1 } },
+    { $limit: 100 },
+  ]);
+  res.json({ success: true, descriptions: rows.map((r) => r.text) });
 });

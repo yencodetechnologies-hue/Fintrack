@@ -106,8 +106,10 @@ async function permissionsFor(companyId, userId) {
   if (user?.platformRole === "super_admin" || (!company.external && String(company.createdBy) === String(userId))) {
     return { role: "primary", perms: allOn(MANAGER_PERMISSIONS) };
   }
-  const member = await CompanyMember.findOne({ companyId, userId }).select("role customRoleId").lean();
+  const member = await CompanyMember.findOne({ companyId, userId }).select("role customRoleId isAdmin").lean();
   if (!member) return { role: null, perms: {} };
+  // an Admin (made so by an Admin) has full access, same as the creator
+  if (member.isAdmin) return { role: "primary", perms: allOn(MANAGER_PERMISSIONS) };
   const custom = member.customRoleId ? (company.customRoles || []).find((r) => String(r._id) === String(member.customRoleId)) : null;
   if (custom) {
     return { role: "custom", roleId: String(custom._id), roleName: custom.name, base: roleBase(custom), perms: resolvedCustom(custom) };

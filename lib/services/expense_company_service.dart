@@ -170,6 +170,8 @@ class ExpenseCompanyService {
     required String name,
     String? details,
     String? userName,
+    /// people to add straight away: [{"userId": …, "role": "member" | "admin"}]
+    List<Map<String, String>> memberUserIds = const [],
   }) async {
     try {
       final res = await http.post(
@@ -180,8 +182,19 @@ class ExpenseCompanyService {
           "name": name,
           "details": details ?? "",
           if (userName != null) "userName": userName,
+          "memberUserIds": memberUserIds,
         }),
       ).timeout(const Duration(seconds: 15));
+      return _parseResponse(res);
+    } catch (e) {
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  /// People from the user's other companies, offered when creating a new company.
+  static Future<Map<String, dynamic>> memberCandidates(String userId) async {
+    try {
+      final res = await http.get(Uri.parse("$_base/company/candidates?userId=$userId")).timeout(const Duration(seconds: 15));
       return _parseResponse(res);
     } catch (e) {
       return {"success": false, "message": e.toString()};

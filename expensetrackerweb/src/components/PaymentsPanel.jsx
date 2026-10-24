@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getLedgerBalances, getLedgerTransactions, getPayableBills, reimburseAdmin } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money, PAYMENT_METHODS } from "../utils.js";
+import { formatDate, money, PAYMENT_METHODS, roleNames } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
+import { useFundTopUp } from "./FundTopUp.jsx";
 import OwnOutstanding from "./OwnOutstanding.jsx";
 
 const round = (n) => Math.round(n * 100) / 100;
@@ -17,7 +18,12 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
   const [balances, setBalances] = useState(null);
   const [txs, setTxs] = useState([]);
   const [search, setSearch] = useState("");
-  const [role, setRole] = useState("all");
+  // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
+  // opened from the Home "My outstanding" tile it starts on "me"
+  const [role, setRole] = useState(focusOwn ? "me" : "all");
+  useEffect(() => {
+    if (focusOwn) setRole("me");
+  }, [focusOwn]);
   const [show, setShow] = useState("owed");
   const [sort, setSort] = useState("owed");
   const [selected, setSelected] = useState(() => new Set());
@@ -109,8 +115,9 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         const personName = debit?.accountId?.name?.replace(/^Payable to /, "") || "Someone";
         const bySelf = /personally$/.test(t.memo || "");
         const how = t.type === "advance_offset" ? "Set off from voucher balance" : bySelf ? t.memo : `Company · ${credit?.accountId?.name || "fund"}`;
-        return { id: t._id, date: t.createdAt, personName, amount: Number(debit?.debit || 0), by: t.createdBy?.name || "Manager", how, method: t.method, reference: t.reference };
-      });
+        return { id: t._id, date: t.date || t.createdAt, personName, amount: Number(debit?.debit || 0), by: t.createdBy?.name || "Manager", how, method: t.method, reference: t.reference };
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date)); // by payment date, which can be backdated
     const q = historySearch.trim().toLowerCase();
     return rows.filter((r) => {
       const day = String(r.date || "").slice(0, 10);
@@ -137,7 +144,6 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
       </div>
       <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.</p>
 
-      <OwnOutstanding companyId={companyId} company={company} user={user} funds={funds} focus={focusOwn} refreshKey={refreshKey} onPaid={() => { load(); onChanged?.(); }} />
 
       {!balances ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner dark" /></div>
@@ -146,8 +152,8 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
           <div className="pay-tiles" style={{ marginBottom: 18 }}>
             {[
               { label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, tone: totals.all > 0 ? "red" : "forest" },
-              { label: "Owed to managers", value: money(totals.managers), sub: "Paid out of their own pocket", tone: "blue" },
-              { label: "Owed to staff", value: money(totals.staff), sub: "Claims and payments", tone: totals.staff > 0 ? "red" : "forest" },
+              { label: `Owed to ${roleNames(company).managers.toLowerCase()}`, value: money(totals.managers), sub: "Paid out of their own pocket", tone: "blue" },
+              { label: `Owed to ${roleNames(company).staffs.toLowerCase()}`, value: money(totals.staff), sub: "Claims and payments", tone: totals.staff > 0 ? "red" : "forest" },
               { label: "Company funds", value: money(funds.reduce((s, f) => s + Number(f.balance || 0), 0)), sub: funds.map((f) => `${f.name} ${money(f.balance)}`).slice(0, 2).join(" · "), tone: "forest" },
             ].map((t) => (
               <div key={t.label} className={`pay-tile tone-${t.tone}`}>
@@ -162,8 +168,9 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             <input className="field-input" placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)} title="Role">
               <option value="all">Everyone</option>
-              <option value="managers">Managers</option>
-              <option value="staff">Staff</option>
+              <option value="me">{user.name} (You)</option>
+              <option value="managers">{roleNames(company).managers}</option>
+              <option value="staff">{roleNames(company).staffs}</option>
             </select>
             <select className="field-select" value={show} onChange={(e) => setShow(e.target.value)} title="Show">
               <option value="owed">Owed money only</option>
@@ -176,6 +183,10 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             </select>
           </div>
 
+          {role === "me" ? (
+            <OwnOutstanding companyId={companyId} company={company} user={user} funds={funds} focus={focusOwn} alwaysShow refreshKey={refreshKey} onPaid={() => { load(); onChanged?.(); }} />
+          ) : (
+          <>
           {selectedPeople.length > 0 && (
             <div className="payments-selection">
               <span><strong>{selectedPeople.length}</strong> selected · <strong>{money(selectedTotal)}</strong></span>
@@ -208,7 +219,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                       <span style={{ minWidth: 0 }}>
                         <span className="payments-name">
                           {p.name}{me ? " (you)" : ""}
-                          <span className={`payments-role ${p.role}`}>{p.role === "manager" ? "Manager" : p.role === "staff" ? "Staff" : "Former"}</span>
+                          <span className={`payments-role ${p.role}`}>{p.role === "manager" ? roleNames(company).manager : p.role === "staff" ? roleNames(company).staff : "Former"}</span>
                         </span>
                         <span className="payments-meta">
                           {p.claims > 0 ? `${money(p.claims)} in approved claims` : p.owed > 0 ? "Paid out of pocket" : "Nothing owed"}
@@ -220,12 +231,14 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                     <span className="payments-actions">
                       {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
                       {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
-                      {me && p.owed > 0 && <span className="payments-meta">Pay it under Your outstanding above</span>}
+                      {me && p.owed > 0 && <span className="payments-meta">Pick "{user.name} (You)" above to pay it</span>}
                     </span>
                   </div>
                 );
               })}
             </div>
+          )}
+          </>
           )}
 
           <h2 style={{ fontSize: 19, margin: "28px 0 12px" }}>Payment history</h2>
@@ -233,7 +246,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             <input className="field-input" placeholder="Search payments…" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} />
             <select className="field-select" value={historyPerson} onChange={(e) => setHistoryPerson(e.target.value)}>
               <option value="all">Everyone</option>
-              {historyNames.map((n) => <option key={n} value={n}>{n}</option>)}
+              {historyNames.map((n) => <option key={n} value={n}>{n === user.name ? `${n} (You)` : n}</option>)}
             </select>
             <PeriodFilter
               from={historyFrom}
@@ -323,6 +336,7 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
   const short = paidBy === "company" && fund && Number(fund.balance || 0) < total;
   const tooMuch = people.find((p) => cashFor(p) > maxFor(p) + 0.001);
   const nothing = people.every((p) => !(cashFor(p) > 0) && !(offset && p.advance > 0));
+  const topUp = useFundTopUp({ companyId, user, funds });
 
   function toggleOffset(on) {
     setOffset(on);
@@ -345,8 +359,13 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
     return () => { active = false; };
   }, [companyId, single, user.id]);
 
-  async function submit() {
+  function submit() {
     if (tooMuch) return showToast(`${tooMuch.name} is owed only ${money(maxFor(tooMuch))}`, "error");
+    if (short) return topUp.ask(fund, total, pay);
+    pay();
+  }
+
+  async function pay() {
     setSaving(true);
     const failed = [];
     let paid = 0;
@@ -440,7 +459,7 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
           <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)}>
             {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
           </select>
-          {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}.</div>}
+          {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
         </>
       )}
 
@@ -460,10 +479,11 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
 
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
         <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-        <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={saving || short || Boolean(tooMuch) || nothing} onClick={submit}>
+        <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={saving || Boolean(tooMuch) || nothing} onClick={submit}>
           {saving ? "Paying…" : `Pay ${money(total)}`}
         </button>
       </div>
+      {topUp.ui}
     </Modal>
   );
 }

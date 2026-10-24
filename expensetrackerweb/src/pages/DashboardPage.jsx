@@ -37,7 +37,7 @@ import {
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { bankAccountLabel, companyCategories, expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS, postedByName } from "../utils.js";
+import { bankAccountLabel, companyCategories, expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, PAYMENT_METHODS, postedByName, roleLabel, roleNames } from "../utils.js";
 import Modal from "../components/Modal.jsx";
 import AppLayout, { rememberCompany } from "../components/AppLayout.jsx";
 import ExpenseCard from "../components/ExpenseCard.jsx";
@@ -64,6 +64,7 @@ import { makeCan, tabAllowed } from "../permissions.js";
 import { useCompanyLive } from "../realtime.js";
 import HandBackModal from "../components/HandBackModal.jsx";
 import LoanDetailModal from "../components/LoanDetailModal.jsx";
+import { useFundTopUp } from "../components/FundTopUp.jsx";
 
 const TODAY_KEY = new Date().toDateString();
 const roundMoney = (n) => Math.round(n * 100) / 100;
@@ -216,6 +217,8 @@ export default function DashboardPage() {
     }
     return list;
   }, [company]);
+  // "not enough balance → add money → carry on" for payments made from this company's funds
+  const fundTopUp = useFundTopUp({ companyId, user, funds: availableCompanyFunds, onFunded: () => load() });
 
   // Other companies this user manages: they can pay this company's expenses (recorded as a loan).
   const managedOtherCompanies = useMemo(
@@ -564,11 +567,13 @@ export default function DashboardPage() {
     if (paymentDraft.payer === "company" && payingCompanyId === companyId) {
       const selectedFund = payingFunds.find((f) => String(f.fundId) === String(paymentDraft.fundId)) || payingFunds[0];
       if (selectedFund && Number(selectedFund.balance || 0) < Number(expense.amount || 0)) {
-        showToast(`Insufficient balance in ${selectedFund.name} (${money(selectedFund.balance)} available)`, "error");
-        return;
+        return fundTopUp.ask(selectedFund, Number(expense.amount || 0), () => recordLedgerPayment(expense));
       }
     }
+    recordLedgerPayment(expense);
+  }
 
+  async function recordLedgerPayment(expense) {
     const { payingCompanyId: _payingCompanyId, ...draft } = paymentDraft;
     // Paid by another company the user manages = this company borrows from it.
     const payload = draft.payer === "company" && payingCompanyId !== companyId
@@ -582,8 +587,18 @@ export default function DashboardPage() {
     } else showToast(result.message || "Could not record payment", "error");
   }
 
-  async function submitIntercoAction(event) {
+  function submitIntercoAction(event) {
     event.preventDefault();
+    // repaying spends this company's own fund
+    if (intercoModal?.type === "repay") {
+      const fund = availableCompanyFunds.find((f) => String(f.fundId) === String(intercoDraft.fundId));
+      const need = Number(intercoDraft.amount || 0);
+      if (fund && need > 0 && Number(fund.balance || 0) < need) return fundTopUp.ask(fund, need, saveIntercoAction);
+    }
+    saveIntercoAction();
+  }
+
+  async function saveIntercoAction() {
     setIntercoSaving(true);
     const kind = intercoModal?.type;
     const result = kind === "receive"
@@ -688,8 +703,18 @@ export default function DashboardPage() {
     if (!res.success) showToast(res.message || "Could not load open bills", "error");
   }
 
-  async function submitMoneyAction(event) {
+  function submitMoneyAction(event) {
     event.preventDefault();
+    // reimbursing pays out of a company fund (lending puts money in)
+    if (moneyModal !== "lend") {
+      const fund = availableCompanyFunds.find((f) => String(f.fundId) === String(moneyDraft.fundId));
+      const need = Number(moneyDraft.amount || 0);
+      if (fund && need > 0 && Number(fund.balance || 0) < need) return fundTopUp.ask(fund, need, saveMoneyAction);
+    }
+    saveMoneyAction();
+  }
+
+  async function saveMoneyAction() {
     setIntercoSaving(true);
     const payload = { companyId, userId: user.id, amount: Number(moneyDraft.amount), fundId: moneyDraft.fundId, method: moneyDraft.method, reference: moneyDraft.reference };
     const result = moneyModal === "lend" ? await lendToCompany(payload) : await reimburseAdmin({ ...payload, adminUserId: moneyDraft.adminUserId, offsetAdvance: Boolean(moneyDraft.offsetAdvance) });
@@ -997,15 +1022,15 @@ export default function DashboardPage() {
                     >
                       <option value="all">Everyone</option>
                       <option value="company">{company.name} (company)</option>
-                      <option value="managers">All managers</option>
-                      <option value="staff">All staff</option>
+                      <option value="managers">All {roleNames(company).managers.toLowerCase()}</option>
+                      <option value="staff">All {roleNames(company).staffs.toLowerCase()}</option>
                       {members.some((m) => m.role === "admin") && (
-                        <optgroup label="Managers">
+                        <optgroup label={roleNames(company).managers}>
                           {members.filter((m) => m.role === "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
                         </optgroup>
                       )}
                       {members.some((m) => m.role !== "admin") && (
-                        <optgroup label="Staff">
+                        <optgroup label={roleNames(company).staffs}>
                           {members.filter((m) => m.role !== "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
                         </optgroup>
                       )}
@@ -1318,7 +1343,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="card" style={{ color: "var(--muted)" }}>No report data.</div>
               )}
-              <OutstandingReport companyId={companyId} userId={user.id} refreshKey={reportTick} />
+              <OutstandingReport companyId={companyId} company={company} userId={user.id} refreshKey={reportTick} />
             </>
           )}
 
@@ -1442,7 +1467,19 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "settings" && (
-            <SettingsPanel company={company} members={members} user={user} isAdmin={isAdmin} can={can} onChanged={load} />
+            <SettingsPanel
+              company={company}
+              members={members}
+              user={user}
+              isAdmin={isAdmin}
+              can={can}
+              powers={{
+                admin: permissionRole === "primary",
+                manageRoles: permissionRole === "primary" || myPermissions?.manage_roles === true,
+                deleteCompany: permissionRole === "primary" || myPermissions?.delete_company === true,
+              }}
+              onChanged={load}
+            />
           )}
 
           {activeTab === "permissions" && <PermissionsPanel companyId={companyId} company={company} members={members} user={user} refreshKey={tick("permissions") + tick("members")} onChanged={load} />}
@@ -1626,7 +1663,7 @@ export default function DashboardPage() {
                         <line x1="12" y1="8" x2="12" y2="12" />
                         <line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
-                      <span>Insufficient balance: {money(selectedFund?.balance || 0)} available ({money(expenseAmount)} required)</span>
+                      <span>Insufficient balance: {money(selectedFund?.balance || 0)} available ({money(expenseAmount)} required). You can add money when you pay.</span>
                     </div>
                   )}
                 </>
@@ -1677,17 +1714,8 @@ export default function DashboardPage() {
                 const isInsufficient = paymentDraft.payer === "company" && payingCompanyId === companyId && selectedFund && Number(selectedFund.balance || 0) < Number(modal.expense?.amount || 0);
 
                 return (
-                  <button
-                    className="btn btn-primary"
-                    style={{
-                      flex: 1,
-                      opacity: isInsufficient ? 0.55 : 1,
-                      cursor: isInsufficient ? "not-allowed" : "pointer",
-                    }}
-                    disabled={isInsufficient}
-                    title={isInsufficient ? "Cannot record payment: Insufficient balance in selected fund" : ""}
-                  >
-                    {isInsufficient ? "Insufficient Balance" : "Record payment"}
+                  <button className="btn btn-primary" style={{ flex: 1 }}>
+                    {isInsufficient ? "Add money & pay" : "Record payment"}
                   </button>
                 );
               })()}
@@ -1846,7 +1874,7 @@ export default function DashboardPage() {
                           setVisibilityModal((curr) => ({ ...curr, selectedIds: next }));
                         }}
                       />
-                      <span>{m.name} ({m.role === "admin" ? "Manager" : "Staff"})</span>
+                      <span>{m.name} ({roleLabel(company, m.role)})</span>
                     </label>
                   );
                 })}
@@ -1934,6 +1962,8 @@ export default function DashboardPage() {
         />
       )}
 
+      {/* last, so it sits above whichever payment popup asked for it */}
+      {fundTopUp.ui}
     </AppLayout>
   );
 }

@@ -6,7 +6,7 @@ import 'ledger_common.dart';
 import 'ledger_funds.dart';
 import 'ledger_settings.dart';
 import 'ledger_vouchers.dart';
-import 'ledger_payments.dart';
+import 'ledger_interco_tab.dart';
 import 'ledger_permissions.dart';
 
 class LedgerMoreTab extends StatelessWidget {
@@ -30,7 +30,8 @@ class LedgerMoreTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
       children: [
         if (scope.isAdmin && scope.can("vouchers")) item(Icons.confirmation_number_rounded, "Vouchers", "Money given to staff up front, claims and hand-backs", VouchersPage(scope: scope)),
-        if (scope.isAdmin && scope.can("reimburse")) item(Icons.payments_rounded, "Payments", "Pay staff and managers, by company or yourself", PaymentsPage(scope: scope)),
+        // Payments sits in the bottom bar for managers who can pay people, so Inter-co lives here instead
+        if (paymentsInNav(scope) && scope.can("intercompany")) item(Icons.swap_horiz_rounded, "Inter-company", "Borrowing, lending and payments between companies", IntercoPage(scope: scope)),
         if (scope.isAdmin && scope.can("funds")) item(Icons.account_balance_wallet_rounded, "Company funds", "${scope.cashName}, bank accounts and income", FundsPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),

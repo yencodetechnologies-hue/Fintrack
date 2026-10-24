@@ -4,6 +4,8 @@ import { addCustomCategory, createLedgerExpense, saveVisibilityPreference } from
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, companyCategories, fileToBase64, formatDate } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import DescriptionInput from "./DescriptionInput.jsx";
+import { useFundTopUp } from "./FundTopUp.jsx";
 
 export default function AddExpenseModal({
   company,
@@ -84,13 +86,18 @@ export default function AddExpenseModal({
     });
   }
 
-  const selectedFundBalance = (() => {
-    if (fundId === "cash") return Number(company.cashBalance || 0);
-    const b = (company.bankAccounts || []).find((acct) => String(acct._id) === String(fundId));
-    return b ? Number(b.balance || 0) : 0;
-  })();
+  // balances returned by an "add money" top-up, until the company prop catches up
+  const [toppedUp, setToppedUp] = useState(null);
+  const cashBalance = Number((toppedUp ? toppedUp.cashBalance : company.cashBalance) || 0);
+  const bankAccounts = (toppedUp ? toppedUp.bankAccounts : company.bankAccounts) || [];
+  const companyFunds = [
+    { fundId: "cash", name: company.cashAccountName || "Cash", balance: cashBalance },
+    ...bankAccounts.map((b) => ({ fundId: String(b._id), name: bankAccountLabel(b), balance: Number(b.balance || 0) })),
+  ];
+  const selectedFundBalance = Number(companyFunds.find((f) => f.fundId === String(fundId))?.balance || 0);
   const parsedAmt = parseFloat(amount) || 0;
   const isInsufficientFund = isAdmin && postAs === "company" && parsedAmt > 0 && selectedFundBalance < parsedAmt;
+  const topUp = useFundTopUp({ companyId: company._id, user, funds: companyFunds, onFunded: (res) => setToppedUp(res) });
 
   // Live hint from already-loaded expenses; the server makes the final check on submit.
   const sameExpense = (exp) =>
@@ -99,15 +106,16 @@ export default function AddExpenseModal({
     String(exp.description || "").trim().toLowerCase() === description.trim().toLowerCase();
   const likelyDuplicate = parsedAmt > 0 && description.trim() ? existingExpenses.find(sameExpense) : null;
 
-  async function handleSubmit(e, confirmDuplicate = false) {
+  // funded: money was just added to the fund, so skip the (stale) balance check
+  async function handleSubmit(e, confirmDuplicate = false, funded = false) {
     e?.preventDefault();
     const amt = parseFloat(amount);
     if (!(amt > 0) || !description.trim()) {
       showToast("Enter a valid amount and description", "error");
       return;
     }
-    if (isInsufficientFund) {
-      showToast(`Insufficient balance in selected fund (₹${selectedFundBalance.toFixed(2)} available)`, "error");
+    if (isInsufficientFund && !funded) {
+      topUp.ask(companyFunds.find((f) => f.fundId === String(fundId)), amt, () => handleSubmit(null, confirmDuplicate, true));
       return;
     }
     setSaving(true);
@@ -239,9 +247,9 @@ export default function AddExpenseModal({
               onChange={(e) => setFundId(e.target.value)}
             >
               <option value="cash">
-                Cash Fund · ₹{Number(company.cashBalance || 0).toFixed(2)} {parsedAmt > 0 && Number(company.cashBalance || 0) < parsedAmt ? "⚠️ (Insufficient)" : ""}
+                Cash Fund · ₹{cashBalance.toFixed(2)} {parsedAmt > 0 && cashBalance < parsedAmt ? "⚠️ (Insufficient)" : ""}
               </option>
-              {(company.bankAccounts || []).map((b) => {
+              {bankAccounts.map((b) => {
                 const bal = Number(b.balance || 0);
                 const low = parsedAmt > 0 && bal < parsedAmt;
                 return (
@@ -272,7 +280,7 @@ export default function AddExpenseModal({
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
-                <span>Insufficient balance: ₹{selectedFundBalance.toFixed(2)} available (₹{parsedAmt.toFixed(2)} required)</span>
+                <span>Insufficient balance: ₹{selectedFundBalance.toFixed(2)} available (₹{parsedAmt.toFixed(2)} required). You can add money when you submit.</span>
               </div>
             )}
           </div>
@@ -364,11 +372,13 @@ export default function AddExpenseModal({
 
         <div style={{ marginBottom: 14 }}>
           <label className="field-label">Description / Purpose *</label>
-          <input
-            className="field-input"
+          <DescriptionInput
+            companyId={company._id}
+            userId={user.id}
+            kind="expense"
             style={{ height: 40, marginBottom: 0 }}
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
             placeholder="What was this expense for?"
             required
           />
@@ -517,19 +527,18 @@ export default function AddExpenseModal({
         <button
           type="submit"
           className="btn btn-primary btn-block"
-          disabled={saving || isInsufficientFund}
+          disabled={saving}
           style={{
             height: 44,
             fontSize: 14,
             fontWeight: 700,
             borderRadius: 10,
-            opacity: isInsufficientFund ? 0.55 : 1,
-            cursor: isInsufficientFund ? "not-allowed" : "pointer",
           }}
         >
-          {saving ? "Submitting…" : isInsufficientFund ? "Insufficient Fund Balance" : "Submit Expense"}
+          {saving ? "Submitting…" : isInsufficientFund ? "Add money & submit" : "Submit Expense"}
         </button>
       </form>
+      {topUp.ui}
 
       {duplicateFound && (
         <ConfirmDialog

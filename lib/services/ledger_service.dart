@@ -235,6 +235,14 @@ class LedgerService {
   static Future<Map<String, dynamic>> markReceived(String expenseId, Map<String, dynamic> body) =>
       _post("$_base/expenses/$expenseId/received", body);
 
+  /// Rename the built-in Manager / Staff roles for this company ("" = default).
+  static Future<Map<String, dynamic>> renameBuiltInRoles(String companyId, String userId, Map<String, String> names) =>
+      _post("$_base/companies/$companyId/role-names", {"userId": userId, ...names});
+
+  /// Admins only: make (or unmake) someone an Admin — full access like the company creator.
+  static Future<Map<String, dynamic>> setMemberAdmin(String companyId, String memberUserId, String userId, bool admin) =>
+      _post("$_base/companies/$companyId/members/$memberUserId/admin", {"userId": userId, "admin": admin});
+
   // ---- custom roles (primary admin only) ----
   /// A role is just a name; every switch starts off.
   static Future<Map<String, dynamic>> createCustomRole(String companyId, String userId, String name) =>
@@ -281,6 +289,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> auditLog(String companyId, String userId) =>
       _get("$_base/companies/$companyId/audit-log?userId=$userId");
 
+  /// Past descriptions for a description field; kind: expense | payment | fund.
+  static Future<Map<String, dynamic>> descriptionSuggestions(String companyId, String userId, String kind) =>
+      _get("$_base/companies/$companyId/descriptions?userId=$userId&kind=$kind");
+
   static Future<Map<String, dynamic>> intercompanyBalances(String companyId, String userId) =>
       _get("$_base/companies/$companyId/intercompany?userId=$userId");
 
@@ -295,5 +307,9 @@ class LedgerService {
 
   static Future<Map<String, dynamic>> updateSettings(String companyId, Map<String, dynamic> body) =>
       _post("$_base/companies/$companyId/settings", body);
+
+  /// Company logo as a data:image URL ("" removes it); primary Admin only.
+  static Future<Map<String, dynamic>> setCompanyLogo(String companyId, String userId, String logo) =>
+      _post("$_base/companies/$companyId/logo", {"userId": userId, "logo": logo});
 
 }

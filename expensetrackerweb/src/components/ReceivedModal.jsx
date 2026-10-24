@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { receivedLedgerExpense } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { money, PAYMENT_METHODS } from "../utils.js";
+import { money, PAYMENT_METHODS, roleLabel } from "../utils.js";
 import Modal from "./Modal.jsx";
+import { useFundTopUp } from "./FundTopUp.jsx";
 
 // A manager's own expense (company owes them): record that they got the money back — from the company's
 // Cash/Bank, or from another member who paid them personally (the company then owes that member). Closes it.
@@ -20,9 +21,16 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
   const short = from === "company" && fund && Number(fund.balance || 0) < amount;
   const person = others.find((m) => String(m.userId) === String(personId));
 
-  async function submit(event) {
+  const topUp = useFundTopUp({ companyId: company?._id || expense.companyId?._id || expense.companyId, user, funds });
+
+  function submit(event) {
     event.preventDefault();
     if (from === "person" && !personId) return showToast("Choose who paid you", "error");
+    if (short) return topUp.ask(fund, amount, save);
+    save();
+  }
+
+  async function save() {
     setSaving(true);
     const res = await receivedLedgerExpense(expense._id, {
       userId: user.id,
@@ -63,14 +71,14 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
             <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)}>
               {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
             </select>
-            {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}.</div>}
+            {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
           </>
         ) : (
           <>
             <label className="field-label" style={{ display: "block", marginTop: 12 }}>Who paid you?</label>
             <select className="field-select" value={personId} onChange={(e) => setPersonId(e.target.value)} required>
               <option value="">Choose a person</option>
-              {others.map((m) => <option key={m.userId} value={m.userId}>{m.name} · {m.role === "admin" ? "Manager" : "Staff"}</option>)}
+              {others.map((m) => <option key={m.userId} value={m.userId}>{m.name} · {roleLabel(company, m.role)}</option>)}
             </select>
             {person && <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)" }}>{company?.name || "The company"} will owe {person.name} {money(amount)}.</div>}
           </>
@@ -85,11 +93,12 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
 
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving || short || (from === "person" && !personId)}>
+          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving || (from === "person" && !personId)}>
             {saving ? "Saving…" : "Mark received"}
           </button>
         </div>
       </form>
+      {topUp.ui}
     </Modal>
   );
 }

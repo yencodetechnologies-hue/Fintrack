@@ -5,11 +5,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
+import 'ledger_expenses_tab.dart' show showPostExpenseSheet;
 import 'ledger_vouchers.dart';
 import 'ledger_funds.dart';
 import 'ledger_payments.dart';
 
 /// Company Home, same content per role as the web's Home tab.
+/// One Home figure: label, amount (null while loading), colour, a short line under it, and where a tap goes.
+typedef _Stat = ({String label, String? value, Color color, String? sub, VoidCallback? onTap, Widget? trailing});
+
 class LedgerDashboardTab extends StatefulWidget {
   final LedgerScope scope;
   final VoidCallback onOpenExpenses;
@@ -168,7 +173,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
                     Expanded(
                       child: Text(o.value,
                           style: GoogleFonts.inter(
-                              fontSize: 13.5, fontWeight: o.key == _totalPeriod ? FontWeight.w700 : FontWeight.w500, color: o.key == _totalPeriod ? kForest : kDark)),
+                              fontSize: 13.5, fontWeight: o.key == _totalPeriod ? FontWeight.w700 : FontWeight.w500, color: o.key == _totalPeriod ? kForest : kForest)),
                     ),
                     if (o.key == _totalPeriod) const Icon(Icons.check_rounded, size: 18, color: kForest),
                   ]),
@@ -177,12 +182,12 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         child: Container(
           padding: const EdgeInsets.only(left: 8, right: 3, top: 2, bottom: 2),
           decoration: BoxDecoration(
-            color: _totalPeriod == "month" ? const Color(0xFFF1F5F9) : kForest.withValues(alpha: 0.1),
+            color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.08) : kForest.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(99),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "month" ? kDark.withValues(alpha: 0.7) : kForest)),
-            Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "month" ? kDark.withValues(alpha: 0.6) : kForest),
+            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.7) : kForest)),
+            Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.6) : kForest),
           ]),
         ),
       );
@@ -202,76 +207,96 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
     final balancesReady = _balances != null;
     final today = _expenses.where(_isToday).toList();
 
-    final tiles = <Widget>[
-      _tile("Total expenses", _loading ? null : inr(totalSpent), kForest,
-          sub: "${periodExpenses.length} expense${periodExpenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses, trailing: _periodPill()),
-      _tile(s.isAdmin ? "My outstanding" : "Company owes you", balancesReady ? inr(myOwed) : null, myOwed > 0 ? kTerracotta : kForest,
-          sub: s.isAdmin ? "Owed to all people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}" : "Paid by you, not yet reimbursed",
-          // managers: open Payments, where "Your outstanding" is at the top
-          onTap: s.isAdmin && s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s))) : null),
-      if (!s.isAdmin)
-        _tile("Voucher balance", balancesReady ? inr(myAdvance > 0 ? myAdvance : 0) : null, kForest,
-            sub: myAdvance > 0 ? "Company money with you · tap to hand back" : "No voucher money with you",
-            onTap: myAdvance > 0 && s.can("vouchers") ? () => showHandBackSheet(context, s, myAdvance, onDone: _load) : null),
-      if (s.isAdmin) ...[
-        _tile("Pending borrowed", _secondaryLoading ? null : inr(borrowedTotal), borrowedTotal > 0 ? kTerracotta : kForest,
-            sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.take(2).map((r) => "from ${r.name} ${inr(r.balance)}").join("\n"),
-            onTap: widget.onOpenInterco),
-        _tile("Pending lent", _secondaryLoading ? null : inr(lentTotal), kForest,
-            sub: lent.isEmpty ? "Nothing to collect" : lent.take(2).map((r) => "to ${r.name} ${inr(r.balance)}").join("\n"),
-            onTap: widget.onOpenInterco),
-        _tile(s.companyName.trim().toLowerCase().endsWith("s") ? "${s.companyName}' balance" : "${s.companyName}'s balance", inr(cash + bank), kForest,
+    // one figure: the hero card at the top, or a cell in the small grid under it (null value = still loading)
+    _Stat stat(String label, String? value, {Color color = kForest, String? sub, VoidCallback? onTap, Widget? trailing}) =>
+        (label: label, value: value, color: color, sub: sub, onTap: onTap, trailing: trailing);
+
+    final hero = s.isAdmin
+        ? stat(s.companyName.trim().toLowerCase().endsWith("s") ? "${s.companyName}' balance" : "${s.companyName}'s balance", inr(cash + bank),
             sub: "${s.cashName} ${inr(cash)} · Bank ${inr(bank)}",
-            onTap: s.can("funds") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FundsPage(scope: s))) : null),
-      ],
+            onTap: s.can("funds") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FundsPage(scope: s))) : null)
+        : stat("Company owes you", balancesReady ? inr(myOwed) : null, color: kForest, sub: "Paid by you, not yet reimbursed");
+
+    final grid = <_Stat>[
+      stat("Expenses", _loading ? null : inr(totalSpent),
+          sub: "${periodExpenses.length} expense${periodExpenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses, trailing: _periodPill()),
+      if (s.isAdmin) ...[
+        stat("My outstanding", balancesReady ? inr(myOwed) : null, color: kForest,
+            sub: "All people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}",
+            // managers: open Payments, where "Your outstanding" is at the top
+            onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s, focusOwn: true))) : null),
+        stat("Borrowed", _secondaryLoading ? null : inr(borrowedTotal), color: kForest,
+            sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.map((r) => r.name).join(", "), onTap: widget.onOpenInterco),
+        stat("Lent", _secondaryLoading ? null : inr(lentTotal),
+            sub: lent.isEmpty ? "Nothing to collect" : lent.map((r) => r.name).join(", "), onTap: widget.onOpenInterco),
+      ] else
+        stat("Voucher balance", balancesReady ? inr(myAdvance > 0 ? myAdvance : 0) : null,
+            sub: myAdvance > 0 ? "Tap to hand back" : "None with you",
+            onTap: myAdvance > 0 && s.can("vouchers") ? () => showHandBackSheet(context, s, myAdvance, onDone: _load) : null),
     ];
 
-    return RefreshIndicator(
+    final actions = [
+      if (s.isAdmin && s.can("reimburse")) (icon: Icons.savings_rounded, label: "Lend", onTap: _openLend),
+      if (s.isAdmin && s.can("reimburse")) (icon: Icons.payments_rounded, label: "Reimburse", onTap: _openReimburse),
+      if (s.isAdmin && s.can("vouchers")) (icon: Icons.confirmation_number_rounded, label: "Voucher", onTap: () => showCreateVoucherSheet(context, s, onDone: _load)),
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      // same "Post Expense" button as the Expenses tab, a little smaller
+      floatingActionButton: !s.can("post_expenses") ? null : FloatingActionButton.extended(
+        // every tab stays alive in the same route, so each button needs its own hero tag
+        heroTag: "post-expense-home",
+        backgroundColor: Colors.white,
+        extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
+        onPressed: () => showPostExpenseSheet(context, s, existing: _expenses, advance: myAdvance, onDone: _load),
+        icon: const Icon(Icons.add_rounded, color: kForest, size: 20),
+        label: Text("Expense", style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 13.5)),
+      ),
+      body: RefreshIndicator(
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+        // extra room at the bottom so the button never covers the last row
+        padding: const EdgeInsets.fromLTRB(14, 2, 14, 90),
         children: [
           if (_balancesError != null)
             Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: Row(children: [
-                Expanded(child: Text(_balancesError!, style: GoogleFonts.inter(color: Colors.white, fontSize: 12.5))),
+                Expanded(child: Text(_balancesError!, style: GoogleFonts.inter(color: Colors.white, fontSize: 12))),
                 TextButton(onPressed: _load, child: Text("Retry", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold))),
               ]),
             ),
-          _pairs(tiles),
-          if (s.isAdmin && (s.can("reimburse") || s.can("vouchers"))) ...[
+          _heroCard(hero),
+          const SizedBox(height: 8),
+          _statGrid(grid),
+          if (actions.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _pairs([
-              if (s.can("reimburse")) _action(Icons.savings_rounded, "Lend to company", _openLend),
-              if (s.can("reimburse")) _action(Icons.payments_rounded, "Reimburse person", _openReimburse),
-              if (s.can("vouchers")) _action(Icons.confirmation_number_rounded, "Create voucher", () => showCreateVoucherSheet(context, s, onDone: _load)),
+            Row(children: [
+              for (var i = 0; i < actions.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                Expanded(child: _action(actions[i].icon, actions[i].label, actions[i].onTap)),
+              ],
             ]),
           ],
           StaffVoucherSection(scope: s),
           // Home lists only expenses posted today; the rest live on the Expenses tab
           Padding(
-            padding: const EdgeInsets.fromLTRB(0, 14, 0, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F7EF),
-                  border: Border.all(color: const Color(0xFFCBEBD9)),
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.calendar_today_rounded, size: 15, color: kForest),
-                  const SizedBox(width: 7),
-                  Text("Today · ${DateFormat("dd MMM yyyy").format(DateTime.now())}",
-                      style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700, color: kForest)),
-                ]),
+            padding: const EdgeInsets.fromLTRB(2, 16, 0, 6),
+            child: Row(children: [
+              Text("Today", style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+              Text("  ·  ${DateFormat("dd MMM").format(DateTime.now())}", style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
+              const Spacer(),
+              GestureDetector(
+                onTap: widget.onOpenExpenses,
+                child: Text("See all", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
               ),
-            ),
+            ]),
           ),
-          if (today.isEmpty) _loading ? _todayShimmer() : _compactEmpty("No expenses today."),
-          ...today.map(_todayRow),
+          if (today.isEmpty)
+            _loading ? _todayShimmer() : _compactEmpty("No expenses today.")
+          else
+            _listCard([for (final e in today) _todayRow(e)]),
           // only shown when something is waiting for a second manager
           if (s.isAdmin && s.can("verify") && _pending.isNotEmpty) ...[
             _sectionTitle("Pending verification"),
@@ -279,74 +304,56 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
           ],
         ],
       ),
+      ),
     );
   }
 
-  /// Two per row; a lone last item spans the full width (same as the web's phone layout).
-  Widget _pairs(List<Widget> items) {
-    final rows = <Widget>[];
-    for (var i = 0; i < items.length; i += 2) {
-      final pair = i + 1 < items.length;
-      rows.add(Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: IntrinsicHeight(
-          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Expanded(child: items[i]),
-            if (pair) ...[const SizedBox(width: 6), Expanded(child: items[i + 1])],
-          ]),
-        ),
-      ));
-    }
-    return Column(children: rows);
-  }
+  /// Rows inside one white card, split by thin lines.
+  Widget _listCard(List<Widget> rows) => Container(
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(children: [
+          for (var i = 0; i < rows.length; i++) ...[
+            if (i > 0) Divider(height: 1, thickness: 1, indent: 12, endIndent: 12, color: kForest.withValues(alpha: 0.06)),
+            rows[i],
+          ],
+        ]),
+      );
 
   Widget _todayRow(Map<String, dynamic> e) {
-    final status = e["lifecycle"]?.toString();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: kDark.withValues(alpha: 0.06))),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () => widget.onOpenExpense != null ? widget.onOpenExpense!(e) : widget.onOpenExpenses(),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(e["description"]?.toString() ?? "Expense",
-                    maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: kDark)),
-                const SizedBox(height: 2),
-                Text("${e["category"] ?? "General"} · ${postedByName(e, s.companyName)} · ${dateLabel(e["date"] ?? e["createdAt"])}",
-                    style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.6))),
-                const SizedBox(height: 4),
-                Row(children: [
-                  Container(width: 6, height: 6, decoration: BoxDecoration(color: statusTone(status), shape: BoxShape.circle)),
-                  const SizedBox(width: 5),
-                  Flexible(
-                    child: Text(expenseStatusLabel(e, s.companyName),
-                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.65))),
-                  ),
-                ]),
-              ]),
-            ),
-            const SizedBox(width: 10),
-            Text(inr(e["amount"]), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: kDark)),
-          ]),
-        ),
+    return InkWell(
+      onTap: () => widget.onOpenExpense != null ? widget.onOpenExpense!(e) : widget.onOpenExpenses(),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(children: [
+          Container(width: 7, height: 7, decoration: BoxDecoration(color: kForest, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(e["description"]?.toString() ?? "Expense",
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: kForest)),
+              const SizedBox(height: 1),
+              Text("${postedByName(e, s.companyName)} · ${expenseStatusLabel(e, s.companyName)}",
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 10.5, color: kForest.withValues(alpha: 0.55))),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          Text(inr(e["amount"]), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: kForest)),
+        ]),
       ),
     );
   }
 
   Widget _sectionTitle(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(2, 14, 2, 6),
-        child: Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        padding: const EdgeInsets.fromLTRB(2, 16, 2, 6),
+        child: Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
       );
 
   Widget _compactEmpty(String text) => Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-        child: Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+        child: Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
       );
 
   Widget _todayShimmer() => Column(
@@ -365,59 +372,102 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         ],
       );
 
-  /// Summary tile; a null value shows a shimmer while it loads.
-  Widget _tile(String label, String? value, Color color, {String? sub, VoidCallback? onTap, Widget? trailing}) => Material(
+  static TextStyle get _statLabel =>
+      GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.5);
+
+  /// The one big figure at the top (company balance for managers, what the company owes staff).
+  Widget _heroCard(_Stat h) => Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          onTap: h.onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // same height on every tile, so amounts and sub-lines line up across the row
-              SizedBox(
-                height: 20,
-                child: Row(children: [
-                  Expanded(
-                    child: Text(label.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-                  ),
-                  if (trailing != null) trailing,
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(h.label.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: _statLabel),
+                  const SizedBox(height: 3),
+                  if (h.value == null)
+                    const _ShimmerBox(width: 110, height: 22)
+                  else
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(h.value!, style: GoogleFonts.inter(color: h.color, fontSize: 22, fontWeight: FontWeight.w800)),
+                    ),
+                  if (h.sub != null)
+                    Text(h.sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.55), fontSize: 11)),
                 ]),
               ),
-              const SizedBox(height: 5),
-              if (value == null)
-                const _ShimmerBox(width: 92, height: 20)
-              else
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(value, style: GoogleFonts.inter(color: color, fontSize: 19, fontWeight: FontWeight.bold)),
-                ),
-              if (sub != null) ...[
-                const SizedBox(height: 3),
-                Text(sub, style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.55), fontSize: 11)),
-              ],
+              if (h.onTap != null) Icon(Icons.chevron_right_rounded, color: kForest.withValues(alpha: 0.3)),
             ]),
           ),
         ),
       );
 
+  /// The other figures in one white card, two per row with thin dividers.
+  Widget _statGrid(List<_Stat> stats) {
+    final divider = Container(width: 1, color: kForest.withValues(alpha: 0.06));
+    final rows = <Widget>[];
+    for (var i = 0; i < stats.length; i += 2) {
+      if (i > 0) rows.add(Divider(height: 1, thickness: 1, color: kForest.withValues(alpha: 0.06)));
+      rows.add(IntrinsicHeight(
+        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Expanded(child: _statCell(stats[i])),
+          divider,
+          Expanded(child: i + 1 < stats.length ? _statCell(stats[i + 1]) : const SizedBox.shrink()),
+        ]),
+      ));
+    }
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: rows),
+    );
+  }
+
+  Widget _statCell(_Stat c) => InkWell(
+        onTap: c.onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 9, 8, 9),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              height: 18,
+              child: Row(children: [
+                Expanded(child: Text(c.label.toUpperCase(), maxLines: 1, overflow: TextOverflow.ellipsis, style: _statLabel)),
+                if (c.trailing != null) c.trailing!,
+              ]),
+            ),
+            const SizedBox(height: 2),
+            if (c.value == null)
+              const _ShimmerBox(width: 70, height: 15)
+            else
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(c.value!, style: GoogleFonts.inter(color: c.color, fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+            if (c.sub != null)
+              Text(c.sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 10.5)),
+          ]),
+        ),
+      );
+
+  /// Small quick action: icon over a short label.
   Widget _action(IconData icon, String label, VoidCallback onTap) => Material(
-        color: kForestDark,
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, color: Colors.white, size: 19),
-              const SizedBox(width: 8),
-              Flexible(child: Text(label, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13))),
+            padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, color: kForest, size: 18),
+              const SizedBox(height: 3),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w600, fontSize: 11.5)),
             ]),
           ),
         ),
@@ -429,18 +479,18 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: kDark.withValues(alpha: 0.06))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: kForest.withValues(alpha: 0.06))),
       child: Row(children: [
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(t["memo"]?.toString() ?? "Transaction",
-                maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kDark)),
+                maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kForest)),
             const SizedBox(height: 2),
             Text("${nameOf(t["createdBy"], "Manager")} · ${dateLabel(t["createdAt"])}",
-                style: GoogleFonts.inter(fontSize: 10.5, color: kDark.withValues(alpha: 0.6))),
+                style: GoogleFonts.inter(fontSize: 10.5, color: kForest.withValues(alpha: 0.6))),
           ]),
         ),
-        Text(inr(amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kDark)),
+        Text(inr(amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kForest)),
         const SizedBox(width: 6),
         if (!mine)
           TextButton(
@@ -601,6 +651,9 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
                 primaryButton("Record transaction", () async {
                   if (payeeId == null) return toast(ctx, "Choose who to reimburse", error: true);
                   if (!(cashPaid > 0) && !(offsetAmount > 0)) return toast(ctx, "Enter a valid amount", error: true);
+                  final paidFrom = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
+                  if (paidFrom.balance < cashPaid && !await topUpFund(ctx, s, paidFrom, cashPaid)) return;
+                  if (!ctx.mounted) return;
                   final res = await LedgerService.reimburse({
                     "companyId": s.companyId,
                     "userId": s.userId,

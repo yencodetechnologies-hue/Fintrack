@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { roleLabel } from "../utils.js";
 import { createCustomRole, deleteCustomRole, setMemberCustomRole, updateCustomRole } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
@@ -132,7 +133,7 @@ export default function CustomRoles({ companyId, company, user, members, definit
                         const current = roleOf(m.userId);
                         return (
                           <option key={m.userId} value={m.userId}>
-                            {m.name} · {current ? current.name : m.role === "admin" ? "Manager" : "Staff"}
+                            {m.name} · {current ? current.name : m.isAdmin ? "Admin" : roleLabel(company, m.role)}
                           </option>
                         );
                       })}

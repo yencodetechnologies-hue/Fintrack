@@ -31,6 +31,8 @@ const companyMemberSchema = new mongoose.Schema(
     advanceLockAt: { type: Date, default: null },
     // a custom role the primary admin made (Company.customRoles); role above mirrors its base (manager-like = admin)
     customRoleId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    // made Admin by an Admin: full access exactly like the company creator (role above stays "admin")
+    isAdmin: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

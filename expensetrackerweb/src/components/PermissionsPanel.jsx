@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { getPermissions, updatePermissions } from "../api.js";
+import { getPermissions, renameBuiltInRoles, updatePermissions } from "../api.js";
+import { roleNames } from "../utils.js";
+import Modal from "./Modal.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import CustomRoles from "./CustomRoles.jsx";
 
@@ -12,6 +14,7 @@ export default function PermissionsPanel({ companyId, company, members = [], use
   const [error, setError] = useState("");
   const [saving, setSaving] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [renaming, setRenaming] = useState(null); // { role: "manager"|"staff", name }
 
   useEffect(() => {
     let active = true;
@@ -61,6 +64,8 @@ export default function PermissionsPanel({ companyId, company, members = [], use
   if (!data) return <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner" /></div>;
   if (!data.canEditStaff) return <div className="card" style={{ color: "var(--muted)" }}>You can't change permissions in this company.</div>;
 
+  const names = roleNames(company);
+
   const section = (role, title, subtitle) => {
     const defs = data.definitions[role];
     const values = data[role];
@@ -78,6 +83,12 @@ export default function PermissionsPanel({ companyId, company, members = [], use
           <button type="button" className="voucher-ticket-link" disabled={Boolean(saving)} onClick={() => setAll(role, true)}>Turn all on</button>
           <span aria-hidden="true">·</span>
           <button type="button" className="voucher-ticket-link" disabled={Boolean(saving)} onClick={() => setAll(role, false)}>Turn all off</button>
+          {data.canManageRoles && (
+            <>
+              <span aria-hidden="true">·</span>
+              <button type="button" className="voucher-ticket-link" onClick={() => setRenaming({ role, name: names[role] })}>Rename</button>
+            </>
+          )}
         </div>
         <ul className="perm-list">
           {defs.map((def) => {
@@ -119,9 +130,33 @@ export default function PermissionsPanel({ companyId, company, members = [], use
         {data.role === "primary" ? " As the primary admin, these never apply to you." : " You can change staff permissions, but only for features managers have."}
       </p>
       <div className="perm-grid">
-        {data.canEditManagers && section("manager", "Managers", "Every manager except the primary admin")}
-        {section("staff", "Staff", "Every staff member")}
+        {data.canEditManagers && section("manager", names.managers, `Every ${names.manager.toLowerCase()} except the primary admin`)}
+        {section("staff", names.staffs, `Every ${names.staff.toLowerCase()}`)}
       </div>
+      {renaming && (
+        <Modal onClose={() => setRenaming(null)} maxWidth={420}>
+          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Rename {renaming.role === "manager" ? "Manager" : "Staff"} role</h2>
+          <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Shown everywhere in this company, on the web and in the app. Leave it empty to go back to "{renaming.role === "manager" ? "Manager" : "Staff"}".</p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const res = await renameBuiltInRoles(companyId, user.id, { [renaming.role]: renaming.name.trim() });
+              if (!res.success) return showToast(res.message || "Could not rename", "error");
+              setRenaming(null);
+              showToast("Role renamed");
+              setReloadKey((k) => k + 1);
+              onChanged?.();
+            }}
+          >
+            <label className="field-label">Role name</label>
+            <input className="field-input" maxLength={30} autoFocus value={renaming.name} onChange={(e) => setRenaming({ ...renaming, name: e.target.value })} />
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setRenaming(null)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+            </div>
+          </form>
+        </Modal>
+      )}
       {data.customRoles && (
         <CustomRoles
           companyId={companyId}

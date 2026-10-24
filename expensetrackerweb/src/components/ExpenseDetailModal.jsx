@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal.jsx";
 import { getLedgerExpenseReceipts, updateLedgerExpenseReceipts } from "../api.js";
-import { expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, postedByName } from "../utils.js";
+import { expenseStatusLabel, fileToBase64, formatDate, formatDateTime, money, postedByName, roleNames } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 
@@ -179,7 +179,7 @@ export default function ExpenseDetailModal({
     !isPaid && expense.useAdvance && ["Voucher balance", "Will be used when approved"],
     isPaid && paymentText && ["Payment", paymentText],
     expense.payerReference && ["Reference / UTR", <span key="ref" style={{ fontFamily: "monospace" }}>{expense.payerReference}</span>],
-    isAdmin && expense.visibleTo && ["Staff visibility", expense.visibleTo.length === 0 ? "All staff" : `${expense.visibleTo.length} selected staff`],
+    isAdmin && expense.visibleTo && [`${roleNames(company).staff} visibility`, expense.visibleTo.length === 0 ? `All ${roleNames(company).staffs.toLowerCase()}` : `${expense.visibleTo.length} selected staff`],
   ].filter(Boolean);
 
   const primaryAction =

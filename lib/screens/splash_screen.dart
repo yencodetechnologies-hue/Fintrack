@@ -18,8 +18,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
   static const Color _bg         = Color(0xFFF6F4EB); // Vintage Cream Sheet
   static const Color _forestDark = Color(0xFF113F3D); // QFin Deep Forest Green
-  static const Color _darkText   = Color(0xFF1E293B); // Deep Forest Dark Text
-  static const Color _goldAccent = Color(0xFFD4AF37); // Metallic Gold Accent
 
   @override
   void initState() {
@@ -85,17 +83,14 @@ class _SplashScreenState extends State<SplashScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Vintage QFin Emblem Container
+                  // the Q Fin logo is a full green square: shown as a rounded tile, like the app icon
                   Container(
                     width: 120,
                     height: 120,
-                    padding: const EdgeInsets.all(22),
+                    clipBehavior: Clip.antiAlias,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _goldAccent.withValues(alpha: 0.6),
-                        width: 2,
-                      ),
+                      borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
                           color: _forestDark.withValues(alpha: 0.08),
@@ -108,41 +103,8 @@ class _SplashScreenState extends State<SplashScreen> {
                       'assets/images/logo.png',
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // Tagline Pill
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _forestDark.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: _forestDark.withValues(alpha: 0.15)),
-                    ),
-                    child: Text(
-                      "FINANCIAL LEDGER",
-                      style: GoogleFonts.ibmPlexMono(
-                        color: _forestDark,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // App Title
-                  Text(
-                    AppConfig.appName,
-                    style: GoogleFonts.inter(
-                      fontSize: 38,
-                      color: _darkText,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-
-                  const SizedBox(height: 6),
+                  // the logo already says "Q FIN", so no app-name text under it
+                  const SizedBox(height: 24),
 
                   // Subtitle
                   Text(

@@ -2,20 +2,11 @@ export default function AuthLayout({ children }) {
   return (
     <div className="auth-shell">
       <div className="auth-brand-panel">
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            border: "2px solid rgba(255,255,255,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 28,
-          }}
-        >
-          <span style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 26, color: "#FDE68A" }}>Q</span>
-        </div>
+        <img
+          src="/logo.png"
+          alt="Q Fin"
+          style={{ width: 64, height: 64, borderRadius: 16, border: "1px solid rgba(255,255,255,0.28)", display: "block", marginBottom: 28 }}
+        />
         <h1 style={{ color: "#fff", fontSize: 44, maxWidth: 520, lineHeight: 1.15, margin: "0 0 18px" }}>
           Track shared company expenses, without the spreadsheet.
         </h1>

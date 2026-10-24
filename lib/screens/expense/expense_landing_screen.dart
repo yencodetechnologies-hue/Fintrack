@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
 import '../../services/ledger_service.dart';
 import '../ledger/ledger_home_screen.dart';
+import '../ledger/ledger_common.dart' show roleNameOf;
+import '../ledger/ledger_company_logo.dart';
 import 'create_expense_group_screen.dart';
 import 'group_expenses_screen.dart';
 import 'create_company_screen.dart';
@@ -566,7 +568,9 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     final isAdmin = (company["userRole"] ?? "member").toString() == "admin";
     // a custom role made by the primary admin shows by its own name
     final customRole = company["customRoleName"]?.toString() ?? "";
-    final userRole = customRole.isNotEmpty ? customRole.toUpperCase() : (isAdmin ? "MANAGER" : "STAFF");
+    final createdBy = company["createdBy"];
+    final isCreator = (createdBy is Map ? createdBy["_id"] : createdBy)?.toString() == widget.userId || company["isCompanyAdmin"] == true;
+    final userRole = (isCreator ? "Admin" : customRole.isNotEmpty ? customRole : roleNameOf(Map<String, dynamic>.from(company), isAdmin ? "manager" : "staff")).toUpperCase();
 
     return Material(
       color: Colors.transparent,
@@ -589,24 +593,8 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
           ),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: forestDark,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    name.isNotEmpty ? name[0].toUpperCase() : "C",
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
+              // the company's logo (set by its Admin in Settings), else its first letter
+              CompanyAvatar(company: Map<String, dynamic>.from(company), size: 40, radius: 12, letterBackground: forestDark),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

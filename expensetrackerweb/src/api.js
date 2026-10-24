@@ -166,7 +166,10 @@ export const settleExpenseGroup = (groupId, payload) =>
 // ---- Company ledger (shared with the mobile app) ----
 const ledgerUrl = (path) => `${getApiBase()}/api/ledger${path}`;
 export const getLedgerBalances = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/balances?userId=${userId}`));
-export const getLedgerExpenses = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/expenses?userId=${userId}`));
+// kind: expense | payment | fund
+export const getDescriptionSuggestions = (companyId, userId, kind) =>
+  get(ledgerUrl(`/companies/${companyId}/descriptions?userId=${userId}&kind=${kind}`));
+export const getLedgerExpenses =(companyId, userId) => get(ledgerUrl(`/companies/${companyId}/expenses?userId=${userId}`));
 export const createLedgerExpense = (payload) => post(ledgerUrl("/expenses"), payload);
 export const approveLedgerExpense = (expenseId, userId) => post(ledgerUrl(`/expenses/${expenseId}/approve`), { userId });
 export const rejectLedgerExpense = (expenseId, userId) => post(ledgerUrl(`/expenses/${expenseId}/reject`), { userId });
@@ -196,6 +199,10 @@ export const getLedgerIntercompany = (companyId, userId) => get(ledgerUrl(`/comp
 export const getPermissions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/permissions?userId=${userId}`));
 export const updatePermissions = (companyId, userId, role, permissions) => post(ledgerUrl(`/companies/${companyId}/permissions`), { userId, role, permissions });
 // custom roles (primary admin only)
+// rename the built-in Manager / Staff roles for this company ("" = default)
+export const renameBuiltInRoles = (companyId, userId, names) => post(ledgerUrl(`/companies/${companyId}/role-names`), { userId, ...names });
+// Admins only: make (or unmake) someone an Admin — full access like the company creator
+export const setMemberAdmin = (companyId, memberUserId, userId, admin) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/admin`), { userId, admin });
 export const createCustomRole = (companyId, userId, name) => post(ledgerUrl(`/companies/${companyId}/roles`), { userId, name });
 export const updateCustomRole = (companyId, roleId, userId, changes) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}`), { userId, ...changes });
 export const deleteCustomRole = (companyId, roleId, userId) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}/delete`), { userId });
@@ -252,6 +259,9 @@ export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
   post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
 export const updateCompanySettings = (companyId, payload) =>
   post(ledgerUrl(`/companies/${companyId}/settings`), payload);
+// company logo (data:image URL, "" removes it); primary Admin only
+export const setCompanyLogo = (companyId, userId, logo) =>
+  post(ledgerUrl(`/companies/${companyId}/logo`), { userId, logo });
 // ---- Vouchers (money given to staff up front) ----
 export const getVouchers = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/vouchers?userId=${userId}`));
 export const createVoucher = (companyId, payload) => post(ledgerUrl(`/companies/${companyId}/vouchers`), payload);

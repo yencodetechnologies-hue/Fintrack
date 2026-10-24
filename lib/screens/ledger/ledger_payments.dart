@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
 import 'ledger_dashboard_tab.dart' show BillsPreview;
 import 'ledger_period_filter.dart';
 import 'ledger_own_outstanding.dart';
@@ -28,7 +29,11 @@ class _Person {
 /// full or part amounts, plus the payment history.
 class PaymentsPage extends StatefulWidget {
   final LedgerScope scope;
-  const PaymentsPage({super.key, required this.scope});
+  /// Opened from the Home "My outstanding" tile: start with "Name (You)" picked in Payment history.
+  final bool focusOwn;
+  /// Shown as a bottom-nav tab (the home screen already has the app bar), so no app bar of its own.
+  final bool embedded;
+  const PaymentsPage({super.key, required this.scope, this.focusOwn = false, this.embedded = false});
 
   @override
   State<PaymentsPage> createState() => _PaymentsPageState();
@@ -45,7 +50,9 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   Map<String, dynamic>? _balances;
   List<Map<String, dynamic>> _txs = [];
   final _search = TextEditingController();
-  String _role = "all"; // all | managers | staff
+  // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
+  // opened from the Home "My outstanding" tile it starts on "me"
+  late String _role = widget.focusOwn ? "me" : "all";
   String _show = "owed"; // owed | all
   String _sort = "owed"; // owed | claims | name
   final Set<String> _selected = {};
@@ -128,7 +135,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
       name: debit == null ? "Someone" : acct(debit).replaceFirst("Payable to ", ""),
       how: how,
       amount: (debit?["debit"] as num?) ?? 0,
-      date: t["createdAt"]?.toString() ?? "",
+      date: (t["date"] ?? t["createdAt"])?.toString() ?? "",
       by: nameOf(t["createdBy"], "Manager"),
       method: t["method"]?.toString() ?? "",
       reference: t["reference"]?.toString() ?? "",
@@ -147,7 +154,9 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     final waiting = people.where((p) => p.owed > 0).length;
     final fundsTotal = s.funds.fold<num>(0, (a, f) => a + f.balance);
 
-    final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference})>().toList();
+    final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference})>().toList()
+      // newest payment date first (a payment can be backdated)
+      ..sort((a, b) => (DateTime.tryParse(b.date) ?? DateTime(0)).compareTo(DateTime.tryParse(a.date) ?? DateTime(0)));
     final historyNames = allHistory.map((h) => h.name).toSet().toList()..sort();
     final hq = _historySearch.text.trim().toLowerCase();
     final history = allHistory.where((h) {
@@ -172,13 +181,15 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
       data: sheetTheme,
       child: Scaffold(
         backgroundColor: kForest,
-        appBar: AppBar(
-          backgroundColor: kForest,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          title: Text("Payments", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-        ),
-        bottomNavigationBar: selectedPeople.isEmpty
+        appBar: widget.embedded
+            ? null
+            : AppBar(
+                backgroundColor: kForest,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                title: Text("Payments", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+              ),
+        bottomNavigationBar: selectedPeople.isEmpty || _role == "me"
             ? null
             : SafeArea(
                 child: Container(
@@ -213,14 +224,13 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     ),
                   ),
                   // what the company owes me: pay all or chosen bills, from company funds only
-                  SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 16), sliver: OwnOutstandingCard(scope: s, onPaid: _load)),
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList(delegate: SliverChildListDelegate([
                   _tiles([
                     _tile("Total owed", inr(sum(people)), "$waiting ${waiting == 1 ? "person" : "people"} waiting", sum(people) > 0 ? kTerracotta : kForest),
-                    _tile("Owed to managers", inr(sum(people.where((p) => p.role == "manager"))), "Paid out of their own pocket", const Color(0xFF1D4ED8)),
-                    _tile("Owed to staff", inr(sum(people.where((p) => p.role != "manager"))), "Claims and payments",
+                    _tile("Owed to ${s.managersName.toLowerCase()}", inr(sum(people.where((p) => p.role == "manager"))), "Paid out of their own pocket", const Color(0xFF1D4ED8)),
+                    _tile("Owed to ${s.staffsName.toLowerCase()}", inr(sum(people.where((p) => p.role != "manager"))), "Claims and payments",
                         sum(people.where((p) => p.role != "manager")) > 0 ? kTerracotta : kForest),
                     _tile("Company funds", inr(fundsTotal), s.funds.take(2).map((f) => "${f.name} ${inr(f.balance)}").join(" · "), kForest),
                   ]),
@@ -228,13 +238,22 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   _filterCard(
                     _searchField(_search, "Search by name or email"),
                     [
-                      _pill(Icons.group_outlined, _role, "all", {"all": "Everyone", "managers": "Managers", "staff": "Staff"}, (v) => _role = v),
+                      _pill(Icons.group_outlined, _role, "all", {"all": "Everyone", "me": "${s.userName} (You)", "managers": s.managersName, "staff": s.staffsName}, (v) => _role = v),
                       _pill(Icons.filter_list_rounded, _show, "owed", {"owed": "Owed only", "all": "Include settled"}, (v) => _show = v),
                       _pill(Icons.swap_vert_rounded, _sort, "owed", {"owed": "Highest owed", "claims": "Most claims", "name": "Name A–Z"}, (v) => _sort = v),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (visible.isEmpty)
+                    ])),
+                  ),
+                  // "Name (You)": what the company owes me, payable right here (amount / selected / all)
+                  if (_role == "me") SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 16), sliver: OwnOutstandingCard(scope: s, onPaid: _load)),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                    sliver: SliverList(delegate: SliverChildListDelegate([
+                  if (_role == "me")
+                    const SizedBox.shrink()
+                  else if (visible.isEmpty)
                     ledgerCard(
                       child: Center(
                         child: Text(_show == "owed" ? "Nobody is owed money right now." : "No one matches your search.",
@@ -266,7 +285,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   _filterCard(
                     _searchField(_historySearch, "Search payments"),
                     [
-                      _pill(Icons.person_outline_rounded, _historyPerson, "all", {"all": "Everyone", for (final n in historyNames) n: n}, (v) => _historyPerson = v),
+                      _pill(Icons.person_outline_rounded, _historyPerson, "all", {"all": "Everyone", for (final n in historyNames) n: n == s.userName ? "$n (You)" : n}, (v) => _historyPerson = v),
                       _periodPill(input, allHistory.map((h) => h.date)),
                     ],
                   ),
@@ -477,7 +496,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     final meta = [
       p.claims > 0 ? "${inr(p.claims)} in approved claims" : p.owed > 0 ? "Paid out of pocket" : "Nothing owed",
       if (p.advance > 0) "holds ${inr(p.advance)} voucher money",
-      if (me && p.owed > 0) "pay it under Your outstanding above",
+      if (me && p.owed > 0) 'pick "${s.userName} (You)" above to pay it',
     ].join(" · ");
     return InkWell(
       onTap: _payable(p) ? () => setState(() => _selected.contains(p.userId) ? _selected.remove(p.userId) : _selected.add(p.userId)) : null,
@@ -495,7 +514,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(99)),
-                  child: Text(p.role == "manager" ? "Manager" : p.role == "staff" ? "Staff" : "Former",
+                  child: Text(p.role == "manager" ? s.managerName : p.role == "staff" ? s.staffName : "Former",
                       style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: roleColor)),
                 ),
               ]),
@@ -688,7 +707,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
               if (short)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text("Only ${inr(selectedFund.balance)} available in ${selectedFund.name}.",
+                  child: Text("Only ${inr(selectedFund.balance)} available in ${selectedFund.name}. You can add money when you pay.",
                       style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
                 ),
             ],
@@ -714,9 +733,11 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
             const SizedBox(height: 16),
             primaryButton(
               "Pay ${inr(total)}",
-              short || tooMuch != null || nothing
+              tooMuch != null || nothing
                   ? null
                   : () async {
+                      if (short && !await topUpFund(ctx, s, selectedFund, total)) return;
+                      if (!ctx.mounted) return;
                       final failed = <String>[];
                       var paid = 0;
                       for (final p in people) {

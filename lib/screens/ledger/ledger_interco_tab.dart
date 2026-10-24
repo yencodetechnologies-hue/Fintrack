@@ -3,9 +3,31 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
 import 'ledger_expense_detail.dart' show dataImage, showImageViewer;
 
 /// Inter-company: payment confirmations, balances with other companies, loans (web's Inter-co tab).
+/// Inter-co as its own page (opened from More / the Home loan tiles when Payments takes its bottom-bar slot).
+class IntercoPage extends StatelessWidget {
+  final LedgerScope scope;
+  const IntercoPage({super.key, required this.scope});
+
+  @override
+  Widget build(BuildContext context) => Theme(
+        data: sheetTheme,
+        child: Scaffold(
+          backgroundColor: kForest,
+          appBar: AppBar(
+            backgroundColor: kForest,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: Text("Inter-company", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          ),
+          body: LedgerIntercoTab(scope: scope),
+        ),
+      );
+}
+
 class LedgerIntercoTab extends StatefulWidget {
   final LedgerScope scope;
   const LedgerIntercoTab({super.key, required this.scope});
@@ -311,6 +333,9 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
           primaryButton("Record repayment", () async {
             final value = double.tryParse(amount.text.trim()) ?? 0;
             if (!(value > 0)) return toast(ctx, "Enter a valid amount", error: true);
+            final paidFrom = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
+            if (paidFrom.balance < value && !await topUpFund(ctx, s, paidFrom, value)) return;
+            if (!ctx.mounted) return;
             final res = await LedgerService.repayLoan(loan["_id"].toString(), {"userId": s.userId, "amount": value, "fundId": fund, "method": method, "reference": ref.text.trim()});
             if (!ctx.mounted) return;
             if (handleResult(ctx, res, "Loan repayment recorded")) {

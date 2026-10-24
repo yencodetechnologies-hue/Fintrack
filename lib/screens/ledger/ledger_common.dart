@@ -56,6 +56,14 @@ class LedgerScope {
       ((permissionRole == "manager" || (permissionRole == "custom" && isAdmin)) && can("staff_permissions"));
   /// The primary admin, or a custom role with "Manage custom roles".
   bool get canManageRoles => isPrimary || (permissionRole == "custom" && permissions?["manage_roles"] == true);
+  // the company's names for its two built-in roles (renamable on the Permissions page)
+  String get managerName => roleNameOf(company, "manager");
+  String get staffName => roleNameOf(company, "staff");
+  String get managersName => pluralRole(managerName);
+  String get staffsName => pluralRole(staffName);
+  /// "admin"/"manager" → the manager name, anything else → the staff name.
+  String roleLabel(dynamic role) => role == "admin" || role == "manager" ? managerName : staffName;
+
   /// Managers' Settings page holds both members and company settings.
   bool get canOpenSettings => isAdmin ? (isPrimary || can("settings") || can("members")) : can("settings");
 
@@ -108,6 +116,15 @@ List<({String value, String label})> payerOptions(LedgerScope s, Map<String, dyn
     if (s.can("borrow")) (value: "borrow", label: "Borrowed from a company"),
   ];
 }
+
+/// A company's name for one of its built-in roles; blank = "Manager" / "Staff".
+String roleNameOf(Map<String, dynamic>? company, String key) {
+  final names = company?["roleNames"];
+  final v = names is Map ? (names[key]?.toString().trim() ?? "") : "";
+  return v.isNotEmpty ? v : (key == "manager" ? "Manager" : "Staff");
+}
+
+String pluralRole(String w) => RegExp(r"^staff$", caseSensitive: false).hasMatch(w) || w.toLowerCase().endsWith("s") ? w : "${w}s";
 
 /// Categories offered on the web: the base list, then the company's own, minus any a manager removed.
 const List<String> kBaseCategories = ["General", "Food & Dining", "Travel & Transport", "Office Supplies", "Utilities", "Software & Tech", "Other"];
@@ -527,3 +544,6 @@ Widget emptyState(String text) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 30),
       child: Center(child: Text(text, style: GoogleFonts.inter(color: Colors.white70))),
     );
+
+/// Managers who can pay people get Payments in the bottom bar (in Inter-co's place); Inter-co then opens from More.
+bool paymentsInNav(LedgerScope s) => s.isAdmin && s.can("reimburse");

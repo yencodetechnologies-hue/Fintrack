@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
+import { useFundTopUp } from "./FundTopUp.jsx";
 import { createVoucher } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { money } from "../utils.js";
@@ -19,11 +20,18 @@ export default function CreateVoucherModal({ companyId, user, members, funds, on
   const fund = funds.find((f) => f.fundId === fundId);
   const short = fundedBy === "company" && value > 0 && fund && Number(fund.balance) < value;
 
-  async function submit(event) {
+  const topUp = useFundTopUp({ companyId, user, funds });
+
+  function submit(event) {
     event.preventDefault();
     if (!recipientId) return showToast("Choose who gets the voucher", "error");
     if (!(value > 0)) return showToast("Enter a valid amount", "error");
     if (!purpose.trim()) return showToast("Enter what the voucher is for", "error");
+    if (short) return topUp.ask(fund, value, save);
+    save();
+  }
+
+  async function save() {
     setSaving(true);
     const res = await createVoucher(companyId, { userId: user.id, recipientId, amount: value, purpose: purpose.trim(), fundedBy, fundId: fundedBy === "company" ? fundId : undefined });
     setSaving(false);
@@ -85,16 +93,17 @@ export default function CreateVoucherModal({ companyId, user, members, funds, on
               <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)}>
                 {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
               </select>
-              {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}.</div>}
+              {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
             </>
           )}
 
           <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving || short}>{saving ? "Saving…" : "Give voucher"}</button>
+            <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving}>{saving ? "Saving…" : "Give voucher"}</button>
           </div>
         </form>
       )}
+      {topUp.ui}
     </Modal>
   );
 }

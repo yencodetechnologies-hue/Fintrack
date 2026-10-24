@@ -33,6 +33,8 @@ const companySchema = new mongoose.Schema(
       },
     ],
     gstin: { type: String, trim: true, default: "" },
+    // company logo as a small data:image URL (resized to 256px by the web/app before upload); "" = none
+    logo: { type: String, default: "" },
     currency: { type: String, default: "INR" },
     verificationThreshold: { type: Number, default: null },
     external: { type: Boolean, default: false },
@@ -56,6 +58,11 @@ const companySchema = new mongoose.Schema(
     },
     // feature switches per role, see utils/permissions.js ({ manager: { key: false }, staff: { key: false } }; missing = on)
     permissions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
+    // the company's own names for the two built-in roles (blank = "Manager" / "Staff")
+    roleNames: {
+      manager: { type: String, trim: true, default: "" },
+      staff: { type: String, trim: true, default: "" },
+    },
     // roles the primary admin created on top of Manager/Staff; permissions stores only switches that are ON (all start off)
     customRoles: [
       {

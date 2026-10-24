@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
+import 'ledger_description_field.dart';
 
 String _sid(dynamic ref) => idOf(ref);
 
@@ -136,7 +138,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
       if (isPaid && paymentText.isNotEmpty) ("Payment", _val(paymentText)),
       if ((e["payerReference"]?.toString() ?? "").isNotEmpty) ("Reference / UTR", _val(e["payerReference"].toString())),
       if (s.isAdmin && e["visibleTo"] is List)
-        ("Staff visibility", _val((e["visibleTo"] as List).isEmpty ? "All staff" : "${(e["visibleTo"] as List).length} selected staff")),
+        ("${s.staffName} visibility", _val((e["visibleTo"] as List).isEmpty ? "All ${s.staffsName.toLowerCase()}" : "${(e["visibleTo"] as List).length} selected staff")),
     ];
 
     final canReceive = canMarkReceived(s, e);
@@ -405,7 +407,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
             if (short)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text("Only ${inr(selected.balance)} available in ${selected.name}.",
+                child: Text("Only ${inr(selected.balance)} available in ${selected.name}. You can add money when you mark it received.",
                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
               ),
           ] else ...[
@@ -416,7 +418,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
               items: others
                   .map((m) => DropdownMenuItem(
                         value: m["userId"].toString(),
-                        child: Text("${m["name"]} · ${m["role"] == "admin" ? "Manager" : "Staff"}", overflow: TextOverflow.ellipsis),
+                        child: Text("${m["name"]} · ${s.roleLabel(m["role"])}", overflow: TextOverflow.ellipsis),
                       ))
                   .toList(),
               onChanged: (v) => set(() => personId = v),
@@ -435,9 +437,11 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
           const SizedBox(height: 16),
           primaryButton(
             "Mark received",
-            short || (from == "person" && personId == null)
+            from == "person" && personId == null
                 ? null
                 : () async {
+                    if (short && !await topUpFund(ctx, s, selected, amount)) return;
+                    if (!ctx.mounted) return;
                     final res = await LedgerService.markReceived(e["_id"].toString(), {
                       "userId": s.userId,
                       "from": from,
@@ -530,7 +534,7 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
                 margin: const EdgeInsets.only(top: 6),
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFFECACA))),
-                child: Text("Insufficient balance: ${inr(selected.balance)} available (${inr(amount)} required)",
+                child: Text("Insufficient balance: ${inr(selected.balance)} available (${inr(amount)} required). You can add money when you pay.",
                     style: GoogleFonts.inter(color: const Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600)),
               ),
           ],
@@ -596,9 +600,9 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
                   style: GoogleFonts.inter(color: kAmber, fontWeight: FontWeight.bold, fontSize: 12.5)),
             ),
           const SizedBox(height: 16),
-          primaryButton("Record payment", insufficient
-              ? null
-              : () async {
+          primaryButton(insufficient ? "Add money & pay" : "Record payment", () async {
+                  if (insufficient && !await topUpFund(ctx, s, selected, amount)) return;
+                  if (!ctx.mounted) return;
                   final body = <String, dynamic>{"userId": s.userId, "payer": payer, "method": method, "reference": ref.text.trim()};
                   if (receipt.isNotEmpty) body["paymentReceipt"] = receipt;
                   if (payer == "company" && otherCompany) {
@@ -661,7 +665,7 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
           if (!detailsLocked) ...[
             TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
             const SizedBox(height: 10),
-            TextField(controller: desc, decoration: fieldDecoration("Description", icon: Icons.notes_rounded)),
+            DescriptionField(companyId: s.companyId, userId: s.userId, kind: "expense", controller: desc, hint: "Description"),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               initialValue: category,
@@ -697,7 +701,7 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
               if (fundTooLow)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text("Insufficient balance in ${selected.name} (${inr(selected.balance)} available)",
+                  child: Text("Insufficient balance in ${selected.name} (${inr(selected.balance)} available). You can add money when you save.",
                       style: GoogleFonts.inter(color: kTerracotta, fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
             ],
@@ -715,9 +719,9 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
             ),
           ],
           const SizedBox(height: 16),
-          primaryButton("Save changes", fundTooLow
-              ? null
-              : () async {
+          primaryButton("Save changes", () async {
+                  if (fundTooLow && !await topUpFund(ctx, s, selected, (e["amount"] as num?) ?? 0)) return;
+                  if (!ctx.mounted) return;
                   final id = e["_id"].toString();
                   if (!detailsLocked) {
                     final amt = double.tryParse(amount.text.trim()) ?? 0;
@@ -763,7 +767,7 @@ Future<void> showVisibilitySheet(BuildContext context, LedgerScope s, Map<String
               dense: true,
               contentPadding: EdgeInsets.zero,
               controlAffinity: ListTileControlAffinity.leading,
-              title: Text("${m["name"]} (${m["role"] == "admin" ? "Manager" : "Staff"})"),
+              title: Text("${m["name"]} (${s.roleLabel(m["role"])})"),
               value: selected.contains(m["userId"].toString()),
               onChanged: (v) => set(() => v == true ? selected.add(m["userId"].toString()) : selected.remove(m["userId"].toString())),
             )),

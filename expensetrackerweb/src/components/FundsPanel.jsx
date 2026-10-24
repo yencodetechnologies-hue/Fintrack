@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
+import DescriptionInput from "./DescriptionInput.jsx";
 import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory, updateCashAccountName } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, formatDate, money } from "../utils.js";
+
+function incomeRoute(i, cashName) {
+  const to = i.destinationType === "cash" ? cashName : i.destinationName;
+  return i.sourceName ? `${to} ← ${i.sourceName}` : to;
+}
 
 export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged, refreshKey }) {
   const { showToast } = useToast();
@@ -103,19 +109,12 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       showToast(`Select a bank account or ${cashName}`, "error");
       return;
     }
-    if (destination === "cash" && !sourceBank) {
-      showToast("Select the bank account the cash is coming from", "error");
+    if (!sourceBank) {
+      showToast("Select where the money is coming from", "error");
       return;
     }
     setSaving(true);
-    const res = await addIncome(
-      company._id,
-      user.id,
-      amt,
-      destination,
-      destination === "cash" ? sourceBank : undefined,
-      incomeDescription.trim()
-    );
+    const res = await addIncome(company._id, user.id, amt, destination, sourceBank, incomeDescription.trim());
     setSaving(false);
     if (res.success) {
       setAccounts(res.bankAccounts || []);
@@ -199,25 +198,32 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
         <form onSubmit={handleSaveIncome} className="card" style={{ maxWidth: 440, marginBottom: 28 }}>
           <h3 style={{ marginTop: 0, fontSize: 15 }}>Add income</h3>
           <input className="field-input" type="number" step="0.01" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} placeholder="Amount (₹) *" style={{ marginBottom: 10 }} />
-          <input className="field-input" value={incomeDescription} onChange={(e) => setIncomeDescription(e.target.value)} placeholder="Description (optional)" style={{ marginBottom: 10 }} />
-          <select className="field-select" value={destination} onChange={(e) => setDestination(e.target.value)} style={{ marginBottom: 10 }}>
+          <div style={{ marginBottom: 10 }}>
+            <DescriptionInput companyId={company._id} userId={user.id} kind="fund" value={incomeDescription} onChange={setIncomeDescription} placeholder="Description (optional)" style={{ marginBottom: 0 }} />
+          </div>
+          <select className="field-select" value={destination} onChange={(e) => { setDestination(e.target.value); setSourceBank(""); }} style={{ marginBottom: 10 }}>
             <option value="">Add to *</option>
             <option value="cash">{cashName} ({money(cash)})</option>
             {accounts.map((b) => (
               <option key={b._id} value={b._id}>{bankAccountLabel(b)} · {money(b.balance || 0)}</option>
             ))}
           </select>
-          {destination === "cash" && (
+          {destination && (
             <>
               <select className="field-select" value={sourceBank} onChange={(e) => setSourceBank(e.target.value)} style={{ marginBottom: 6 }}>
-                <option value="">Cash coming from bank *</option>
-                {accounts.map((b) => (
+                <option value="">Money coming from *</option>
+                <option value="direct">{destination === "cash" ? "Direct cash (new money)" : "Direct income (new money)"}</option>
+                {accounts.filter((b) => b._id !== destination).map((b) => (
                   <option key={b._id} value={b._id}>{bankAccountLabel(b)} · {money(b.balance || 0)}</option>
                 ))}
               </select>
-              <p style={{ fontSize: 11, fontStyle: "italic", color: "var(--muted)", marginTop: 0 }}>
-                This amount is taken out of the selected bank's balance and added to {cashName}.
-              </p>
+              {sourceBank && (
+                <p style={{ fontSize: 11, fontStyle: "italic", color: "var(--muted)", marginTop: 0 }}>
+                  {sourceBank === "direct"
+                    ? "This amount is added as new money; no other balance changes."
+                    : "This amount is taken out of the selected bank's balance and moved here."}
+                </p>
+              )}
             </>
           )}
           <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
@@ -246,11 +252,11 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
                 <span>{i.destinationType === "cash" ? "💵" : "🏦"}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {i.description || (i.destinationType === "cash" ? `${cashName} ← ${i.sourceName}` : i.destinationName)}
+                    {i.description || incomeRoute(i, cashName)}
                   </div>
                   {i.description && (
                     <small style={{ color: "var(--muted)", fontSize: 11.5, display: "block" }}>
-                      {i.destinationType === "cash" ? `${cashName} ← ${i.sourceName}` : i.destinationName}
+                      {incomeRoute(i, cashName)}
                     </small>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_fund_topup.dart';
 
 num _round(num n) => (n * 100).round() / 100;
 
@@ -75,17 +76,17 @@ Future<void> showCreateVoucherSheet(BuildContext context, LedgerScope s, {VoidCa
             if (short)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text("Only ${inr(fund.balance)} available in ${fund.name}.",
+                child: Text("Only ${inr(fund.balance)} available in ${fund.name}. You can add money when you give it.",
                     style: GoogleFonts.inter(color: kTerracotta, fontSize: 12, fontWeight: FontWeight.w600)),
               ),
           ],
           const SizedBox(height: 16),
-          primaryButton("Give voucher", short
-              ? null
-              : () async {
+          primaryButton("Give voucher", () async {
                   if (recipientId == null) return toast(ctx, "Choose who gets the voucher", error: true);
                   if (!(value > 0)) return toast(ctx, "Enter a valid amount", error: true);
                   if (purpose.text.trim().isEmpty) return toast(ctx, "Enter what the voucher is for", error: true);
+                  if (short && !await topUpFund(ctx, s, fund, value)) return;
+                  if (!ctx.mounted) return;
                   final res = await LedgerService.createVoucher(s.companyId, {
                     "userId": s.userId,
                     "recipientId": recipientId,
@@ -300,7 +301,7 @@ class _StaffVoucherSectionState extends State<StaffVoucherSection> with LedgerAu
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
             child: Text("Hand-back of ${inr(r["amount"])} waiting for a manager to confirm · ${dateLabel(r["createdAt"])}",
-                style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.7), fontSize: 12.5)),
+                style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.7), fontSize: 12.5)),
           )),
     ]);
   }
@@ -316,8 +317,8 @@ class VoucherTicket extends StatelessWidget {
   const VoucherTicket({super.key, required this.scope, required this.voucher, required this.onClaim, required this.onClose});
 
   static const double _stub = 128;
-  static const Color _paper = Color(0xFFF0FDF6);
-  static const Color _ink = Color(0xFF047857);
+  static const Color _paper = Colors.white;
+  static const Color _ink = kForest;
 
   @override
   Widget build(BuildContext context) {
@@ -350,18 +351,18 @@ class VoucherTicket extends StatelessWidget {
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            link("Cancel", kTerracotta, () => cancelVoucherFlow(context, scope, v)),
+            link("Cancel", kForest, () => cancelVoucherFlow(context, scope, v)),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 5),
-              child: Text("·", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.35))),
+              child: Text("·", style: GoogleFonts.inter(fontSize: 12, color: kForest.withValues(alpha: 0.35))),
             ),
-            link("Delete", kTerracotta, () => deleteVoucherFlow(context, scope, v)),
+            link("Delete", kForest, () => deleteVoucherFlow(context, scope, v)),
           ]),
         ),
       ]);
     } else if (admin) {
       action = Text("Only ${nameOf(v["createdBy"], "its creator")} can close it",
-          textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55)));
+          textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, color: kForest.withValues(alpha: 0.55)));
     } else {
       action = const SizedBox.shrink();
     }
@@ -386,7 +387,7 @@ class VoucherTicket extends StatelessWidget {
                       Container(
                         width: 26,
                         height: 26,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFD1FAE5))),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: kForest.withValues(alpha: 0.12))),
                         child: const Icon(Icons.confirmation_number_outlined, size: 15, color: kForest),
                       ),
                       const SizedBox(width: 7),
@@ -399,14 +400,14 @@ class VoucherTicket extends StatelessWidget {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(99)),
+                          decoration: BoxDecoration(color: kForest.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(99)),
                           child: Text("Today", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: _ink)),
                         ),
                       ],
                     ]),
                     const SizedBox(height: 8),
                     Text(v["purpose"]?.toString() ?? "Voucher",
-                        maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kDark, fontWeight: FontWeight.w700, fontSize: 15.5)),
+                        maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 15.5)),
                     const SizedBox(height: 6),
                     Row(children: [
                       CircleAvatar(
@@ -418,11 +419,11 @@ class VoucherTicket extends StatelessWidget {
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(admin ? person : "From $person",
-                            overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: kDark)),
+                            overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: kForest)),
                       ),
                     ]),
                     const SizedBox(height: 4),
-                    Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
+                    Text(meta, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kForest.withValues(alpha: 0.55))),
                   ]),
                 ),
               ),
@@ -434,7 +435,7 @@ class VoucherTicket extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text("AMOUNT", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: kDark.withValues(alpha: 0.5))),
+                    Text("AMOUNT", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: kForest.withValues(alpha: 0.5))),
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
@@ -496,7 +497,7 @@ class _DashPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF6EE7B7)
+      ..color = kForest.withValues(alpha: 0.35)
       ..strokeWidth = 1.4;
     const dash = 5.0, gap = 4.0;
     for (var y = 12.0; y < size.height - 12; y += dash + gap) {

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_company_logo.dart';
 
 /// Company settings for both roles (web's SettingsPanel): join code, members, categories, configuration, danger zone.
 class SettingsPage extends StatefulWidget {
@@ -134,6 +135,19 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
   }
 
   // primary admin only: puts a member into one of the custom roles
+  // Admins only: someone an Admin makes Admin gets full access, like the creator
+  Future<void> _setAdmin(Map<String, dynamic> m, bool admin) async {
+    final name = m["name"]?.toString() ?? "this member";
+    if (admin) {
+      final ok = await confirmDialog(context, "Make $name an Admin?",
+          "They get full access, exactly like you: every feature, permissions, roles, and deleting the company.");
+      if (!ok || !mounted) return;
+    }
+    final res = await LedgerService.setMemberAdmin(s.companyId, m["userId"].toString(), s.userId, admin);
+    if (!mounted) return;
+    if (handleResult(context, res, admin ? "$name is now an Admin" : "$name is no longer an Admin")) notifyLedgerChanged();
+  }
+
   Future<void> _setCustomRole(Map<String, dynamic> m, String roleId) async {
     final res = await LedgerService.setMemberCustomRole(s.companyId, m["userId"].toString(), s.userId, roleId);
     if (!mounted) return;
@@ -231,6 +245,24 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
         }));
   }
 
+  bool _savingLogo = false;
+
+  Future<void> _pickLogo() async {
+    final logo = await pickCompanyLogo();
+    if (logo != null) await _saveLogo(logo);
+  }
+
+  Future<void> _saveLogo(String logo) async {
+    setState(() => _savingLogo = true);
+    final res = await LedgerService.setCompanyLogo(s.companyId, s.userId, logo);
+    if (!mounted) return;
+    setState(() => _savingLogo = false);
+    if (handleResult(context, res, logo.isEmpty ? "Logo removed" : "Logo updated")) {
+      setState(() => _company = {..._company, "logo": logo});
+      s.reload();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final expired = _secondsLeft <= 0;
@@ -283,15 +315,15 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                   isExpanded: true,
                   decoration: fieldDecoration("Role", icon: Icons.badge_rounded),
                   items: [
-                    const DropdownMenuItem(value: "member", child: Text("Staff")),
-                    const DropdownMenuItem(value: "admin", child: Text("Manager")),
+                    DropdownMenuItem(value: "member", child: Text(s.staffName)),
+                    DropdownMenuItem(value: "admin", child: Text(s.managerName)),
                     for (final r in _customRoles) DropdownMenuItem(value: "role:${r["_id"]}", child: Text(r["name"].toString(), overflow: TextOverflow.ellipsis)),
                   ],
                   onChanged: (v) => setState(() => _role = v ?? "member"),
                 )
               else
                 SegmentedButton<String>(
-                  segments: const [ButtonSegment(value: "member", label: Text("Staff")), ButtonSegment(value: "admin", label: Text("Manager"))],
+                  segments: [ButtonSegment(value: "member", label: Text(s.staffName)), ButtonSegment(value: "admin", label: Text(s.managerName))],
                   selected: {_role.startsWith("role:") ? "member" : _role},
                   onSelectionChanged: (v) => setState(() => _role = v.first),
                 ),
@@ -299,7 +331,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
               primaryButton(_adding ? "Adding…" : "Add member", _adding ? null : _addMember),
             ]),
           // the count is staff only; managers (incl. the creator) are listed but not counted
-          card("Staff (${_members.where((m) => m["role"] != "admin").length}) · ${_members.where((m) => m["role"] == "admin").length} manager${_members.where((m) => m["role"] == "admin").length == 1 ? "" : "s"}", children: [
+          card("${s.staffsName} (${_members.where((m) => m["role"] != "admin").length}) · ${_members.where((m) => m["role"] == "admin").length} ${(_members.where((m) => m["role"] == "admin").length == 1 ? s.managerName : s.managersName).toLowerCase()}", children: [
             for (final m in _members)
               Builder(builder: (_) {
                 final id = m["userId"].toString();
@@ -319,23 +351,30 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("${m["name"] ?? "Member"}${isMe ? " (You)" : ""}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                        Text("${isCreator ? "Manager · Creator" : (customRole.isNotEmpty ? customRole : (isManager ? "Manager" : "Staff"))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
+                        Text("${isCreator ? "Admin · Creator" : m["isAdmin"] == true ? "Admin" : (customRole.isNotEmpty ? customRole : (isManager ? s.managerName : s.staffName))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
                             style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
                       ]),
                     ),
-                    if (s.isAdmin && s.can("members") && !isCreator && !isMe)
+                    // an Admin can only be changed by an Admin
+                    if (s.isAdmin && (s.can("members") || s.isPrimary) && !isCreator && !isMe && (m["isAdmin"] != true || s.isPrimary))
                       PopupMenuButton<String>(
                         icon: const Icon(Icons.more_vert_rounded, color: kDark),
                         onSelected: (v) => v == "remove"
                             ? _remove(m)
+                            : v == "coadmin" || v == "uncoadmin"
+                                ? _setAdmin(m, v == "coadmin")
                             : v.startsWith("role:")
                                 ? _setCustomRole(m, v.substring(5))
                                 : _setRole(m, v),
                         itemBuilder: (_) => [
                           // someone in a custom role: only the primary admin can change them
+                          if (s.isPrimary)
+                            m["isAdmin"] == true
+                                ? const PopupMenuItem(value: "uncoadmin", child: Text("Remove Admin access"))
+                                : const PopupMenuItem(value: "coadmin", child: Text("Make Admin")),
                           if (customRole.isEmpty || s.canManageRoles) ...[
-                            if (customRole.isNotEmpty || !isManager) const PopupMenuItem(value: "admin", child: Text("Make manager")),
-                            if (customRole.isNotEmpty || isManager) const PopupMenuItem(value: "member", child: Text("Make staff")),
+                            if (customRole.isNotEmpty || !isManager) PopupMenuItem(value: "admin", child: Text("Make ${s.managerName.toLowerCase()}")),
+                            if (customRole.isNotEmpty || isManager) PopupMenuItem(value: "member", child: Text("Make ${s.staffName.toLowerCase()}")),
                           ],
                           if (s.canManageRoles)
                             for (final r in List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []))
@@ -348,6 +387,28 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                 );
               }),
           ]),
+          // logo on the company tiles: the primary Admin only (the server checks too)
+          if (s.isPrimary)
+            card("Company logo", sub: "Shown on the company tile for everyone in ${s.companyName}.", children: [
+              Row(children: [
+                CompanyAvatar(company: _company, size: 56, radius: 14),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Wrap(spacing: 8, runSpacing: 6, children: [
+                    ElevatedButton(
+                      onPressed: _savingLogo ? null : _pickLogo,
+                      child: Text(_savingLogo ? "Saving…" : (_company["logo"]?.toString().isNotEmpty ?? false) ? "Change" : "Upload logo"),
+                    ),
+                    if (_company["logo"]?.toString().isNotEmpty ?? false)
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(foregroundColor: kTerracotta, side: const BorderSide(color: kTerracotta)),
+                        onPressed: _savingLogo ? null : () => _saveLogo(""),
+                        child: const Text("Remove"),
+                      ),
+                  ]),
+                ),
+              ]),
+            ]),
           if (s.isAdmin && s.can("settings"))
             card("Expense categories", sub: "${companyCategories(_company).length} categories offered when posting expenses.", children: [
               OutlinedButton(onPressed: _manageCategories, child: const Text("Manage categories")),
@@ -363,7 +424,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
             if (s.isAdmin && s.can("settings")) ...[const SizedBox(height: 12), primaryButton("Save settings", _save)],
           ]),
           // the primary admin (company creator), or a custom role with "Delete the company"
-          if (creatorId == s.userId || s.permissions?["delete_company"] == true)
+          if (creatorId == s.userId || s.isPrimary || s.permissions?["delete_company"] == true)
             card("Danger zone", titleColor: kTerracotta, sub: "Deleting the company removes it and all its expenses for everyone.", children: [
               OutlinedButton(
                 style: OutlinedButton.styleFrom(foregroundColor: kTerracotta, side: const BorderSide(color: kTerracotta)),

@@ -1,3 +1,4 @@
+import { CompanyAvatar } from "../components/CompanyLogo.jsx";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
@@ -6,6 +7,7 @@ import { createCompany, getCompanyMemberCandidates, getUserCompanies, getUserExp
 import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 import CreateGroupModal from "../components/CreateGroupModal.jsx";
+import { roleLabel } from "../utils.js";
 
 export default function CompaniesPage() {
   const { user } = useAuth();
@@ -152,17 +154,17 @@ export default function CompaniesPage() {
   }
 
   return (
-    <AppLayout title={activeView === "groups" ? "Groups" : "Companies"}>
+    <AppLayout title={activeView === "groups" ? "Groups" : "Companies"} light>
 
-      <div className="container" style={{ padding: "52px 32px 70px" }}>
+      <div className="container landing-light" style={{ padding: "52px 32px 70px" }}>
         <div style={{ marginBottom: 36 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>Workspace</div>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
-            <h1 style={{ color: "#fff", fontSize: 36, margin: 0, lineHeight: 1.15 }}>
+            <h1 style={{ color: "var(--dark-text)", fontSize: 36, margin: 0, lineHeight: 1.15 }}>
               {activeView === "companies" ? "Your companies" : "Your groups"}
             </h1>
           </div>
-          <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 14.5, marginTop: 12, maxWidth: 520 }}>
+          <p style={{ color: "var(--muted)", fontSize: 14.5, marginTop: 12, maxWidth: 520 }}>
             {activeView === "companies" ? "Pick a company to open its ledger, or create a new one to start tracking shared expenses." : "Create a group inside a company and track shared group expenses together."}
           </p>
         </div>
@@ -191,31 +193,16 @@ export default function CompaniesPage() {
             {companies.map((c) => (
               <button
                 key={c._id}
-                className="list-row"
-                style={{ textAlign: "left", border: "1px solid var(--slate-border)", cursor: "pointer", padding: 20 }}
+                className="list-row company-tile"
+                style={{ textAlign: "left", cursor: "pointer", padding: 20 }}
                 onClick={() => navigate(`/company/${c._id}`)}
               >
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 11,
-                    background: "var(--forest)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff",
-                    fontWeight: 700,
-                    fontSize: 17,
-                    marginBottom: 14,
-                  }}
-                >
-                  {c.name?.[0]?.toUpperCase() || "C"}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{c.name}</div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span className="pill" style={{ background: c.userRole === "admin" ? "rgba(25, 87, 84,0.1)" : "var(--slate-border-2)", color: c.userRole === "admin" ? "var(--forest)" : "var(--dark-text)" }}>
-                    {c.customRoleName || (c.userRole === "admin" ? "Manager" : "Staff")}
+                {/* the company's logo (set by its Admin in Settings), else its first letter */}
+                <CompanyAvatar company={c} size={44} radius={11} style={{ marginBottom: 14 }} />
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "#fff" }}>{c.name}</div>
+                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span className="pill" style={{ background: c.userRole === "admin" ? "#fff" : "rgba(255,255,255,0.18)", color: c.userRole === "admin" ? "var(--forest)" : "#fff" }}>
+                    {c.isCompanyAdmin || String(c.createdBy?._id || c.createdBy) === String(user.id) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}
                   </span>
                   {c.details ? <span>{c.details}</span> : null}
                 </div>

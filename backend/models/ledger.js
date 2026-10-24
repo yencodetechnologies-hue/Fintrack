@@ -23,6 +23,7 @@ const transactionSchema = new Schema(
     type: { type: String, enum: ["admin_paid", "company_paid", "borrowed", "reimburse", "lend", "intercompany", "routed", "loan_repayment", "reversal", "voucher_issue", "voucher_claim", "advance_used", "advance_offset", "advance_return"], required: true },
     date: { type: Date, default: Date.now },
     memo: { type: String, default: "" },
+    note: { type: String, default: "" }, // the user's own description, kept apart from the generated memo
     method: { type: String, default: "" },
     reference: { type: String, default: "" },
     expenseId: { type: ObjectId, ref: "Expense", default: null },

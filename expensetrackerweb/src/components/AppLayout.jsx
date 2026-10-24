@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { getUserCompanies } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import { tabAllowed } from "../permissions.js";
+import { roleLabel } from "../utils.js";
 
 const LAST_COMPANY_KEY = "et_selected_company";
 
@@ -67,7 +68,7 @@ const WORKSPACE = [
 // On the company workspace, pass activeTab/onTabChange; elsewhere the workspace links open the last-used company.
 const ALL_ON = () => true;
 
-export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, roleName, activeTab, onTabChange, title }) {
+export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, roleName, activeTab, onTabChange, title, light = false }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,16 +113,16 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
     <div className="layout">
       <header className="layout-topbar">
         <button type="button" className="layout-menu-btn" aria-label="Open menu" onClick={() => setMenuOpen(true)}>☰</button>
-        <span className="layout-brand-mark">Q</span>
+        <img src="/logo.png" alt="" className="layout-brand-mark" />
         <span className="layout-topbar-title">{title || current?.name || "Q Fin"}</span>
       </header>
 
       {menuOpen && <div className="layout-scrim" onClick={() => setMenuOpen(false)} />}
 
       <aside className={`layout-sidebar ${menuOpen ? "open" : ""}`}>
-        <Link to="/companies" className="layout-brand">
-          <span className="layout-brand-mark">Q</span>
-          <span>Q Fin</span>
+        {/* the wordmark already reads "Q FIN", so no separate name text */}
+        <Link to="/companies" className="layout-brand" aria-label="Q Fin home">
+          <img src="/logo-wordmark.png" alt="Q Fin" className="layout-brand-wordmark" />
         </Link>
 
         {companies.length > 0 && (
@@ -136,11 +137,13 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
               {companies.map((c) => <option key={c._id} value={String(c._id)}>{c.name}</option>)}
             </select>
             <span className="sidebar-company-chevron" aria-hidden="true" />
-            {current && <small>{(roleName || current.customRoleName) ? `You're ${roleName || current.customRoleName}` : admin ? "You're a manager" : "Staff"}</small>}
+            {/* the company creator (primary admin) is "Admin"; others show their role */}
+            {current && <small>{String(current.createdBy?._id || current.createdBy) === String(user.id) || current.isCompanyAdmin || permissionRole === "primary" ? "You're Admin" : (roleName || current.customRoleName) ? `You're ${roleName || current.customRoleName}` : `You're ${roleLabel(current, admin ? "admin" : "member")}`}</small>}
           </div>
         )}
 
-        {current && (
+        {/* the company's own pages: only while inside a company (not on Companies / Groups / Profile) */}
+        {current && onWorkspace && (
           <>
             <div className="sidebar-section-label">Workspace</div>
             {WORKSPACE.filter((item) => (!item.adminOnly || admin) && (!onWorkspace ? item.tab !== "permissions" : tabAllowed(item.tab, { admin, can, permissionRole }))).map((item) => (
@@ -180,7 +183,7 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
         </div>
       </aside>
 
-      <main className="layout-main">{children}</main>
+      <main className={`layout-main${light ? " layout-main-light" : ""}`}>{children}</main>
 
       {confirmingLogout && (
         <ConfirmDialog

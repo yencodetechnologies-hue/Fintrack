@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { setMemberCustomRole } from "../api.js";
+import { setMemberAdmin, setMemberCustomRole } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
-import { companyCategories } from "../utils.js";
+import { CompanyLogoCard } from "./CompanyLogo.jsx";
+import { companyCategories, roleLabel, roleNames } from "../utils.js";
 import {
   addCompanyMember,
   deleteCompany,
@@ -15,7 +16,7 @@ import {
 import { useToast } from "../context/ToastContext.jsx";
 import { useNavigate } from "react-router-dom";
 
-export default function SettingsPanel({ company, members, user, isAdmin, can = () => true, onChanged }) {
+export default function SettingsPanel({ company, members, user, isAdmin, can = () => true, powers = {}, onChanged }) {
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -110,8 +111,17 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
   }
 
   // primary admin only: puts a member into one of the custom roles (Permissions page)
+  const names = roleNames(company);
   // the primary admin, or a custom role with "Manage custom roles"
-  const isPrimary = String(company.createdBy?._id || company.createdBy) === String(user.id) || can("manage_roles");
+  const isPrimary = Boolean(powers.manageRoles);
+  const iAmAdmin = Boolean(powers.admin); // creator or someone an Admin made Admin
+  async function handleAdmin(memberUserId, admin) {
+    const res = await setMemberAdmin(company._id, memberUserId, user.id, admin);
+    if (res.success) {
+      showToast(admin ? "Now an Admin" : "No longer an Admin");
+      onChanged();
+    } else showToast(res.message || "Could not change", "error");
+  }
   // the role picker's value: "member" | "admin" | "role:<customRoleId>"
   function inviteTarget(value) {
     if (String(value).startsWith("role:")) {
@@ -254,8 +264,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
               onChange={(e) => setInviteRole(e.target.value)}
               style={{ flex: 1, minWidth: 110 }}
             >
-              <option value="member">Staff</option>
-              <option value="admin">Manager</option>
+              <option value="member">{names.staff}</option>
+              <option value="admin">{names.manager}</option>
               {/* custom roles: only the primary admin can add people into them */}
               {isPrimary && (company.customRoles || []).map((r) => (
                 <option key={r._id} value={`role:${r._id}`}>{r.name}</option>
@@ -270,9 +280,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
 
       {/* the count is staff only; managers (incl. the creator) are listed but not counted */}
       <h3 style={{ fontSize: 16, marginBottom: 10 }}>
-        Staff ({members.filter((m) => m.role !== "admin").length})
+        {names.staffs} ({members.filter((m) => m.role !== "admin").length})
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 8 }}>
-          · {members.filter((m) => m.role === "admin").length} manager{members.filter((m) => m.role === "admin").length === 1 ? "" : "s"}
+          · {members.filter((m) => m.role === "admin").length} {(members.filter((m) => m.role === "admin").length === 1 ? names.manager : names.managers).toLowerCase()}
         </span>
       </h3>
       <div className="card" style={{ maxWidth: 560, padding: 6, marginBottom: 28 }}>
@@ -308,22 +318,31 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
                 <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
-                  {isCreator ? "Owner / Creator" : m.customRoleName ? m.customRoleName : m.role === "admin" ? "Manager" : "Staff"}
+                  {isCreator ? "Admin · Creator" : m.isAdmin ? "Admin" : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)}
                 </div>
               </div>
 
-              {isAdmin && can("members") && !isCreator && (
+              {isAdmin && (can("members") || iAmAdmin) && !isCreator && (!m.isAdmin || iAmAdmin) && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <select
                     className="field-select"
                     style={{ padding: "4px 8px", fontSize: 12 }}
-                    value={m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "admin" : "member"}
+                    value={m.isAdmin ? "coadmin" : m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "admin" : "member"}
                     disabled={Boolean(m.customRoleId) && !isPrimary}
                     title={m.customRoleId && !isPrimary ? "Only the primary admin can change someone in a custom role" : undefined}
-                    onChange={(e) => (e.target.value.startsWith("role:") ? handleCustomRole(m.userId, e.target.value.slice(5)) : handleRoleChange(m.userId, e.target.value))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "coadmin") return handleAdmin(m.userId, true);
+                      if (v.startsWith("role:")) return handleCustomRole(m.userId, v.slice(5));
+                      // an Admin back to manager just loses Admin; to staff, the role change clears it too
+                      if (m.isAdmin && v === "admin") return handleAdmin(m.userId, false);
+                      return handleRoleChange(m.userId, v);
+                    }}
                   >
-                    <option value="member">Staff</option>
-                    <option value="admin">Manager</option>
+                    <option value="member">{names.staff}</option>
+                    <option value="admin">{names.manager}</option>
+                    {/* only an Admin can make someone an Admin (full access, like the creator) */}
+                    {(iAmAdmin || m.isAdmin) && <option value="coadmin" disabled={!iAmAdmin}>Admin</option>}
                     {(isPrimary || m.customRoleId) && (company.customRoles || []).map((r) => (
                       <option key={r._id} value={`role:${r._id}`} disabled={!isPrimary}>{r.name}</option>
                     ))}
@@ -341,6 +360,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
           );
         })}
       </div>
+
+      {/* logo: the primary Admin only */}
+      {powers.admin && <CompanyLogoCard company={company} user={user} onChanged={onChanged} />}
 
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -406,7 +428,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       )}
 
       {/* only the primary admin (company creator) can delete the company */}
-      {(String(company.createdBy?._id || company.createdBy) === String(user.id) || can("delete_company")) && (
+      {powers.deleteCompany && (
         <>
           <h3 style={{ fontSize: 16, marginBottom: 10, color: "var(--terracotta)" }}>Danger Zone</h3>
           <div className="card" style={{ maxWidth: 560, borderColor: "var(--terracotta-soft)" }}>

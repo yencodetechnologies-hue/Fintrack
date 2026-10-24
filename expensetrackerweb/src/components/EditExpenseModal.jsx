@@ -1,5 +1,7 @@
 import { useState } from "react";
 import Modal from "./Modal.jsx";
+import DescriptionInput from "./DescriptionInput.jsx";
+import { useFundTopUp } from "./FundTopUp.jsx";
 import { changeLedgerPayerType, updateExpense, updateLedgerExpense, updateLedgerExpenseReceipts } from "../api.js";
 import { fileToBase64, money } from "../utils.js";
 import { useToast } from "../context/ToastContext.jsx";
@@ -56,15 +58,18 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
   // company's current categories; the expense keeps its own even if that category was later removed
   const categoryOptions = Array.from(new Set([...companyCategories({ customCategories, hiddenCategories }), expense.category].filter(Boolean)));
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  const topUp = useFundTopUp({ companyId: expense.companyId?._id || expense.companyId, user, funds });
+
+  // funded: money was just added to the fund, so skip the (stale) balance check
+  async function handleSubmit(e, funded = false) {
+    e?.preventDefault();
     const amt = parseFloat(amount);
     if (!detailsLocked && (!(amt > 0) || !description.trim())) {
       showToast("Enter a valid amount and description", "error");
       return;
     }
-    if (fundTooLow) {
-      showToast(`Insufficient balance in ${selectedFund.name} (${money(selectedFund.balance)} available)`, "error");
+    if (fundTooLow && !funded) {
+      topUp.ask(selectedFund, Number(expense.amount || 0), () => handleSubmit(null, true));
       return;
     }
     setSaving(true);
@@ -143,7 +148,7 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
                   ))}
                 </select>
                 <small style={{ display: "block", marginTop: 6, color: fundTooLow ? "var(--terracotta)" : "var(--muted)" }}>
-                  {fundTooLow ? "Not enough balance in this fund." : `${money(expense.amount)} will be taken from this fund.`}
+                  {fundTooLow ? "Not enough balance in this fund. You can add money when you save." :`${money(expense.amount)} will be taken from this fund.`}
                 </small>
               </>
             )}
@@ -160,7 +165,17 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
         <input className="field-input" type="number" step="0.01" value={amount} disabled={detailsLocked} onChange={(e) => setAmount(e.target.value)} style={{ marginBottom: 14 }} />
 
         <label className="field-label">Description</label>
-        <input className="field-input" value={description} disabled={detailsLocked} onChange={(e) => setDescription(e.target.value)} style={{ marginBottom: 14 }} />
+        <div style={{ marginBottom: 14 }}>
+          <DescriptionInput
+            companyId={expense.companyId?._id || expense.companyId}
+            userId={user.id}
+            kind="expense"
+            value={description}
+            disabled={detailsLocked}
+            onChange={setDescription}
+            style={{ marginBottom: 0 }}
+          />
+        </div>
 
         <label className="field-label">Category</label>
         <select className="field-select" value={category} disabled={detailsLocked} onChange={(e) => setCategory(e.target.value)} style={{ marginBottom: 14 }}>
@@ -184,11 +199,12 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
 
         <div style={{ display: "flex", gap: 10 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={saving || fundTooLow}>
+          <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </form>
+      {topUp.ui}
     </Modal>
   );
 }

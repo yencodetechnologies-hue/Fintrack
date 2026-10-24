@@ -10,6 +10,7 @@ import 'ledger_expenses_tab.dart';
 import 'ledger_interco_tab.dart';
 import 'ledger_reports_tab.dart';
 import 'ledger_more_tab.dart';
+import 'ledger_payments.dart';
 
 /// A company's workspace: the web's Home / Expenses / Inter-co / Reports (+ Analysis) / More, as bottom tabs.
 class LedgerHomeScreen extends StatefulWidget {
@@ -160,13 +161,21 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         build: (s) => LedgerDashboardTab(
               scope: s,
               onOpenExpenses: () => setState(() => _tab = 1),
-              // Inter-co is the third tab whenever it is shown (hidden by the "Inter-company" switch)
-              onOpenInterco: s.can("intercompany") ? () => setState(() => _tab = 2) : null,
+              // Inter-co is the third tab only when Payments isn't there; otherwise it opens from More
+              onOpenInterco: !s.can("intercompany")
+                  ? null
+                  : paymentsInNav(s)
+                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => IntercoPage(scope: s)))
+                      : () => setState(() => _tab = 2),
               onOpenExpense: (e) => showExpenseDetail(context, s, e),
             )
       ),
       (icon: Icons.receipt_long_rounded, label: "Expenses", build: (s) => LedgerExpensesTab(scope: s)),
-      if (scope?.can("intercompany") ?? true) (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
+      // managers who can pay people get Payments here (Inter-co then moves to More); everyone else keeps Inter-co
+      if (scope != null && paymentsInNav(scope))
+        (icon: Icons.payments_rounded, label: "Payments", build: (s) => PaymentsPage(scope: s, embedded: true))
+      else if (scope?.can("intercompany") ?? true)
+        (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
       if (admin && (scope!.can("reports") || scope.can("analysis")))
         (icon: Icons.bar_chart_rounded, label: "Reports", build: (s) => LedgerReportsTab(scope: s)),
       (icon: Icons.more_horiz_rounded, label: "More", build: (s) => LedgerMoreTab(scope: s)),
@@ -228,7 +237,10 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                     padding: const EdgeInsets.only(left: 16, bottom: 6),
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Text((scope.roleName?.isNotEmpty ?? false) ? "You're ${scope.roleName}" : (scope.isAdmin ? "You're a manager" : "You're staff"),
+                      // the company creator (primary admin) is "Admin"; others show their role
+                      child: Text(scope.isPrimary || idOf(scope.company["createdBy"]) == widget.userId
+                          ? "You're Admin"
+                          : (scope.roleName?.isNotEmpty ?? false) ? "You're ${scope.roleName}" : "You're ${scope.roleLabel(scope.isAdmin ? "admin" : "member")}",
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
                     ),
                   ),

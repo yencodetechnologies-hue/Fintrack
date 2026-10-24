@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_description_field.dart';
+import 'ledger_fund_topup.dart';
 
 num _round(num n) => (n * 100).round() / 100;
 String _keyOf(Map<String, dynamic> b) => b["transactionId"] != null ? "tx:${b["transactionId"]}" : "exp:${b["expenseId"]}";
@@ -27,6 +30,14 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
   LedgerScope get s => widget.scope;
   List<Map<String, dynamic>>? _bills;
   final Set<String> _selected = {};
+  // typed amount: goes to the oldest bills first; typing and ticking are two ways to choose (one clears the other)
+  final _amount = TextEditingController();
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -56,6 +67,26 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
     final chosen = bills.where((b) => _selected.contains(_keyOf(b))).toList();
     final allOn = chosen.length == bills.length;
 
+    // bills oldest first (by bill date) — the order a typed amount is applied in
+    DateTime when(Map<String, dynamic> b) => DateTime.tryParse((b["date"] ?? b["postedAt"] ?? "").toString()) ?? DateTime(2000);
+    final sorted = [...bills]..sort((a, b) => when(a).compareTo(when(b)));
+    final typed = _round(num.tryParse(_amount.text.trim()) ?? 0);
+    final byAmount = typed > 0;
+    final tooMuch = typed > total + 0.001;
+    final plan = <String, ({num take, String state})>{};
+    var left = typed < total ? typed : total;
+    for (final b in sorted) {
+      final remaining = (b["remaining"] as num?) ?? 0;
+      final take = _round(left <= 0 ? 0 : (left < remaining ? left : remaining));
+      left = _round(left - take);
+      plan[_keyOf(b)] = (take: take, state: take <= 0 ? "open" : (take < remaining ? "part" : "closed"));
+    }
+    final paidNow = byAmount ? (typed < total ? typed : total) : _sum(chosen);
+    void tick(Map<String, dynamic> b) => setState(() {
+          _amount.clear();
+          _selected.contains(_keyOf(b)) ? _selected.remove(_keyOf(b)) : _selected.add(_keyOf(b));
+        });
+
     final header = ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       child: Container(
@@ -64,19 +95,63 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
           Text("YOUR OUTSTANDING", style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: kDark.withValues(alpha: 0.55))),
           const SizedBox(height: 3),
-          // ticked bills come off the total: what would still be owed after paying them
-          Text(inr(_round(total - _sum(chosen))), style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: kTerracotta)),
+          // what's chosen (typed amount or ticked bills) comes off the total: what would still be owed after
+          Text(inr(_round(total - paidNow)), style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: kTerracotta)),
           Text(
-            chosen.isEmpty
-                ? "${s.companyName} owes you this · paid from company Cash/Bank"
-                : "${inr(_sum(chosen))} selected · left after paying the selected bills",
-            style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6)),
+            tooMuch
+                ? "You're owed only ${inr(total)}"
+                : byAmount
+                    ? "${inr(typed)} to your oldest bills · left after paying"
+                    : chosen.isEmpty
+                        ? "${s.companyName} owes you this · paid from company Cash/Bank"
+                        : "${inr(_sum(chosen))} selected · left after paying the selected bills",
+            style: GoogleFonts.inter(fontSize: 12, color: tooMuch ? kTerracotta : kDark.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 12),
-          // two soft actions side by side, the main one full width underneath
+          // pay an amount: type it, the bills it covers show below, then Pay
+          Container(
+            height: 50,
+            padding: const EdgeInsets.only(left: 12, right: 5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: tooMuch ? kTerracotta : kForest, width: 1.5),
+            ),
+            child: Row(children: [
+              Text("₹", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: kForest)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: TextField(
+                  controller: _amount,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(_selected.clear),
+                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: kDark),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: "Enter amount",
+                    hintStyle: GoogleFonts.inter(fontSize: 14, color: kDark.withValues(alpha: 0.4)),
+                  ),
+                ),
+              ),
+              SizedBox(
+                height: 38,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kForest,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: !byAmount || tooMuch ? null : () => _payAmount(typed),
+                  child: Text("Pay", style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
+                ),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 10),
           Row(children: [
-            Expanded(child: _softButton(Icons.currency_rupee_rounded, "Pay an amount", () => _payAmount(bills))),
-            const SizedBox(width: 10),
             Expanded(
               child: _softButton(
                 Icons.checklist_rounded,
@@ -84,28 +159,44 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                 chosen.isEmpty ? null : () => _pay(chosen),
               ),
             ),
-          ]),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kForest,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kForest,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  onPressed: () => _pay(bills),
+                  icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
+                  label: FittedBox(child: Text("Pay all · ${inr(total)}", style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w800))),
+                ),
               ),
-              onPressed: () => _pay(bills),
-              icon: const Icon(Icons.account_balance_wallet_rounded, size: 19),
-              label: Text("Pay all · ${inr(total)}", style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800)),
             ),
-          ),
+          ]),
           const SizedBox(height: 10),
           const Divider(height: 1, color: Color(0xFFE2E8F0)),
         ]),
       ),
     );
+
+    Widget planTag(String state, num take, num remaining) {
+      final (bg, fg, text) = switch (state) {
+        "closed" => (const Color(0xFFD1FAE5), const Color(0xFF047857), "Closes"),
+        "part" => (const Color(0xFFFFEDD5), const Color(0xFFC2410C), "${inr(take)} of ${inr(remaining)}"),
+        _ => (const Color(0xFFF1F5F9), kDark.withValues(alpha: 0.55), "Stays owed"),
+      };
+      return Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+        child: Text(text, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg)),
+      );
+    }
 
     final list = Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -116,41 +207,50 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
           dense: true,
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
-          value: allOn,
-          onChanged: (_) => setState(() => allOn ? _selected.clear() : _selected.addAll(bills.map(_keyOf))),
-          title: Text("Select all (${bills.length})", style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: kDark)),
+          value: byAmount ? false : allOn,
+          onChanged: byAmount
+              ? null
+              : (_) => setState(() {
+                    _amount.clear();
+                    allOn ? _selected.clear() : _selected.addAll(bills.map(_keyOf));
+                  }),
+          title: Text(byAmount ? "Covered by the amount (oldest first)" : "Select all (${bills.length})",
+              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: kDark)),
         ),
-        for (final b in bills) ...[
+        for (final b in sorted) ...[
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          InkWell(
-            onTap: () => setState(() => _selected.contains(_keyOf(b)) ? _selected.remove(_keyOf(b)) : _selected.add(_keyOf(b))),
-            child: Container(
-              color: _selected.contains(_keyOf(b)) ? const Color(0xFFF0FDF6) : null,
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(children: [
-                Checkbox(
-                  value: _selected.contains(_keyOf(b)),
-                  onChanged: (_) => setState(() => _selected.contains(_keyOf(b)) ? _selected.remove(_keyOf(b)) : _selected.add(_keyOf(b))),
-                ),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(b["description"]?.toString() ?? "Bill", style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: kDark)),
-                    Text(
-                      [
-                        if ((b["category"]?.toString() ?? "").isNotEmpty) b["category"],
-                        dateLabel(b["date"] ?? b["postedAt"]),
-                        b["claim"] == true
-                            ? "approved, not yet paid"
-                            : (((b["remaining"] as num?) ?? 0) < ((b["amount"] as num?) ?? 0) ? "part paid · ${inr(b["amount"])} in all" : "paid by you"),
-                      ].join(" · "),
-                      style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6)),
-                    ),
-                  ]),
-                ),
-                Text(inr(b["remaining"]), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: kDark)),
-              ]),
-            ),
-          ),
+          Builder(builder: (_) {
+            final p = plan[_keyOf(b)]!;
+            final showPlan = byAmount && !tooMuch;
+            final on = byAmount ? showPlan && p.state != "open" : _selected.contains(_keyOf(b));
+            return InkWell(
+              onTap: byAmount ? null : () => tick(b),
+              child: Container(
+                color: showPlan && p.state == "part" ? const Color(0xFFFFF7ED) : (on ? const Color(0xFFF0FDF6) : null),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  Checkbox(value: on, onChanged: byAmount ? null : (_) => tick(b)),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(b["description"]?.toString() ?? "Bill", style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: kDark)),
+                      Text(
+                        [
+                          if ((b["category"]?.toString() ?? "").isNotEmpty) b["category"],
+                          dateLabel(b["date"] ?? b["postedAt"]),
+                          b["claim"] == true
+                              ? "approved, not yet paid"
+                              : (((b["remaining"] as num?) ?? 0) < ((b["amount"] as num?) ?? 0) ? "part paid · ${inr(b["amount"])} in all" : "paid by you"),
+                        ].join(" · "),
+                        style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6)),
+                      ),
+                      if (showPlan) Padding(padding: const EdgeInsets.only(top: 4), child: planTag(p.state, p.take, (b["remaining"] as num?) ?? 0)),
+                    ]),
+                  ),
+                  Text(inr(b["remaining"]), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: kDark)),
+                ]),
+              ),
+            );
+          }),
         ],
       ]),
     );
@@ -185,107 +285,71 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
     );
   }
 
-  /// Type an amount: it goes to the oldest bills first (by bill date); the last one may be part-paid.
-  Future<void> _payAmount(List<Map<String, dynamic>> bills) async {
-    final owed = _sum(bills);
-    final sorted = [...bills]..sort((a, b) => (DateTime.tryParse((a["date"] ?? a["postedAt"] ?? "").toString()) ?? DateTime(2000))
-        .compareTo(DateTime.tryParse((b["date"] ?? b["postedAt"] ?? "").toString()) ?? DateTime(2000)));
-    final amount = TextEditingController();
+  /// Pays the amount typed on the card (its bills are already shown there, oldest first): asks only where
+  /// the money comes from, the method and a reference.
+  Future<void> _payAmount(num amount) async {
     final ref = TextEditingController();
+    final note = TextEditingController(); // description saved with the payment
     var fund = s.funds.first.id;
     var method = "Bank";
-    await showLedgerSheet(context, "Pay an amount", (ctx) => StatefulBuilder(builder: (ctx, set) {
-          final typed = _round(num.tryParse(amount.text.trim()) ?? 0);
-          final tooMuch = typed > owed + 0.001;
+    var date = DateTime.now();
+    await showLedgerSheet(context, "Pay ${inr(amount)}", (ctx) => StatefulBuilder(builder: (ctx, set) {
           final selected = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
-          final short = selected.balance < typed;
-          var left = typed;
-          final plan = sorted.map((b) {
-            final remaining = (b["remaining"] as num?) ?? 0;
-            final take = _round(left <= 0 ? 0 : (left < remaining ? left : remaining));
-            left = _round(left - take);
-            return (bill: b, take: take, state: take <= 0 ? "open" : (take < remaining ? "part" : "closed"));
-          }).toList();
+          final short = selected.balance < amount;
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Goes to your oldest bills first. You're owed ${inr(owed)}.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.7))),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: TextField(
-                  controller: amount,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: (_) => set(() {}),
-                  decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded),
-                ),
-              ),
-              TextButton(onPressed: () => set(() => amount.text = owed.toString()), child: const Text("Full")),
-            ]),
-            if (tooMuch)
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text("You're owed only ${inr(owed)}.", style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
-              ),
-            if (typed > 0 && !tooMuch)
-              Container(
-                margin: const EdgeInsets.only(top: 10),
-                constraints: const BoxConstraints(maxHeight: 220),
-                decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(10)),
-                child: ListView(shrinkWrap: true, children: [
-                  for (final p in plan)
-                    Container(
-                      color: p.state == "closed" ? const Color(0xFFECFDF5) : p.state == "part" ? const Color(0xFFFFF7ED) : null,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      child: Row(children: [
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(p.bill["description"]?.toString() ?? "Bill", style: GoogleFonts.inter(fontSize: 12.5, color: kDark)),
-                            Text(dateLabel(p.bill["date"] ?? p.bill["postedAt"]), style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
-                          ]),
-                        ),
-                        Text(
-                          p.state == "closed" ? "Closes · ${inr(p.take)}" : p.state == "part" ? "${inr(p.take)} of ${inr(p.bill["remaining"])}" : "Stays owed",
-                          style: GoogleFonts.inter(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: p.state == "closed" ? const Color(0xFF047857) : p.state == "part" ? const Color(0xFFC2410C) : kDark.withValues(alpha: 0.5),
-                          ),
-                        ),
-                      ]),
-                    ),
-                ]),
-              ),
+            Text("From company funds to you, applied to your oldest bills first (shown on the card).",
+                style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.7))),
             const SizedBox(height: 12),
             fundDropdown(s, fund, (v) => set(() => fund = v ?? "cash"), hint: "Paid from"),
             if (short)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text("Only ${inr(selected.balance)} available in ${selected.name}.",
+                child: Text("Only ${inr(selected.balance)} available in ${selected.name}. You can add money when you pay.",
                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
               ),
             const SizedBox(height: 10),
             methodChips(method, (m) => set(() => method = m)),
             const SizedBox(height: 10),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(context: ctx, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                if (picked != null) set(() => date = picked);
+              },
+              child: InputDecorator(decoration: fieldDecoration("Payment date", icon: Icons.calendar_today_rounded), child: Text(DateFormat("dd MMM yyyy").format(date))),
+            ),
+            const SizedBox(height: 10),
             TextField(controller: ref, decoration: fieldDecoration("Reference (optional) · UTR / cheque no.", icon: Icons.tag_rounded)),
+            const SizedBox(height: 10),
+            DescriptionField(
+              companyId: s.companyId,
+              userId: s.userId,
+              kind: "payment",
+              controller: note,
+              maxLength: 200,
+              hint: "Description, e.g. Reimbursed for October site visits",
+            ),
             const SizedBox(height: 16),
             primaryButton(
-              "Pay ${inr(typed)}",
-              !(typed > 0) || tooMuch || short
-                  ? null
-                  : () async {
+              "Pay ${inr(amount)}",
+              () async {
+                      if (short && !await topUpFund(ctx, s, selected, amount)) return;
+                      if (!ctx.mounted) return;
                       final res = await LedgerService.payOwnOutstanding(s.companyId, {
                         "userId": s.userId,
-                        "amount": typed,
+                        "amount": amount,
                         "fundId": fund,
                         "method": method,
                         "reference": ref.text.trim(),
+                        "note": note.text.trim(),
+                        "date": DateFormat("yyyy-MM-dd").format(date),
                       });
                       if (!ctx.mounted) return;
                       final closed = (res["closed"] as num?) ?? 0;
                       final part = ((res["bills"] as num?) ?? 0) > closed;
-                      if (handleResult(ctx, res, "${inr(res["paid"] ?? typed)} paid to you from company · $closed bill${closed == 1 ? "" : "s"} closed${part ? " · 1 part-paid" : ""}")) {
+                      if (handleResult(ctx, res, "${inr(res["paid"] ?? amount)} paid to you from company · $closed bill${closed == 1 ? "" : "s"} closed${part ? " · 1 part-paid" : ""}")) {
                         Navigator.pop(ctx);
                         _selected.clear();
+                        _amount.clear();
                         notifyLedgerChanged();
                         widget.onPaid?.call();
                       }
@@ -293,15 +357,17 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
             ),
           ]);
         }));
-    amount.dispose();
     ref.dispose();
+    note.dispose();
   }
 
   Future<void> _pay(List<Map<String, dynamic>> bills) async {
     final total = _sum(bills);
     var fund = s.funds.first.id;
     var method = "Bank";
+    var date = DateTime.now();
     final ref = TextEditingController();
+    final note = TextEditingController(); // description saved with the payment
     await showLedgerSheet(context, "Pay your outstanding", (ctx) => StatefulBuilder(builder: (ctx, set) {
           final selected = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
           final short = selected.balance < total;
@@ -313,25 +379,44 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
             if (short)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text("Only ${inr(selected.balance)} available in ${selected.name}.",
+                child: Text("Only ${inr(selected.balance)} available in ${selected.name}. You can add money when you pay.",
                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
               ),
             const SizedBox(height: 10),
             methodChips(method, (m) => set(() => method = m)),
             const SizedBox(height: 10),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(context: ctx, initialDate: date, firstDate: DateTime(2020), lastDate: DateTime.now());
+                if (picked != null) set(() => date = picked);
+              },
+              child: InputDecorator(decoration: fieldDecoration("Payment date", icon: Icons.calendar_today_rounded), child: Text(DateFormat("dd MMM yyyy").format(date))),
+            ),
+            const SizedBox(height: 10),
             TextField(controller: ref, decoration: fieldDecoration("Reference (optional) · UTR / cheque no.", icon: Icons.tag_rounded)),
+            const SizedBox(height: 10),
+            DescriptionField(
+              companyId: s.companyId,
+              userId: s.userId,
+              kind: "payment",
+              controller: note,
+              maxLength: 200,
+              hint: "Description, e.g. Reimbursed for October site visits",
+            ),
             const SizedBox(height: 16),
             primaryButton(
               "Pay ${inr(total)}",
-              short
-                  ? null
-                  : () async {
+              () async {
+                      if (short && !await topUpFund(ctx, s, selected, total)) return;
+                      if (!ctx.mounted) return;
                       final res = await LedgerService.payOwnOutstanding(s.companyId, {
                         "userId": s.userId,
                         "items": bills.map((b) => b["transactionId"] != null ? {"transactionId": b["transactionId"]} : {"expenseId": b["expenseId"]}).toList(),
                         "fundId": fund,
                         "method": method,
                         "reference": ref.text.trim(),
+                        "note": note.text.trim(),
+                        "date": DateFormat("yyyy-MM-dd").format(date),
                       });
                       if (!ctx.mounted) return;
                       final closed = (res["bills"] as num?) ?? 0;
@@ -346,5 +431,6 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
           ]);
         }));
     ref.dispose();
+    note.dispose();
   }
 }

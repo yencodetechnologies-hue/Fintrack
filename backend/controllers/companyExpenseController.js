@@ -455,6 +455,7 @@ exports.getUserCompanies = async (req, res) => {
           cashBalance: canSeeBank ? (compDoc.cashBalance || 0) : 0,
           cashAccountName: compDoc.cashAccountName || "InCash",
           userRole: isCreator ? "admin" : (m.role || "member"),
+          isCompanyAdmin: Boolean(isCreator || m.isAdmin),
           // name of my custom role here (made by the primary admin), shown instead of Manager/Staff
           customRoleName: !isCreator && m.customRoleId ? ((compDoc.customRoles || []).find((r) => String(r._id) === String(m.customRoleId))?.name || null) : null,
           joinedAt: m.joinedAt,
@@ -507,6 +508,9 @@ exports.getCompanyDetails = async (req, res) => {
         name: userObj.name || "Staff",
         email: userObj.email || "",
         role: isCreator ? "admin" : (m.role || "member"),
+        // Admin = the creator or someone an Admin made Admin (full access)
+        isAdmin: Boolean(isCreator || m.isAdmin),
+        isCreator: Boolean(isCreator),
         joinedAt: m.joinedAt,
         // custom role made by the primary admin (name shown next to Manager/Staff)
         customRoleId: !isCreator && m.customRoleId ? m.customRoleId : null,
@@ -641,6 +645,10 @@ exports.removeMember = async (req, res) => {
     const company = await Company.findById(companyId).select("createdBy").lean();
     if (company?.createdBy && company.createdBy.toString() === String(memberUserId)) {
       return res.status(400).json({ success: false, message: "The company's creator can't be removed" });
+    }
+    const target = await CompanyMember.findOne({ companyId, userId: memberUserId }).select("isAdmin").lean();
+    if (target?.isAdmin && (await permissionsFor(companyId, userId)).role !== "primary") {
+      return res.status(403).json({ success: false, message: "Only an Admin can remove another Admin" });
     }
 
     await CompanyMember.findOneAndDelete({ companyId, userId: memberUserId });
@@ -1193,7 +1201,7 @@ exports.deleteCompany = async (req, res) => {
     if (!company) {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
-    if ((!company.createdBy || company.createdBy.toString() !== userId.toString()) && !(await permissionsFor(companyId, userId)).perms?.delete_company) {
+    if ((!company.createdBy || company.createdBy.toString() !== userId.toString()) && !(await (async () => { const p = await permissionsFor(companyId, userId); return p.role === "primary" || p.perms?.delete_company === true; })())) {
       return res.status(403).json({ success: false, message: "Only the company's creator can delete the company" });
     }
 
@@ -1496,10 +1504,18 @@ exports.addIncome = async (req, res) => {
       amount: value,
       description: typeof description === "string" ? description.trim() : "",
     };
-    if (destination === "cash") {
+    if (destination === "cash" && sourceBankAccountId === "direct") {
+      // New money received as cash (not withdrawn from a bank).
+      await applyFund(companyId, { type: "cash" }, value);
+      Object.assign(record, {
+        destinationType: "cash",
+        destinationName: cashName,
+        sourceName: "Direct cash",
+      });
+    } else if (destination === "cash") {
       const source = company.bankAccounts.id(sourceBankAccountId);
       if (!source) {
-        return res.status(400).json({ success: false, message: "Select the bank account the cash is coming from" });
+        return res.status(400).json({ success: false, message: "Select where the cash is coming from" });
       }
       if ((source.balance || 0) < value) {
         return res.status(400).json({ success: false, message: "Insufficient balance in " + source.bankName + " (₹" + (source.balance || 0) + ")" });
@@ -1517,11 +1533,27 @@ exports.addIncome = async (req, res) => {
       if (!target) {
         return res.status(400).json({ success: false, message: "Select a bank account or InCash" });
       }
+      // No source / "direct" = new money; otherwise a transfer from another bank account.
+      let source = null;
+      if (sourceBankAccountId && sourceBankAccountId !== "direct") {
+        source = company.bankAccounts.id(sourceBankAccountId);
+        if (!source) {
+          return res.status(400).json({ success: false, message: "Select where the money is coming from" });
+        }
+        if (String(source._id) === String(target._id)) {
+          return res.status(400).json({ success: false, message: "Choose a different bank account to transfer from" });
+        }
+        if ((source.balance || 0) < value) {
+          return res.status(400).json({ success: false, message: "Insufficient balance in " + source.bankName + " (₹" + (source.balance || 0) + ")" });
+        }
+        await applyFund(companyId, { type: "bank", bankAccountId: source._id }, -value);
+      }
       await applyFund(companyId, { type: "bank", bankAccountId: target._id }, value);
       Object.assign(record, {
         destinationType: "bank",
         destinationBankAccountId: target._id,
         destinationName: target.bankName,
+        ...(source && { sourceBankAccountId: source._id, sourceName: source.bankName }),
       });
     }
     await new CompanyIncome(record).save();

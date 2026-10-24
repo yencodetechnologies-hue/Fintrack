@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getOutstandingReport } from "../api.js";
-import { money } from "../utils.js";
+import { money, roleNames } from "../utils.js";
 
 const th = { textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--muted)", padding: "8px 10px", borderBottom: "1px solid var(--slate-border)" };
 const td = { padding: "9px 10px", fontSize: 13, borderBottom: "1px solid var(--slate-border-2)" };
@@ -52,7 +52,7 @@ function PeopleTable({ title, rows }) {
 }
 
 // Who the company owes right now (managers, staff) and where it stands with other companies.
-export default function OutstandingReport({ companyId, userId, refreshKey }) {
+export default function OutstandingReport({ companyId, company, userId, refreshKey }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
@@ -89,8 +89,8 @@ export default function OutstandingReport({ companyId, userId, refreshKey }) {
             <Tile label="VOUCHER MONEY WITH STAFF" value={data.totals.advanceHeld || 0} />
           </div>
 
-          <PeopleTable title="Managers" rows={data.managers} />
-          <PeopleTable title="Staff" rows={data.staff} />
+          <PeopleTable title={roleNames(company).managers} rows={data.managers} />
+          <PeopleTable title={roleNames(company).staffs} rows={data.staff} />
 
           <div className="card" style={{ padding: 0, overflowX: "auto" }}>
             <h3 style={{ fontSize: 16, margin: 0, padding: "14px 14px 6px" }}>Companies</h3>

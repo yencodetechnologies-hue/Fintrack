@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_description_field.dart';
 
 /// Managers: Cash and bank balances, add income, add/remove bank accounts, rename Cash (web's Company Funds).
 class FundsPage extends StatefulWidget {
@@ -98,6 +99,12 @@ class _FundsPageState extends State<FundsPage> {
     }
   }
 
+  String _incomeRoute(Map i) {
+    final to = i["destinationType"] == "cash" ? _cashName : (i["destinationName"]?.toString() ?? "");
+    final from = i["sourceName"]?.toString() ?? "";
+    return from.isNotEmpty ? "$to ← $from" : to;
+  }
+
   void _addIncome() {
     final amount = TextEditingController();
     final desc = TextEditingController();
@@ -106,7 +113,7 @@ class _FundsPageState extends State<FundsPage> {
     showLedgerSheet(context, "Add income", (ctx) => StatefulBuilder(builder: (ctx, set) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹ *", icon: Icons.currency_rupee_rounded)),
           const SizedBox(height: 10),
-          TextField(controller: desc, decoration: fieldDecoration("Description (optional)", icon: Icons.notes_rounded)),
+          DescriptionField(companyId: s.companyId, userId: s.userId, kind: "fund", controller: desc, hint: "Description (optional)"),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: destination,
@@ -116,32 +123,46 @@ class _FundsPageState extends State<FundsPage> {
               DropdownMenuItem(value: "cash", child: Text("$_cashName (${inr(_cash)})")),
               ..._accounts.map((b) => DropdownMenuItem(value: b["_id"].toString(), child: Text("${bankLabel(b)} · ${inr(b["balance"] ?? 0)}", overflow: TextOverflow.ellipsis))),
             ],
-            onChanged: (v) => set(() => destination = v),
+            onChanged: (v) => set(() {
+              destination = v;
+              sourceBank = null;
+            }),
           ),
-          if (destination == "cash") ...[
+          if (destination != null) ...[
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              key: ValueKey(destination),
               initialValue: sourceBank,
               isExpanded: true,
-              decoration: fieldDecoration("Cash coming from bank *", icon: Icons.account_balance_rounded),
-              items: _accounts.map((b) => DropdownMenuItem(value: b["_id"].toString(), child: Text("${bankLabel(b)} · ${inr(b["balance"] ?? 0)}", overflow: TextOverflow.ellipsis))).toList(),
+              decoration: fieldDecoration("Money coming from *", icon: Icons.account_balance_rounded),
+              items: [
+                DropdownMenuItem(value: "direct", child: Text(destination == "cash" ? "Direct cash (new money)" : "Direct income (new money)")),
+                ..._accounts
+                    .where((b) => b["_id"].toString() != destination)
+                    .map((b) => DropdownMenuItem(value: b["_id"].toString(), child: Text("${bankLabel(b)} · ${inr(b["balance"] ?? 0)}", overflow: TextOverflow.ellipsis))),
+              ],
               onChanged: (v) => set(() => sourceBank = v),
             ),
-            const SizedBox(height: 4),
-            Text("This amount is taken out of the selected bank's balance and added to $_cashName.",
-                style: GoogleFonts.inter(fontSize: 11.5, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.55))),
+            if (sourceBank != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                  sourceBank == "direct"
+                      ? "This amount is added as new money; no other balance changes."
+                      : "This amount is taken out of the selected bank's balance and moved here.",
+                  style: GoogleFonts.inter(fontSize: 11.5, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.55))),
+            ],
           ],
           const SizedBox(height: 16),
           primaryButton("Save", () async {
             final amt = double.tryParse(amount.text.trim()) ?? 0;
             if (!(amt > 0)) return toast(ctx, "Enter a valid amount", error: true);
             if (destination == null) return toast(ctx, "Select a bank account or $_cashName", error: true);
-            if (destination == "cash" && sourceBank == null) return toast(ctx, "Select the bank account the cash is coming from", error: true);
+            if (sourceBank == null) return toast(ctx, "Select where the money is coming from", error: true);
             final res = await LedgerService.addIncome(s.companyId, {
               "userId": s.userId,
               "amount": amt,
               "destination": destination,
-              if (destination == "cash") "sourceBankAccountId": sourceBank,
+              "sourceBankAccountId": sourceBank,
               "description": desc.text.trim(),
             });
             if (!ctx.mounted) return;
@@ -225,13 +246,13 @@ class _FundsPageState extends State<FundsPage> {
                       title: Text(
                         (i["description"]?.toString() ?? "").isNotEmpty
                             ? i["description"].toString()
-                            : (i["destinationType"] == "cash" ? "$_cashName ← ${i["sourceName"]}" : i["destinationName"]?.toString() ?? ""),
+                            : _incomeRoute(i),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: kDark),
                       ),
                       subtitle: Text(
-                        "${(i["description"]?.toString() ?? "").isNotEmpty ? "${i["destinationType"] == "cash" ? "$_cashName ← ${i["sourceName"]}" : i["destinationName"]} · " : ""}${dateLabel(i["createdAt"])}",
+                        "${(i["description"]?.toString() ?? "").isNotEmpty ? "${_incomeRoute(i)} · " : ""}${dateLabel(i["createdAt"])}",
                         style: GoogleFonts.inter(fontSize: 11.5),
                       ),
                       trailing: Text("+${inr(i["amount"])}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kForest)),

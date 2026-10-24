@@ -49,12 +49,20 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
 
   return (
     <section ref={ref} className={`card own-outstanding${focus ? " focus" : ""}`}>
+      {/* sticks to the top while the bill list scrolls; the amount follows the ticked bills */}
       <div className="own-outstanding-head">
         <div>
-          <div className="eyebrow" style={{ marginBottom: 4 }}>Your outstanding</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>{money(total)}</div>
+          <div className="own-outstanding-title">Your outstanding</div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>
+            {/* ticked bills come off the total: what would still be owed after paying them */}
+            {money(round(total - chosenTotal))}
+          </div>
           <div style={{ color: "var(--muted)", fontSize: 12.5 }}>
-            {total > 0 ? `${company?.name || "The company"} owes you this · paid from company Cash/Bank` : "The company doesn't owe you anything."}
+            {!(total > 0)
+              ? "The company doesn't owe you anything."
+              : chosen.length
+                ? `${money(chosenTotal)} selected · left after paying the selected bills`
+                : `${company?.name || "The company"} owes you this · paid from company Cash/Bank`}
           </div>
         </div>
         {total > 0 && (

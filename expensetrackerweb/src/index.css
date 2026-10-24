@@ -5,6 +5,7 @@
   --forest-dark: #113F3D;
   --sidebar: #195754;
   --forest-light: #1F6B67;
+  --canvas: #1F6B67; /* right-hand page area behind content; the sidebar stays --sidebar */
   --mint: #10B981;
   --dark-text: #1E293B;
   --terracotta: #B8452D;
@@ -28,7 +29,7 @@ html, body, #root {
 body {
   margin: 0;
   font-family: 'Inter', system-ui, sans-serif;
-  background: var(--forest);
+  background: var(--canvas); /* page area: a shade lighter than the sidebar */
   color: var(--dark-text);
 }
 
@@ -1194,7 +1195,17 @@ a {
 /* Payments: the manager's own outstanding */
 .own-outstanding { margin-bottom: 20px; scroll-margin-top: 16px; }
 .own-outstanding.focus { box-shadow: 0 0 0 2px var(--forest); }
-.own-outstanding-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.own-outstanding-head {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+  position: sticky; top: 0; z-index: 5;
+  background: #fff;
+  margin: -18px -18px 0; padding: 18px 18px 12px;
+  border-radius: 14px 14px 0 0;
+  border-bottom: 1px solid var(--slate-border-2);
+}
+.own-outstanding-title { font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+/* phones/tablets: below the sticky top bar */
+@media (max-width: 900px) { .own-outstanding-head { top: 56px; } }
 .own-outstanding-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-top: 1px solid var(--slate-border-2); cursor: pointer; }
 .own-outstanding-row.head { border-top: 0; font-size: 12.5px; font-weight: 700; color: var(--muted); }
 .own-outstanding-row.on { background: #F0FDF6; }
@@ -1595,6 +1606,7 @@ a {
   gap: 2px;
   padding: 18px 14px 14px;
   background: var(--sidebar);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
   overflow-y: auto;
   box-shadow: 2px 0 18px rgba(0, 0, 0, 0.18);
 }

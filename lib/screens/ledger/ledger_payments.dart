@@ -203,12 +203,20 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
             ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : RefreshIndicator(
                 onRefresh: _load,
-                child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
-                  Text("Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
-                      style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
-                  const SizedBox(height: 12),
+                // a CustomScrollView so "Your outstanding" can keep its top pinned while its bills scroll
+                child: CustomScrollView(slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: Text("Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
+                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+                    ),
+                  ),
                   // what the company owes me: pay all or chosen bills, from company funds only
-                  OwnOutstandingCard(scope: s, onPaid: _load),
+                  SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 16), sliver: OwnOutstandingCard(scope: s, onPaid: _load)),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
+                    sliver: SliverList(delegate: SliverChildListDelegate([
                   _tiles([
                     _tile("Total owed", inr(sum(people)), "$waiting ${waiting == 1 ? "person" : "people"} waiting", sum(people) > 0 ? kTerracotta : kForest),
                     _tile("Owed to managers", inr(sum(people.where((p) => p.role == "manager"))), "Paid out of their own pocket", const Color(0xFF1D4ED8)),
@@ -297,6 +305,8 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                         ],
                       ]),
                     ),
+                    ])),
+                  ),
                 ]),
               ),
       ),

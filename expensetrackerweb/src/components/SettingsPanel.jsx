@@ -207,6 +207,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
         Manage the join code, direct invites, staff roles, and company configuration.
       </p>
 
+      {/* logo first: the primary Admin only */}
+      {powers.admin && <CompanyLogoCard company={company} user={user} onChanged={onChanged} />}
+
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <div className="field-label" style={{ display: "flex", justifyContent: "space-between" }}>
@@ -360,9 +363,6 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
           );
         })}
       </div>
-
-      {/* logo: the primary Admin only */}
-      {powers.admin && <CompanyLogoCard company={company} user={user} onChanged={onChanged} />}
 
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

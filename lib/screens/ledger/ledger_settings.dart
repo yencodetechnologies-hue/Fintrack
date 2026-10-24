@@ -287,6 +287,28 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
         backgroundColor: kForest,
         appBar: AppBar(backgroundColor: kForest, foregroundColor: Colors.white, elevation: 0, title: Text("Settings", style: GoogleFonts.inter(fontWeight: FontWeight.bold))),
         body: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
+          // logo first, on the company tiles: the primary Admin only (the server checks too)
+          if (s.isPrimary)
+            card("Company logo", sub: "Shown on the company tile for everyone in ${s.companyName}.", children: [
+              Row(children: [
+                CompanyAvatar(company: _company, size: 56, radius: 14),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Wrap(spacing: 8, runSpacing: 6, children: [
+                    ElevatedButton(
+                      onPressed: _savingLogo ? null : _pickLogo,
+                      child: Text(_savingLogo ? "Saving…" : (_company["logo"]?.toString().isNotEmpty ?? false) ? "Change" : "Upload logo"),
+                    ),
+                    if (_company["logo"]?.toString().isNotEmpty ?? false)
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(foregroundColor: kTerracotta, side: const BorderSide(color: kTerracotta)),
+                        onPressed: _savingLogo ? null : () => _saveLogo(""),
+                        child: const Text("Remove"),
+                      ),
+                  ]),
+                ),
+              ]),
+            ]),
           if (s.isAdmin && s.can("settings"))
             card("Join code", sub: "Share it with staff so they can join ${s.companyName}.", children: [
               Row(children: [
@@ -387,28 +409,6 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                 );
               }),
           ]),
-          // logo on the company tiles: the primary Admin only (the server checks too)
-          if (s.isPrimary)
-            card("Company logo", sub: "Shown on the company tile for everyone in ${s.companyName}.", children: [
-              Row(children: [
-                CompanyAvatar(company: _company, size: 56, radius: 14),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Wrap(spacing: 8, runSpacing: 6, children: [
-                    ElevatedButton(
-                      onPressed: _savingLogo ? null : _pickLogo,
-                      child: Text(_savingLogo ? "Saving…" : (_company["logo"]?.toString().isNotEmpty ?? false) ? "Change" : "Upload logo"),
-                    ),
-                    if (_company["logo"]?.toString().isNotEmpty ?? false)
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(foregroundColor: kTerracotta, side: const BorderSide(color: kTerracotta)),
-                        onPressed: _savingLogo ? null : () => _saveLogo(""),
-                        child: const Text("Remove"),
-                      ),
-                  ]),
-                ),
-              ]),
-            ]),
           if (s.isAdmin && s.can("settings"))
             card("Expense categories", sub: "${companyCategories(_company).length} categories offered when posting expenses.", children: [
               OutlinedButton(onPressed: _manageCategories, child: const Text("Manage categories")),

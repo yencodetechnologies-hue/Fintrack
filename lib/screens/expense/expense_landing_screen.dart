@@ -180,6 +180,28 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
         },
       );
 
+  /// Rounded header action: translucent on the green, or filled white for the main one (Done).
+  Widget _headerPill({IconData? icon, String? label, String? tooltip, bool filled = false, VoidCallback? onTap}) {
+    final fg = filled ? forestDark : Colors.white;
+    final pill = Material(
+      color: filled ? Colors.white : Colors.white.withValues(alpha: 0.12),
+      shape: StadiumBorder(side: BorderSide(color: Colors.white.withValues(alpha: filled ? 0 : 0.18))),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: label == null ? 10 : 14, vertical: 9),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (icon != null) Icon(icon, size: 18, color: fg),
+            if (icon != null && label != null) const SizedBox(width: 6),
+            if (label != null) Text(label, style: GoogleFonts.inter(color: fg, fontSize: 13, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+      ),
+    );
+    return tooltip == null ? pill : Tooltip(message: tooltip, child: pill);
+  }
+
   Future<void> _openCompanyGroup(Map<String, dynamic>? group) async {
     final changed = await showCompanyGroupSheet(context, userId: widget.userId, companies: _userCompanies, group: group);
     if (changed && mounted) _loadUserCompanies();
@@ -485,66 +507,40 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                           ]),
                         ),
                       ] else if (_userCompanies.isNotEmpty) ...[
-                        // Section Header: My Companies List
+                        // Section header: title + count, and pill actions (Reorder, Group) on the right
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              "My Companies",
-                              style: GoogleFonts.inter(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (_reordering)
-                              Row(mainAxisSize: MainAxisSize.min, children: [
-                                TextButton(
-                                  onPressed: _savingOrder ? null : () => setState(() => _reordering = false),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
-                                  child: const Text("Cancel"),
+                            Expanded(
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(
+                                  "My Companies",
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                                 ),
-                                FilledButton(
-                                  onPressed: _savingOrder ? null : _saveOrder,
-                                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: forestDark, visualDensity: VisualDensity.compact),
-                                  child: Text(_savingOrder ? "Saving…" : "Done", style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _reordering
+                                      ? "Drag to rearrange"
+                                      : "${_userCompanies.length} ${_userCompanies.length == 1 ? "company" : "companies"}",
+                                  style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5, fontWeight: FontWeight.w500),
                                 ),
-                              ])
-                            else
-                              Row(mainAxisSize: MainAxisSize.min, children: [
-                                // drag the companies into my own order
-                                if (_userCompanies.length > 1)
-                                  IconButton(
-                                    tooltip: "Reorder",
-                                    onPressed: _startReorder,
-                                    icon: const Icon(Icons.swap_vert_rounded, color: Colors.white),
-                                  ),
-                            // group companies I run into a named company group
-                            if (_userCompanies.isNotEmpty)
-                              TextButton.icon(
-                                onPressed: () => _openCompanyGroup(null),
-                                style: TextButton.styleFrom(foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
-                                icon: const Icon(Icons.create_new_folder_rounded, size: 18),
-                                label: Text("Company group", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                              )
-                            else
-                              Text(
-                                "${_userCompanies.length} Organizations",
-                                style: GoogleFonts.ibmPlexMono(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
                               ]),
+                            ),
+                            if (_reordering) ...[
+                              _headerPill(label: "Cancel", onTap: _savingOrder ? null : () => setState(() => _reordering = false)),
+                              const SizedBox(width: 8),
+                              _headerPill(icon: Icons.check_rounded, label: _savingOrder ? "Saving…" : "Done", filled: true, onTap: _savingOrder ? null : _saveOrder),
+                            ] else ...[
+                              // drag the companies into my own order
+                              if (_userCompanies.length > 1) ...[
+                                _headerPill(icon: Icons.swap_vert_rounded, tooltip: "Reorder companies", onTap: _startReorder),
+                                const SizedBox(width: 8),
+                              ],
+                              // group companies I run into a named company group
+                              _headerPill(icon: Icons.create_new_folder_outlined, label: "Group", tooltip: "Company group", onTap: () => _openCompanyGroup(null)),
+                            ],
                           ],
                         ),
-                        if (_reordering)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text("Drag companies by the handle into your order, then tap Done.",
-                                style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
-                          ),
                         const SizedBox(height: 16),
 
                         if (_reordering) _reorderList(),

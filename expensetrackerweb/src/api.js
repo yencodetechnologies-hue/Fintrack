@@ -79,6 +79,10 @@ async function del(url, body) {
 
 // ---- Auth ----
 export const login = (email, password) => post(authUrl("/login"), { email, password });
+// Forgot password: a 6-digit code is emailed (valid 5 min), checked, then the new password is saved
+export const requestPasswordReset = (email) => post(authUrl("/forgot-password"), { email });
+export const verifyResetCode = (email, otp) => post(authUrl("/verify-otp"), { email, otp });
+export const resetPassword = (email, newPassword) => post(authUrl("/reset-password"), { email, newPassword });
 export const signup = (name, email, password, confirmPassword) =>
   post(authUrl("/signup"), { name, email, password, confirmPassword });
 

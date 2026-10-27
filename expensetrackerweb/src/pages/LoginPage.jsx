@@ -80,8 +80,13 @@ export default function LoginPage() {
             {showPassword ? "HIDE" : "SHOW"}
           </button>
         </div>
+        <div style={{ textAlign: "right", marginTop: 8 }}>
+          <Link to={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`} style={{ color: "var(--forest)", fontSize: 12.5, fontWeight: 700 }}>
+            Forgot password?
+          </Link>
+        </div>
 
-        <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 22 }} disabled={loading}>
+        <button type="submit" className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={loading}>
           {loading ? "Signing in..." : "Sign in"}
         </button>
 

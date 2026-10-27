@@ -17,7 +17,11 @@ export default function AuthLayout({ children }) {
       </div>
 
       <div className="auth-form-panel">
-        <div style={{ width: "100%", maxWidth: 380 }}>{children}</div>
+        <div style={{ width: "100%", maxWidth: 380 }}>
+          {/* phones: the brand panel is hidden, so the logo sits above the form */}
+          <img src="/logo.png" alt="Q Fin" className="auth-mobile-logo" />
+          {children}
+        </div>
       </div>
     </div>
   );

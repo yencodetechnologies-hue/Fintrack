@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import SignupPage from "./pages/SignupPage.jsx";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import CompaniesPage from "./pages/CompaniesPage.jsx";
 import DashboardPage from "./pages/DashboardPage.jsx";
 import GroupDashboardPage from "./pages/GroupDashboardPage.jsx";
@@ -20,6 +21,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/companies" replace /> : <LoginPage />} />
       <Route path="/signup" element={user ? <Navigate to="/companies" replace /> : <SignupPage />} />
+      <Route path="/forgot-password" element={user ? <Navigate to="/companies" replace /> : <ForgotPasswordPage />} />
       <Route
         path="/companies"
         element={

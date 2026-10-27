@@ -320,6 +320,9 @@ a {
   display: flex;
 }
 
+/* logo above the sign-in form, shown only when the brand panel is hidden (see the 900px rule below) */
+.auth-mobile-logo { display: none; width: 56px; height: 56px; border-radius: 14px; margin: 0 auto 20px; }
+
 .auth-brand-panel {
   flex: 1;
   display: flex;
@@ -348,6 +351,7 @@ a {
   .auth-brand-panel {
     display: none;
   }
+  .auth-mobile-logo { display: block; }
   .auth-form-panel {
     width: 100%;
     max-width: 460px;

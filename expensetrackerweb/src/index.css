@@ -1328,7 +1328,22 @@ a {
 .accounts-summary strong { font-size: 18px; color: var(--forest); overflow: hidden; text-overflow: ellipsis; }
 .accounts-days { padding: 0; overflow: hidden; }
 .accounts-day + .accounts-day { border-top: 1px solid var(--slate-border-2); }
-.accounts-day-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: none; border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+/* day rows as columns: Date | Money in | Money out | Closing | chevron */
+.accounts-cols { display: grid; grid-template-columns: minmax(0, 1fr) 130px 130px 140px 14px; align-items: center; gap: 14px; }
+.accounts-cols .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; font-size: 14px; }
+.accounts-cols .num.in { color: var(--forest); }
+.accounts-cols .num.out { color: var(--terracotta); }
+.accounts-day-closing { color: var(--forest); font-size: 15px !important; font-weight: 800 !important; }
+.accounts-cols-head { padding: 10px 16px; background: var(--slate-bg); border-bottom: 1px solid var(--slate-border-2); }
+.accounts-cols-head span { color: var(--muted); font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; }
+@media (max-width: 640px) {
+  .accounts-cols { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .accounts-cols-head { display: none; }
+  .accounts-cols .num::before { content: attr(data-label) " "; color: var(--muted); font-size: 11px; font-weight: 600; }
+  .accounts-cols .accounts-day-date { grid-column: 1 / -1; }
+  .accounts-cols .accounts-day-chevron { display: none; }
+}
+.accounts-day-head { width: 100%; padding: 14px 16px; background: none; border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
 .accounts-day-head:hover, .accounts-day.open .accounts-day-head { background: var(--slate-bg); }
 .accounts-day-date { flex: 1; min-width: 0; display: grid; gap: 3px; }
 .accounts-day-date strong { font-size: 14px; }

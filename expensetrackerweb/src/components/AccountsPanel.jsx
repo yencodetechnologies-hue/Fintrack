@@ -109,24 +109,29 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
             </div>
           ) : (
             <div className="card accounts-days">
+              {/* column titles: each day lines up under Money in / Money out / Closing */}
+              <div className="accounts-cols accounts-cols-head" aria-hidden="true">
+                <span>Date</span>
+                <span className="num">Money in</span>
+                <span className="num">Money out</span>
+                <span className="num">Closing</span>
+                <span />
+              </div>
               {days.map((d) => {
                 const isOpen = open.has(d.date) || Boolean(q);
                 return (
                   <div key={d.date} className={`accounts-day ${isOpen ? "open" : ""}`}>
-                    <button type="button" className="accounts-day-head" onClick={() => toggle(d.date)} aria-expanded={isOpen}>
+                    <button type="button" className="accounts-day-head accounts-cols" onClick={() => toggle(d.date)} aria-expanded={isOpen}>
                       <span className="accounts-day-date">
                         <strong>{dayLabel(d.date)}</strong>
                         <small>
-                          {d.moneyIn ? <span className="in">+{money(d.moneyIn)} in</span> : null}
-                          {d.moneyOut ? <span className="out">−{money(d.moneyOut)} out</span> : null}
                           {d.expenseCount ? <span>{d.expenseCount} expense{d.expenseCount === 1 ? "" : "s"} · {money(d.expensesTotal)}</span> : null}
                           {!d.moneyIn && !d.moneyOut && !d.expenseCount ? <span>Transfers only</span> : null}
                         </small>
                       </span>
-                      <span className="accounts-day-balance">
-                        <small>Closing</small>
-                        <strong>{money(d.closing)}</strong>
-                      </span>
+                      <span className="num in" data-label="In">{d.moneyIn ? `+${money(d.moneyIn)}` : "—"}</span>
+                      <span className="num out" data-label="Out">{d.moneyOut ? `−${money(d.moneyOut)}` : "—"}</span>
+                      <span className="num accounts-day-closing" data-label="Closing">{money(d.closing)}</span>
                       <span className="accounts-day-chevron" aria-hidden="true">{isOpen ? "▴" : "▾"}</span>
                     </button>
 

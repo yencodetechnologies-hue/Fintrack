@@ -833,14 +833,50 @@ exports.deleteExpense = handle(async (req, res) => {
   if (!isAdmin && expense.lifecycle !== "submitted") {
     throw fail(400, "Staff can only delete expenses before approval");
   }
-  if (expense.lifecycle && expense.lifecycle.startsWith("paid")) {
-    throw fail(400, "Paid expenses cannot be deleted directly; booked payments must be reversed");
+  // paid, reimbursed, or waiting for a lender: only the Admin (or a role with "Delete paid expenses") may delete,
+  // and the payment is undone first so Cash/Bank, payables and loans stay right
+  const settled = (expense.lifecycle && expense.lifecycle.startsWith("paid")) || ["reimbursed", "awaiting_confirmation"].includes(expense.lifecycle) || expense.status === "paid";
+  const booked = await LedgerTransaction.find({ expenseId: expense._id, reversedBy: null, type: { $ne: "reversal" } });
+  if (settled || booked.length) {
+    const mine = await permissionsFor(expense.companyId, userId);
+    if (role !== "super_admin" && !hasPower(mine, "delete_paid_expenses")) {
+      throw fail(403, "Only the company Admin (or a role with \"Delete paid expenses\") can delete a paid expense");
+    }
+    await undoExpensePayments(expense, booked, userId);
   }
 
   await audit(userId, expense.companyId, "delete", "expense", expense._id, snapshot(expense), null);
   await Expense.deleteOne({ _id: expense._id });
-  res.json({ success: true });
+  res.json({ success: true, undone: booked.length });
 });
+
+// Reverses every payment booked for an expense (and the linked legs in other companies), gives the money back to
+// Cash/Bank, removes loans it created, and re-checks who is still owed. Refuses if a loan from it was partly repaid.
+async function undoExpensePayments(expense, booked, userId) {
+  const loans = await CompanyLoan.find({ expenseId: expense._id });
+  if (loans.length) {
+    const repaid = await LedgerTransaction.exists({ loanId: { $in: loans.map((l) => l._id) }, type: "loan_repayment", reversedBy: null });
+    if (repaid) throw fail(400, "The loan from this expense has repayments. Reverse the repayments first, then delete.");
+  }
+  const routeIds = [...new Set(booked.map((t) => t.routeId).filter(Boolean))];
+  const linked = routeIds.length ? await LedgerTransaction.find({ routeId: { $in: routeIds }, reversedBy: null, type: { $ne: "reversal" } }) : [];
+  const legs = [...new Map([...booked, ...linked].map((t) => [String(t._id), t])).values()];
+  const touched = new Map();
+  for (const leg of legs) {
+    const { accounts } = await postReversal(leg, userId, `Expense deleted: ${expense.description}`);
+    for (const a of accounts) if (a.type === "admin_payable") touched.set(`${a.companyId}:${a.userId}`, a);
+    await undoVoucherRecords(leg, userId);
+    await audit(userId, leg.companyId, "reverse", "transaction", leg._id, null, { reason: "expense_deleted", expenseId: expense._id });
+  }
+  if (loans.length) await CompanyLoan.deleteMany({ _id: { $in: loans.map((l) => l._id) } });
+  // the expense is about to go: take it out of the walk before re-checking what's still owed
+  await Expense.updateOne({ _id: expense._id }, { $set: { lifecycle: "rejected", status: "outstanding", transactionId: null } });
+  for (const a of touched.values()) await recomputeReimbursed(a.companyId, a.userId);
+  if (legs.length) {
+    const companies = [...new Set(legs.map((l) => String(l.companyId)))];
+    await notifyCompanyAdmins(companies, { title: "Paid expense deleted", body: `${expense.description} · ₹${expense.amount}: its payment was undone`, data: { companyId: expense.companyId } }, userId);
+  }
+}
 
 exports.updateExpense = handle(async (req, res) => {
   const { userId, amount, description, category, date } = req.body;

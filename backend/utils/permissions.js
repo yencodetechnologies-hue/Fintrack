@@ -63,6 +63,7 @@ const CUSTOM_PERMISSIONS = [
   { key: "manager_permissions", label: "Change manager permissions", group: "Admin powers" },
   { key: "manage_roles", label: "Manage custom roles", hint: "Create, change and delete roles, and put people in them", group: "Admin powers" },
   { key: "reverse_transactions", label: "Reverse ledger transactions", group: "Admin powers" },
+  { key: "delete_paid_expenses", label: "Delete paid expenses", hint: "Undoes the payment (money back to Cash/Bank, loan removed), then deletes", group: "Admin powers" },
   { key: "delete_company", label: "Delete the company", group: "Admin powers" },
   { key: "full_admin", label: "All admin access", hint: "Everything the primary admin can do — turns every switch on", group: "Admin powers" },
 ];

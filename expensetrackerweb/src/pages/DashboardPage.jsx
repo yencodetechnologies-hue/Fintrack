@@ -82,6 +82,8 @@ function getExpenseDateKey(expense) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+const isSettledExpense = (e) => Boolean(e) && (String(e.lifecycle || "").startsWith("paid") || ["reimbursed", "awaiting_confirmation"].includes(e.lifecycle) || e.status === "paid");
+
 function formatGroupDate(dateStr) {
   if (!dateStr || dateStr === "No Date") return "Undated";
   const parts = dateStr.split("-");
@@ -203,6 +205,8 @@ export default function DashboardPage() {
 
   const isAdmin = currentUserRole === "admin";
   const can = useMemo(() => makeCan(myPermissions), [myPermissions]);
+  // deleting a paid expense (undoes its payment): the company Admin, or a custom role given that power
+  const canDeletePaid = permissionRole === "primary" || (permissionRole === "custom" && myPermissions?.delete_paid_expenses === true);
   const pageAllowed = tabAllowed(activeTab, { admin: isAdmin, can, permissionRole });
   const showCompanyTotals = isAdmin && viewMode === "company";
   const bankAccounts = company?.bankAccounts || [];
@@ -673,7 +677,8 @@ export default function DashboardPage() {
     // 2. Perform server deletion
     const res = await deleteLedgerExpense(targetId, user.id);
     if (res.success) {
-      showToast("Expense deleted");
+      showToast(res.undone ? "Expense deleted · its payment was undone" : "Expense deleted");
+      if (res.undone) load(); // Cash/Bank and loans changed
       // Fast targeted refresh of balances & expenses in background
       getLedgerBalances(companyId, user.id).then((bRes) => bRes?.success && setLedgerBalances(bRes));
       getLedgerExpenses(companyId, user.id).then((eRes) => eRes?.success && setLedgerExpenses(eRes.expenses || []));
@@ -972,16 +977,17 @@ export default function DashboardPage() {
                 className="card m-filter-bar"
                 style={{
                   marginBottom: 18,
-                  padding: "10px 14px",
+                  padding: "12px 14px",
+                  // row 1: search (full width) · row 2: filters on the left, the total on the right
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
-                  gap: 12,
+                  gap: 10,
                   background: "#fff",
                   boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                 }}
               >
-                <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
+                <div style={{ position: "relative", flex: "1 1 100%", minWidth: 0 }}>
                   <svg
                     width="15"
                     height="15"
@@ -1029,7 +1035,7 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flex: "1 1 100%", paddingTop: 10, borderTop: "1px solid var(--slate-border-2)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Posted by</span>
                     <select
@@ -1946,8 +1952,10 @@ export default function DashboardPage() {
 
       {deletingExpense && (
         <ConfirmDialog
-          title="Delete submitted expense?"
-          message={`Are you sure you want to delete "${deletingExpense.description}" (${money(deletingExpense.amount)})?`}
+          title={isSettledExpense(deletingExpense) ? "Delete paid expense?" : "Delete expense?"}
+          message={isSettledExpense(deletingExpense)
+            ? `"${deletingExpense.description}" (${money(deletingExpense.amount)}) is already paid. Deleting it undoes the payment: the money goes back to the Cash/Bank it came from, anything owed to a person for it is removed, and any loan it created is cancelled. This can't be undone.`
+            : `Are you sure you want to delete "${deletingExpense.description}" (${money(deletingExpense.amount)})?`}
           confirmLabel="Delete"
           danger
           onConfirm={confirmDeleteExpense}
@@ -1972,6 +1980,7 @@ export default function DashboardPage() {
           user={user}
           isAdmin={isAdmin}
           can={can}
+          canDeletePaid={canDeletePaid}
           company={company}
           onClose={() => setSelectedExpenseDetail(null)}
           onEdit={(exp) => setModal({ type: "edit", expense: exp })}

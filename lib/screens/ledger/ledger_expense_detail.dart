@@ -110,7 +110,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
     final creatorCanSwitchPayer = s.isAdmin && isCreator && (isApproved || lifecycle == "paid_by_company" || paidByMe);
     final canEdit = (s.can("edit_expenses") && ((s.isAdmin && !isPaid && !isAwaitingPayer) || (!s.isAdmin && isSubmitted && isCreator && !isPaid))) ||
         (creatorCanSwitchPayer && (s.can("edit_expenses") || s.can("record_payments")));
-    final canDelete = s.can("edit_expenses") && ((s.isAdmin && !isPaid) || (!s.isAdmin && isSubmitted && isCreator));
+    final canDelete = s.can("edit_expenses") && ((s.isAdmin && (!isPaid || s.canDeletePaid)) || (!s.isAdmin && isSubmitted && isCreator));
     final canReplaceReceipts = s.isAdmin && s.can("edit_expenses");
     final canRemoveReceipts = s.isAdmin && s.can("remove_receipts");
     final canPay = isApproved && payerOptions(s, e).isNotEmpty;
@@ -267,12 +267,20 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
   }
 
   Future<void> _delete() async {
-    final ok = await confirmDialog(context, "Delete expense?", "\"${e["description"]}\" for ${inr(e["amount"])} will be removed. This can't be undone.",
-        confirmLabel: "Delete", danger: true);
+    final lifecycle = e["lifecycle"]?.toString() ?? "";
+    final settled = lifecycle.startsWith("paid") || lifecycle == "reimbursed" || lifecycle == "awaiting_confirmation" || e["status"] == "paid";
+    final ok = await confirmDialog(
+        context,
+        settled ? "Delete paid expense?" : "Delete expense?",
+        settled
+            ? "\"${e["description"]}\" (${inr(e["amount"])}) is already paid. Deleting it undoes the payment: the money goes back to the Cash/Bank it came from, anything owed to a person for it is removed, and any loan it created is cancelled. This can't be undone."
+            : "\"${e["description"]}\" for ${inr(e["amount"])} will be removed. This can't be undone.",
+        confirmLabel: "Delete",
+        danger: true);
     if (!ok || !mounted) return;
     final res = await LedgerService.deleteExpense(e["_id"].toString(), s.userId);
     if (!mounted) return;
-    if (handleResult(context, res, "Expense deleted")) {
+    if (handleResult(context, res, ((res["undone"] as num?) ?? 0) > 0 ? "Expense deleted · its payment was undone" : "Expense deleted")) {
       notifyLedgerChanged();
       _close();
     }

@@ -50,6 +50,8 @@ class LedgerScope {
   /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
   bool can(String key) => permissions == null || permissions![key] != false;
   bool get isPrimary => permissionRole == "primary";
+  /// Deleting a paid expense (undoes its payment): the company Admin, or a custom role given that power.
+  bool get canDeletePaid => isPrimary || (permissionRole == "custom" && permissions?["delete_paid_expenses"] == true);
   /// My role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name.
   String get myRoleLabel => isPrimary ? "Admin" : (roleName?.isNotEmpty ?? false) ? roleName! : managerName;
   bool get canEditPermissions =>

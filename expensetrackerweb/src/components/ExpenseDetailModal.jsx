@@ -10,6 +10,7 @@ export default function ExpenseDetailModal({
   user,
   isAdmin,
   can = () => true,
+  canDeletePaid = false, // the Admin, or a custom role with "Delete paid expenses"
   company,
   onClose,
   onEdit,
@@ -146,7 +147,7 @@ export default function ExpenseDetailModal({
   );
 
   const canDelete =
-    can("edit_expenses") && ((isAdmin && !isPaid) || (!isAdmin && isSubmitted && isCreator));
+    can("edit_expenses") && ((isAdmin && (!isPaid || canDeletePaid)) || (!isAdmin && isSubmitted && isCreator));
 
   const isCompanyPost = expense.logAs === "company" || expense.postedAs === "company";
   const nameOf = (ref, fallback) => (ref && typeof ref === "object" ? ref.name : fallback);

@@ -166,6 +166,9 @@ export const settleExpenseGroup = (groupId, payload) =>
 // ---- Company ledger (shared with the mobile app) ----
 const ledgerUrl = (path) => `${getApiBase()}/api/ledger${path}`;
 export const getLedgerBalances = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/balances?userId=${userId}`));
+// Accounts page: each day's money in/out, expenses and closing Cash + Bank balance, from..to as YYYY-MM-DD
+export const getAccountsDays = (companyId, userId, from, to) =>
+  get(ledgerUrl(`/companies/${companyId}/accounts?userId=${userId}&from=${from}&to=${to}`));
 // kind: expense | payment | fund
 export const getDescriptionSuggestions = (companyId, userId, kind) =>
   get(ledgerUrl(`/companies/${companyId}/descriptions?userId=${userId}&kind=${kind}`));
@@ -255,10 +258,17 @@ export const saveVisibilityPreference = (companyId, userId, hiddenStaffIds) =>
   post(ledgerUrl(`/companies/${companyId}/visibility-preference`), { userId, hiddenStaffIds });
 export const inviteCompanyMember = (companyId, userId, email, role, customRoleId) =>
   post(ledgerUrl(`/companies/${companyId}/invites`), { userId, email, role, ...(customRoleId ? { customRoleId } : {}) });
+// invited emails with their status (pending: waiting to sign up / email not sent, accepted: joined)
+export const getCompanyInvites = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/invites?userId=${userId}`));
+export const cancelCompanyInvite = (companyId, inviteId, userId) => post(ledgerUrl(`/companies/${companyId}/invites/${inviteId}/cancel`), { userId });
 export const setCompanyMemberRole = (companyId, userId, memberUserId, role) =>
   post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/role`), { userId, role });
 export const updateCompanySettings = (companyId, payload) =>
   post(ledgerUrl(`/companies/${companyId}/settings`), payload);
+// company groups: a named set of companies, only for organising the companies list
+export const saveCompanyGroup = (groupId, payload) =>
+  post(ledgerUrl(groupId ? `/company-groups/${groupId}` : "/company-groups"), payload);
+export const deleteCompanyGroup = (groupId, userId) => post(ledgerUrl(`/company-groups/${groupId}/delete`), { userId });
 // company logo (data:image URL, "" removes it); primary Admin only
 export const setCompanyLogo = (companyId, userId, logo) =>
   post(ledgerUrl(`/companies/${companyId}/logo`), { userId, logo });

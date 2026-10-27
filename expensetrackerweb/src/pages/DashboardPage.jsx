@@ -64,9 +64,11 @@ import { makeCan, tabAllowed } from "../permissions.js";
 import { useCompanyLive } from "../realtime.js";
 import HandBackModal from "../components/HandBackModal.jsx";
 import LoanDetailModal from "../components/LoanDetailModal.jsx";
+import AccountsPanel from "../components/AccountsPanel.jsx";
 import { useFundTopUp } from "../components/FundTopUp.jsx";
 
-const TODAY_KEY = new Date().toDateString();
+// Home Today: expenses whose own expense date is today (not when they were posted), worked out at render time
+const isTodayExpense = (expense) => new Date(expense.date || expense.createdAt).toDateString() === new Date().toDateString();
 const roundMoney = (n) => Math.round(n * 100) / 100;
 
 function getExpenseDateKey(expense) {
@@ -123,6 +125,8 @@ export default function DashboardPage() {
   const [myPermissions, setMyPermissions] = useState(null);
   const [permissionRole, setPermissionRole] = useState(null);
   const [myRoleName, setMyRoleName] = useState(null); // custom role name, if I have one
+  // my role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name
+  const myRoleLabel = permissionRole === "primary" ? "Admin" : myRoleName || roleNames(company).manager;
   const [canReverse, setCanReverse] = useState(false); // super admin, or a role with "Reverse ledger transactions"
   const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -824,10 +828,10 @@ export default function DashboardPage() {
                         </span>
                       }
                       below={totalPeriod === "custom" && (
+                        // From / To on their own rows, so a full dd/mm/yyyy date fits even in a narrow tile
                         <div className="tile-period-dates" onClick={(e) => e.stopPropagation()}>
-                          <input type="date" value={totalFrom} onChange={(e) => setTotalFrom(e.target.value)} aria-label="From" />
-                          <span>–</span>
-                          <input type="date" value={totalTo} onChange={(e) => setTotalTo(e.target.value)} aria-label="To" />
+                          <label><span>From</span><input type="date" value={totalFrom} max={totalTo || undefined} onChange={(e) => setTotalFrom(e.target.value)} /></label>
+                          <label><span>To</span><input type="date" value={totalTo} min={totalFrom || undefined} onChange={(e) => setTotalTo(e.target.value)} /></label>
                         </div>
                       )}
                     />
@@ -879,21 +883,36 @@ export default function DashboardPage() {
               })()}
               {isAdmin && (can("reimburse") || can("vouchers")) && <div className="m-action-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>{can("reimburse") && <><button className="btn btn-dark" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("lend"); }}>Lend to company</button><button className="btn btn-outline" onClick={() => { setMoneyDraft({ adminUserId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "", offsetAdvance: false }); setMoneyModal("reimburse"); }}>Reimburse person</button></>}{can("vouchers") && <button className="btn btn-outline" onClick={() => setVoucherModal(true)}>Create voucher</button>}</div>}
               <StaffVouchers companyId={companyId} company={company} user={user} isAdmin={isAdmin} can={can} refreshKey={tick("vouchers", "balances")} onChanged={load} />
-              {/* Home lists only expenses posted today; the rest live on the Expenses page */}
-              <div style={{ marginBottom: 10 }}>
-                <span className="today-chip">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" />
-                  </svg>
-                  Today · {formatDate(new Date())}
-                </span>
-              </div>
-              {ledgerExpenses.filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY).length === 0 ? (
+              {/* Home lists only expenses dated today; the rest live on the Expenses page */}
+              {(() => {
+                // today's total = everything listed below except rejected expenses
+                const todays = ledgerExpenses.filter((expense) => isTodayExpense(expense) && expense.lifecycle !== "rejected");
+                const todayTotal = todays.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+                // same header as each day on the Expenses page: date badge · line · "N expenses · ₹total"
+                return (
+                  <div className="expense-date-breaker" style={{ marginBottom: 10 }}>
+                    <div className="expense-date-badge">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                        <line x1="16" x2="16" y1="2" y2="6" />
+                        <line x1="8" x2="8" y1="2" y2="6" />
+                        <line x1="3" x2="21" y1="10" y2="10" />
+                      </svg>
+                      <span>Today · {formatDate(new Date())}</span>
+                    </div>
+                    <div className="expense-date-breaker-line" />
+                    <span className="expense-date-total">
+                      {todays.length} {todays.length === 1 ? "expense" : "expenses"} · {money(todayTotal)}
+                    </span>
+                  </div>
+                );
+              })()}
+              {ledgerExpenses.filter(isTodayExpense).length === 0 ? (
                 <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No expenses today.</div>
               ) : (
                 <div className="card expense-list">
                   {ledgerExpenses
-                    .filter((expense) => new Date(expense.createdAt || expense.date).toDateString() === TODAY_KEY)
+                    .filter(isTodayExpense)
                     .map((expense) => {
                       const tone = expense.lifecycle === "rejected" ? "bad" : expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "good" : expense.lifecycle === "reimbursed" ? "done" : "wait";
                       return (
@@ -1060,15 +1079,19 @@ export default function DashboardPage() {
                       Reset
                     </button>
                   )}
+
+                  {/* total of everything the filters show (all dates in the period, search, status, posted by) */}
+                  {groupedLedgerExpenses.length > 0 && (() => {
+                    const count = groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0);
+                    return (
+                      <div className="expense-filter-total">
+                        <small>{count} {count === 1 ? "expense" : "expenses"} · Total</small>
+                        <strong>{money(groupedLedgerExpenses.reduce((sum, g) => sum + g.total, 0))}</strong>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
-
-              {postedByFilter !== "all" && groupedLedgerExpenses.length > 0 && (
-                <div style={{ fontSize: 13, color: "var(--muted)", margin: "-6px 0 12px" }}>
-                  {groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0)} expenses · total{" "}
-                  <strong style={{ color: "var(--dark-text)" }}>{money(groupedLedgerExpenses.reduce((sum, g) => sum + g.total, 0))}</strong>
-                </div>
-              )}
               {groupedLedgerExpenses.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 24 }}>
                   No expenses match your search or date filters.
@@ -1143,7 +1166,7 @@ export default function DashboardPage() {
                               {isAdmin && expense.lifecycle === "submitted" ? (
                                 can("approve_expenses") ? <button type="button" className="btn btn-primary btn-sm" onClick={() => decideLedgerExpense(expense, "approve")}>Approve</button> : null
                               ) : canMarkReceived(expense) ? (
-                                <button type="button" className="btn btn-primary btn-sm" onClick={() => setReceivingExpense(expense)}>Received</button>
+                                <button type="button" className="row-link-btn" title="You got this money back: close the expense" onClick={() => setReceivingExpense(expense)}>✓ Mark received</button>
                               ) : expense.lifecycle === "approved" && payerOptions(expense).length > 0 ? (
                                 <button
                                   type="button"
@@ -1448,6 +1471,10 @@ export default function DashboardPage() {
             </>
           )}
 
+          {activeTab === "accounts" && isAdmin && (
+            <AccountsPanel companyId={companyId} user={user} refreshKey={tick("balances", "expenses")} />
+          )}
+
           {activeTab === "funds" && isAdmin && (
             <FundsPanel
               company={company}
@@ -1492,6 +1519,9 @@ export default function DashboardPage() {
           user={user}
           isAdmin={isAdmin}
           canPostAsCompany={can("post_as_company")}
+          myRoleLabel={myRoleLabel}
+          canBorrow={can("intercompany")}
+          otherCompanies={managedOtherCompanies}
           members={members}
           customCategories={customCategories}
           hiddenStaffIds={hiddenStaffIds}
@@ -1782,6 +1812,7 @@ export default function DashboardPage() {
           expense={modal.expense}
           user={user}
           isAdmin={isAdmin}
+          myRoleLabel={myRoleLabel}
           funds={availableCompanyFunds}
           customCategories={customCategories}
           hiddenCategories={company?.hiddenCategories || []}
@@ -1900,6 +1931,8 @@ export default function DashboardPage() {
           user={user}
           members={members}
           funds={availableCompanyFunds}
+          otherCompanies={managedOtherCompanies}
+          canBorrow={can("intercompany")}
           onClose={() => setReceivingExpense(null)}
           onDone={() => {
             setReceivingExpense(null);

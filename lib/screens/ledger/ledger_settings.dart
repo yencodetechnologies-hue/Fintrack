@@ -32,6 +32,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
   @override
   void initState() {
     super.initState();
+    _loadInvites();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted && _secondsLeft >= 0) setState(() {});
     });
@@ -62,6 +63,38 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
       if (company["joinCode"] != null) _joinCode = company["joinCode"].toString();
       _codeCreated = DateTime.tryParse(company["joinCodeCreatedAt"]?.toString() ?? "")?.toLocal() ?? _codeCreated;
     });
+    _loadInvites(); // someone may have signed up and joined
+  }
+
+  // emailed invites and whether each person has signed up yet
+  List<Map<String, dynamic>> _invites = [];
+  String? _inviteBusy;
+
+  Future<void> _loadInvites() async {
+    if (!(s.isAdmin && s.can("members"))) return;
+    final res = await LedgerService.invites(s.companyId, s.userId);
+    if (mounted && res["success"] == true) setState(() => _invites = List<Map<String, dynamic>>.from(res["invites"] ?? const []));
+  }
+
+  Future<void> _resendInvite(Map<String, dynamic> inv) async {
+    setState(() => _inviteBusy = inv["_id"].toString());
+    final res = await LedgerService.inviteMember(s.companyId, s.userId, inv["email"].toString(), inv["role"].toString(), customRoleId: inv["customRoleId"]?.toString());
+    if (!mounted) return;
+    setState(() => _inviteBusy = null);
+    handleResult(context, res, "Invite sent again to ${inv["email"]}");
+    _loadInvites();
+  }
+
+  Future<void> _cancelInvite(Map<String, dynamic> inv) async {
+    final yes = await confirmDialog(context, "Cancel this invite?", "${inv["email"]} won't be added to ${s.companyName} when they sign up. You can invite them again later.",
+        confirmLabel: "Cancel invite", danger: true);
+    if (!yes || !mounted) return;
+    setState(() => _inviteBusy = inv["_id"].toString());
+    final res = await LedgerService.cancelInvite(s.companyId, inv["_id"].toString(), s.userId);
+    if (!mounted) return;
+    setState(() => _inviteBusy = null);
+    handleResult(context, res, "Invite to ${inv["email"]} cancelled");
+    _loadInvites();
   }
 
   int get _secondsLeft => _codeCreated == null ? 0 : 300 - DateTime.now().difference(_codeCreated!).inSeconds;
@@ -102,6 +135,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
       final inv = await LedgerService.inviteMember(s.companyId, s.userId, email, target.role, customRoleId: target.customRoleId);
       if (!mounted) return;
       if (handleResult(context, inv, "Invite sent to $email")) _email.clear();
+      _loadInvites(); // saved even when the email fails
       return;
     }
     toast(context, res["message"]?.toString() ?? "Failed to add staff", error: true);
@@ -263,6 +297,49 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
     }
   }
 
+  Widget _inviteRow(Map<String, dynamic> inv) {
+    final joined = inv["status"] == "accepted";
+    final sent = inv["emailSent"] == true;
+    final (String text, Color color, Color bg, IconData icon) = joined
+        ? ("Joined${inv["acceptedAt"] != null ? " · ${dateLabel(inv["acceptedAt"])}" : ""}", kForest, const Color(0xFFE8F7EF), Icons.check_circle_rounded)
+        : sent
+            ? ("Invite sent${inv["sentAt"] != null ? " · ${dateLabel(inv["sentAt"])}" : ""} · waiting to sign up", const Color(0xFFB45309), const Color(0xFFFFF7ED), Icons.mark_email_unread_rounded)
+            : ("Email not sent · resend it", kTerracotta, const Color(0xFFFEF2F2), Icons.error_rounded);
+    final busy = _inviteBusy == inv["_id"].toString();
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(border: Border(top: BorderSide(color: kDark.withValues(alpha: 0.06)))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(inv["email"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13.5, color: kDark)),
+        Text("as ${inv["roleName"] ?? s.roleLabel(inv["role"])}${inv["invitedBy"] != null ? " · by ${inv["invitedBy"]}" : ""}",
+            style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+        const SizedBox(height: 6),
+        Row(children: [
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 14, color: color),
+                const SizedBox(width: 4),
+                Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700, color: color))),
+              ]),
+            ),
+          ),
+          if (!joined) ...[
+            const Spacer(),
+            TextButton(onPressed: busy ? null : () => _resendInvite(inv), child: const Text("Resend")),
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: kTerracotta),
+              onPressed: busy ? null : () => _cancelInvite(inv),
+              child: const Text("Cancel"),
+            ),
+          ],
+        ]),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final expired = _secondsLeft <= 0;
@@ -352,6 +429,13 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
               const SizedBox(height: 10),
               primaryButton(_adding ? "Adding…" : "Add member", _adding ? null : _addMember),
             ]),
+          // emailed invites: sent and waiting / email not sent / joined
+          if (s.isAdmin && s.can("members") && _invites.isNotEmpty)
+            card("Invites",
+                sub: "${_invites.where((i) => i["status"] != "accepted").length} waiting to sign up · ${_invites.where((i) => i["status"] == "accepted").length} joined",
+                children: [
+                  for (final inv in _invites) _inviteRow(inv),
+                ]),
           // the count is staff only; managers (incl. the creator) are listed but not counted
           card("${s.staffsName} (${_members.where((m) => m["role"] != "admin").length}) · ${_members.where((m) => m["role"] == "admin").length} ${(_members.where((m) => m["role"] == "admin").length == 1 ? s.managerName : s.managersName).toLowerCase()}", children: [
             for (final m in _members)

@@ -430,9 +430,18 @@ exports.createExpense = handle(async (req, res) => {
     ? [...new Set((Array.isArray(visibleTo) ? visibleTo : []).map(String))].filter((id) => allowedMembers.has(id))
     : [...allowedMembers];
 
-  const isCompanyPost = isAdminRole(role) && (postAs === "company" || logAs === "company");
+  // "borrow": a manager posts it as paid with money borrowed from another company (same as Record payment → Borrowed)
+  const isBorrowPost = isAdminRole(role) && postAs === "borrow";
+  const isCompanyPost = !isBorrowPost && isAdminRole(role) && (postAs === "company" || logAs === "company");
   await requirePermission(companyId, userId, "post_expenses");
   if (isCompanyPost) await requirePermission(companyId, userId, "post_as_company");
+  if (isBorrowPost) {
+    await requirePermission(companyId, userId, "intercompany");
+    const { sourceCompanyId, newCompany } = req.body;
+    if (!sourceCompanyId && !(newCompany && String(newCompany.name || "").trim())) throw fail(400, "Choose the company you borrowed from");
+    if (sourceCompanyId && String(sourceCompanyId) === String(companyId)) throw fail(400, "A company can't borrow from itself");
+    if (sourceCompanyId && !(await Company.exists({ _id: sourceCompanyId }))) throw fail(404, "Source company not found");
+  }
 
   // Opt-in (the web sends checkDuplicate) so other clients keep posting as before.
   if (req.body.checkDuplicate && !req.body.confirmDuplicate) {
@@ -474,10 +483,11 @@ exports.createExpense = handle(async (req, res) => {
     hasAttachment: Boolean(attachment),
     visibleTo: chosenVisibility,
     // an admin posting an expense has effectively approved it; company expense is marked paid by company; staff expenses wait for an admin
-    lifecycle: isCompanyPost ? "paid_by_company" : (isAdminRole(role) && (await autoApproves(companyId, userId)) ? "approved" : "submitted"),
+    // a borrow post starts approved; the borrow payment below moves it on (paid, or awaiting the lender's confirmation)
+    lifecycle: isCompanyPost ? "paid_by_company" : isBorrowPost ? "approved" : (isAdminRole(role) && (await autoApproves(companyId, userId)) ? "approved" : "submitted"),
     approvedBy: isAdminRole(role) ? userId : null,
     status: isCompanyPost ? "paid" : "outstanding",
-    logAs: isCompanyPost ? "company" : "self",
+    logAs: isCompanyPost || isBorrowPost ? "company" : "self",
     // staff may ask for this to come out of the voucher balance they hold; it is taken when a manager approves
     useAdvance: role === "employee" && Boolean(req.body.useAdvance),
   });
@@ -504,6 +514,22 @@ exports.createExpense = handle(async (req, res) => {
     }
   }
 
+  let awaitingConfirmation = false;
+  if (isBorrowPost) {
+    // reuse Record payment's borrow flow (loan + both companies' entries + lender confirmation when needed);
+    // if it fails, the new expense is removed so nothing half-done is left behind
+    const result = { code: 200, body: null, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } };
+    await exports.payExpense({ params: { expenseId: String(expense._id) }, body: {
+      userId, payer: "borrow", method: method || "Bank", reference: reference || "",
+      sourceCompanyId: req.body.sourceCompanyId, newCompany: req.body.newCompany, sourceFundId: req.body.sourceFundId,
+    } }, result);
+    if (!result.body?.success) {
+      await Expense.deleteOne({ _id: expense._id });
+      return res.status(result.code >= 400 ? result.code : 400).json(result.body || { success: false, message: "Could not record the borrowed payment" });
+    }
+    awaitingConfirmation = Boolean(result.body.awaitingConfirmation);
+  }
+
   await audit(userId, companyId, "create", "expense", expense._id, null, snapshot(expense));
   if (!BASE_EXPENSE_CATEGORIES.includes(expense.category)) {
     await Company.updateOne({ _id: companyId }, { $addToSet: { customCategories: expense.category } });
@@ -513,7 +539,7 @@ exports.createExpense = handle(async (req, res) => {
   const msg = { title: "Expense posted", body: `${posterName} posted ${expense.category} · ₹${expense.amount}`, data: { expenseId: expense._id, companyId } };
   await notifyCompanyAdmins(companyId, msg, userId);
   if (isAdminRole(role)) notifyUsers(chosenVisibility, msg, userId);
-  res.status(201).json({ success: true, expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt").populate("paidByUserId", "name") });
+  res.status(201).json({ success: true, awaitingConfirmation, expense: await Expense.findById(expense._id).select("-attachment -paymentReceipt").populate("paidByUserId", "name") });
 });
 exports.listExpenses = handle(async (req, res) => {
   const { companyId } = req.params;
@@ -1083,7 +1109,8 @@ exports.reimburse = handle(async (req, res) => {
 // body: { userId, from: "company" | "person", fundId?, personId?, method?, reference? }
 exports.receivedExpense = handle(async (req, res) => {
   const { userId, from, fundId, personId, method, reference } = req.body;
-  if (!["company", "person"].includes(from)) throw fail(400, "Choose who you received it from");
+  // from: "company" (its Cash/Bank) | "person" (another member paid me) | "borrow" (another company paid me, so this company borrows from it)
+  if (!["company", "person", "borrow"].includes(from)) throw fail(400, "Choose who you received it from");
   const expense = await Expense.findById(req.params.expenseId).select("-attachment -paymentReceipt");
   if (!expense) throw fail(404, "Expense not found");
   const companyId = expense.companyId;
@@ -1099,7 +1126,13 @@ exports.receivedExpense = handle(async (req, res) => {
   const value = round(expense.amount);
 
   let person = null;
-  if (from === "person") {
+  let lender = null;
+  if (from === "borrow") {
+    await requirePermission(companyId, userId, "intercompany");
+    lender = await resolveSourceCompany(userId, companyId, req.body.sourceCompanyId, req.body.newCompany);
+    if (String(lender._id) === String(companyId)) throw fail(400, "Choose another company");
+    // any company can be picked; one I don't manage is told about it (below), as its books now show the money as lent
+  } else if (from === "person") {
     if (!personId || String(personId) === String(userId)) throw fail(400, "Choose who paid you");
     if (!(await roleIn(companyId, personId))) throw fail(400, "That person is not a member of this company");
     person = await User.findById(personId).select("name");
@@ -1113,6 +1146,37 @@ exports.receivedExpense = handle(async (req, res) => {
     throw fail(409, "This expense changed meanwhile; refresh and try again");
   }
   const me = await User.findById(userId).select("name");
+  if (from === "borrow") {
+    // this company owes the lender now (a loan); the lender's side is booked like any loan (its shown Cash/Bank stay as they are)
+    const company = await Company.findById(companyId).select("name");
+    const routeId = newRouteId();
+    const loan = await CompanyLoan.create({ borrowerCompanyId: companyId, lenderCompanyId: lender._id, amount: value, source: "expense", expenseId: expense._id, createdBy: userId, method: method || "", reference: reference || "" });
+    const legs = await postAll([
+      [
+        // a reimbursement tied to this expense, so exactly this bill closes (see payableWalk)
+        { companyId, type: "reimburse", expenseId: expense._id, loanId: loan._id, routeId, memo: `${expense.description} · received from ${lender.name} (borrowed)`, method: method || "", reference: reference || "", createdBy: userId },
+        [{ account: await payableAccount(companyId, userId), debit: value }, { account: await intercoAccount(companyId, lender), credit: value }],
+      ],
+      [
+        { companyId: lender._id, type: "intercompany", loanId: loan._id, routeId, memo: `Paid ${me?.name || "a manager"} for ${company.name}: ${expense.description}`, method: method || "", reference: reference || "", createdBy: userId },
+        [{ account: await intercoAccount(lender._id, company), debit: value }, { account: await fundAccount(lender._id, lender.external ? "cash" : req.body.sourceFundId || "cash"), credit: value }],
+      ],
+    ]);
+    loan.transactionIds = legs.map((t) => t._id);
+    await loan.save();
+    await recomputeReimbursed(companyId, userId);
+    await audit(userId, companyId, "expense_received", "expense", expense._id, null, { amount: value, from, lenderCompanyId: lender._id, loanId: loan._id, transactionId: legs[0]._id });
+    await audit(userId, lender._id, "loan_received", "loan", loan._id, null, { borrowerCompanyId: companyId, amount: value });
+    if (!lender.external && !isAdminRole(await roleIn(lender._id, userId))) {
+      await notifyCompanyAdmins(lender._id, {
+        title: "Money lent recorded",
+        body: `${me?.name || "A manager"} of ${company.name} recorded that ${lender.name} paid them ₹${value} for ${expense.description}. It shows as lent to ${company.name}.`,
+        data: { companyId: String(lender._id), loanId: String(loan._id) },
+      }, userId);
+    }
+    const updated = await Expense.findById(expense._id).select("-attachment -paymentReceipt");
+    return res.json({ success: true, expense: updated, transaction: legs[0], loan });
+  }
   const fund = from === "company" ? await fundAccount(companyId, fundId) : null;
   const tx = await post(
     {
@@ -2533,7 +2597,7 @@ exports.inviteMember = handle(async (req, res) => {
 
   const invite = await CompanyInvite.findOneAndUpdate(
     { companyId, email },
-    { $set: { role, customRoleId, invitedBy: userId, status: "pending", acceptedAt: null } },
+    { $set: { role, customRoleId, invitedBy: userId, status: "pending", acceptedAt: null, emailSentAt: null } },
     { upsert: true, returnDocument: "after" }
   );
 
@@ -2556,6 +2620,7 @@ exports.inviteMember = handle(async (req, res) => {
 <p><a href="${esc(link)}" style="display:inline-block;padding:10px 18px;background:#0C5F41;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Create your Q Fin account</a></p>
 <p>Sign up with this email address (${esc(email)}) and you'll be added to ${companyName} automatically.</p>`,
     });
+    await CompanyInvite.updateOne({ _id: invite._id }, { $set: { emailSentAt: new Date() } });
   } catch (e) {
     console.error("invite email failed:", e.message);
     throw fail(502, "Invite saved, but the email could not be sent. Try again later.");
@@ -2563,6 +2628,47 @@ exports.inviteMember = handle(async (req, res) => {
 
   await audit(userId, companyId, "invite_member", "invite", invite._id, null, { email, role });
   res.status(201).json({ success: true, invite: { email, role } });
+});
+
+// People invited by email, newest first, with where they are: invite sent (waiting to sign up), email failed, or joined.
+exports.listInvites = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "members");
+  const company = await Company.findById(companyId).select("customRoles").lean();
+  const invites = await CompanyInvite.find({ companyId }).populate("invitedBy", "name").sort({ updatedAt: -1 }).lean();
+  res.json({
+    success: true,
+    invites: invites.map((i) => ({
+      _id: i._id,
+      email: i.email,
+      role: i.role,
+      roleName: i.customRoleId ? (company?.customRoles || []).find((r) => String(r._id) === String(i.customRoleId))?.name || null : null,
+      customRoleId: i.customRoleId || null,
+      status: i.status, // pending | accepted
+      // invites from before this was tracked have no emailSentAt field at all: assume their email went out
+      emailSent: Boolean(i.emailSentAt) || !("emailSentAt" in i),
+      sentAt: i.emailSentAt || null,
+      acceptedAt: i.acceptedAt || null,
+      invitedBy: i.invitedBy?.name || null,
+      createdAt: i.createdAt,
+    })),
+  });
+});
+
+// Withdraw an invite that hasn't been accepted yet (the email's sign-up link then just makes an account, no company).
+exports.cancelInvite = handle(async (req, res) => {
+  const { companyId, inviteId } = req.params;
+  const { userId } = req.body;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "members");
+  const invite = await CompanyInvite.findOne({ _id: inviteId, companyId });
+  if (!invite) throw fail(404, "Invite not found");
+  if (invite.status === "accepted") throw fail(400, "They have already joined; remove them from the members list instead");
+  await invite.deleteOne();
+  await audit(userId, companyId, "cancel_invite", "invite", invite._id, { email: invite.email }, null);
+  res.json({ success: true });
 });
 
 // ---------- vouchers (money handed to staff up front) ----------
@@ -3325,4 +3431,227 @@ exports.descriptionSuggestions = handle(async (req, res) => {
     { $limit: 100 },
   ]);
   res.json({ success: true, descriptions: rows.map((r) => r.text) });
+});
+
+// ---- Company groups: a named set of companies, only for organising the companies list ----
+const CompanyGroup = require("../models/companyGroup");
+
+// Group name + companies. Every company must be one this user runs (Admin or manager); a company already in another
+// group moves to this one. groupId in the URL = edit that group (its creator, or someone who runs all its companies).
+exports.saveCompanyGroup = handle(async (req, res) => {
+  const { userId } = req.body;
+  const name = String(req.body.name || "").trim();
+  const companyIds = [...new Set((Array.isArray(req.body.companyIds) ? req.body.companyIds : []).map(String))];
+  if (!userId) throw fail(400, "userId is required");
+  if (!name) throw fail(400, "Enter a group name");
+  if (companyIds.length < 2) throw fail(400, "Pick at least two companies for a group");
+  const companies = await Company.find({ _id: { $in: companyIds } }).select("name external");
+  if (companies.length !== companyIds.length) throw fail(404, "One of the companies was not found");
+  for (const c of companies) {
+    if (c.external) throw fail(400, `${c.name} is an outside company and can't be grouped`);
+    if (!isAdminRole(await roleIn(c._id, userId))) throw fail(403, `You need to be an Admin or manager of ${c.name} to group it`);
+  }
+
+  let group;
+  if (req.params.groupId) {
+    group = await CompanyGroup.findById(req.params.groupId);
+    if (!group) throw fail(404, "Company group not found");
+    if (String(group.createdBy) !== String(userId)) {
+      for (const id of group.companyIds) {
+        if (!isAdminRole(await roleIn(id, userId))) throw fail(403, "Only the group's creator, or someone who runs all its companies, can edit it");
+      }
+    }
+    group.name = name;
+    group.companyIds = companyIds;
+    await group.save();
+  } else {
+    group = await CompanyGroup.create({ name, companyIds, createdBy: userId });
+  }
+  // a company belongs to one group: take these companies out of any other group, and drop groups left with fewer than two
+  await CompanyGroup.updateMany({ _id: { $ne: group._id }, companyIds: { $in: companyIds } }, { $pull: { companyIds: { $in: companyIds } } });
+  await CompanyGroup.deleteMany({ _id: { $ne: group._id }, "companyIds.1": { $exists: false } });
+  res.json({ success: true, group });
+});
+
+// Ungroup: the companies are untouched, they just show on their own again.
+exports.deleteCompanyGroup = handle(async (req, res) => {
+  const { userId } = req.body;
+  const group = await CompanyGroup.findById(req.params.groupId);
+  if (!group) throw fail(404, "Company group not found");
+  if (String(group.createdBy) !== String(userId)) {
+    for (const id of group.companyIds) {
+      if (!isAdminRole(await roleIn(id, userId))) throw fail(403, "Only the group's creator, or someone who runs all its companies, can remove it");
+    }
+  }
+  await group.deleteOne();
+  res.json({ success: true });
+});
+
+// ---- Accounts: day by day — money in/out, the day's expenses, and the closing Cash + Bank balance ----
+// Balances are worked backwards from today's real Cash + Bank (Company doc) using only movements that changed it:
+// fund lines of FUND_TRACKED / borrower loan-repayment transactions (and their reversals) + money added via Add Income.
+const IST_OFFSET = 330 * 60000;
+const istDay = (d) => new Date(new Date(d).getTime() + IST_OFFSET).toISOString().slice(0, 10);
+const istStart = (day) => new Date(`${day}T00:00:00+05:30`);
+const nextDay = (day) => istDay(istStart(day).getTime() + 36 * 3600000); // midnight + 1.5 days lands on the next date
+const MOVE_LABELS = {
+  company_paid: "Paid by company",
+  reimburse: "Reimbursement",
+  lend: "Manager loan to company",
+  borrowed: "Borrowed money",
+  voucher_issue: "Voucher given",
+  advance_return: "Voucher money handed back",
+  loan_repayment: "Loan repayment",
+};
+
+exports.accountsDays = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "funds");
+  const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
+  if (!company) throw fail(404, "Company not found");
+
+  const today = istDay(Date.now());
+  const valid = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
+  const toDay = valid(req.query.to) && req.query.to < today ? req.query.to : today;
+  const fromDay = valid(req.query.from) ? (req.query.from > toDay ? toDay : req.query.from) : `${toDay.slice(0, 8)}01`;
+  const since = istStart(fromDay);
+  const untilEnd = istStart(nextDay(toDay));
+
+  // fund (Cash/Bank) accounts and their names
+  const cashName = company.cashAccountName || "Cash";
+  const bankName = (id) => {
+    const b = (company.bankAccounts || []).find((x) => String(x._id) === String(id));
+    return b ? `${b.bankName}${b.accountNumber ? ` (…${String(b.accountNumber).slice(-4)})` : ""}` : "Bank";
+  };
+  const fundAccs = await LedgerAccount.find({ companyId, type: "bank" }).lean();
+  const fundName = new Map(fundAccs.map((a) => [String(a._id), a.bankAccountId ? bankName(a.bankAccountId) : cashName]));
+
+  // ledger movements since the first day, up to now (later days are needed to walk the balance back)
+  const txs = await LedgerTransaction.find({ companyId, date: { $gte: since } }).lean();
+  const originals = new Map(
+    (await LedgerTransaction.find({ _id: { $in: txs.filter((t) => t.reverses).map((t) => t.reverses) } }).lean()).map((t) => [String(t._id), t])
+  );
+  const loans = new Map(
+    (await CompanyLoan.find({ _id: { $in: txs.map((t) => t.loanId).filter(Boolean) } }).select("borrowerCompanyId").lean()).map((l) => [String(l._id), l])
+  );
+  const moves = (t) => {
+    if (FUND_TRACKED_TYPES.has(t.type)) return true;
+    if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(companyId);
+    return false;
+  };
+  const counted = txs.filter((t) => (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
+  const entries = await LedgerEntry.find({ transactionId: { $in: counted.map((t) => t._id) }, accountId: { $in: fundAccs.map((a) => a._id) } }).lean();
+  const txById = new Map(counted.map((t) => [String(t._id), t]));
+  const people = new Map((await User.find({ _id: { $in: counted.map((t) => t.createdBy) } }).select("name").lean()).map((u) => [String(u._id), u.name]));
+
+  const days = new Map();
+  const dayRow = (day) => {
+    if (!days.has(day)) days.set(day, { date: day, moneyIn: 0, moneyOut: 0, net: 0, expensesTotal: 0, expenseCount: 0, expenses: [], income: [], movements: [] });
+    return days.get(day);
+  };
+  for (const e of entries) {
+    const t = txById.get(String(e.transactionId));
+    const amount = round(e.debit - e.credit);
+    if (!amount) continue;
+    const row = dayRow(istDay(t.date));
+    const original = t.type === "reversal" ? originals.get(String(t.reverses)) : null;
+    row.movements.push({
+      _id: `${t._id}:${e._id}`,
+      at: t.date,
+      type: t.type,
+      label: original ? `Reversed: ${MOVE_LABELS[original.type] || original.type}` : MOVE_LABELS[t.type] || t.type,
+      memo: t.memo || "",
+      note: t.note || "",
+      account: fundName.get(String(e.accountId)) || "Fund",
+      amount, // + came in, − went out
+      method: t.method || "",
+      reference: t.reference || "",
+      by: people.get(String(t.createdBy)) || "",
+      expenseId: t.expenseId || null,
+    });
+    row.net = round(row.net + amount);
+    if (amount > 0) row.moneyIn = round(row.moneyIn + amount);
+    else row.moneyOut = round(row.moneyOut - amount);
+  }
+
+  // Add Income: new money in (no source bank), or a transfer between my own accounts (total unchanged)
+  const incomes = await CompanyIncome.find({ companyId, createdAt: { $gte: since } }).populate("createdBy", "name").lean();
+  for (const i of incomes) {
+    const row = dayRow(istDay(i.createdAt));
+    const transfer = Boolean(i.sourceBankAccountId);
+    row.income.push({
+      _id: String(i._id),
+      at: i.createdAt,
+      kind: transfer ? "transfer" : "income",
+      description: i.description || "",
+      amount: round(i.amount),
+      to: i.destinationType === "cash" ? cashName : i.destinationName || "Bank",
+      from: transfer ? i.sourceName || "Bank" : i.sourceName || "New money",
+      by: i.createdBy?.name || "",
+    });
+    if (!transfer) {
+      row.moneyIn = round(row.moneyIn + i.amount);
+      row.net = round(row.net + i.amount);
+    }
+  }
+
+  // the period's expenses, by their own expense date (rejected and group expenses left out)
+  const expenses = await Expense.find({ companyId, lifecycle: { $nin: [null, "rejected"] }, groupId: null, date: { $gte: since, $lt: untilEnd } })
+    .select("description category amount date lifecycle status payerType logAs createdBy createdAt")
+    .populate("createdBy", "name")
+    .lean();
+  for (const x of expenses) {
+    const row = dayRow(istDay(x.date));
+    row.expenses.push({
+      _id: x._id,
+      description: x.description,
+      category: x.category,
+      amount: round(x.amount),
+      lifecycle: x.lifecycle,
+      status: x.status,
+      payerType: x.payerType,
+      logAs: x.logAs,
+      by: x.createdBy?.name || "",
+      createdAt: x.createdAt,
+    });
+    row.expensesTotal = round(row.expensesTotal + x.amount);
+    row.expenseCount += 1;
+  }
+
+  // walk back from today's real Cash + Bank: each day closes at what's left after undoing every later day
+  const current = round(Number(company.cashBalance || 0) + (company.bankAccounts || []).reduce((s, b) => s + Number(b.balance || 0), 0));
+  const sorted = [...days.values()].sort((a, b) => b.date.localeCompare(a.date));
+  let running = current;
+  for (const d of sorted) {
+    d.closing = running;
+    d.opening = round(running - d.net);
+    running = d.opening;
+  }
+  const inRange = sorted.filter((d) => d.date >= fromDay && d.date <= toDay);
+  const afterPeriod = sorted.filter((d) => d.date > toDay);
+  const periodClosing = afterPeriod.length ? afterPeriod[afterPeriod.length - 1].opening : current;
+  const periodOpening = round(periodClosing - inRange.reduce((s, d) => s + d.net, 0));
+  for (const d of inRange) {
+    d.expenses.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    d.income.sort((a, b) => new Date(b.at) - new Date(a.at));
+    d.movements.sort((a, b) => new Date(b.at) - new Date(a.at));
+  }
+
+  res.json({
+    success: true,
+    from: fromDay,
+    to: toDay,
+    currentBalance: current,
+    summary: {
+      opening: periodOpening,
+      closing: periodClosing,
+      moneyIn: round(inRange.reduce((s, d) => s + d.moneyIn, 0)),
+      moneyOut: round(inRange.reduce((s, d) => s + d.moneyOut, 0)),
+      expensesTotal: round(inRange.reduce((s, d) => s + d.expensesTotal, 0)),
+      expenseCount: inRange.reduce((s, d) => s + d.expenseCount, 0),
+    },
+    days: inRange,
+  });
 });

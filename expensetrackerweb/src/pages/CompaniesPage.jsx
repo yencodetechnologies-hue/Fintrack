@@ -7,7 +7,24 @@ import { createCompany, getCompanyMemberCandidates, getUserCompanies, getUserExp
 import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 import CreateGroupModal from "../components/CreateGroupModal.jsx";
+import CompanyGroupModal from "../components/CompanyGroupModal.jsx";
 import { roleLabel } from "../utils.js";
+
+// Company groups first (in name order), then companies in no group. Ungrouped ones get an "Other companies" title
+// only when there are groups above them.
+function companySections(companies) {
+  const byGroup = new Map();
+  const loose = [];
+  for (const c of companies) {
+    if (!c.companyGroup) { loose.push(c); continue; }
+    const key = String(c.companyGroup._id);
+    if (!byGroup.has(key)) byGroup.set(key, { key, group: c.companyGroup, items: [] });
+    byGroup.get(key).items.push(c);
+  }
+  const groups = [...byGroup.values()].sort((a, b) => a.group.name.localeCompare(b.group.name));
+  if (loose.length) groups.push({ key: "loose", group: null, titled: groups.length > 0, items: loose });
+  return groups;
+}
 
 export default function CompaniesPage() {
   const { user } = useAuth();
@@ -33,6 +50,7 @@ export default function CompaniesPage() {
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState("");
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [companyGroupModal, setCompanyGroupModal] = useState(null); // { group } — null group = new company group
 
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
@@ -179,6 +197,9 @@ export default function CompaniesPage() {
         <div className="landing-actions">
           <button className="btn btn-dark" onClick={() => setModal("create")}>+ Create Company</button>
           <button className="btn btn-primary" onClick={() => setModal("join")}>Join Company</button>
+          {companies.length > 0 && (
+            <button className="btn btn-outline" onClick={() => setCompanyGroupModal({ group: null })}>+ Company group</button>
+          )}
         </div>
         {loading ? (
           <div style={{ display: "flex", justifyContent: "center", padding: 70 }}>
@@ -189,8 +210,22 @@ export default function CompaniesPage() {
             No companies yet. Create one or join with a code to get started.
           </div>
         ) : (
+          // companies in a company group show under the group's name; the rest under "Other companies"
+          companySections(companies).map((section) => (
+            <section key={section.key} style={{ marginBottom: 26 }}>
+              {section.group ? (
+                <div className="company-group-head">
+                  <h3>{section.group.name}</h3>
+                  <span>{section.items.length} companies</span>
+                  {(String(section.group.createdBy) === String(user.id) || section.items.every((c) => c.userRole === "admin")) && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setCompanyGroupModal({ group: section.group })}>Edit</button>
+                  )}
+                </div>
+              ) : section.titled ? (
+                <div className="company-group-head"><h3>Other companies</h3></div>
+              ) : null}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-            {companies.map((c) => (
+            {section.items.map((c) => (
               <button
                 key={c._id}
                 className="list-row company-tile"
@@ -209,6 +244,8 @@ export default function CompaniesPage() {
               </button>
             ))}
           </div>
+            </section>
+          ))
         )}
         </>}
 
@@ -462,6 +499,16 @@ export default function CompaniesPage() {
       )}
 
       {showCreateGroup && <CreateGroupModal companies={companies} user={user} onClose={() => setShowCreateGroup(false)} onCreated={loadGroups} />}
+      {companyGroupModal && (
+        <CompanyGroupModal
+          group={companyGroupModal.group}
+          companies={companies}
+          user={user}
+          onClose={() => setCompanyGroupModal(null)}
+          onSaved={() => { setCompanyGroupModal(null); load(); }}
+          onCompanyCreated={load}
+        />
+      )}
 
     </AppLayout>
   );

@@ -3,6 +3,7 @@ import { setMemberAdmin, setMemberCustomRole } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
 import { CompanyLogoCard } from "./CompanyLogo.jsx";
+import InvitesList from "./InvitesList.jsx";
 import { companyCategories, roleLabel, roleNames } from "../utils.js";
 import {
   addCompanyMember,
@@ -74,6 +75,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
     }
   }
 
+  const [invitesKey, setInvitesKey] = useState(0);
+
   async function handleAddMember(e) {
     e.preventDefault();
     if (!inviteEmail.trim()) {
@@ -102,6 +105,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
     const target = inviteTarget(role);
     const res = await inviteCompanyMember(company._id, user.id, email, target.role, target.customRoleId);
     setInviting(false);
+    setInvitesKey((k) => k + 1); // saved even when the email fails, so refresh the Invites list either way
     if (res.success) {
       showToast(`Invite sent to ${email}`);
       setInviteEmail("");
@@ -280,6 +284,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
           </form>
         </div>
       )}
+
+      {/* emailed invites and whether each person has signed up (joined) yet */}
+      {isAdmin && can("members") && <InvitesList company={company} user={user} refreshKey={invitesKey} />}
 
       {/* the count is staff only; managers (incl. the creator) are listed but not counted */}
       <h3 style={{ fontSize: 16, marginBottom: 10 }}>

@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'ledger_common.dart';
 
 /// Every date-range filter in the app (same as the web's PeriodFilter):
-/// All time / Day / Month / Year / Custom. Works in yyyy-MM-dd strings; "" means open-ended.
+/// All time / Day / This week / Month / Year / Custom. Works in yyyy-MM-dd strings; "" means open-ended.
 class PeriodFilter extends StatefulWidget {
   final String from;
   final String to;
@@ -15,6 +15,9 @@ class PeriodFilter extends StatefulWidget {
   final InputDecoration decoration;
   final double labelWidth;
 
+  /// The option shown first when the parent starts with a range already set (e.g. "month" on Accounts).
+  final String? initialMode;
+
   const PeriodFilter({
     super.key,
     required this.from,
@@ -23,6 +26,7 @@ class PeriodFilter extends StatefulWidget {
     required this.decoration,
     this.dates = const [],
     this.labelWidth = 70,
+    this.initialMode,
   });
 
   @override
@@ -30,7 +34,7 @@ class PeriodFilter extends StatefulWidget {
 }
 
 class _PeriodFilterState extends State<PeriodFilter> {
-  late String _mode = widget.from.isEmpty && widget.to.isEmpty ? "all" : "custom";
+  late String _mode = widget.initialMode ?? (widget.from.isEmpty && widget.to.isEmpty ? "all" : "custom");
 
   @override
   void didUpdateWidget(PeriodFilter old) {
@@ -58,6 +62,10 @@ class _PeriodFilterState extends State<PeriodFilter> {
       widget.onChanged("", "");
     } else if (mode == "day") {
       _set("day", today);
+    } else if (mode == "week") {
+      // this week: Monday to today
+      final now = DateTime.now();
+      widget.onChanged(DateFormat("yyyy-MM-dd").format(now.subtract(Duration(days: now.weekday - 1))), today);
     } else if (mode == "month") {
       _set("month", today.substring(0, 7));
     } else if (mode == "year") {
@@ -111,6 +119,7 @@ class _PeriodFilterState extends State<PeriodFilter> {
           items: const [
             DropdownMenuItem(value: "all", child: Text("All time")),
             DropdownMenuItem(value: "day", child: Text("Day")),
+            DropdownMenuItem(value: "week", child: Text("This week")),
             DropdownMenuItem(value: "month", child: Text("Month")),
             DropdownMenuItem(value: "year", child: Text("Year")),
             DropdownMenuItem(value: "custom", child: Text("Custom")),

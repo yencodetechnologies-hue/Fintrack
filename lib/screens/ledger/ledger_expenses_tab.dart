@@ -161,11 +161,17 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                   ),
                   const SizedBox(height: 10),
                   _filterCard(),
-                  if (_postedBy != "all" && list.isNotEmpty)
+                  // total of everything the filters show (dates, period, search, status, posted by)
+                  if (list.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Text("${list.length} expenses · total ${inr(list.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0)))}",
-                          style: GoogleFonts.inter(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                      child: Row(children: [
+                        Text("${list.length} ${list.length == 1 ? "expense" : "expenses"} · Total",
+                            style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                        const Spacer(),
+                        Text(inr(list.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0))),
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                      ]),
                     ),
                   if (_error != null)
                     Column(children: [
@@ -286,7 +292,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
         });
       }
     } else if (canMarkReceived(s, e)) {
-      action = _quick("Received", () => showReceivedSheet(context, s, e));
+      action = _quick("✓ Mark received", () => showReceivedSheet(context, s, e));
     } else if (lifecycle == "approved" && payerOptions(s, e).isNotEmpty) {
       action = _quick("Pay", () => showPaySheet(context, s, e));
     }
@@ -346,19 +352,36 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
   final newCategory = TextEditingController();
   final added = <String>[];
   String category = "General";
-  bool addingCategory = false;
   DateTime date = DateTime.now();
   String receipt = "";
   String postAs = "self";
   String fund = "cash";
   bool useAdvance = false;
+  // "Paid from" → Borrowed from another company (same as the web): the lender, or a new outside company
+  const borrow = "__borrow__", outside = "__outside__";
+  List<Map<String, dynamic>>? lenders; // loaded the first time Borrowed is picked
+  String? lenderId;
+  final outsideName = TextEditingController();
+  final outsideGstin = TextEditingController();
   final hidden = s.hiddenStaffIds.toSet();
   final visibleTo = s.members.map((m) => m["userId"].toString()).where((id) => !hidden.contains(id)).toSet();
 
   Future<void> submit(BuildContext ctx, {bool confirmDuplicate = false}) async {
     final amt = double.tryParse(amount.text.trim()) ?? 0;
     if (!(amt > 0) || desc.text.trim().isEmpty) return toast(ctx, "Enter a valid amount and description", error: true);
+    // "co:<companyId>:<fundId>" = another company I run pays it (booked as borrowed from that company)
+    final other = fund.startsWith("co:") ? fund.split(":") : null;
+    final isBorrow = s.isAdmin && postAs == "company" && (fund == borrow || other != null);
+    if (isBorrow && other == null) {
+      if (lenderId == null) return toast(ctx, "Choose the company you borrowed from", error: true);
+      if (lenderId == outside && (outsideName.text.trim().isEmpty || outsideGstin.text.trim().isEmpty)) {
+        return toast(ctx, "Enter the outside company's name and GSTIN", error: true);
+      }
+    }
     final res = await LedgerService.createExpense({
+      if (other != null) ...{"sourceCompanyId": other[1], "sourceFundId": other[2]},
+      if (isBorrow && other == null && lenderId == outside) "newCompany": {"name": outsideName.text.trim(), "gstin": outsideGstin.text.trim().toUpperCase()},
+      if (isBorrow && other == null && lenderId != outside) "sourceCompanyId": lenderId,
       "companyId": s.companyId,
       "userId": s.userId,
       "amount": amt,
@@ -367,8 +390,8 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
       "date": date.toIso8601String(),
       "attachment": receipt,
       "visibleTo": visibleTo.toList(),
-      "postAs": s.isAdmin ? postAs : "self",
-      if (s.isAdmin && postAs == "company") "fundId": fund,
+      "postAs": isBorrow ? "borrow" : s.isAdmin ? postAs : "self",
+      if (s.isAdmin && postAs == "company" && !isBorrow) "fundId": fund,
       "checkDuplicate": true,
       "confirmDuplicate": confirmDuplicate,
       "useAdvance": !s.isAdmin && advance > 0 && useAdvance,
@@ -387,7 +410,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
       if (again && ctx.mounted) await submit(ctx, confirmDuplicate: true);
       return;
     }
-    if (handleResult(ctx, res, "Expense added successfully!")) {
+    if (handleResult(ctx, res, res["awaitingConfirmation"] == true ? "Expense added · sent to the lender company to confirm" : "Expense added successfully!")) {
       Navigator.pop(ctx);
       notifyLedgerChanged();
       onDone?.call();
@@ -398,7 +421,13 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
         final amt = double.tryParse(amount.text.trim()) ?? 0;
         final options = {...companyCategories(s.company), ...added}.toList();
         final selectedFund = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
-        final insufficient = s.isAdmin && postAs == "company" && amt > 0 && selectedFund.balance < amt;
+        // another company I run pays it ("co:<companyId>:<fundId>"), booked as borrowed from that company
+        final otherCo = fund.startsWith("co:")
+            ? s.managedOtherCompanies.where((c) => c["_id"].toString() == fund.split(":")[1]).firstOrNull
+            : null;
+        final isBorrow = s.isAdmin && postAs == "company" && (fund == borrow || otherCo != null);
+        // borrowed money doesn't come out of this company's own funds
+        final insufficient = s.isAdmin && postAs == "company" && !isBorrow && amt > 0 && selectedFund.balance < amt;
         final dup = amt > 0 && desc.text.trim().isNotEmpty
             ? existing
                 .where((x) =>
@@ -415,7 +444,6 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
           set(() {
             if (match == null) added.add(name);
             category = match ?? name;
-            addingCategory = false;
             newCategory.clear();
           });
           if (match != null) return;
@@ -438,19 +466,80 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
             Text("Post expense as", style: labelStyle),
             const SizedBox(height: 6),
             SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: "self", label: Text("Manager (Self)"), icon: Icon(Icons.person_outline_rounded, size: 16)),
-                ButtonSegment(value: "company", label: Text("Company"), icon: Icon(Icons.business_rounded, size: 16)),
+              segments: [
+                ButtonSegment(value: "self", label: Text("${s.myRoleLabel} (Self)"), icon: const Icon(Icons.person_outline_rounded, size: 16)),
+                const ButtonSegment(value: "company", label: Text("Company"), icon: Icon(Icons.business_rounded, size: 16)),
               ],
               selected: {postAs},
               onSelectionChanged: (v) => set(() => postAs = v.first),
             ),
             const SizedBox(height: 6),
-            Text(postAs == "company" ? "Paid straight from ${s.companyName}'s Cash or Bank." : "Logged under your manager account as payable to you.",
+            Text(postAs == "company" ? "Paid straight from ${s.companyName}'s Cash or Bank." : "Logged under your account as payable to you.",
                 style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             if (postAs == "company") ...[
               const SizedBox(height: 10),
-              fundDropdown(s, fund, (v) => set(() => fund = v ?? "cash"), hint: "Paid from"),
+              DropdownButtonFormField<String>(
+                initialValue: fund,
+                isExpanded: true,
+                decoration: fieldDecoration("Paid from", icon: Icons.account_balance_rounded),
+                items: [
+                  ...s.funds.map((f) => DropdownMenuItem(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis))),
+                  // my other companies' Cash/Bank: paying from one books it as borrowed from that company
+                  if (s.can("intercompany"))
+                    for (final c in s.managedOtherCompanies) ...[
+                      DropdownMenuItem(
+                        value: "co:${c["_id"]}:cash",
+                        child: Text("${c["name"]} · ${c["cashAccountName"] ?? "Cash"} · ${inr(c["cashBalance"] ?? 0)}", overflow: TextOverflow.ellipsis),
+                      ),
+                      for (final b in List<Map<String, dynamic>>.from(c["bankAccounts"] ?? const []))
+                        DropdownMenuItem(
+                          value: "co:${c["_id"]}:${b["_id"]}",
+                          child: Text("${c["name"]} · ${bankLabel(b)} · ${inr(b["balance"] ?? 0)}", overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                  if (s.can("intercompany")) const DropdownMenuItem(value: borrow, child: Text("Borrowed from another company…")),
+                ],
+                onChanged: (v) {
+                  set(() => fund = v ?? "cash");
+                  if (v == borrow && lenders == null) {
+                    LedgerService.borrowSources(s.companyId, s.userId).then((r) {
+                      if (ctx.mounted) {
+                        set(() => lenders = List<Map<String, dynamic>>.from(r["companies"] ?? const [])
+                            .where((c) => c["_id"].toString() != s.companyId)
+                            .toList());
+                      }
+                    });
+                  }
+                },
+              ),
+              if (otherCo != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text("${otherCo["name"]} pays this, so ${s.companyName} borrows ${amt > 0 ? inr(amt) : "the amount"} from it. It shows under Borrowed here and Lent there until repaid.",
+                      style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                ),
+              if (fund == borrow) ...[
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: lenderId,
+                  isExpanded: true,
+                  decoration: fieldDecoration(lenders == null ? "Loading companies…" : "Lender company *", icon: Icons.business_rounded),
+                  items: [
+                    ...(lenders ?? const []).map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(c["name"].toString(), overflow: TextOverflow.ellipsis))),
+                    const DropdownMenuItem(value: outside, child: Text("An outside company…")),
+                  ],
+                  onChanged: (v) => set(() => lenderId = v),
+                ),
+                if (lenderId == outside) ...[
+                  const SizedBox(height: 8),
+                  TextField(controller: outsideName, decoration: fieldDecoration("Company name *", icon: Icons.business_rounded)),
+                  const SizedBox(height: 8),
+                  TextField(controller: outsideGstin, textCapitalization: TextCapitalization.characters, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
+                ],
+                const SizedBox(height: 6),
+                Text("${s.companyName} borrows ${amt > 0 ? inr(amt) : "the amount"} from this company to pay the expense; it shows under Borrowed until repaid. A registered company you don't manage confirms it first.",
+                    style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+              ],
               if (insufficient)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -481,28 +570,17 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
             ),
           ]),
           const SizedBox(height: 10),
-          if (!addingCategory)
-            Row(children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  key: ValueKey("cat-$category-${added.length}"),
-                  initialValue: options.contains(category) ? category : null,
-                  isExpanded: true,
-                  decoration: fieldDecoration("Category", icon: Icons.category_rounded),
-                  items: options.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                  onChanged: (v) => set(() => category = v ?? "General"),
-                ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(onPressed: () => set(() => addingCategory = true), child: const Text("+ New")),
-            ])
-          else
-            Row(children: [
-              Expanded(child: TextField(controller: newCategory, autofocus: true, decoration: fieldDecoration("New category name"))),
-              const SizedBox(width: 8),
-              ElevatedButton(onPressed: addCategory, child: const Text("Add")),
-              IconButton(onPressed: () => set(() => addingCategory = false), icon: const Icon(Icons.close_rounded)),
-            ]),
+          // opens the category sheet (search + chips; typing a new name offers "+ Add")
+          categoryField(category, () async {
+            final pick = await pickCategory(ctx, options, category);
+            if (pick == null) return;
+            if (pick.isNew) {
+              newCategory.text = pick.name;
+              await addCategory();
+            } else {
+              set(() => category = pick.name);
+            }
+          }),
           const SizedBox(height: 10),
           DescriptionField(
             companyId: s.companyId,

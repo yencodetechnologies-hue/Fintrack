@@ -3,10 +3,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_accounts.dart';
 import 'ledger_funds.dart';
 import 'ledger_settings.dart';
 import 'ledger_vouchers.dart';
 import 'ledger_interco_tab.dart';
+import 'ledger_payments.dart';
 import 'ledger_permissions.dart';
 
 class LedgerMoreTab extends StatelessWidget {
@@ -32,6 +34,9 @@ class LedgerMoreTab extends StatelessWidget {
         if (scope.isAdmin && scope.can("vouchers")) item(Icons.confirmation_number_rounded, "Vouchers", "Money given to staff up front, claims and hand-backs", VouchersPage(scope: scope)),
         // Payments sits in the bottom bar for managers who can pay people, so Inter-co lives here instead
         if (paymentsInNav(scope) && scope.can("intercompany")) item(Icons.swap_horiz_rounded, "Inter-company", "Borrowing, lending and payments between companies", IntercoPage(scope: scope)),
+        // the Payments tab shows only my own; paying everyone else (with totals and history) is here
+        if (paymentsInNav(scope)) item(Icons.groups_rounded, "Pay people", "What the company owes each ${scope.staffName.toLowerCase()} and ${scope.managerName.toLowerCase()}, and paying them", PaymentsPage(scope: scope)),
+        if (scope.isAdmin && scope.can("funds")) item(Icons.calendar_month_rounded, "Accounts", "Each day's money in and out, expenses and closing balance", AccountsPage(scope: scope)),
         if (scope.isAdmin && scope.can("funds")) item(Icons.account_balance_wallet_rounded, "Company funds", "${scope.cashName}, bank accounts and income", FundsPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),

@@ -5,6 +5,7 @@ import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_description_field.dart';
 import 'ledger_fund_topup.dart';
+import 'ledger_payments.dart' show PaymentsPage;
 
 num _round(num n) => (n * 100).round() / 100;
 String _keyOf(Map<String, dynamic> b) => b["transactionId"] != null ? "tx:${b["transactionId"]}" : "exp:${b["expenseId"]}";
@@ -14,7 +15,9 @@ String _keyOf(Map<String, dynamic> b) => b["transactionId"] != null ? "tx:${b["t
 class OwnOutstandingCard extends StatefulWidget {
   final LedgerScope scope;
   final VoidCallback? onPaid;
-  const OwnOutstandingCard({super.key, required this.scope, this.onPaid});
+  /// Show a short "nothing owed" card instead of nothing (the Payments tab, where this card is all there is).
+  final bool showEmpty;
+  const OwnOutstandingCard({super.key, required this.scope, this.onPaid, this.showEmpty = false});
 
   @override
   State<OwnOutstandingCard> createState() => _OwnOutstandingCardState();
@@ -61,9 +64,37 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
   @override
   Widget build(BuildContext context) {
     final bills = _bills;
-    if (bills == null) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (bills == null) {
+      return SliverToBoxAdapter(
+        child: widget.showEmpty ? const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator(color: Colors.white))) : const SizedBox.shrink(),
+      );
+    }
     final total = _sum(bills);
-    if (!(total > 0)) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    if (!(total > 0)) {
+      if (!widget.showEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+      return SliverToBoxAdapter(
+        child: ledgerCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+          child: Column(children: [
+            const Icon(Icons.check_circle_rounded, color: kForest, size: 34),
+            const SizedBox(height: 8),
+            Text("Nothing outstanding", style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: kDark)),
+            const SizedBox(height: 4),
+            Text("${s.companyName} has paid back all your approved expenses.",
+                textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+            // next step after paying myself: other people's bills (also in More → Pay people)
+            if (paymentsInNav(s)) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s))),
+                icon: const Icon(Icons.groups_rounded, size: 18),
+                label: const Text("Pay other people"),
+              ),
+            ],
+          ]),
+        ),
+      );
+    }
     final chosen = bills.where((b) => _selected.contains(_keyOf(b))).toList();
     final allOn = chosen.length == bills.length;
 

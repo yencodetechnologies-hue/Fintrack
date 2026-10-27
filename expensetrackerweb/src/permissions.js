@@ -12,6 +12,7 @@ const TAB_PERMISSION = {
   vouchers: "vouchers",
   payments: "reimburse",
   funds: "funds",
+  accounts: "funds",
   transactions: "ledger_audit",
   audit: "ledger_audit",
 };

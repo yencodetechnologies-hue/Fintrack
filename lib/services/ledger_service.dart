@@ -153,6 +153,12 @@ class LedgerService {
   static Future<Map<String, dynamic>> inviteMember(String companyId, String userId, String email, String role, {String? customRoleId}) =>
       _post("$_base/companies/$companyId/invites", {"userId": userId, "email": email, "role": role, if (customRoleId != null) "customRoleId": customRoleId});
 
+  /// Invited emails with their status: pending (waiting to sign up / emailSent false = email failed) or accepted (joined).
+  static Future<Map<String, dynamic>> invites(String companyId, String userId) =>
+      _get("$_base/companies/$companyId/invites?userId=$userId");
+  static Future<Map<String, dynamic>> cancelInvite(String companyId, String inviteId, String userId) =>
+      _post("$_base/companies/$companyId/invites/$inviteId/cancel", {"userId": userId});
+
   static Future<Map<String, dynamic>> removeMember(String companyId, String memberUserId, String userId) =>
       _delete("$_company/company/$companyId/member/$memberUserId", {"userId": userId});
 
@@ -293,6 +299,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> descriptionSuggestions(String companyId, String userId, String kind) =>
       _get("$_base/companies/$companyId/descriptions?userId=$userId&kind=$kind");
 
+  /// Accounts screen: each day's money in/out, expenses and closing Cash + Bank balance (from/to as yyyy-MM-dd).
+  static Future<Map<String, dynamic>> accountsDays(String companyId, String userId, String from, String to) =>
+      _get("$_base/companies/$companyId/accounts?userId=$userId&from=$from&to=$to");
+
   static Future<Map<String, dynamic>> intercompanyBalances(String companyId, String userId) =>
       _get("$_base/companies/$companyId/intercompany?userId=$userId");
 
@@ -307,6 +317,12 @@ class LedgerService {
 
   static Future<Map<String, dynamic>> updateSettings(String companyId, Map<String, dynamic> body) =>
       _post("$_base/companies/$companyId/settings", body);
+
+  /// Company groups: a named set of companies, only for organising the companies list. groupId null = create.
+  static Future<Map<String, dynamic>> saveCompanyGroup(String? groupId, Map<String, dynamic> body) =>
+      _post(groupId == null ? "$_base/company-groups" : "$_base/company-groups/$groupId", body);
+  static Future<Map<String, dynamic>> deleteCompanyGroup(String groupId, String userId) =>
+      _post("$_base/company-groups/$groupId/delete", {"userId": userId});
 
   /// Company logo as a data:image URL ("" removes it); primary Admin only.
   static Future<Map<String, dynamic>> setCompanyLogo(String companyId, String userId, String logo) =>

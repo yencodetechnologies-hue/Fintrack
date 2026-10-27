@@ -103,8 +103,9 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
     return byName.entries.map((e) => (name: e.key, balance: e.value)).toList();
   }
 
+  // Today = the expense's own date is today (not when it was posted), same as the Expenses tab
   bool _isToday(Map<String, dynamic> e) {
-    final d = DateTime.tryParse((e["createdAt"] ?? e["date"])?.toString() ?? "")?.toLocal();
+    final d = DateTime.tryParse((e["date"] ?? e["createdAt"])?.toString() ?? "")?.toLocal();
     final now = DateTime.now();
     return d != null && d.year == now.year && d.month == now.month && d.day == now.day;
   }
@@ -224,7 +225,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         stat("My outstanding", balancesReady ? inr(myOwed) : null, color: kForest,
             sub: "All people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}",
             // managers: open Payments, where "Your outstanding" is at the top
-            onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s, focusOwn: true))) : null),
+            onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s, mineOnly: true))) : null),
         stat("Borrowed", _secondaryLoading ? null : inr(borrowedTotal), color: kForest,
             sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.map((r) => r.name).join(", "), onTap: widget.onOpenInterco),
         stat("Lent", _secondaryLoading ? null : inr(lentTotal),
@@ -280,13 +281,17 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             ]),
           ],
           StaffVoucherSection(scope: s),
-          // Home lists only expenses posted today; the rest live on the Expenses tab
+          // Home lists only expenses dated today; the rest live on the Expenses tab
           Padding(
             padding: const EdgeInsets.fromLTRB(2, 16, 0, 6),
             child: Row(children: [
               Text("Today", style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
               Text("  ·  ${DateFormat("dd MMM").format(DateTime.now())}", style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
               const Spacer(),
+              // today's total: what's listed below, rejected ones left out
+              Text(inr(today.where((e) => e["lifecycle"] != "rejected").fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0))),
+                  style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(width: 12),
               GestureDetector(
                 onTap: widget.onOpenExpenses,
                 child: Text("See all", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),

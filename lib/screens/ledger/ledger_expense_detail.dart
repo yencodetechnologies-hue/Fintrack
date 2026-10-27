@@ -145,7 +145,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
     final primary = s.isAdmin && isSubmitted && s.can("approve_expenses")
         ? _button("Approve", kForest, filled: true, onTap: () => _decide(true))
         : canReceive
-            ? _button("Received", kForest, filled: true, onTap: () {
+            ? _button("Mark as received", kForest, filled: true, onTap: () {
                 _close();
                 showReceivedSheet(widget.parent, s, e);
               })
@@ -365,6 +365,13 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
   String? personId;
   var method = "UPI";
   final ref = TextEditingController();
+  // from "borrow": another company paid me, so this company borrows from it (a company I manage, or an outside one)
+  final canBorrow = s.can("intercompany");
+  const outside = "__outside__";
+  String? lenderPick; // "co:<companyId>:<fundId>" or outside
+  List<Map<String, dynamic>>? allCompanies; // every other company, loaded the first time "Another company" is picked
+  final outsideName = TextEditingController();
+  final outsideGstin = TextEditingController();
 
   Widget choice(String value, String title, String sub, String current, VoidCallback onTap) => Expanded(
         child: InkWell(
@@ -390,17 +397,38 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
         final selected = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
         final short = from == "company" && selected.balance < amount;
         final person = others.where((m) => m["userId"].toString() == personId).firstOrNull;
+        final mineIds = s.managedOtherCompanies.map((c) => c["_id"].toString()).toSet();
+        final rest = (allCompanies ?? const []).where((c) => !mineIds.contains(c["_id"].toString()) && c["_id"].toString() != s.companyId).toList();
+        final lenderId = lenderPick != null && lenderPick!.startsWith("co:") ? lenderPick!.split(":")[1] : null;
+        final lenderCo = lenderId == null ? null : [...s.managedOtherCompanies, ...rest].where((c) => c["_id"].toString() == lenderId).firstOrNull;
+        final notifiesLender = lenderCo != null && !mineIds.contains(lenderId) && lenderCo["external"] != true;
+        final lenderName = lenderPick == outside
+            ? (outsideName.text.trim().isEmpty ? "the outside company" : outsideName.text.trim())
+            : lenderCo?["name"]?.toString() ?? "";
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("${e["description"]} · ${inr(amount)} — you got this money back, so the expense closes.",
               style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
           const SizedBox(height: 12),
           Text("Received from", style: labelStyle),
           const SizedBox(height: 6),
-          Row(children: [
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             choice("company", s.companyName, "From Cash or Bank", from, () => set(() => from = "company")),
             const SizedBox(width: 8),
             choice("person", "A person", "They paid you; the company owes them", from, () => set(() => from = "person")),
           ]),
+          if (canBorrow) ...[
+            const SizedBox(height: 8),
+            Row(children: [
+              choice("borrow", "Another company", "It paid you; ${s.companyName} borrows from it", from, () {
+                set(() => from = "borrow");
+                if (allCompanies == null) {
+                  LedgerService.borrowSources(s.companyId, s.userId).then((r) {
+                    if (ctx.mounted) set(() => allCompanies = List<Map<String, dynamic>>.from(r["companies"] ?? const []));
+                  });
+                }
+              }),
+            ]),
+          ],
           const SizedBox(height: 10),
           if (from == "company") ...[
             fundDropdown(s, fund, (v) => set(() => fund = v ?? "cash"), hint: "Paid from"),
@@ -409,6 +437,36 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
                 padding: const EdgeInsets.only(top: 6),
                 child: Text("Only ${inr(selected.balance)} available in ${selected.name}. You can add money when you mark it received.",
                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
+              ),
+          ] else if (from == "borrow") ...[
+            DropdownButtonFormField<String>(
+              initialValue: lenderPick,
+              isExpanded: true,
+              decoration: fieldDecoration(allCompanies == null ? "Loading companies…" : "Which company paid you?", icon: Icons.business_rounded),
+              items: [
+                for (final c in s.managedOtherCompanies) ...[
+                  DropdownMenuItem(value: "co:${c["_id"]}:cash", child: Text("${c["name"]} · ${c["cashAccountName"] ?? "Cash"}", overflow: TextOverflow.ellipsis)),
+                  for (final b in List<Map<String, dynamic>>.from(c["bankAccounts"] ?? const []))
+                    DropdownMenuItem(value: "co:${c["_id"]}:${b["_id"]}", child: Text("${c["name"]} · ${b["bankName"]}", overflow: TextOverflow.ellipsis)),
+                ],
+                // every other company (no account choice: booked to its Cash)
+                for (final c in rest)
+                  DropdownMenuItem(value: "co:${c["_id"]}:cash", child: Text("${c["name"]}${c["external"] == true ? " (outside)" : ""}", overflow: TextOverflow.ellipsis)),
+                const DropdownMenuItem(value: outside, child: Text("An outside company…")),
+              ],
+              onChanged: (v) => set(() => lenderPick = v),
+            ),
+            if (lenderPick == outside) ...[
+              const SizedBox(height: 8),
+              TextField(controller: outsideName, onChanged: (_) => set(() {}), decoration: fieldDecoration("Company name *", icon: Icons.business_rounded)),
+              const SizedBox(height: 8),
+              TextField(controller: outsideGstin, textCapitalization: TextCapitalization.characters, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
+            ],
+            if (lenderPick != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text("${s.companyName} borrows ${inr(amount)} from $lenderName: it shows under Borrowed here and Lent there until repaid.${notifiesLender ? " $lenderName's admins are notified." : ""}",
+                    style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
               ),
           ] else ...[
             DropdownButtonFormField<String>(
@@ -437,9 +495,12 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
           const SizedBox(height: 16),
           primaryButton(
             "Mark received",
-            from == "person" && personId == null
+            (from == "person" && personId == null) || (from == "borrow" && lenderPick == null)
                 ? null
                 : () async {
+                    if (from == "borrow" && lenderPick == outside && (outsideName.text.trim().isEmpty || outsideGstin.text.trim().isEmpty)) {
+                      return toast(ctx, "Enter the outside company's name and GSTIN", error: true);
+                    }
                     if (short && !await topUpFund(ctx, s, selected, amount)) return;
                     if (!ctx.mounted) return;
                     final res = await LedgerService.markReceived(e["_id"].toString(), {
@@ -447,11 +508,15 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
                       "from": from,
                       if (from == "company") "fundId": fund,
                       if (from == "person") "personId": personId,
+                      if (from == "borrow" && lenderPick == outside) "newCompany": {"name": outsideName.text.trim(), "gstin": outsideGstin.text.trim().toUpperCase()},
+                      if (from == "borrow" && lenderPick != outside) ...{"sourceCompanyId": lenderPick!.split(":")[1], "sourceFundId": lenderPick!.split(":")[2]},
                       "method": method,
                       "reference": ref.text.trim(),
                     });
                     if (!ctx.mounted) return;
-                    final msg = from == "person"
+                    final msg = from == "borrow"
+                        ? "Marked received · ${s.companyName} now owes $lenderName ${inr(amount)}"
+                        : from == "person"
                         ? "Marked received · ${s.companyName} now owes ${person?["name"] ?? "them"} ${inr(amount)}"
                         : "Marked received · ${inr(amount)} from ${selected.name}";
                     if (handleResult(ctx, res, msg)) {
@@ -667,13 +732,11 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
             const SizedBox(height: 10),
             DescriptionField(companyId: s.companyId, userId: s.userId, kind: "expense", controller: desc, hint: "Description"),
             const SizedBox(height: 10),
-            DropdownButtonFormField<String>(
-              initialValue: category,
-              isExpanded: true,
-              decoration: fieldDecoration("Category", icon: Icons.category_rounded),
-              items: options.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => set(() => category = v ?? category),
-            ),
+            // same category sheet as Add Expense (picks from the company's categories)
+            categoryField(category, () async {
+              final pick = await pickCategory(ctx, options, category, allowNew: false);
+              if (pick != null) set(() => category = pick.name);
+            }),
             const SizedBox(height: 10),
             InkWell(
               onTap: () async {
@@ -688,9 +751,9 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
             Text("Who paid?", style: labelStyle),
             const SizedBox(height: 6),
             SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: "manager", label: Text("Me (manager)")),
-                ButtonSegment(value: "company", label: Text("Company")),
+              segments: [
+                ButtonSegment(value: "manager", label: Text("${s.myRoleLabel} (Self)")),
+                const ButtonSegment(value: "company", label: Text("Company")),
               ],
               selected: {payer ?? "manager"},
               onSelectionChanged: (v) => set(() => payer = v.first),

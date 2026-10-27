@@ -1,13 +1,16 @@
-import { useState } from "react";
-import { receivedLedgerExpense } from "../api.js";
+import { useEffect, useState } from "react";
+import { getLedgerBorrowSources, receivedLedgerExpense } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { money, PAYMENT_METHODS, roleLabel } from "../utils.js";
 import Modal from "./Modal.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 
 // A manager's own expense (company owes them): record that they got the money back — from the company's
-// Cash/Bank, or from another member who paid them personally (the company then owes that member). Closes it.
-export default function ReceivedModal({ expense, company, user, members, funds, onClose, onDone }) {
+// Cash/Bank, from another member who paid them personally (the company then owes that member), or from another
+// company (this company borrows from it: a company I manage, or an outside one). Closes it.
+const OUTSIDE = "__outside__";
+
+export default function ReceivedModal({ expense, company, user, members, funds, otherCompanies = [], canBorrow = false, onClose, onDone }) {
   const { showToast } = useToast();
   const [from, setFrom] = useState("company");
   const [fundId, setFundId] = useState(funds[0]?.fundId || "cash");
@@ -16,6 +19,23 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
   const [method, setMethod] = useState("UPI");
   const [reference, setReference] = useState("");
   const [saving, setSaving] = useState(false);
+  // from "borrow": "co:<companyId>:<fundId>" (a company I manage, and which of its accounts paid), or OUTSIDE
+  const [lenderPick, setLenderPick] = useState("");
+  const [outsideName, setOutsideName] = useState("");
+  const [outsideGstin, setOutsideGstin] = useState("");
+  // every other company (loaded the first time "Another company" is picked); mine come first with their accounts
+  const [allCompanies, setAllCompanies] = useState(null);
+  const thisCompanyId = String(company?._id || expense.companyId?._id || expense.companyId);
+  useEffect(() => {
+    if (from !== "borrow" || allCompanies !== null) return;
+    getLedgerBorrowSources(thisCompanyId, user.id).then((res) => setAllCompanies(res.success ? res.companies || [] : []));
+  }, [from, allCompanies, thisCompanyId, user.id]);
+  const mineIds = new Set(otherCompanies.map((c) => String(c._id)));
+  const restCompanies = (allCompanies || []).filter((c) => !mineIds.has(String(c._id)) && String(c._id) !== thisCompanyId);
+  const lenderId = lenderPick.startsWith("co:") ? lenderPick.split(":")[1] : "";
+  const lenderName = lenderPick === OUTSIDE
+    ? outsideName.trim() || "the outside company"
+    : [...otherCompanies, ...(allCompanies || [])].find((c) => String(c._id) === lenderId)?.name || "";
   const amount = Number(expense.amount || 0);
   const fund = funds.find((f) => String(f.fundId) === String(fundId));
   const short = from === "company" && fund && Number(fund.balance || 0) < amount;
@@ -26,6 +46,8 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
   function submit(event) {
     event.preventDefault();
     if (from === "person" && !personId) return showToast("Choose who paid you", "error");
+    if (from === "borrow" && !lenderPick) return showToast("Choose the company that paid you", "error");
+    if (from === "borrow" && lenderPick === OUTSIDE && (!outsideName.trim() || !outsideGstin.trim())) return showToast("Enter the outside company's name and GSTIN", "error");
     if (short) return topUp.ask(fund, amount, save);
     save();
   }
@@ -37,12 +59,17 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
       from,
       fundId: from === "company" ? fundId : undefined,
       personId: from === "person" ? personId : undefined,
+      ...(from === "borrow"
+        ? lenderPick === OUTSIDE
+          ? { newCompany: { name: outsideName.trim(), gstin: outsideGstin.trim().toUpperCase() } }
+          : { sourceCompanyId: lenderPick.split(":")[1], sourceFundId: lenderPick.split(":")[2] }
+        : {}),
       method,
       reference: reference.trim(),
     });
     setSaving(false);
     if (!res.success) return showToast(res.message || "Could not mark it received", "error");
-    showToast(from === "person" ? `Marked received · ${company?.name || "the company"} now owes ${person?.name || "them"} ${money(amount)}` : `Marked received · ${money(amount)} from ${fund?.name || "company"}`);
+    showToast(from === "borrow" ? `Marked received · ${company?.name || "the company"} now owes ${lenderName} ${money(amount)}` : from === "person" ? `Marked received · ${company?.name || "the company"} now owes ${person?.name || "them"} ${money(amount)}` : `Marked received · ${money(amount)} from ${fund?.name || "company"}`);
     onDone?.();
   }
 
@@ -63,6 +90,12 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
             <strong>A person</strong>
             <span>They paid you; the company owes them</span>
           </button>
+          {canBorrow && (
+            <button type="button" className={from === "borrow" ? "on" : ""} onClick={() => setFrom("borrow")}>
+              <strong>Another company</strong>
+              <span>It paid you; {company?.name || "this company"} borrows from it</span>
+            </button>
+          )}
         </div>
 
         {from === "company" ? (
@@ -72,6 +105,38 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
               {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
             </select>
             {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
+          </>
+        ) : from === "borrow" ? (
+          <>
+            <label className="field-label" style={{ display: "block", marginTop: 12 }}>Which company paid you?</label>
+            <select className="field-select" value={lenderPick} onChange={(e) => setLenderPick(e.target.value)}>
+              <option value="">{allCompanies === null ? "Loading companies…" : "Choose a company"}</option>
+              {/* my companies: pick which of their accounts paid */}
+              {otherCompanies.map((c) => (
+                <optgroup key={c._id} label={c.name}>
+                  <option value={`co:${c._id}:cash`}>{c.name} · {c.cashAccountName || "Cash"}</option>
+                  {(c.bankAccounts || []).map((b) => <option key={b._id} value={`co:${c._id}:${b._id}`}>{c.name} · {b.bankName}</option>)}
+                </optgroup>
+              ))}
+              {restCompanies.length > 0 && (
+                <optgroup label="Other companies">
+                  {restCompanies.map((c) => <option key={c._id} value={`co:${c._id}:cash`}>{c.name}{c.external ? " (outside)" : ""}</option>)}
+                </optgroup>
+              )}
+              <option value={OUTSIDE}>An outside company…</option>
+            </select>
+            {lenderPick === OUTSIDE && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                <input className="field-input" placeholder="Company name *" value={outsideName} onChange={(e) => setOutsideName(e.target.value)} />
+                <input className="field-input" placeholder="GSTIN *" value={outsideGstin} onChange={(e) => setOutsideGstin(e.target.value.toUpperCase())} />
+              </div>
+            )}
+            {lenderPick && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>
+                {company?.name || "The company"} borrows {money(amount)} from {lenderName}: it shows under Borrowed here and Lent there until repaid.
+                {lenderId && !mineIds.has(lenderId) && !restCompanies.find((c) => String(c._id) === lenderId)?.external && ` ${lenderName}'s admins are notified.`}
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -93,7 +158,7 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
 
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving || (from === "person" && !personId)}>
+          <button className="btn btn-primary" style={{ flex: 1 }} disabled={saving || (from === "person" && !personId) || (from === "borrow" && !lenderPick)}>
             {saving ? "Saving…" : "Mark received"}
           </button>
         </div>

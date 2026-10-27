@@ -16,7 +16,7 @@ function currentPayer(expense, userId) {
   return null;
 }
 
-export default function EditExpenseModal({ expense, user, isAdmin = false, funds = [], customCategories, hiddenCategories = [], onClose, onUpdated }) {
+export default function EditExpenseModal({ expense, user, isAdmin = false, myRoleLabel = "Manager", funds = [], customCategories, hiddenCategories = [], onClose, onUpdated }) {
   const { showToast } = useToast();
   const [amount, setAmount] = useState(String(expense.amount ?? ""));
   const [description, setDescription] = useState(expense.description || "");
@@ -135,7 +135,7 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, funds
           <div style={{ marginBottom: 14 }}>
             <label className="field-label">Post expense as</label>
             <div style={{ display: "flex", gap: 8 }}>
-              {segment("manager", "Manager (Self)")}
+              {segment("manager", `${myRoleLabel} (Self)`)}
               {segment("company", "Company")}
             </div>
             {payer === "company" && payerChanged && (

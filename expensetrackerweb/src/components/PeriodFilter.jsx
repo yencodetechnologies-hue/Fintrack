@@ -9,10 +9,11 @@ const todayKey = () => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-// Every date-range filter in the app: All time / Day / Month / Year / Custom.
+// Every date-range filter in the app: All time / Day / This week / Month / Year / Custom.
 // Works in YYYY-MM-DD strings and reports the chosen range as onChange(from, to); "" means open-ended.
-export default function PeriodFilter({ from, to, onChange, years, label = "Period" }) {
-  const [mode, setMode] = useState(() => (from || to ? "custom" : "all"));
+// initialMode: the option shown first when the parent starts with a range already set (e.g. "month" on Accounts)
+export default function PeriodFilter({ from, to, onChange, years, label = "Period", initialMode }) {
+  const [mode, setMode] = useState(() => initialMode || (from || to ? "custom" : "all"));
 
   // a parent "Reset" clears the range: show All time again
   useEffect(() => {
@@ -33,6 +34,12 @@ export default function PeriodFilter({ from, to, onChange, years, label = "Perio
     const today = todayKey();
     if (next === "all") onChange("", "");
     else if (next === "day") setPeriod("day", today);
+    else if (next === "week") {
+      // this week: Monday to today
+      const d = new Date();
+      d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+      onChange(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, today);
+    }
     else if (next === "month") setPeriod("month", today.slice(0, 7));
     else if (next === "year") setPeriod("year", today.slice(0, 4));
   }
@@ -49,10 +56,11 @@ export default function PeriodFilter({ from, to, onChange, years, label = "Perio
           style={{ ...inputStyle, width: "auto", minWidth: 110 }}
           value={mode}
           onChange={(e) => choose(e.target.value)}
-          title="Filter by day, month, year or a custom range"
+          title="Filter by day, week, month, year or a custom range"
         >
           <option value="all">All time</option>
           <option value="day">Day</option>
+          <option value="week">This week</option>
           <option value="month">Month</option>
           <option value="year">Year</option>
           <option value="custom">Custom</option>

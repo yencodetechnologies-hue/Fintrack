@@ -33,7 +33,9 @@ class PaymentsPage extends StatefulWidget {
   final bool focusOwn;
   /// Shown as a bottom-nav tab (the home screen already has the app bar), so no app bar of its own.
   final bool embedded;
-  const PaymentsPage({super.key, required this.scope, this.focusOwn = false, this.embedded = false});
+  /// Only my own: what the company owes me for my expenses, paying it, and my payment history (the Payments tab).
+  final bool mineOnly;
+  const PaymentsPage({super.key, required this.scope, this.focusOwn = false, this.embedded = false, this.mineOnly = false});
 
   @override
   State<PaymentsPage> createState() => _PaymentsPageState();
@@ -52,7 +54,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   final _search = TextEditingController();
   // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
   // opened from the Home "My outstanding" tile it starts on "me"
-  late String _role = widget.focusOwn ? "me" : "all";
+  late String _role = widget.focusOwn || widget.mineOnly ? "me" : "all";
   String _show = "owed"; // owed | all
   String _sort = "owed"; // owed | claims | name
   final Set<String> _selected = {};
@@ -145,14 +147,14 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   @override
   Widget build(BuildContext context) {
     final people = _people;
-    final visible = _visible(people);
+    // Pay people lists everyone but me: my own expenses are paid from the Payments tab
+    final others = people.where((p) => p.userId != s.userId).toList();
+    final visible = _visible(others);
     final payableVisible = visible.where(_payable).toList();
     final selectedPeople = people.where((p) => _selected.contains(p.userId) && _payable(p)).toList();
     final selectedTotal = _round(selectedPeople.fold<num>(0, (a, p) => a + p.owed));
     final allSelected = payableVisible.isNotEmpty && payableVisible.every((p) => _selected.contains(p.userId));
     num sum(Iterable<_Person> list) => _round(list.fold<num>(0, (a, p) => a + _max(0, p.owed)));
-    final waiting = people.where((p) => p.owed > 0).length;
-    final fundsTotal = s.funds.fold<num>(0, (a, f) => a + f.balance);
 
     final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference})>().toList()
       // newest payment date first (a payment can be backdated)
@@ -161,6 +163,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     final hq = _historySearch.text.trim().toLowerCase();
     final history = allHistory.where((h) {
       final day = h.date.length >= 10 ? h.date.substring(0, 10) : h.date;
+      if (widget.mineOnly && h.name != s.userName) return false;
       if (_historyPerson != "all" && h.name != _historyPerson) return false;
       if (_historyFrom.isNotEmpty && day.compareTo(_historyFrom) < 0) return false;
       if (_historyTo.isNotEmpty && day.compareTo(_historyTo) > 0) return false;
@@ -216,24 +219,30 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                 onRefresh: _load,
                 // a CustomScrollView so "Your outstanding" can keep its top pinned while its bills scroll
                 child: CustomScrollView(slivers: [
-                  SliverPadding(
+                  // Payments tab (mineOnly): just the Your outstanding card; everything below is the Pay people page
+                  if (!widget.mineOnly) SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                     sliver: SliverToBoxAdapter(
-                      child: Text("Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
+                      child: Text(widget.mineOnly
+                              ? "What ${s.companyName} owes you for your expenses. Pay yourself from company funds, all at once or bill by bill."
+                              : "Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
                     ),
                   ),
-                  // what the company owes me: pay all or chosen bills, from company funds only
-                  SliverPadding(
+                  if (!widget.mineOnly) SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     sliver: SliverList(delegate: SliverChildListDelegate([
-                  _tiles([
-                    _tile("Total owed", inr(sum(people)), "$waiting ${waiting == 1 ? "person" : "people"} waiting", sum(people) > 0 ? kTerracotta : kForest),
-                    _tile("Owed to ${s.managersName.toLowerCase()}", inr(sum(people.where((p) => p.role == "manager"))), "Paid out of their own pocket", const Color(0xFF1D4ED8)),
-                    _tile("Owed to ${s.staffsName.toLowerCase()}", inr(sum(people.where((p) => p.role != "manager"))), "Claims and payments",
-                        sum(people.where((p) => p.role != "manager")) > 0 ? kTerracotta : kForest),
-                    _tile("Company funds", inr(fundsTotal), s.funds.take(2).map((f) => "${f.name} ${inr(f.balance)}").join(" · "), kForest),
-                  ]),
+                  // one total only: what the company owes me (Payments tab) or everyone else (Pay people)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: widget.mineOnly
+                        ? _tile("Total owed to you", inr(sum(people.where((p) => p.userId == s.userId))), "Your approved expenses not yet paid back",
+                            sum(people.where((p) => p.userId == s.userId)) > 0 ? kTerracotta : kForest)
+                        : _tile("Total owed", inr(sum(others)), "${others.where((p) => p.owed > 0).length} ${others.where((p) => p.owed > 0).length == 1 ? "person" : "people"} waiting",
+                            sum(others) > 0 ? kTerracotta : kForest),
+                  ),
+                  // everyone-else view only: the people filters
+                  if (!widget.mineOnly) ...[
                   const SizedBox(height: 4),
                   _filterCard(
                     _searchField(_search, "Search by name or email"),
@@ -244,11 +253,12 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     ],
                   ),
                   const SizedBox(height: 12),
+                  ],
                     ])),
                   ),
                   // "Name (You)": what the company owes me, payable right here (amount / selected / all)
-                  if (_role == "me") SliverPadding(padding: const EdgeInsets.symmetric(horizontal: 16), sliver: OwnOutstandingCard(scope: s, onPaid: _load)),
-                  SliverPadding(
+                  if (_role == "me") SliverPadding(padding: EdgeInsets.fromLTRB(16, widget.mineOnly ? 4 : 0, 16, widget.mineOnly ? 24 : 0), sliver: OwnOutstandingCard(scope: s, onPaid: _load, showEmpty: widget.mineOnly)),
+                  if (!widget.mineOnly) SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
                     sliver: SliverList(delegate: SliverChildListDelegate([
                   if (_role == "me")
@@ -281,11 +291,11 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                         ],
                       ]),
                     ),
-                  sectionTitle("Payment history"),
+                  sectionTitle(widget.mineOnly ? "My payment history" : "Payment history"),
                   _filterCard(
                     _searchField(_historySearch, "Search payments"),
                     [
-                      _pill(Icons.person_outline_rounded, _historyPerson, "all", {"all": "Everyone", for (final n in historyNames) n: n == s.userName ? "$n (You)" : n}, (v) => _historyPerson = v),
+                      if (!widget.mineOnly) _pill(Icons.person_outline_rounded, _historyPerson, "all", {"all": "Everyone", for (final n in historyNames) n: n == s.userName ? "$n (You)" : n}, (v) => _historyPerson = v),
                       _periodPill(input, allHistory.map((h) => h.date)),
                     ],
                   ),
@@ -461,20 +471,6 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
         },
         child: _chip(Icons.calendar_today_rounded, _periodLabel, _historyFrom.isNotEmpty || _historyTo.isNotEmpty),
       );
-
-  Widget _tiles(List<Widget> tiles) => Column(children: [
-        for (var i = 0; i < tiles.length; i += 2)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: IntrinsicHeight(
-              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                Expanded(child: tiles[i]),
-                const SizedBox(width: 8),
-                Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox()),
-              ]),
-            ),
-          ),
-      ]);
 
   Widget _tile(String label, String value, String sub, Color color) => Container(
         padding: const EdgeInsets.all(12),

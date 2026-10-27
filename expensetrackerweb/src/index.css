@@ -752,6 +752,11 @@ a {
   box-shadow: 0 6px 18px rgba(17, 63, 61, 0.25);
 }
 .landing-light .group-avatar { background: #fff; color: var(--forest); }
+/* company group title above its company tiles */
+.company-group-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 12px; }
+.company-group-head h3 { margin: 0; font-size: 17px; color: var(--dark-text); }
+.company-group-head span { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.company-group-head .btn { margin-left: auto; align-self: center; }
 .landing-light .group-row-copy strong { color: #fff; }
 .landing-light .group-row-copy small { color: rgba(255, 255, 255, 0.75); }
 
@@ -1174,7 +1179,7 @@ a {
 .payments-payrow-input input { width: 92px; border: none; outline: none; font: inherit; font-weight: 700; color: var(--dark-text); text-align: right; background: transparent; }
 .payments-full { border: none; background: none; padding: 2px 4px; font: inherit; font-size: 12px; font-weight: 700; color: var(--forest); cursor: pointer; }
 .payments-full:hover { text-decoration: underline; }
-.payments-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.payments-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
 .payments-choice button { text-align: left; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--slate-border); background: #fff; cursor: pointer; font: inherit; }
 .payments-choice button strong { display: block; font-size: 13.5px; color: var(--dark-text); }
 .payments-choice button span { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
@@ -1278,6 +1283,75 @@ a {
 .role-add-member { margin-top: 8px; height: 34px; padding: 0 10px; font-size: 12.5px; }
 
 .today-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 99px; background: #E8F7EF; border: 1px solid #CBEBD9; color: var(--forest); font-size: 13.5px; font-weight: 700; line-height: 1; }
+/* small text action in an expense row (e.g. "✓ Mark received"): lighter than a filled button */
+.row-link-btn {
+  border: 1px solid rgba(25, 87, 84, 0.25);
+  background: transparent;
+  color: var(--forest);
+  font: 600 12px Inter, system-ui, sans-serif;
+  padding: 4px 10px;
+  border-radius: 99px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.row-link-btn:hover { background: rgba(25, 87, 84, 0.08); border-color: var(--forest); }
+
+/* Expense detail popup: main actions share the row equally; small text actions underneath, Delete on the right */
+.detail-main-actions { display: flex; gap: 10px; }
+.detail-main-actions > .btn { flex: 1 1 0; min-width: 0; }
+.detail-small-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.detail-link {
+  border: 0;
+  background: none;
+  color: var(--forest);
+  font: 600 13px Inter, system-ui, sans-serif;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.detail-link:hover { background: rgba(25, 87, 84, 0.08); }
+.detail-link.danger { color: var(--terracotta); margin-left: auto; }
+.detail-link.danger:hover { background: rgba(184, 69, 45, 0.08); }
+
+/* Accounts page (AccountsPanel.jsx): day-by-day balances */
+/* search + Period on one line; the period wraps under the search on narrow screens */
+.accounts-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 14px; }
+.accounts-filters > .field-input { flex: 1 1 260px; min-width: 0; height: 38px; margin-bottom: 0; }
+.accounts-filters .period-filter { flex: 0 0 auto; }
+.accounts-summary { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.accounts-summary .stat-card { padding: 12px 14px; display: grid; gap: 4px; min-width: 0; }
+.accounts-summary small { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+.accounts-summary strong { font-size: 18px; color: var(--forest); overflow: hidden; text-overflow: ellipsis; }
+.accounts-days { padding: 0; overflow: hidden; }
+.accounts-day + .accounts-day { border-top: 1px solid var(--slate-border-2); }
+.accounts-day-head { width: 100%; display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: none; border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.accounts-day-head:hover, .accounts-day.open .accounts-day-head { background: var(--slate-bg); }
+.accounts-day-date { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.accounts-day-date strong { font-size: 14px; }
+.accounts-day-date small { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.accounts-day-balance { display: grid; text-align: right; }
+.accounts-day-balance small { color: var(--muted); font-size: 10.5px; font-weight: 700; text-transform: uppercase; }
+.accounts-day-balance strong { font-size: 16px; color: var(--forest); }
+.accounts-day-chevron { color: var(--muted); font-size: 12px; width: 12px; }
+.accounts-day-body { padding: 4px 16px 14px; background: var(--slate-bg); }
+.accounts-day-body section { margin-top: 10px; background: #fff; border: 1px solid var(--slate-border-2); border-radius: 10px; padding: 4px 12px; }
+.accounts-day-body h4 { margin: 8px 0 4px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.accounts-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; }
+.accounts-item + .accounts-item { border-top: 1px solid var(--slate-border-2); }
+.accounts-item span { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.accounts-item strong { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.accounts-item small { color: var(--muted); font-size: 11.5px; }
+.accounts-item b { font-size: 13.5px; white-space: nowrap; }
+.accounts-day-line { display: flex; justify-content: space-between; padding: 10px 2px 0; font-size: 13px; color: var(--muted); }
+.accounts-day-line strong { color: var(--dark-text); }
+.accounts-panel-in, .accounts-summary .in, .accounts-day small .in, .accounts-item .in { color: var(--forest); }
+.accounts-summary .out, .accounts-day small .out, .accounts-item .out { color: var(--terracotta); }
+@media (max-width: 900px) { .accounts-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Expenses page: total of the filtered list, at the right end of the filter row */
+.expense-filter-total { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+.expense-filter-total small { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+.expense-filter-total strong { color: var(--forest); font-size: 18px; font-weight: 800; }
 .loan-chips-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 10px; }
 .loan-chip {
   display: inline-flex;
@@ -1579,21 +1653,24 @@ a {
 /* the real select covers the pill, invisible */
 .tile-period select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; margin: 0; padding: 0; }
 .home-tile-label-row > span:first-child { min-width: 0; }
-@media (max-width: 640px) {
-  .tile-period-dates { flex-direction: column; align-items: stretch; gap: 6px; }
-  .tile-period-dates > span { display: none; }
-  .tile-period-dates input { width: 100%; padding: 6px 8px; }
-}
-.tile-period-dates { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--muted); }
+/* Custom period: From / To stacked, each a full-width row */
+.tile-period-dates { display: grid; gap: 6px; margin-top: 10px; }
+.tile-period-dates label { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.tile-period-dates label > span { flex: 0 0 32px; font: 600 11px Inter, system-ui, sans-serif; color: var(--muted); }
 .tile-period-dates input {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   border: 1px solid var(--slate-border);
   border-radius: 8px;
-  padding: 3px 4px;
-  font: 600 11px Inter, system-ui, sans-serif;
+  padding: 5px 6px;
+  font: 600 12px Inter, system-ui, sans-serif;
   color: var(--dark-text);
   background: #fff;
+}
+/* narrow tile: the period pill sits in the bottom-right corner, so keep it clear of the dates */
+@container (max-width: 205px) {
+  .tile-period-dates { margin-bottom: 28px; }
 }
 
 .home-tile-label {

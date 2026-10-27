@@ -50,6 +50,8 @@ class LedgerScope {
   /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
   bool can(String key) => permissions == null || permissions![key] != false;
   bool get isPrimary => permissionRole == "primary";
+  /// My role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name.
+  String get myRoleLabel => isPrimary ? "Admin" : (roleName?.isNotEmpty ?? false) ? roleName! : managerName;
   bool get canEditPermissions =>
       isPrimary ||
       (permissionRole == "custom" && permissions != null && (permissions!["manager_permissions"] == true || permissions!["manage_roles"] == true)) ||
@@ -547,3 +549,71 @@ Widget emptyState(String text) => Padding(
 
 /// Managers who can pay people get Payments in the bottom bar (in Inter-co's place); Inter-co then opens from More.
 bool paymentsInNav(LedgerScope s) => s.isAdmin && s.can("reimburse");
+
+/// Category picker sheet: search box + categories as chips (the selected one filled). Typing a name that isn't in the
+/// list offers "+ Add …". Resolves to the picked name and whether it's a new category, or null when dismissed.
+Future<({String name, bool isNew})?> pickCategory(BuildContext context, List<String> options, String current, {bool allowNew = true}) async {
+  final search = TextEditingController();
+  // drop focus first: otherwise closing this sheet hands focus back to the form's last field (e.g. Amount) and jumps there
+  FocusManager.instance.primaryFocus?.unfocus();
+  // pick: unfocus the search box before closing, for the same reason
+  void done(BuildContext ctx, ({String name, bool isNew}) value) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.pop(ctx, value);
+  }
+
+  final picked = await showLedgerSheet<({String name, bool isNew})>(context, "Category", (ctx) => StatefulBuilder(builder: (ctx, set) {
+        final q = search.text.trim();
+        final shown = options.where((c) => c.toLowerCase().contains(q.toLowerCase())).toList();
+        final exact = options.any((c) => c.toLowerCase() == q.toLowerCase());
+        Widget chip(String label, {bool selected = false, IconData? icon, required VoidCallback onTap}) => Material(
+              color: selected ? kForest : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(99),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(99),
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    if (icon != null) ...[Icon(icon, size: 16, color: selected ? Colors.white : kForest), const SizedBox(width: 5)],
+                    Text(label, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600, color: selected ? Colors.white : kDark)),
+                  ]),
+                ),
+              ),
+            );
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(
+            controller: search,
+            autofocus: false,
+            textCapitalization: TextCapitalization.words,
+            onChanged: (_) => set(() {}),
+            decoration: fieldDecoration(allowNew ? "Search or type a new category" : "Search categories", icon: Icons.search_rounded),
+          ),
+          const SizedBox(height: 14),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final c in shown) chip(c, selected: c == current, onTap: () => done(ctx, (name: c, isNew: false))),
+            if (allowNew && q.isNotEmpty && !exact) chip("Add “$q”", icon: Icons.add_rounded, onTap: () => done(ctx, (name: q, isNew: true))),
+          ]),
+          if (shown.isEmpty && (!allowNew || q.isEmpty))
+            Text("No categories match.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+          const SizedBox(height: 6),
+        ]);
+      }));
+  search.dispose();
+  // the sheet is closed: make sure nothing on the form grabs focus back
+  FocusManager.instance.primaryFocus?.unfocus();
+  return picked;
+}
+
+/// The field that opens [pickCategory]: looks like the other form fields, shows the current category.
+Widget categoryField(String category, VoidCallback onTap, {bool enabled = true}) => InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: fieldDecoration("Category", icon: Icons.category_rounded).copyWith(
+          suffixIcon: const Icon(Icons.expand_more_rounded),
+          enabled: enabled,
+        ),
+        child: Text(category, style: GoogleFonts.inter(fontSize: 14.5, color: kDark), overflow: TextOverflow.ellipsis),
+      ),
+    );

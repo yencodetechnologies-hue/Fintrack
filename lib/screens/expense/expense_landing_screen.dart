@@ -5,6 +5,7 @@ import '../../services/ledger_service.dart';
 import '../ledger/ledger_home_screen.dart';
 import '../ledger/ledger_common.dart' show roleNameOf;
 import '../ledger/ledger_company_logo.dart';
+import 'company_group_sheet.dart';
 import 'create_expense_group_screen.dart';
 import 'group_expenses_screen.dart';
 import 'create_company_screen.dart';
@@ -86,6 +87,28 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// Company groups first (by name), then companies in no group ("Other companies" only when groups exist).
+  List<({Map<String, dynamic>? group, bool titled, List<Map<String, dynamic>> items})> _companySections() {
+    final byGroup = <String, ({Map<String, dynamic>? group, bool titled, List<Map<String, dynamic>> items})>{};
+    final loose = <Map<String, dynamic>>[];
+    for (final c in _userCompanies) {
+      final g = c["companyGroup"];
+      if (g is! Map) {
+        loose.add(c);
+        continue;
+      }
+      byGroup.putIfAbsent(g["_id"].toString(), () => (group: Map<String, dynamic>.from(g), titled: true, items: <Map<String, dynamic>>[])).items.add(c);
+    }
+    final sections = byGroup.values.toList()..sort((a, b) => a.group!["name"].toString().compareTo(b.group!["name"].toString()));
+    if (loose.isNotEmpty) sections.add((group: null, titled: sections.isNotEmpty, items: loose));
+    return sections;
+  }
+
+  Future<void> _openCompanyGroup(Map<String, dynamic>? group) async {
+    final changed = await showCompanyGroupSheet(context, userId: widget.userId, companies: _userCompanies, group: group);
+    if (changed && mounted) _loadUserCompanies();
   }
 
   void _openCreateCompany() {
@@ -400,29 +423,54 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Text(
-                              "${_userCompanies.length} Organizations",
-                              style: GoogleFonts.ibmPlexMono(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
+                            // group companies I run into a named company group
+                            if (_userCompanies.isNotEmpty)
+                              TextButton.icon(
+                                onPressed: () => _openCompanyGroup(null),
+                                style: TextButton.styleFrom(foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 8)),
+                                icon: const Icon(Icons.create_new_folder_rounded, size: 18),
+                                label: Text("Company group", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                              )
+                            else
+                              Text(
+                                "${_userCompanies.length} Organizations",
+                                style: GoogleFonts.ibmPlexMono(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 16),
 
-                        // Companies List
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _userCompanies.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 14),
-                          itemBuilder: (context, index) {
-                            final company = _userCompanies[index];
-                            return _buildCompanyCard(company);
-                          },
-                        ),
+                        // Companies, grouped by company group (groups first, then the rest)
+                        for (final section in _companySections()) ...[
+                          if (section.group != null || section.titled)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Row(children: [
+                                Text(section.group?["name"]?.toString() ?? "Other companies",
+                                    style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                                const SizedBox(width: 8),
+                                Text("${section.items.length}", style: GoogleFonts.inter(color: Colors.white60, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                                const Spacer(),
+                                if (section.group != null &&
+                                    (section.group!["createdBy"]?.toString() == widget.userId || section.items.every((c) => c["userRole"] == "admin")))
+                                  IconButton(
+                                    tooltip: "Edit group",
+                                    visualDensity: VisualDensity.compact,
+                                    onPressed: () => _openCompanyGroup(section.group),
+                                    icon: const Icon(Icons.edit_rounded, color: Colors.white70, size: 19),
+                                  ),
+                              ]),
+                            ),
+                          for (final company in section.items) ...[
+                            _buildCompanyCard(company),
+                            const SizedBox(height: 14),
+                          ],
+                          const SizedBox(height: 10),
+                        ],
                       ] else ...[
                         // Empty State if User Has No Companies Yet
                         Text(

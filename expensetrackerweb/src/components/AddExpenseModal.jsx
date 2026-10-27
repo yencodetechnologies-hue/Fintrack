@@ -1,17 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./Modal.jsx";
-import { addCustomCategory, createLedgerExpense, saveVisibilityPreference } from "../api.js";
+import { addCustomCategory, createLedgerExpense, getLedgerBorrowSources, saveVisibilityPreference } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, companyCategories, fileToBase64, formatDate } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import DescriptionInput from "./DescriptionInput.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 
+// special "Paid from" / "Lender company" values
+const BORROW = "__borrow__";
+const OUTSIDE = "__outside__";
+
 export default function AddExpenseModal({
   company,
   user,
   isAdmin,
   canPostAsCompany = true,
+  myRoleLabel = "Manager", // my actual role here: Admin, a custom role name, or the manager name
+  canBorrow = false, // the Inter-company permission: offers "Borrowed from another company" under Paid from
+  otherCompanies = [], // other companies this manager runs: their Cash/Bank are offered too (booked as borrowed from them)
   members,
   customCategories,
   hiddenStaffIds = [],
@@ -96,7 +103,19 @@ export default function AddExpenseModal({
   ];
   const selectedFundBalance = Number(companyFunds.find((f) => f.fundId === String(fundId))?.balance || 0);
   const parsedAmt = parseFloat(amount) || 0;
-  const isInsufficientFund = isAdmin && postAs === "company" && parsedAmt > 0 && selectedFundBalance < parsedAmt;
+  // "Paid from" → another company I run ("co:<companyId>:<fundId>"): that company pays, booked as borrowed from it
+  const otherPay = fundId.startsWith("co:") ? { companyId: fundId.split(":")[1], fundId: fundId.split(":")[2] } : null;
+  // "Paid from" → Borrowed from another company (or one I run): no own fund is used, so no balance check
+  const isBorrow = isAdmin && postAs === "company" && (fundId === BORROW || Boolean(otherPay));
+  const isInsufficientFund = isAdmin && postAs === "company" && !isBorrow && parsedAmt > 0 && selectedFundBalance < parsedAmt;
+  const [borrowSources, setBorrowSources] = useState(null); // loaded the first time Borrowed is picked
+  const [lenderId, setLenderId] = useState("");
+  const [outsideName, setOutsideName] = useState("");
+  const [outsideGstin, setOutsideGstin] = useState("");
+  useEffect(() => {
+    if (fundId !== BORROW || borrowSources !== null) return;
+    getLedgerBorrowSources(company._id, user.id).then((res) => setBorrowSources(res.success ? res.companies || res.sources || [] : []));
+  }, [fundId, borrowSources, company._id, user.id]);
   const topUp = useFundTopUp({ companyId: company._id, user, funds: companyFunds, onFunded: (res) => setToppedUp(res) });
 
   // Live hint from already-loaded expenses; the server makes the final check on submit.
@@ -118,8 +137,16 @@ export default function AddExpenseModal({
       topUp.ask(companyFunds.find((f) => f.fundId === String(fundId)), amt, () => handleSubmit(null, confirmDuplicate, true));
       return;
     }
+    if (isBorrow && !otherPay) {
+      if (!lenderId) return showToast("Choose the company you borrowed from", "error");
+      if (lenderId === OUTSIDE && (!outsideName.trim() || !outsideGstin.trim())) return showToast("Enter the outside company's name and GSTIN", "error");
+    }
     setSaving(true);
     const res = await createLedgerExpense({
+      // borrowed: the lender (a known company, or a new outside one)
+      ...(otherPay
+        ? { sourceCompanyId: otherPay.companyId, sourceFundId: otherPay.fundId }
+        : isBorrow ? (lenderId === OUTSIDE ? { newCompany: { name: outsideName.trim(), gstin: outsideGstin.trim() } } : { sourceCompanyId: lenderId }) : {}),
       companyId: company._id,
       userId: user.id,
       amount: amt,
@@ -128,15 +155,15 @@ export default function AddExpenseModal({
       date: new Date(date).toISOString(),
       attachment,
       visibleTo: Array.from(visibleTo),
-      postAs: isAdmin ? postAs : "self",
-      fundId: isAdmin && postAs === "company" ? fundId : undefined,
+      postAs: isBorrow ? "borrow" : isAdmin ? postAs : "self",
+      fundId: isAdmin && postAs === "company" && !isBorrow ? fundId : undefined,
       checkDuplicate: true,
       confirmDuplicate,
       useAdvance: canUseAdvance && useAdvance,
     });
     setSaving(false);
     if (res.success) {
-      showToast("Expense added successfully!");
+      showToast(res.awaitingConfirmation ? "Expense added · sent to the lender company to confirm" : "Expense added successfully!");
       onCreated();
       onClose();
     } else if (res.code === "DUPLICATE_EXPENSE") {
@@ -170,7 +197,7 @@ export default function AddExpenseModal({
                   <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
                   <circle cx="12" cy="7" r="4" />
                 </svg>
-                Manager (Self)
+                {myRoleLabel} (Self)
               </button>
               <button
                 type="button"
@@ -230,7 +257,7 @@ export default function AddExpenseModal({
                   <line x1="12" y1="8" x2="12.01" y2="8" />
                 </svg>
                 <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 500 }}>
-                  Logged under your manager account as payable to you.
+                  Logged under your account as payable to you.
                 </span>
               </div>
             )}
@@ -258,7 +285,45 @@ export default function AddExpenseModal({
                   </option>
                 );
               })}
+              {/* my other companies: paying from one books it as borrowed from it */}
+              {canBorrow && otherCompanies.map((c) => (
+                <optgroup key={c._id} label={`${c.name} pays (borrowed from ${c.name})`}>
+                  <option value={`co:${c._id}:cash`}>{c.name} · {c.cashAccountName || "Cash"} · ₹{Number(c.cashBalance || 0).toFixed(2)}</option>
+                  {(c.bankAccounts || []).map((b) => (
+                    <option key={b._id} value={`co:${c._id}:${b._id}`}>{c.name} · {bankAccountLabel(b)} · ₹{Number(b.balance || 0).toFixed(2)}</option>
+                  ))}
+                </optgroup>
+              ))}
+              {canBorrow && <option value={BORROW}>Borrowed from another company…</option>}
             </select>
+            {otherPay && (
+              <small style={{ display: "block", marginTop: 6, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
+                {otherCompanies.find((c) => String(c._id) === otherPay.companyId)?.name} pays this, so {company.name} borrows{" "}
+                {parsedAmt > 0 ? `₹${parsedAmt.toFixed(2)}` : "the amount"} from it. It shows under Borrowed here and Lent there until repaid.
+              </small>
+            )}
+            {fundId === BORROW && (
+              <div style={{ marginTop: 10 }}>
+                <label className="field-label">Lender company *</label>
+                <select className="field-select" style={{ height: 40 }} value={lenderId} onChange={(e) => setLenderId(e.target.value)}>
+                  <option value="">{borrowSources === null ? "Loading companies…" : "Choose company"}</option>
+                  {(borrowSources || []).filter((s) => String(s._id) !== String(company._id)).map((s) => (
+                    <option key={s._id} value={s._id}>{s.name}</option>
+                  ))}
+                  <option value={OUTSIDE}>An outside company…</option>
+                </select>
+                {lenderId === OUTSIDE && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+                    <input className="field-input" placeholder="Company name *" value={outsideName} onChange={(e) => setOutsideName(e.target.value)} />
+                    <input className="field-input" placeholder="GSTIN *" value={outsideGstin} onChange={(e) => setOutsideGstin(e.target.value.toUpperCase())} />
+                  </div>
+                )}
+                <small style={{ display: "block", marginTop: 6, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
+                  {company.name} borrows {parsedAmt > 0 ? `₹${parsedAmt.toFixed(2)}` : "the amount"} from this company to pay the expense; it shows under Borrowed until repaid.
+                  A registered company you don't manage confirms it first.
+                </small>
+              </div>
+            )}
             {isInsufficientFund && (
               <div
                 style={{

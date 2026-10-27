@@ -186,7 +186,7 @@ export default function ExpenseDetailModal({
     isAdmin && isSubmitted && onApprove ? (
       <button type="button" className="btn btn-primary" onClick={run(onApprove)}>Approve</button>
     ) : onReceived ? (
-      <button type="button" className="btn btn-primary" onClick={run(onReceived)}>Received</button>
+      <button type="button" className="btn btn-primary" onClick={run(onReceived)}>Mark as received</button>
     ) : isApproved && onRecordPayment ? (
       <button type="button" className="btn btn-primary" onClick={run(onRecordPayment)}>Record payment</button>
     ) : null;
@@ -289,24 +289,13 @@ export default function ExpenseDetailModal({
         </div>
       )}
 
-      {/* Actions: destructive on the left, everyday actions on the right, main action last */}
+      {/* Actions in two rows: the main ones as equal full-width buttons, then small ones (Delete apart on the right) */}
       <div style={actionBarStyle}>
-        <div>
-          {canDelete && onDelete && (
-            <button type="button" className="btn btn-outline-danger" onClick={run(onDelete)}>Delete</button>
-          )}
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {isAdmin && can("edit_expenses") && onVisibility && (
-            <button type="button" className="btn btn-outline" onClick={run(onVisibility)}>Visibility</button>
-          )}
-          {canEdit && onEdit && (
-            <button type="button" className="btn btn-outline" onClick={run(onEdit)}>Edit</button>
-          )}
+        <div className="detail-main-actions">
           {isAdmin && isSubmitted && onReject && (
             <button type="button" className="btn btn-outline" onClick={run(onReject)}>Reject</button>
           )}
-          {/* own expense: Received is the main action; recording who paid stays available */}
+          {/* own expense: Mark as received is the main action; recording who paid stays available */}
           {onReceived && isApproved && onRecordPayment && (
             <button type="button" className="btn btn-outline" onClick={run(onRecordPayment)}>Record payment</button>
           )}
@@ -315,6 +304,19 @@ export default function ExpenseDetailModal({
             <button type="button" className="btn btn-dark" onClick={onClose}>Done</button>
           )}
         </div>
+        {((canEdit && onEdit) || (isAdmin && can("edit_expenses") && onVisibility) || (canDelete && onDelete)) && (
+          <div className="detail-small-actions">
+            {canEdit && onEdit && (
+              <button type="button" className="detail-link" onClick={run(onEdit)}>✎ Edit</button>
+            )}
+            {isAdmin && can("edit_expenses") && onVisibility && (
+              <button type="button" className="detail-link" onClick={run(onVisibility)}>👁 Visibility</button>
+            )}
+            {canDelete && onDelete && (
+              <button type="button" className="detail-link danger" onClick={run(onDelete)}>🗑 Delete</button>
+            )}
+          </div>
+        )}
       </div>
 
       {activeImageZoom && (
@@ -419,11 +421,8 @@ const receiptImgStyle = {
 };
 
 const actionBarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
+  display: "grid",
   gap: 10,
-  flexWrap: "wrap",
   marginTop: 18,
   paddingTop: 16,
   borderTop: "1px solid var(--slate-border-2)",

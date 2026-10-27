@@ -6,6 +6,7 @@ const CompanyIncome = require("../models/companyIncome");
 const Settlement = require("../models/settlement");
 const User = require("../models/user");
 const { ExpenseGroup } = require("../models/expenseGroup");
+const CompanyGroup = require("../models/companyGroup");
 const { permissionsFor, permissionDenied } = require("../utils/permissions");
 
 // Helper to generate a unique 6-digit numeric join code
@@ -461,6 +462,13 @@ exports.getUserCompanies = async (req, res) => {
           joinedAt: m.joinedAt,
         };
       });
+
+    // the company group (named set of companies) each company is in, for grouping the companies list
+    const groups = await CompanyGroup.find({ companyIds: { $in: companies.map((c) => c._id) } }).select("name companyIds createdBy").lean();
+    for (const c of companies) {
+      const g = groups.find((x) => x.companyIds.some((id) => String(id) === String(c._id)));
+      c.companyGroup = g ? { _id: g._id, name: g.name, createdBy: g.createdBy } : null;
+    }
 
     res.status(200).json({ success: true, companies });
   } catch (error) {

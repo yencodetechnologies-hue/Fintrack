@@ -173,7 +173,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       (icon: Icons.receipt_long_rounded, label: "Expenses", build: (s) => LedgerExpensesTab(scope: s)),
       // managers who can pay people get Payments here (Inter-co then moves to More); everyone else keeps Inter-co
       if (scope != null && paymentsInNav(scope))
-        (icon: Icons.payments_rounded, label: "Payments", build: (s) => PaymentsPage(scope: s, embedded: true))
+        (icon: Icons.payments_rounded, label: "Payments", build: (s) => PaymentsPage(scope: s, embedded: true, mineOnly: true))
       else if (scope?.can("intercompany") ?? true)
         (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
       if (admin && (scope!.can("reports") || scope.can("analysis")))

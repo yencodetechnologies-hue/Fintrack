@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppConfig {
   static const String baseUrl = "https://fintrack.yencodetechnologies.in";
-  // LOCAL TESTING: this PC's Wi-Fi address (phone on the same Wi-Fi), e.g.
+  // LOCAL TESTING: this PC's Wi-Fi address (phone or emulator on the same Wi-Fi)
   // static const String baseUrl = "http://192.168.100.247:3009";
 
   static const String authBase = "$baseUrl/api/auth";

@@ -11,6 +11,8 @@ const companyInviteSchema = new mongoose.Schema(
     invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     status: { type: String, enum: ["pending", "accepted"], default: "pending" },
     acceptedAt: { type: Date, default: null },
+    // when the invite email last went out (null = it failed / never sent), shown as the invite's status in Settings
+    emailSentAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -318,6 +318,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> updateSettings(String companyId, Map<String, dynamic> body) =>
       _post("$_base/companies/$companyId/settings", body);
 
+  /// My own order of the companies list (top to bottom).
+  static Future<Map<String, dynamic>> saveCompanyOrder(String userId, List<String> companyIds) =>
+      _post("$_base/company-order", {"userId": userId, "companyIds": companyIds});
+
   /// Company groups: a named set of companies, only for organising the companies list. groupId null = create.
   static Future<Map<String, dynamic>> saveCompanyGroup(String? groupId, Map<String, dynamic> body) =>
       _post(groupId == null ? "$_base/company-groups" : "$_base/company-groups/$groupId", body);

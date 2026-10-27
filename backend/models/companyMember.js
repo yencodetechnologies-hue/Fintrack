@@ -21,6 +21,8 @@ const companyMemberSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    // where this person put the company in their own companies list (0 = top); null = never arranged
+    sortOrder: { type: Number, default: null },
     // Members this manager last unticked under "Visible To" when posting; new members stay visible.
     hiddenStaffIds: {
       type: [mongoose.Schema.Types.ObjectId],

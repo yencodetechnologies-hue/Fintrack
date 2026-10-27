@@ -10,7 +10,7 @@ import CreateGroupModal from "../components/CreateGroupModal.jsx";
 import CompanyGroupModal from "../components/CompanyGroupModal.jsx";
 import { roleLabel } from "../utils.js";
 
-// Company groups first (in name order), then companies in no group. Ungrouped ones get an "Other companies" title
+// Company groups first (in my arranged order), then companies in no group. Ungrouped ones get an "Other companies" title
 // only when there are groups above them.
 function companySections(companies) {
   const byGroup = new Map();
@@ -21,7 +21,8 @@ function companySections(companies) {
     if (!byGroup.has(key)) byGroup.set(key, { key, group: c.companyGroup, items: [] });
     byGroup.get(key).items.push(c);
   }
-  const groups = [...byGroup.values()].sort((a, b) => a.group.name.localeCompare(b.group.name));
+  // groups in the order of their first company in my list (Map keeps the order companies were seen)
+  const groups = [...byGroup.values()];
   if (loose.length) groups.push({ key: "loose", group: null, titled: groups.length > 0, items: loose });
   return groups;
 }
@@ -65,7 +66,10 @@ export default function CompaniesPage() {
   async function load() {
     setLoading(true);
     const list = await getUserCompanies(user.id);
-    setCompanies(Array.isArray(list) ? list : list.companies || []);
+    const rows = Array.isArray(list) ? list : list.companies || [];
+    // the order arranged in the app (Reorder) first; companies never placed keep their place after them
+    const placed = (c) => (c.sortOrder ?? null) !== null;
+    setCompanies([...rows.filter(placed).sort((a, b) => a.sortOrder - b.sortOrder), ...rows.filter((c) => !placed(c))]);
     setLoading(false);
   }
 

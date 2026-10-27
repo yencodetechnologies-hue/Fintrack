@@ -460,6 +460,8 @@ exports.getUserCompanies = async (req, res) => {
           // name of my custom role here (made by the primary admin), shown instead of Manager/Staff
           customRoleName: !isCreator && m.customRoleId ? ((compDoc.customRoles || []).find((r) => String(r._id) === String(m.customRoleId))?.name || null) : null,
           joinedAt: m.joinedAt,
+          // my own arrangement of the companies list (null = never arranged)
+          sortOrder: m.sortOrder ?? null,
         };
       });
 

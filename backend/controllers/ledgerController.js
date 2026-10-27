@@ -3655,3 +3655,15 @@ exports.accountsDays = handle(async (req, res) => {
     days: inRange,
   });
 });
+
+// My own order of the companies list: companyIds top to bottom. Only my membership rows change.
+exports.saveCompanyOrder = handle(async (req, res) => {
+  const { userId } = req.body;
+  const ids = [...new Set((Array.isArray(req.body.companyIds) ? req.body.companyIds : []).map(String))];
+  if (!userId) throw fail(400, "userId is required");
+  if (!ids.length) throw fail(400, "Send the companies in their new order");
+  await CompanyMember.bulkWrite(
+    ids.map((companyId, index) => ({ updateOne: { filter: { companyId, userId }, update: { $set: { sortOrder: index } } } }))
+  );
+  res.json({ success: true });
+});

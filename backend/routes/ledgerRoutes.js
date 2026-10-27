@@ -32,6 +32,7 @@ router.get("/companies/:companyId/intercompany", c.intercompanyBalances);
 router.get("/companies/:companyId/borrow-sources", c.listCompaniesForBorrow);
 router.post("/companies/:companyId/settings", c.updateCompanySettings);
 router.post("/companies/:companyId/logo", c.setCompanyLogo);
+router.post("/company-order", c.saveCompanyOrder);
 router.post("/company-groups", c.saveCompanyGroup);
 router.post("/company-groups/:groupId", c.saveCompanyGroup);
 router.post("/company-groups/:groupId/delete", c.deleteCompanyGroup);

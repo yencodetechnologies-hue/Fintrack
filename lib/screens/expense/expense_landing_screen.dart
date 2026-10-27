@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/expense_company_service.dart';
 import '../../services/ledger_service.dart';
 import '../ledger/ledger_home_screen.dart';
-import '../ledger/ledger_common.dart' show roleNameOf;
+import '../ledger/ledger_common.dart' show roleNameOf, toast;
 import '../ledger/ledger_company_logo.dart';
 import 'company_group_sheet.dart';
 import 'create_expense_group_screen.dart';
@@ -69,6 +69,13 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       }
       final companies = List<Map<String, dynamic>>.from(res["companies"]).where((c) => c["external"] != true).toList();
       companies.sort((a, b) {
+        // my own arrangement first (Reorder); companies never placed go after, newest first
+        final ao = a["sortOrder"] as num?, bo = b["sortOrder"] as num?;
+        if (ao != null || bo != null) {
+          if (ao == null) return 1;
+          if (bo == null) return -1;
+          if (ao != bo) return ao.compareTo(bo);
+        }
         final aDateRaw = a["createdAt"] ?? a["updatedAt"];
         final bDateRaw = b["createdAt"] ?? b["updatedAt"];
         final aDate = aDateRaw != null ? DateTime.tryParse(aDateRaw.toString()) ?? DateTime(1970) : DateTime(1970);
@@ -89,7 +96,8 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     }
   }
 
-  /// Company groups first (by name), then companies in no group ("Other companies" only when groups exist).
+  /// Company groups (in the order of their first company in my list), then companies in no group
+  /// ("Other companies" only when groups exist).
   List<({Map<String, dynamic>? group, bool titled, List<Map<String, dynamic>> items})> _companySections() {
     final byGroup = <String, ({Map<String, dynamic>? group, bool titled, List<Map<String, dynamic>> items})>{};
     final loose = <Map<String, dynamic>>[];
@@ -101,10 +109,76 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       }
       byGroup.putIfAbsent(g["_id"].toString(), () => (group: Map<String, dynamic>.from(g), titled: true, items: <Map<String, dynamic>>[])).items.add(c);
     }
-    final sections = byGroup.values.toList()..sort((a, b) => a.group!["name"].toString().compareTo(b.group!["name"].toString()));
+    final pos = {for (var i = 0; i < _userCompanies.length; i++) _userCompanies[i]["_id"].toString(): i};
+    final sections = byGroup.values.toList()
+      ..sort((a, b) => pos[a.items.first["_id"].toString()]!.compareTo(pos[b.items.first["_id"].toString()]!));
     if (loose.isNotEmpty) sections.add((group: null, titled: sections.isNotEmpty, items: loose));
     return sections;
   }
+
+  // ---- Reorder: drag companies into my own order, saved on the server for my account ----
+  bool _reordering = false;
+  bool _savingOrder = false;
+  List<Map<String, dynamic>> _draftOrder = [];
+
+  void _startReorder() => setState(() {
+        _draftOrder = List.of(_userCompanies);
+        _reordering = true;
+      });
+
+  Future<void> _saveOrder() async {
+    setState(() => _savingOrder = true);
+    final res = await LedgerService.saveCompanyOrder(widget.userId, _draftOrder.map((c) => c["_id"].toString()).toList());
+    if (!mounted) return;
+    setState(() => _savingOrder = false);
+    if (res["success"] != true) {
+      toast(context, res["message"]?.toString() ?? "Could not save the order", error: true);
+      return;
+    }
+    setState(() {
+      _userCompanies = [for (var i = 0; i < _draftOrder.length; i++) {..._draftOrder[i], "sortOrder": i}];
+      _reordering = false;
+    });
+    toast(context, "Company order saved");
+  }
+
+  Widget _reorderList() => ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        buildDefaultDragHandles: false,
+        itemCount: _draftOrder.length,
+        onReorder: (from, to) => setState(() {
+          if (to > from) to -= 1;
+          _draftOrder.insert(to, _draftOrder.removeAt(from));
+        }),
+        itemBuilder: (context, i) {
+          final c = _draftOrder[i];
+          return Padding(
+            key: ValueKey(c["_id"].toString()),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ReorderableDragStartListener(
+              index: i,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  CompanyAvatar(company: c, size: 34, radius: 9, letterBackground: forestDark),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(c["name"]?.toString() ?? "Company",
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w700, fontSize: 14.5)),
+                      if (c["companyGroup"] is Map)
+                        Text(c["companyGroup"]["name"].toString(), style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11.5)),
+                    ]),
+                  ),
+                  Icon(Icons.drag_handle_rounded, color: darkText.withValues(alpha: 0.45)),
+                ]),
+              ),
+            ),
+          );
+        },
+      );
 
   Future<void> _openCompanyGroup(Map<String, dynamic>? group) async {
     final changed = await showCompanyGroupSheet(context, userId: widget.userId, companies: _userCompanies, group: group);
@@ -423,6 +497,28 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
+                            if (_reordering)
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                TextButton(
+                                  onPressed: _savingOrder ? null : () => setState(() => _reordering = false),
+                                  style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                                  child: const Text("Cancel"),
+                                ),
+                                FilledButton(
+                                  onPressed: _savingOrder ? null : _saveOrder,
+                                  style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: forestDark, visualDensity: VisualDensity.compact),
+                                  child: Text(_savingOrder ? "Saving…" : "Done", style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                ),
+                              ])
+                            else
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                // drag the companies into my own order
+                                if (_userCompanies.length > 1)
+                                  IconButton(
+                                    tooltip: "Reorder",
+                                    onPressed: _startReorder,
+                                    icon: const Icon(Icons.swap_vert_rounded, color: Colors.white),
+                                  ),
                             // group companies I run into a named company group
                             if (_userCompanies.isNotEmpty)
                               TextButton.icon(
@@ -440,11 +536,20 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
+                              ]),
                           ],
                         ),
+                        if (_reordering)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text("Drag companies by the handle into your order, then tap Done.",
+                                style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+                          ),
                         const SizedBox(height: 16),
 
-                        // Companies, grouped by company group (groups first, then the rest)
+                        if (_reordering) _reorderList(),
+                        // Companies, grouped by company group (in my order)
+                        if (!_reordering)
                         for (final section in _companySections()) ...[
                           if (section.group != null || section.titled)
                             Padding(

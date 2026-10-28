@@ -41,13 +41,15 @@ export default function InvitesList({ company, user, refreshKey }) {
 
   return (
     <>
-      <TableCard title="Invites" meta={`${waiting ? `${waiting} waiting · ` : ""}${invites.length - waiting} joined`}>
+      <TableCard title="Invites" meta={`${waiting ? `${waiting} waiting · ` : ""}${invites.length - waiting} joined`} items={invites}>
+        {(rows) => (
+          <>
         <table className="dt">
           <thead>
             <tr><th>Email</th><th>Role</th><th>Invited by</th><th>Status</th><th className="num">Action</th></tr>
           </thead>
           <tbody>
-            {invites.map((inv) => {
+            {rows.map((inv) => {
               const joined = inv.status === "accepted";
               const status = joined
                 ? { text: `Joined${inv.acceptedAt ? ` · ${formatDate(inv.acceptedAt)}` : ""}`, color: "var(--forest)", bg: "#E8F7EF", icon: "✓" }
@@ -77,6 +79,9 @@ export default function InvitesList({ company, user, refreshKey }) {
             })}
           </tbody>
         </table>
+      
+          </>
+        )}
       </TableCard>
       {cancelling && (
         <ConfirmDialog

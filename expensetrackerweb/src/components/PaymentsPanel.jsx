@@ -5,7 +5,7 @@ import { formatDate, money, PAYMENT_METHODS, roleNames } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
-import { TableCard, pageOf, tableMeta } from "./DataTable.jsx";
+import { TableCard, pageOf, tableMeta, usePageSize } from "./DataTable.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 import OwnOutstanding from "./OwnOutstanding.jsx";
 
@@ -33,6 +33,9 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
   const [historyPerson, setHistoryPerson] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
   const [historyPage, setHistoryPage] = useState(1);
+  const [peoplePage, setPeoplePage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
+  const changePageSize = (n) => { setPageSize(n); setHistoryPage(1); setPeoplePage(1); };
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
 
@@ -199,7 +202,16 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             </div>
           )}
 
-          <TableCard title="People owed" meta={`${visible.length} ${visible.length === 1 ? "person" : "people"}`}>
+          <TableCard
+            title="People owed"
+            meta={tableMeta(visible.length, pageOf(visible, peoplePage, pageSize).page, pageOf(visible, peoplePage, pageSize).pages, "people")}
+            page={pageOf(visible, peoplePage, pageSize).page}
+            pages={pageOf(visible, peoplePage, pageSize).pages}
+            onPage={setPeoplePage}
+            count={visible.length}
+            pageSize={pageSize}
+            onPageSize={changePageSize}
+          >
             {visible.length === 0 ? (
               <div className="dt-empty">{show === "owed" ? "Nobody is owed money right now." : "No one matches your search."}</div>
             ) : (
@@ -215,7 +227,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                   </tr>
                 </thead>
                 <tbody>
-                  {visible.map((p) => {
+                  {pageOf(visible, peoplePage, pageSize).rows.map((p) => {
                     const me = p.userId === String(user.id);
                     return (
                       <tr key={p.userId} className={selected.has(p.userId) ? "dt-selected" : ""}>
@@ -264,9 +276,9 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             />
           </div>
           {(() => {
-            const paged = pageOf(history, historyPage, 25);
+            const paged = pageOf(history, historyPage, pageSize);
             return (
-              <TableCard title="Payments" meta={tableMeta(history.length, paged.page, paged.pages, "payments")} page={paged.page} pages={paged.pages} onPage={setHistoryPage}>
+              <TableCard title="Payments" meta={tableMeta(history.length, paged.page, paged.pages, "payments")} page={paged.page} pages={paged.pages} onPage={setHistoryPage} count={history.length} pageSize={pageSize} onPageSize={changePageSize}>
                 {history.length === 0 ? (
                   <div className="dt-empty">No payments match.</div>
                 ) : (

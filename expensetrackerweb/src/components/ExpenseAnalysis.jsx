@@ -198,7 +198,9 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
             <ColumnChart rows={data.weekday} label={(r) => WEEKDAYS[r.day]} height={120} />
           </Panel>
 
-          <TableCard title="Unusual expenses" meta="At least 2× the average for their category">
+          <TableCard title="Unusual expenses" meta="At least 2× the average for their category" items={data.unusual}>
+            {(rows) => (
+              <>
             {data.unusual.length === 0 ? (
               <div className="dt-empty">Nothing unusual in this period.</div>
             ) : (
@@ -207,7 +209,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
                   <tr><th>Date</th><th>Description</th><th>Category</th><th>Posted by</th><th className="num">Category avg</th><th className="num">Times avg</th><th className="num">Amount</th></tr>
                 </thead>
                 <tbody>
-                  {data.unusual.map((u) => (
+                  {rows.map((u) => (
                     <tr key={u._id}>
                       <td className="nowrap">{formatDate(u.date)}</td>
                       <td className="dt-wrap-text dt-strong">{u.description}</td>
@@ -221,9 +223,14 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
                 </tbody>
               </table>
             )}
+          
+              </>
+            )}
           </TableCard>
 
-          <TableCard title="Recurring expenses" meta="Same description in 3 or more different months">
+          <TableCard title="Recurring expenses" meta="Same description in 3 or more different months" items={data.recurring}>
+            {(rows) => (
+              <>
             {data.recurring.length === 0 ? (
               <div className="dt-empty">No recurring expenses found yet.</div>
             ) : (
@@ -232,7 +239,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
                   <tr><th>Description</th><th className="center">Months</th><th className="center">Times</th><th>Last</th><th className="num">Average</th><th className="num">Total</th></tr>
                 </thead>
                 <tbody>
-                  {data.recurring.map((r) => (
+                  {rows.map((r) => (
                     <tr key={r.description}>
                       <td className="dt-wrap-text dt-strong">{r.description}</td>
                       <td className="center">{r.months}</td>
@@ -244,6 +251,9 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
                   ))}
                 </tbody>
               </table>
+            )}
+          
+              </>
             )}
           </TableCard>
         </>

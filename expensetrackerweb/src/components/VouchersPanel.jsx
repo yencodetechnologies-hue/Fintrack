@@ -6,7 +6,7 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 import CreateVoucherModal from "./CreateVoucherModal.jsx";
 import VoucherDetailModal from "./VoucherDetailModal.jsx";
 import ClaimVoucherModal from "./ClaimVoucherModal.jsx";
-import { TableCard, pageOf, tableMeta } from "./DataTable.jsx";
+import { TableCard, pageOf, tableMeta, usePageSize } from "./DataTable.jsx";
 
 
 
@@ -16,6 +16,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
   const [data, setData] = useState(null);
   const [filter, setFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
   const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -93,13 +94,15 @@ export default function VouchersPanel({ companyId, company, user, members, funds
           </div>
 
           {pendingReturns.length > 0 && (
-            <TableCard title="Hand-backs to confirm" meta={`${pendingReturns.length} waiting`}>
+            <TableCard title="Hand-backs to confirm" meta={`${pendingReturns.length} waiting`} items={pendingReturns}>
+              {(rows) => (
+                <>
               <table className="dt">
                 <thead>
                   <tr><th>Date</th><th>Staff</th><th>Note</th><th className="num">Amount</th><th className="num">Action</th></tr>
                 </thead>
                 <tbody>
-                  {pendingReturns.map((r) => {
+                  {rows.map((r) => {
                     const own = String(r.userId?._id || r.userId) === String(user.id);
                     return (
                       <tr key={r._id}>
@@ -124,10 +127,15 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                   })}
                 </tbody>
               </table>
+            
+                </>
+              )}
             </TableCard>
           )}
 
-          <TableCard title="By staff member" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`}>
+          <TableCard title="By staff member" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`} items={people}>
+            {(rows) => (
+              <>
             {people.length === 0 ? (
               <div className="dt-empty">No vouchers given yet.</div>
             ) : (
@@ -136,7 +144,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                   <tr><th>Name</th><th className="num">Given</th><th className="num">Claimed</th><th className="num">Open</th><th className="num">Holding</th></tr>
                 </thead>
                 <tbody>
-                  {people.map((p) => (
+                  {rows.map((p) => (
                     <tr key={p.userId}>
                       <td className="dt-strong">{p.name}</td>
                       <td className="num">{money(p.given)}</td>
@@ -148,10 +156,13 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                 </tbody>
               </table>
             )}
+          
+              </>
+            )}
           </TableCard>
 
           {(() => {
-            const paged = pageOf(shown, page, 25);
+            const paged = pageOf(shown, page, pageSize);
             return (
               <TableCard
                 title="All vouchers"
@@ -159,6 +170,9 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                 page={paged.page}
                 pages={paged.pages}
                 onPage={setPage}
+                count={shown.length}
+                pageSize={pageSize}
+                onPageSize={(n) => { setPageSize(n); setPage(1); }}
                 actions={
                   <select className="field-select" style={{ width: "auto", height: 34 }} value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
                     <option value="all">All</option>

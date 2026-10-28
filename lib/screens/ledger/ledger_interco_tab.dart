@@ -373,6 +373,12 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
               if (handleResult(ctx, res, "Loan recorded")) {
                 Navigator.pop(ctx);
                 notifyLedgerChanged();
+                // open the statement of the company / person it was borrowed from
+                final loan = res["loan"] as Map?;
+                final partyId = idOf(loan?["lenderCompanyId"]);
+                if (partyId.isEmpty || !mounted) return;
+                final partyName = lender == addCompany ? newName.text.trim() : (_sources.where((c) => c["_id"].toString() == lender).firstOrNull?["name"]?.toString() ?? "Loans");
+                Navigator.push(context, MaterialPageRoute(builder: (_) => LoanPartyPage(scope: s, partyId: partyId, partyName: partyName, loans: _loans, onRepay: _openRepay, onReceive: _openReceive)));
               }
             }),
           ]);

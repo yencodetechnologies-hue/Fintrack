@@ -49,7 +49,9 @@ export default function OutstandingReport({ companyId, company, userId, role = "
             <div><small>Companies owe us</small><strong className={data.totals.companiesOweUs > 0 ? "in" : ""}>{money(data.totals.companiesOweUs)}</strong></div>
           </div>
 
-          <TableCard title="People" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`}>
+          <TableCard title="People" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`} items={people}>
+            {(rows) => (
+              <>
             {people.length === 0 ? (
               <div className="dt-empty">Nobody is owed anything right now.</div>
             ) : (
@@ -58,7 +60,7 @@ export default function OutstandingReport({ companyId, company, userId, role = "
                   <tr><th>Name</th><th>Role</th><th className="num">Paid by them</th><th className="num">Claims</th><th className="num">Awaiting approval</th><th className="num">Voucher money</th><th className="num">Owed</th></tr>
                 </thead>
                 <tbody>
-                  {people.map((r) => (
+                  {rows.map((r) => (
                     <tr key={r.userId}>
                       <td className="dt-strong">{r.name}</td>
                       <td>{r.role}</td>
@@ -72,16 +74,21 @@ export default function OutstandingReport({ companyId, company, userId, role = "
                 </tbody>
               </table>
             )}
+          
+              </>
+            )}
           </TableCard>
 
           {companies.length > 0 && (
-            <TableCard title="Companies" meta={`${companies.length} with open loans`}>
+            <TableCard title="Companies" meta={`${companies.length} with open loans`} items={companies}>
+              {(rows) => (
+                <>
               <table className="dt">
                 <thead>
                   <tr><th>Company / person</th><th>Type</th><th className="center">Open loans</th><th className="num">We owe</th><th className="num">They owe</th><th className="num">Net</th></tr>
                 </thead>
                 <tbody>
-                  {companies.map((c) => (
+                  {rows.map((c) => (
                     <tr key={c.companyId}>
                       <td className="dt-strong">{c.name}</td>
                       <td>{c.external ? "Outside company" : "Company"}</td>
@@ -93,6 +100,9 @@ export default function OutstandingReport({ companyId, company, userId, role = "
                   ))}
                 </tbody>
               </table>
+            
+                </>
+              )}
             </TableCard>
           )}
         </>

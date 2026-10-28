@@ -296,13 +296,15 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       <TableCard
         title="Members"
         meta={`${members.filter((m) => m.role !== "admin").length} ${names.staffs.toLowerCase()} · ${members.filter((m) => m.role === "admin").length} ${(members.filter((m) => m.role === "admin").length === 1 ? names.manager : names.managers).toLowerCase()}`}
-      >
+       items={members}>
+        {(rows) => (
+          <>
         <table className="dt">
           <thead>
             <tr><th>Name</th><th>Email</th><th>Role</th>{isAdmin && <th className="num">Action</th>}</tr>
           </thead>
           <tbody>
-            {members.map((m) => {
+            {rows.map((m) => {
               const isCreator = String(company.createdBy) === String(m.userId);
               const canManage = isAdmin && (can("members") || iAmAdmin) && !isCreator && (!m.isAdmin || iAmAdmin);
               return (
@@ -355,6 +357,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
             })}
           </tbody>
         </table>
+      
+          </>
+        )}
       </TableCard>
 
       {isAdmin && can("settings") && (

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { getAccountsEntries } from "../api.js";
 import { money } from "../utils.js";
-import { TableCard, tableMeta } from "./DataTable.jsx";
+import { TableCard, tableMeta, usePageSize } from "./DataTable.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const PAGE_SIZE = 25;
 
 const when = (at) => {
   const d = new Date(at);
@@ -25,6 +24,7 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState(""); // search sent to the server, a moment after typing stops
   const [page, setPage] = useState(1);
+  const [PAGE_SIZE, setPageSize] = usePageSize();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,7 +50,7 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
       else setError(res.message || "Could not load accounts");
     });
     return () => { alive = false; };
-  }, [companyId, user.id, range.from, range.to, query, page, refreshKey]);
+  }, [companyId, user.id, range.from, range.to, query, page, PAGE_SIZE, refreshKey]);
 
 
   return (
@@ -79,7 +79,7 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
             <div className="stat-card"><small>Transactions</small><strong>{data.summary.count}</strong></div>
           </div>
 
-          <TableCard title="Statement" meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} className={loading ? "dt-loading" : ""}>
+          <TableCard title="Statement" meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} count={data.total} pageSize={PAGE_SIZE} onPageSize={(n) => { setPageSize(n); setPage(1); }} className={loading ? "dt-loading" : ""}>
             {data.total === 0 ? (
               <div className="dt-empty">{query ? "Nothing matches your search in this period." : "No money in or out in this period."}</div>
             ) : (

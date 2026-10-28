@@ -1,7 +1,28 @@
+import { useState } from "react";
+
 // The one table look used across the app: a title bar ("N records · Page x of y"), uppercase column headers,
 // alternating light rows, and numbered page buttons underneath.
 
-export function TableCard({ title, meta, actions, children, page, pages, onPage, className = "" }) {
+// Paging: either the page controls it (page / pages / onPage / pageSize / onPageSize / count), or pass `items` and
+// a function as children — the card then pages the list itself and hands the current page's rows to the function.
+export function TableCard({ title, meta, actions, children, items, page, pages, onPage, pageSize, onPageSize, count = 0, className = "" }) {
+  const [ownPage, setOwnPage] = useState(1);
+  const [ownSize, setOwnSize] = usePageSize();
+  let body = children;
+  if (Array.isArray(items)) {
+    const paged = pageOf(items, ownPage, ownSize);
+    body = typeof children === "function" ? children(paged.rows) : children;
+    page = paged.page;
+    pages = paged.pages;
+    onPage = setOwnPage;
+    count = items.length;
+    pageSize = ownSize;
+    onPageSize = (n) => { setOwnSize(n); setOwnPage(1); };
+    if (meta && items.length) meta = `${meta} · Page ${paged.page} of ${paged.pages}`;
+  }
+  // the footer always shows on a paged table (rows per page + page buttons), however short the list
+  const showSize = Boolean(onPageSize) && count > 0;
+  const showPager = Boolean(onPage) && (pages > 1 || showSize);
   return (
     <div className={`dt-card ${className}`}>
       {(title || meta || actions) && (
@@ -13,10 +34,47 @@ export function TableCard({ title, meta, actions, children, page, pages, onPage,
           </span>
         </div>
       )}
-      <div className="dt-scroll">{children}</div>
-      {pages > 1 && <Pager page={page} pages={pages} onChange={onPage} />}
+      <div className="dt-scroll">{body}</div>
+      {(pages > 1 || showSize) && (
+        <div className="dt-foot">
+          {showSize ? (
+            <label className="dt-size">
+              Rows per page
+              <select value={pageSize} onChange={(e) => onPageSize(Number(e.target.value))}>
+                {PAGE_SIZES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </label>
+          ) : <span />}
+          {showPager ? <Pager page={page} pages={Math.max(1, pages || 1)} onChange={onPage} /> : <span />}
+          <span className="dt-foot-spacer" />
+        </div>
+      )}
     </div>
   );
+}
+
+export const PAGE_SIZES = [10, 25, 50, 100];
+const SIZE_KEY = "et_page_size";
+
+// rows per page, chosen by the viewer and remembered in this browser (same choice for every table)
+export function usePageSize(fallback = 25) {
+  const [size, setSize] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem(SIZE_KEY));
+      return PAGE_SIZES.includes(saved) ? saved : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+  const change = (n) => {
+    setSize(n);
+    try {
+      localStorage.setItem(SIZE_KEY, String(n));
+    } catch {
+      // private window / blocked storage: the choice just lasts for this visit
+    }
+  };
+  return [size, change];
 }
 
 // ‹ Prev 1 2 3 … 17 Next ›  (shows every page up to 9, otherwise the first, last and the ones around the current)
@@ -52,7 +110,7 @@ export function Pager({ page, pages, onChange }) {
 
 // "169 records · Page 1 of 17"
 export const tableMeta = (count, page, pages, noun = "records") =>
-  `${count} ${count === 1 ? noun.replace(/s$/, "") : noun}${pages > 1 ? ` · Page ${page} of ${pages}` : ""}`;
+  `${count} ${count === 1 ? noun.replace(/s$/, "") : noun}${pages ? ` · Page ${page} of ${pages}` : ""}`;
 
 // client-side paging for lists that arrive whole
 export function pageOf(rows, page, size) {

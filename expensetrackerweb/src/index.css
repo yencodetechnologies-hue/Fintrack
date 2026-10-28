@@ -2127,3 +2127,11 @@ a {
 .dt tbody tr.dt-selected td { background: #DCF2E7 !important; }
 .dt .dt-time { color: var(--muted); font-size: 13px; }
 .dt tr.dt-group td.dt-day { color: #111827; }
+.dt-foot { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; border-top: 1px solid var(--slate-border-2); padding: 0 16px; }
+.dt-foot .dt-pager { border-top: none; }
+.dt-size { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; white-space: nowrap; padding: 12px 0; }
+.dt-size select { height: 34px; border: 1px solid var(--slate-border); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 14px; color: var(--dark-text); background: #fff; cursor: pointer; }
+@media (max-width: 760px) {
+  .dt-foot { grid-template-columns: 1fr; justify-items: center; gap: 0; }
+  .dt-foot-spacer { display: none; }
+}

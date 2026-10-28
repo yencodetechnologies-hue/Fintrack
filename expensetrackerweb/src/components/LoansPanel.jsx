@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { getLoanPartyStatement } from "../api.js";
 import { formatDate, money } from "../utils.js";
-import { TableCard } from "./DataTable.jsx";
+import { TableCard, pageOf, tableMeta, usePageSize } from "./DataTable.jsx";
 
 const kindLabel = { borrowed: "Borrowed", repaid: "Repaid", lent: "Lent", received: "Received back" };
 
 // Loans tab: every company / person this company borrowed from or lent to, with what is still outstanding.
 // Click one for its statement (all loans and repayments by date); click a statement row for that loan.
-export default function LoansPanel({ companyId, user, loans, pending = [], refreshKey, onOpenLoan }) {
+export default function LoansPanel({ companyId, user, loans, pending = [], refreshKey, focus, onOpenLoan }) {
   const [partyId, setPartyId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
+  // the page can open one company / person (right after recording a loan: the lender it came from)
+  const [seenFocus, setSeenFocus] = useState(focus?.n);
+  if (focus && focus.n !== seenFocus) {
+    setSeenFocus(focus.n);
+    setPartyId(focus.id || null);
+  }
 
   // one row per counterparty: net outstanding (> 0 this company owes them, < 0 they owe this company)
   const parties = useMemo(() => {
@@ -55,7 +63,16 @@ export default function LoansPanel({ companyId, user, loans, pending = [], refre
         <div className="stat-card"><small>Owed to us</small><strong className="in">{money(totals.owedToUs)}</strong></div>
         <div className="stat-card"><small>Companies / people</small><strong>{parties.length}</strong></div>
       </div>
-      <TableCard title="Loans" meta={`${parties.length} ${parties.length === 1 ? "company / person" : "companies / people"}`}>
+      <TableCard
+        title="Loans"
+        meta={tableMeta(parties.length, pageOf(parties, page, pageSize).page, pageOf(parties, page, pageSize).pages, "companies / people")}
+        page={pageOf(parties, page, pageSize).page}
+        pages={pageOf(parties, page, pageSize).pages}
+        onPage={setPage}
+        count={parties.length}
+        pageSize={pageSize}
+        onPageSize={(n) => { setPageSize(n); setPage(1); }}
+      >
         {parties.length === 0 ? (
           <div className="dt-empty">No loans yet. Use Record a loan when you borrow from a company or a person.</div>
         ) : (
@@ -71,7 +88,7 @@ export default function LoansPanel({ companyId, user, loans, pending = [], refre
               </tr>
             </thead>
             <tbody>
-              {parties.map((p) => (
+              {pageOf(parties, page, pageSize).rows.map((p) => (
                 <tr key={p.id} className="dt-click" tabIndex={0} onClick={() => setPartyId(p.id)} onKeyDown={(e) => { if (e.key === "Enter") setPartyId(p.id); }}>
                   <td className={`num ${p.owed > 0 ? "out" : p.owed < 0 ? "in" : "muted"}`} style={{ textAlign: "left" }}>
                     {money(Math.abs(p.owed))}
@@ -98,6 +115,8 @@ export default function LoansPanel({ companyId, user, loans, pending = [], refre
 function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
 
   useEffect(() => {
     let active = true;
@@ -132,7 +151,16 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
             {t.lent > 0 && <div className="stat-card"><small>Lent</small><strong className="out">{money(t.lent)}</strong></div>}
             {t.lent > 0 && <div className="stat-card"><small>Received back</small><strong className="in">{money(t.received)}</strong></div>}
           </div>
-          <TableCard title="Statement" meta={`${data.rows.length} ${data.rows.length === 1 ? "entry" : "entries"}`}>
+          <TableCard
+            title="Statement"
+            meta={tableMeta(data.rows.length, pageOf(data.rows, page, pageSize).page, pageOf(data.rows, page, pageSize).pages, "entries")}
+            page={pageOf(data.rows, page, pageSize).page}
+            pages={pageOf(data.rows, page, pageSize).pages}
+            onPage={setPage}
+            count={data.rows.length}
+            pageSize={pageSize}
+            onPageSize={(n) => { setPageSize(n); setPage(1); }}
+          >
             {data.rows.length === 0 ? (
               <div className="dt-empty">No loans with {party.name}.</div>
             ) : (
@@ -150,7 +178,7 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
                   </tr>
                 </thead>
                 <tbody>
-                  {data.rows.map((r) => (
+                  {pageOf(data.rows, page, pageSize).rows.map((r) => (
                     <tr key={r._id} className="dt-click" tabIndex={0} title="View this loan" onClick={() => onOpenLoan(r.loanId)} onKeyDown={(e) => { if (e.key === "Enter") onOpenLoan(r.loanId); }}>
                       <td className="nowrap">{formatDate(r.date)}</td>
                       <td className="nowrap">{kindLabel[r.kind]}</td>
@@ -170,13 +198,15 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
             )}
           </TableCard>
           {data.pending?.length > 0 && (
-            <TableCard title="Awaiting confirmation" meta={`${data.pending.length} not counted yet`}>
+            <TableCard title="Awaiting confirmation" meta={`${data.pending.length} not counted yet`} items={data.pending}>
+              {(rows) => (
+                <>
               <table className="dt">
                 <thead>
                   <tr><th>Date</th><th>Type</th><th>Details</th><th>Taken by</th><th>Status</th><th className="num">Amount</th></tr>
                 </thead>
                 <tbody>
-                  {data.pending.map((r) => (
+                  {rows.map((r) => (
                     <tr key={r._id}>
                       <td className="nowrap">{formatDate(r.date)}</td>
                       <td className="nowrap">{r.kind === "borrowed" ? "Borrowing" : "Asked to pay"}</td>
@@ -188,6 +218,9 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
                   ))}
                 </tbody>
               </table>
+            
+                </>
+              )}
             </TableCard>
           )}
         </>

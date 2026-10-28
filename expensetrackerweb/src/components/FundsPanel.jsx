@@ -235,13 +235,15 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       )}
 
       {income.length > 0 && (
-        <TableCard title="Recent income" meta={`last ${Math.min(10, income.length)} of ${income.length}`}>
+        <TableCard title="Income" meta={`${income.length} ${income.length === 1 ? "entry" : "entries"}`} items={income}>
+          {(rows) => (
+            <>
           <table className="dt">
             <thead>
               <tr><th>Date</th><th>Details</th><th>Into</th><th className="num">Amount</th></tr>
             </thead>
             <tbody>
-              {income.slice(0, 10).map((i) => (
+              {rows.map((i) => (
                 <tr key={i._id}>
                   <td className="nowrap">{formatDate(i.createdAt)}</td>
                   <td className="dt-wrap-text dt-strong">{i.description || incomeRoute(i, cashName)}</td>
@@ -251,6 +253,9 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
               ))}
             </tbody>
           </table>
+        
+            </>
+          )}
         </TableCard>
       )}
     </div>

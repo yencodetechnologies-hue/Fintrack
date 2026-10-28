@@ -299,7 +299,9 @@ export default function GroupDashboardPage() {
                   {expenses.length} entries
                 </span>
               </div>
-              <TableCard title="Group expenses" meta={`${expenses.length} ${expenses.length === 1 ? "entry" : "entries"}`}>
+              <TableCard title="Group expenses" meta={`${expenses.length} ${expenses.length === 1 ? "entry" : "entries"}`} items={expenses}>
+                {(rows) => (
+                  <>
                 {expenses.length === 0 ? (
                   <div className="dt-empty">No expenses in this group yet.</div>
                 ) : (
@@ -308,7 +310,7 @@ export default function GroupDashboardPage() {
                       <tr><th>Date</th><th>Description</th><th>Category</th><th>Posted by</th><th className="num">Amount</th><th className="num">Receipt</th></tr>
                     </thead>
                     <tbody>
-                      {expenses.map((expense) => (
+                      {rows.map((expense) => (
                         <tr key={expense._id}>
                           <td className="nowrap">{formatDate(expense.date || expense.createdAt)}</td>
                           <td className="dt-wrap-text dt-strong">{expense.description}</td>
@@ -324,6 +326,9 @@ export default function GroupDashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                )}
+              
+                  </>
                 )}
               </TableCard>
             </>

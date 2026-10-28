@@ -63,7 +63,7 @@ import { makeCan, tabAllowed } from "../permissions.js";
 import { useCompanyLive } from "../realtime.js";
 import HandBackModal from "../components/HandBackModal.jsx";
 import LoansPanel from "../components/LoansPanel.jsx";
-import { TableCard, pageOf, tableMeta } from "../components/DataTable.jsx";
+import { TableCard, pageOf, tableMeta, usePageSize } from "../components/DataTable.jsx";
 import { NewLenderFields, newLenderPayload } from "../components/NewLenderFields.jsx";
 import LoanDetailModal from "../components/LoanDetailModal.jsx";
 import AccountsPanel from "../components/AccountsPanel.jsx";
@@ -145,9 +145,12 @@ export default function DashboardPage() {
   // old links to the removed "More" page land on Settings (its sections are sidebar items now)
   const tabFromUrl = (tab) => (tab === "more" ? "settings" : tab);
   const [activeTab, setActiveTab] = useState(() => tabFromUrl(searchParams.get("tab")) || "home");
+  // Loans opened from the menu always starts at the list of companies / people (not a statement left open)
+  const [loansFocus, setLoansFocus] = useState({ id: "", n: 0 });
   const changeTab = useCallback((tab) => {
     setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
+    if (tab === "interco") setLoansFocus((f) => ({ id: "", n: f.n + 1 }));
   }, [setSearchParams]);
   const urlTab = searchParams.get("tab");
   useEffect(() => {
@@ -531,9 +534,9 @@ export default function DashboardPage() {
     return Array.from(map.values());
   }, [ledgerExpenses, statusFilter, search, expenseDateFrom, expenseDateTo, company?.name, postedByFilter, members]);
 
-  // Expenses page: 25 a page over the filtered list, still grouped by day. A day split across two pages keeps
-  // its full count and total in its header.
-  const EXPENSES_PER_PAGE = 25;
+  // Expenses page: the viewer's rows per page over the filtered list, still grouped by day. A day split across two
+  // pages keeps its full count and total in its header.
+  const [EXPENSES_PER_PAGE, setExpensesPerPage] = usePageSize();
   const [expensePage, setExpensePage] = useState(1);
   const filteredExpenseCount = groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0);
   const expensePages = Math.max(1, Math.ceil(filteredExpenseCount / EXPENSES_PER_PAGE));
@@ -672,8 +675,10 @@ export default function DashboardPage() {
       : await createCompanyLoan({ userId: user.id, borrowerCompanyId: companyId, ...(intercoDraft.companyId === ADD_COMPANY ? { newCompany: intercoDraft.newKind === "person" ? { kind: "person", name: (intercoDraft.newName || "").trim(), phone: (intercoDraft.newPhone || "").trim() } : { name: (intercoDraft.newName || "").trim(), gstin: (intercoDraft.newGstin || "").trim().toUpperCase() } } : { lenderCompanyId: intercoDraft.companyId }), amount: Number(intercoDraft.amount), fundId: intercoDraft.fundId, method: intercoDraft.method, reference: intercoDraft.reference, note: (intercoDraft.note || "").trim() });
     setIntercoSaving(false);
     if (result.success) {
-      showToast(kind === "receive" ? (result.borrowerShort > 0 ? `Marked as received · ${intercoModal.loan.borrowerCompanyId?.name || "The borrower"}'s account is now ${money(result.borrowerShort)} below zero` : "Marked as received") :kind === "repay" ? "Loan repayment recorded" : "Company loan recorded");
+      showToast(kind === "receive" ? (result.borrowerShort > 0 ? `Marked as received · ${intercoModal.loan.borrowerCompanyId?.name || "The borrower"}'s account is now ${money(result.borrowerShort)} below zero` : "Marked as received") :kind === "repay" ? "Loan repayment recorded" : "Loan recorded");
       setIntercoModal(null);
+      // a new loan: open the statement of the company / person it was borrowed from
+      if (kind === "borrow") setLoansFocus((f) => ({ id: String(result.loan?.lenderCompanyId?._id || result.loan?.lenderCompanyId || ""), n: f.n + 1 }));
       setIntercoDraft({ companyId: "", amount: "", fundId: "cash", method: "UPI", reference: "" });
       load();
     } else showToast(result.message || "Could not save company loan", "error");
@@ -950,7 +955,9 @@ export default function DashboardPage() {
                 // today's total leaves out rejected expenses
                 const todayTotal = list.filter((e) => e.lifecycle !== "rejected").reduce((sum, e) => sum + Number(e.amount || 0), 0);
                 return (
-                  <TableCard title={`Today · ${formatDate(new Date())}`} meta={`${list.length} ${list.length === 1 ? "expense" : "expenses"} · ${money(todayTotal)}`}>
+                  <TableCard title={`Today · ${formatDate(new Date())}`} meta={`${list.length} ${list.length === 1 ? "expense" : "expenses"} · ${money(todayTotal)}`} items={list}>
+                    {(rows) => (
+                      <>
                     {list.length === 0 ? (
                       <div className="dt-empty">No expenses today.</div>
                     ) : (
@@ -959,7 +966,7 @@ export default function DashboardPage() {
                           <tr><th>Description</th><th>Category</th><th>Posted by</th><th>Status</th><th className="num">Amount</th></tr>
                         </thead>
                         <tbody>
-                          {list.map((expense) => {
+                          {rows.map((expense) => {
                             const tone = expense.lifecycle === "rejected" ? "bad" : expense.lifecycle === "approved" || expense.lifecycle?.startsWith("paid") ? "good" : expense.lifecycle === "reimbursed" ? "done" : "wait";
                             return (
                               <tr key={expense._id} className="dt-click" tabIndex={0} onClick={() => setSelectedExpenseDetail(expense)} onKeyDown={(e) => { if (e.key === "Enter") setSelectedExpenseDetail(expense); }}>
@@ -974,6 +981,9 @@ export default function DashboardPage() {
                         </tbody>
                       </table>
                     )}
+                  
+                      </>
+                    )}
                   </TableCard>
                 );
               })()}
@@ -983,13 +993,15 @@ export default function DashboardPage() {
                 if (!todaysLoans.length) return null;
                 const borrowedToday = todaysLoans.filter((loan) => String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId).reduce((sum, loan) => sum + Number(loan.amount || 0), 0);
                 return (
-                  <TableCard title="Loans today" meta={`${todaysLoans.length} ${todaysLoans.length === 1 ? "loan" : "loans"}${borrowedToday > 0 ? ` · ${money(borrowedToday)} borrowed` : ""}`}>
+                  <TableCard title="Loans today" meta={`${todaysLoans.length} ${todaysLoans.length === 1 ? "loan" : "loans"}${borrowedToday > 0 ? ` · ${money(borrowedToday)} borrowed` : ""}`} items={todaysLoans}>
+                    {(rows) => (
+                      <>
                     <table className="dt">
                       <thead>
                         <tr><th>Type</th><th>Company / person</th><th>Details</th><th>Method</th><th>Status</th><th className="num">Amount</th></tr>
                       </thead>
                       <tbody>
-                        {todaysLoans.map((loan) => {
+                        {rows.map((loan) => {
                           const weBorrowed = String(loan.borrowerCompanyId?._id || loan.borrowerCompanyId) === companyId;
                           const other = weBorrowed ? loan.lenderCompanyId : loan.borrowerCompanyId;
                           const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
@@ -1007,18 +1019,23 @@ export default function DashboardPage() {
                         })}
                       </tbody>
                     </table>
+                  
+                      </>
+                    )}
                   </TableCard>
                 );
               })()}
               {/* only shown when something is waiting for a second manager */}
               {isAdmin && can("verify") && pendingVerification.length > 0 && (
-                <TableCard title="Pending verification" meta={`${pendingVerification.length} waiting`}>
+                <TableCard title="Pending verification" meta={`${pendingVerification.length} waiting`} items={pendingVerification}>
+                  {(rows) => (
+                    <>
                   <table className="dt">
                     <thead>
                       <tr><th>Date</th><th>Details</th><th>Recorded by</th><th className="num">Amount</th><th className="num">Action</th></tr>
                     </thead>
                     <tbody>
-                      {pendingVerification.map((transaction) => (
+                      {rows.map((transaction) => (
                         <tr key={transaction._id}>
                           <td className="nowrap">{formatDate(transaction.createdAt)}</td>
                           <td className="dt-wrap-text dt-strong">{transaction.memo || transaction.type}</td>
@@ -1029,6 +1046,9 @@ export default function DashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                
+                    </>
+                  )}
                 </TableCard>
               )}
             </>
@@ -1207,6 +1227,9 @@ export default function DashboardPage() {
                   page={currentExpensePage}
                   pages={expensePages}
                   onPage={goToExpensePage}
+                  count={filteredExpenseCount}
+                  pageSize={EXPENSES_PER_PAGE}
+                  onPageSize={(n) => { setExpensesPerPage(n); setExpensePage(1); }}
                 >
                   <table className="dt">
                     <thead>
@@ -1287,13 +1310,15 @@ export default function DashboardPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}><h1 style={{ fontSize: 22, margin: 0 }}>Loans</h1>{isAdmin && can("intercompany") && <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button><button className="btn btn-dark" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Record a loan</button></div>}</div>
               {isAdmin && payerRequests.length > 0 && (
                 <div style={{ marginTop: 18 }}>
-                  <TableCard title="Payment confirmations" meta={`${payerRequests.length} waiting`}>
+                  <TableCard title="Payment confirmations" meta={`${payerRequests.length} waiting`} items={payerRequests}>
+                    {(rows) => (
+                      <>
                     <table className="dt">
                       <thead>
                         <tr><th>Date</th><th>Expense</th><th>Asked by</th><th className="num">Amount</th><th>Pay from</th><th className="num">Action</th></tr>
                       </thead>
                       <tbody>
-                        {payerRequests.map((expense) => (
+                        {rows.map((expense) => (
                           <tr key={expense._id}>
                             <td className="nowrap">{formatDate(expense.createdAt)}</td>
                             <td className="dt-wrap-text dt-strong">{expense.description}</td>
@@ -1316,10 +1341,13 @@ export default function DashboardPage() {
                         ))}
                       </tbody>
                     </table>
+                  
+                      </>
+                    )}
                   </TableCard>
                 </div>
               )}
-              <LoansPanel companyId={companyId} user={user} loans={loans} pending={pendingBorrows} refreshKey={tick("loans")} onOpenLoan={(loanId) => { const loan = loans.find((l) => String(l._id) === String(loanId)); if (loan) setViewingLoan(loan); }} />
+              <LoansPanel companyId={companyId} user={user} loans={loans} pending={pendingBorrows} focus={loansFocus} refreshKey={tick("loans")} onOpenLoan={(loanId) => { const loan = loans.find((l) => String(l._id) === String(loanId)); if (loan) setViewingLoan(loan); }} />
             </>
           )}
 
@@ -2080,6 +2108,7 @@ const bigNumberStyle = {
 function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, refreshKey }) {
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize();
   const [loading, setLoading] = useState(true);
 
   // quiet reload (no spinner) so live updates don't flash the list
@@ -2096,9 +2125,9 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, r
 
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 35 }}><div className="spinner dark" /></div>;
   const ledger = title === "Ledger";
-  const paged = pageOf(rows, page, 25);
+  const paged = pageOf(rows, page, pageSize);
   return (
-    <TableCard title={title} meta={tableMeta(rows.length, paged.page, paged.pages)} page={paged.page} pages={paged.pages} onPage={setPage}>
+    <TableCard title={title} meta={tableMeta(rows.length, paged.page, paged.pages)} page={paged.page} pages={paged.pages} onPage={setPage} count={rows.length} pageSize={pageSize} onPageSize={(n) => { setPageSize(n); setPage(1); }}>
       {!rows.length ? (
         <div className="dt-empty">No {title.toLowerCase()} records yet.</div>
       ) : (

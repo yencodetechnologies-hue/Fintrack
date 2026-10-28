@@ -911,7 +911,7 @@ Widget _loanStatement(Map<String, dynamic> loan, List<Map<String, dynamic>> repa
       struck: reversed,
     ));
   }
-  return _statementCard(rows);
+  return _statementCard(rows.reversed.toList());
 }
 
 /// Loans → one company / person: every loan and repayment with them by date, like an account statement.
@@ -971,7 +971,8 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
   @override
   Widget build(BuildContext context) {
     const labels = {"borrowed": "Borrowed", "repaid": "Repaid", "lent": "Lent", "received": "Received back"};
-    final rows = List<Map<String, dynamic>>.from(_data?["rows"] ?? const []);
+    // running balances are worked out oldest first; the statement lists the latest first
+    final rows = List<Map<String, dynamic>>.from(_data?["rows"] ?? const []).reversed.toList();
     final pending = List<Map<String, dynamic>>.from(_data?["pending"] ?? const []);
     final totals = Map<String, dynamic>.from(_data?["totals"] ?? const {});
     final balance = (totals["balance"] as num?) ?? 0;

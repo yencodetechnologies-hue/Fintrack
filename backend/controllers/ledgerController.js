@@ -953,22 +953,23 @@ exports.updateExpense = handle(async (req, res) => {
         throw fail(400, `Insufficient balance in ${fundAcc?.name || "the fund"} (₹${(available + oldAmount).toFixed(2)} available, ₹${newAmount.toFixed(2)} required)`);
       }
     }
-    const reversal = await post(
-      { companyId, type: "reversal", memo: `Expense edited: ${before.description}`, expenseId: expense._id, reverses: companyPost._id, createdBy: userId },
-      entries.map((e) => ({ account: accMap.get(e.accountId.toString()), debit: e.credit, credit: e.debit }))
-    );
-    companyPost.reversedBy = reversal._id;
-    await companyPost.save();
-    const verification = (await needsVerification(companyId, newAmount)) ? "pending" : null;
-    const tx = await post(
-      { companyId, type: "company_paid", expenseId: expense._id, memo: expense.description, method: companyPost.method || "", reference: companyPost.reference || "", createdBy: userId, verification },
-      [{ account: await expenseAccount(companyId, expense.category), debit: newAmount }, { account: await fundAccount(companyId, fund), credit: newAmount }]
-    );
-    // the fund gets the old amount back and pays the new one
+    // the payment is changed in place: same transaction, same date, one row in Accounts. The expense line moves to
+    // the new category; both lines take the new amount.
+    const newExpenseAcc = await expenseAccount(companyId, expense.category);
+    for (const e of entries) {
+      const acc = accMap.get(e.accountId.toString());
+      const set = e.debit > 0 ? { debit: newAmount } : { credit: newAmount };
+      if (acc?.type === "expense") set.accountId = newExpenseAcc._id;
+      await LedgerEntry.updateOne({ _id: e._id }, { $set: set });
+    }
+    await LedgerTransaction.updateOne({ _id: companyPost._id }, { $set: { memo: expense.description } });
+    // the fund gets the difference back (or pays it)
     if (newAmount !== oldAmount) await applyCompanyFund(companyId, fund, round(oldAmount - newAmount));
-    expense.transactionId = tx._id;
-    expense.verification = verification;
-    if (verification) await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${expense.description} · ₹${newAmount}`, data: { transactionId: tx._id, companyId } }, userId);
+    if (newAmount !== oldAmount && (await needsVerification(companyId, newAmount)) && !companyPost.verification) {
+      await LedgerTransaction.updateOne({ _id: companyPost._id }, { $set: { verification: "pending" } });
+      expense.verification = "pending";
+      await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${expense.description} · ₹${newAmount}`, data: { transactionId: companyPost._id, companyId } }, userId);
+    }
   }
 
   await expense.save();
@@ -3835,7 +3836,10 @@ exports.accountsDays = handle(async (req, res) => {
     if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(companyId);
     return false;
   };
-  const counted = txs.filter((t) => (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
+  // an expense edited by undoing its payment and booking it again: hide the undone payment and its undo
+  const editUndos = txs.filter((t) => t.type === "reversal" && /^(Expense edited|Payer changed):/.test(t.memo || ""));
+  const hidden = new Set(editUndos.flatMap((t) => [String(t._id), String(t.reverses)]));
+  const counted = txs.filter((t) => !hidden.has(String(t._id)) && (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
   const entries = await LedgerEntry.find({ transactionId: { $in: counted.map((t) => t._id) }, accountId: { $in: fundAccs.map((a) => a._id) } }).lean();
   const txById = new Map(counted.map((t) => [String(t._id), t]));
   const people = new Map((await User.find({ _id: { $in: counted.map((t) => t.createdBy) } }).select("name").lean()).map((u) => [String(u._id), u.name]));
@@ -3995,14 +3999,23 @@ exports.accountsEntries = handle(async (req, res) => {
     (await LedgerTransaction.find({ _id: { $in: txs.filter((t) => t.reverses).map((t) => t.reverses) } }).lean()).map((t) => [String(t._id), t])
   );
   const loans = new Map(
-    (await CompanyLoan.find({ _id: { $in: txs.map((t) => t.loanId).filter(Boolean) } }).select("borrowerCompanyId").lean()).map((l) => [String(l._id), l])
+    (await CompanyLoan.find({ _id: { $in: txs.map((t) => t.loanId).filter(Boolean) } }).select("borrowerCompanyId source").lean()).map((l) => [String(l._id), l])
   );
   const moves = (t) => {
     if (FUND_TRACKED_TYPES.has(t.type)) return true;
     if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(companyId);
     return false;
   };
-  const counted = txs.filter((t) => (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
+  // an expense edited by undoing its payment and booking it again: hide the undone payment and its undo
+  const editUndos = txs.filter((t) => t.type === "reversal" && /^(Expense edited|Payer changed):/.test(t.memo || ""));
+  const hidden = new Set(editUndos.flatMap((t) => [String(t._id), String(t.reverses)]));
+  // the payment booked again keeps the date of the first one, so the edited row stays where it was
+  const firstPaid = new Map();
+  for (const t of editUndos) {
+    const o = originals.get(String(t.reverses));
+    if (o?.expenseId && (!firstPaid.has(String(o.expenseId)) || o.date < firstPaid.get(String(o.expenseId)))) firstPaid.set(String(o.expenseId), o.date);
+  }
+  const counted = txs.filter((t) => !hidden.has(String(t._id)) && (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
   const lines = await LedgerEntry.find({ transactionId: { $in: counted.map((t) => t._id) }, accountId: { $in: fundAccs.map((a) => a._id) } }).lean();
   const txById = new Map(counted.map((t) => [String(t._id), t]));
   const expenseIds = counted.map((t) => t.expenseId).filter(Boolean);
@@ -4021,7 +4034,7 @@ exports.accountsEntries = handle(async (req, res) => {
     const x = t.expenseId ? expenses.get(String(t.expenseId)) : null;
     all.push({
       _id: `${t._id}:${e._id}`,
-      at: t.date,
+      at: (!original && t.expenseId && firstPaid.get(String(t.expenseId))) || t.date,
       kind: original ? "reversal" : t.type,
       label: original ? `Reversed: ${MOVE_LABELS[original.type] || original.type}` : MOVE_LABELS[t.type] || t.type,
       details: t.note || x?.description || t.memo || "",
@@ -4032,6 +4045,9 @@ exports.accountsEntries = handle(async (req, res) => {
       reference: t.reference || "",
       by: people.get(String(t.createdBy)) || "",
       expenseId: t.expenseId || null,
+      loanId: t.loanId || null,
+      editId: original ? null : String(t._id),
+      amountEditable: !original && accountsAmountEditable(t, loans),
     });
   }
   for (const i of incomes) {
@@ -4052,6 +4068,8 @@ exports.accountsEntries = handle(async (req, res) => {
       reference: "",
       by: i.createdBy?.name || "",
       expenseId: null,
+      editId: `income:${i._id}`,
+      amountEditable: true,
     });
   }
 
@@ -4096,6 +4114,160 @@ exports.accountsEntries = handle(async (req, res) => {
     limit,
     entries: matches.slice((page - 1) * limit, page * limit),
   });
+});
+
+// Which Accounts rows can have their amount changed in place: every kind that moves this company's Cash / Bank
+// through one simple transaction. (Money added is edited through its own record.)
+const AMOUNT_EDIT_TYPES = new Set(["company_paid", "borrowed", "loan_repayment", "reimburse", "lend", "voucher_issue", "advance_return"]);
+function accountsAmountEditable(t, loans) {
+  if (t.reversedBy || t.reverses || !AMOUNT_EDIT_TYPES.has(t.type)) return false;
+  const loan = t.loanId ? loans.get(String(t.loanId)) : null;
+  if (t.type === "company_paid") return Boolean(t.expenseId);
+  if (t.type === "borrowed") return loan?.source === "direct";
+  if (t.type === "loan_repayment") return Boolean(loan);
+  return true;
+}
+
+// Changes every line of these transactions from the old amount to the new one, in place: the books stay balanced,
+// and each row keeps its date and place in Accounts. Only simple legs (every line = the same amount) are changed.
+async function setLegAmounts(legs, oldAmount, newAmount) {
+  const entries = await LedgerEntry.find({ transactionId: { $in: legs.map((l) => l._id) } }).lean();
+  for (const leg of legs) {
+    const mine = entries.filter((e) => String(e.transactionId) === String(leg._id));
+    if (mine.length < 2 || mine.some((e) => round(e.debit || e.credit) !== round(oldAmount))) {
+      throw fail(400, "This entry is split across several lines, so its amount can't be changed here");
+    }
+  }
+  await Promise.all(entries.map((e) => LedgerEntry.updateOne({ _id: e._id }, { $set: e.debit > 0 ? { debit: newAmount } : { credit: newAmount } })));
+}
+
+// "2026-10-25T15:08" (IST, from the edit form) or any date string -> Date; null when empty / invalid
+function parseEditDate(v) {
+  if (!v) return null;
+  const str = String(v);
+  const d = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(str) ? new Date(`${str}:00+05:30`) : new Date(str);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+// POST /companies/:companyId/accounts/entries/edit { userId, editId, amount?, details?, method?, reference?, date? }
+// The Admin edits one Accounts row at any time: its amount (in place; Cash/Bank moves by the difference and any
+// loan, expense, voucher or person's balance follows), its description, method, reference and date.
+exports.editAccountsEntry = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, editId } = req.body;
+  const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "accounts");
+  if (role !== "super_admin" && !hasPower(await permissionsFor(companyId, userId), "edit_entries")) {
+    throw fail(403, "Only the company Admin can edit entries in Accounts");
+  }
+  const has = (k) => req.body[k] !== undefined && req.body[k] !== null;
+  const amount = has("amount") ? round(parseFloat(req.body.amount)) : null;
+  if (amount !== null && !(amount > 0)) throw fail(400, "Enter an amount greater than zero");
+  const date = has("date") ? parseEditDate(req.body.date) : null;
+  if (has("date") && !date) throw fail(400, "Enter a valid date");
+  const id = String(editId || "");
+  const changed = [];
+
+  // ---- money added / moved between accounts
+  if (id.startsWith("income:")) {
+    const income = await CompanyIncome.findOne({ _id: id.slice(7), companyId });
+    if (!income) throw fail(404, "Entry not found");
+    const before = { amount: income.amount, description: income.description, at: income.createdAt };
+    if (amount !== null && round(amount - income.amount)) {
+      const diff = round(amount - income.amount);
+      const into = income.destinationType === "cash" ? "cash" : String(income.destinationBankAccountId);
+      const from = income.sourceBankAccountId ? String(income.sourceBankAccountId) : null;
+      // less money added: the account it went into must still have the difference
+      if (diff < 0 && (await getEffectiveFundBalance(companyId, into)) < -diff) throw fail(400, "Not enough left in that account to lower this amount");
+      // more moved from a bank: that bank must have the difference
+      if (diff > 0 && from && (await getEffectiveFundBalance(companyId, from)) < diff) throw fail(400, "Not enough in the account it came from");
+      await applyCompanyFund(companyId, into, diff);
+      if (from) await applyCompanyFund(companyId, from, -diff);
+      changed.push("amount");
+    }
+    const set = {};
+    if (amount !== null) set.amount = amount;
+    if (has("details")) set.description = String(req.body.details).trim();
+    if (date) set.createdAt = date;
+    // createdAt is fixed by Mongoose timestamps, so the raw collection is updated
+    if (Object.keys(set).length) await CompanyIncome.collection.updateOne({ _id: income._id }, { $set: set });
+    await audit(userId, companyId, "edit_entry", "income", income._id, before, set);
+    return res.json({ success: true });
+  }
+
+  const tx = await LedgerTransaction.findOne({ _id: id, companyId });
+  if (!tx) throw fail(404, "Entry not found");
+  if (tx.reverses) throw fail(400, "A reversal can't be edited");
+  const loan = tx.loanId ? await CompanyLoan.findById(tx.loanId) : null;
+  const before = { amount: null, note: tx.note, memo: tx.memo, method: tx.method, reference: tx.reference, date: tx.date };
+  const entries = await LedgerEntry.find({ transactionId: tx._id }).lean();
+  const oldAmount = round(entries.reduce((t, e) => t + (e.debit || 0), 0));
+  before.amount = oldAmount;
+  const diff = amount === null ? 0 : round(amount - oldAmount);
+
+  if (diff) {
+    if (!accountsAmountEditable(tx, new Map(loan ? [[String(loan._id), loan]] : []))) throw fail(400, "This kind of entry's amount can't be changed here");
+    // this company's Cash / Bank line, and whether money came in (debit) or went out (credit)
+    const fundAccs = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) }, type: "bank", companyId }).lean();
+    const fundAcc = fundAccs[0];
+    const fundLine = fundAcc ? entries.find((e) => String(e.accountId) === String(fundAcc._id)) : null;
+    const fund = fundAcc?.bankAccountId ? String(fundAcc.bankAccountId) : "cash";
+    const inflow = Boolean(fundLine && fundLine.debit > 0);
+    // more going out, or less having come in: the account must have the difference
+    const takes = inflow ? -diff : diff;
+    if (takes > 0 && (await getEffectiveFundBalance(companyId, fund)) < takes) throw fail(400, "Not enough in that account for this change");
+    const legs = tx.routeId ? await LedgerTransaction.find({ routeId: tx.routeId, reversedBy: null, type: { $ne: "reversal" } }) : [tx];
+
+    if (tx.type === "company_paid") {
+      // the expense it paid changes with it
+      const expense = await Expense.findById(tx.expenseId);
+      if (!expense || String(expense.transactionId) !== String(tx._id)) throw fail(400, "This payment no longer matches its expense");
+      await setLegAmounts(legs, oldAmount, amount);
+      const was = snapshot(expense);
+      expense.amount = amount;
+      await expense.save();
+      await audit(userId, companyId, "edit_amount", "expense", expense._id, was, snapshot(expense));
+    } else if (tx.type === "borrowed") {
+      // a direct loan: can't go below what was already repaid
+      const repaid = round(loan.amount - (await loanBalance(loan)));
+      if (amount < repaid) throw fail(400, `₹${repaid} of this loan is already repaid`);
+      await setLegAmounts(legs, oldAmount, amount);
+      loan.amount = amount;
+      await loan.save();
+    } else if (tx.type === "loan_repayment") {
+      // a repayment: no more than what was still due before it
+      if (String(loan.borrowerCompanyId) !== String(companyId)) throw fail(400, "Repayments are edited by the company that paid them");
+      const dueBefore = round((await loanBalance(loan)) + oldAmount);
+      if (amount > dueBefore) throw fail(400, `Only ₹${dueBefore} was due on this loan`);
+      await setLegAmounts(legs, oldAmount, amount);
+    } else {
+      // reimbursement / manager loan / voucher given / voucher hand-back
+      await setLegAmounts(legs, oldAmount, amount);
+      if (tx.type === "voucher_issue" && tx.voucherId) await Voucher.updateOne({ _id: tx.voucherId }, { $set: { amount } });
+      if (tx.type === "advance_return" && tx.advanceReturnId) await AdvanceReturn.updateOne({ _id: tx.advanceReturnId }, { $set: { amount } });
+    }
+    await applyIfTracked(await Company.findById(companyId), fund, inflow ? diff : -diff);
+    // what a person is owed follows a reimbursement / manager loan: re-check which of their bills are now paid
+    if (tx.type === "reimburse" || tx.type === "lend") {
+      const payables = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) }, type: "admin_payable" }).select("userId").lean();
+      for (const p of payables) if (p.userId) await recomputeReimbursed(companyId, p.userId);
+    }
+    changed.push("amount");
+  }
+
+  // description, method, reference, date: on this row's transaction
+  const set = {};
+  if (has("details")) set.note = String(req.body.details).trim();
+  if (has("method")) set.method = String(req.body.method).trim();
+  if (has("reference")) set.reference = String(req.body.reference).trim();
+  if (date) set.date = date;
+  if (Object.keys(set).length) {
+    await LedgerTransaction.updateOne({ _id: tx._id }, { $set: set });
+    // a company-paid expense keeps its own description in step
+    if (set.note && tx.type === "company_paid" && tx.expenseId) await Expense.updateOne({ _id: tx.expenseId }, { $set: { description: set.note } });
+  }
+  await audit(userId, companyId, "edit_entry", "transaction", tx._id, before, { ...set, ...(changed.includes("amount") ? { amount } : {}) });
+  res.json({ success: true });
 });
 
 

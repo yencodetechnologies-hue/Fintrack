@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_expense_detail.dart' show showExpenseDetail;
 
 /// Accounts: a statement of every money movement — each payment out of Cash/Bank, each income in, each transfer —
 /// newest first, with the Cash + Bank balance after it. Searched and paged on the server. Same as the web.
@@ -359,7 +360,9 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     final amountText = transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : "${amount > 0 ? "+" : "−"}${inr(amount.abs())}";
     final amountColor = transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta);
 
-    return Padding(
+    return InkWell(
+      onTap: () => _openRow(r),
+      child: Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
@@ -385,6 +388,121 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
           Text("Bal ${inr(r["balance"] ?? 0)}", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.55))),
         ]),
       ]),
+      ),
     );
+  }
+
+  /// A tap: an expense row opens that expense in full (with its Edit); anything else shows its details here.
+  Future<void> _openRow(Map<String, dynamic> r) async {
+    final expenseId = r["kind"] == "company_paid" ? (r["expenseId"]?.toString() ?? "") : "";
+    if (expenseId.isNotEmpty) {
+      final res = await LedgerService.expenses(s.companyId, s.userId);
+      if (!mounted) return;
+      final expense = List<Map<String, dynamic>>.from(res["expenses"] ?? const []).where((x) => x["_id"].toString() == expenseId).firstOrNull;
+      if (expense != null) {
+        await showExpenseDetail(context, s, expense);
+        if (mounted) _load();
+        return;
+      }
+    }
+    if (!mounted) return;
+    final transfer = r["kind"] == "transfer";
+    final amount = (r["amount"] as num?) ?? 0;
+    final at = DateTime.tryParse(r["at"]?.toString() ?? "")?.toLocal();
+    final editable = s.canEditEntries && (r["editId"]?.toString() ?? "").isNotEmpty;
+    final lines = <(String, String)>[
+      if (at != null) ("Date", DateFormat("dd MMM yyyy · h:mm a").format(at)),
+      ("Type", r["label"]?.toString() ?? ""),
+      if ((r["category"]?.toString() ?? "").isNotEmpty) ("Category", r["category"].toString()),
+      ("Account", r["account"]?.toString() ?? "—"),
+      if ((r["method"]?.toString() ?? "").isNotEmpty) ("Method", r["method"].toString()),
+      if ((r["reference"]?.toString() ?? "").isNotEmpty) ("Reference", r["reference"].toString()),
+      if ((r["by"]?.toString() ?? "").isNotEmpty) ("Recorded by", r["by"].toString()),
+      ("Balance after", inr(r["balance"] ?? 0)),
+    ];
+    final details = r["details"]?.toString() ?? "";
+    await showLedgerSheet(context, details.isNotEmpty ? details : r["label"]?.toString() ?? "Entry", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : "${amount > 0 ? "+" : "−"}${inr(amount.abs())}",
+              style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta))),
+          const SizedBox(height: 10),
+          for (final l in lines)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(width: 110, child: Text(l.$1, style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.55)))),
+                Expanded(child: Text(l.$2, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: kDark))),
+              ]),
+            ),
+          if (editable) ...[
+            const SizedBox(height: 12),
+            primaryButton("Edit", () {
+              Navigator.pop(ctx);
+              _editAmount(r);
+            }),
+          ],
+        ]));
+  }
+
+  /// The Admin edits an entry: its amount (in place, where that kind allows it; the balances after it move by the
+  /// difference), description, method, reference and date & time.
+  Future<void> _editAmount(Map<String, dynamic> r) async {
+    final transfer = r["kind"] == "transfer";
+    final income = r["editId"].toString().startsWith("income:");
+    final amountEditable = r["amountEditable"] == true;
+    final current = transfer ? ((r["transferAmount"] as num?) ?? 0) : ((r["amount"] as num?) ?? 0).abs();
+    final amount = TextEditingController(text: current.toString());
+    final details = TextEditingController(text: r["details"]?.toString() ?? "");
+    final reference = TextEditingController(text: r["reference"]?.toString() ?? "");
+    String method = r["method"]?.toString() ?? "";
+    DateTime when = DateTime.tryParse(r["at"]?.toString() ?? "")?.toLocal() ?? DateTime.now();
+    final saved = await showLedgerSheet<bool>(context, "Edit entry", (ctx) => StatefulBuilder(builder: (ctx, set) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (amountEditable) ...[
+              TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
+              const SizedBox(height: 10),
+            ],
+            TextField(controller: details, decoration: fieldDecoration("Description", icon: Icons.notes_rounded)),
+            if (!income) ...[
+              const SizedBox(height: 10),
+              methodChips(method, (m) => set(() => method = m)),
+              const SizedBox(height: 10),
+              TextField(controller: reference, decoration: fieldDecoration("Reference", icon: Icons.tag_rounded)),
+            ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.event_rounded, size: 18),
+              label: Text(DateFormat("dd MMM yyyy · h:mm a").format(when)),
+              onPressed: () async {
+                final d = await showDatePicker(context: ctx, initialDate: when, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+                if (d == null || !ctx.mounted) return;
+                final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(when));
+                set(() => when = DateTime(d.year, d.month, d.day, t?.hour ?? when.hour, t?.minute ?? when.minute));
+              },
+            ),
+            const SizedBox(height: 6),
+            Text(amountEditable ? "A new amount is changed in place; the balances after it move by the difference." : "This kind of entry keeps its amount; the other details can be changed.",
+                style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.5))),
+            const SizedBox(height: 12),
+            primaryButton("Save", () async {
+              final changes = <String, dynamic>{"details": details.text.trim(), "date": DateFormat("yyyy-MM-dd'T'HH:mm").format(when)};
+              if (amountEditable) {
+                final v = double.tryParse(amount.text.trim()) ?? 0;
+                if (!(v > 0)) return toast(ctx, "Enter an amount greater than zero", error: true);
+                changes["amount"] = v;
+              }
+              if (!income) {
+                changes["method"] = method;
+                changes["reference"] = reference.text.trim();
+              }
+              final res = await LedgerService.editAccountsEntry(s.companyId, s.userId, r["editId"].toString(), changes);
+              if (!ctx.mounted) return;
+              if (handleResult(ctx, res, "Saved · balances adjusted")) Navigator.pop(ctx, true);
+            }),
+          ]);
+        }));
+    if (saved == true && mounted) {
+      notifyLedgerChanged();
+      _load();
+    }
   }
 }

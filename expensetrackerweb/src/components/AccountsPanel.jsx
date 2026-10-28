@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { getAccountsEntries } from "../api.js";
-import { money } from "../utils.js";
+import { editAccountsEntry, getAccountsEntries } from "../api.js";
+import { useToast } from "../context/ToastContext.jsx";
+import Modal from "./Modal.jsx";
+import { money, PAYMENT_METHODS } from "../utils.js";
 import { TableCard, tableMeta, usePageSize } from "./DataTable.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
 
@@ -17,7 +19,13 @@ const when = (at) => {
 
 // Accounts: a statement of every money movement — each payment out of Cash/Bank, each income in, each transfer —
 // newest first, with the Cash + Bank balance after it. Searched and paged on the server.
-export default function AccountsPanel({ companyId, user, refreshKey }) {
+export default function AccountsPanel({ companyId, user, canEdit = false, onChanged, onOpenExpense, onOpenLoan, refreshKey }) {
+  const { showToast } = useToast();
+  // the row shown in the details popup, and its amount while being edited: { row, value }
+  const [editing, setEditing] = useState(null);
+  const [viewing, setViewing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [reload, setReload] = useState(0);
   // the Period dropdown (same as the Expenses page); starts on this month
   const [from, setFrom] = useState(() => `${ymd(new Date()).slice(0, 8)}01`);
   const [to, setTo] = useState(() => ymd(new Date()));
@@ -50,8 +58,40 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
       else setError(res.message || "Could not load accounts");
     });
     return () => { alive = false; };
-  }, [companyId, user.id, range.from, range.to, query, page, PAGE_SIZE, refreshKey]);
+  }, [companyId, user.id, range.from, range.to, query, page, PAGE_SIZE, refreshKey, reload]);
 
+  // editing = { id, amount, details, method, reference, date } (the form in the details popup)
+  async function saveAmount() {
+    const row = viewing;
+    const changes = {};
+    if (row.amountEditable) {
+      const value = Number(editing.amount);
+      if (!(value > 0)) return showToast("Enter an amount greater than zero", "error");
+      changes.amount = value;
+    }
+    changes.details = editing.details;
+    if (!String(row.editId).startsWith("income:")) {
+      changes.method = editing.method;
+      changes.reference = editing.reference;
+    }
+    if (editing.date) changes.date = editing.date;
+    setSaving(true);
+    const res = await editAccountsEntry(companyId, user.id, editing.id, changes);
+    setSaving(false);
+    if (!res.success) return showToast(res.message || "Could not save the changes", "error");
+    showToast("Saved · balances adjusted");
+    setEditing(null);
+    setViewing(null);
+    setReload((n) => n + 1);
+    onChanged?.();
+  }
+
+  // a row click: its expense (full details + Edit), or this entry's details
+  function openRow(r) {
+    if (r.kind === "company_paid" && r.expenseId && onOpenExpense?.(r.expenseId)) return;
+    setEditing(null);
+    setViewing(r);
+  }
 
   return (
     <div>
@@ -117,7 +157,7 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
                           </td>
                         </tr>
                       ),
-                      <tr key={r._id}>
+                      <tr key={r._id} className="dt-click" tabIndex={0} title="View details" onClick={() => openRow(r)} onKeyDown={(e) => { if (e.key === "Enter") openRow(r); }}>
                         <td className="nowrap"><span className="dt-time">{w.time}</span></td>
                         <td className="dt-wrap-text">
                           <span className="dt-strong">{r.details || r.label}</span>
@@ -148,6 +188,115 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
           </p>
         </>
       )}
+      {viewing && (
+        <EntryModal
+          row={viewing}
+          canEdit={canEdit}
+          editing={editing}
+          setEditing={setEditing}
+          saving={saving}
+          onSave={saveAmount}
+          onOpenLoan={onOpenLoan}
+          onClose={() => { setViewing(null); setEditing(null); }}
+        />
+      )}
     </div>
   );
+}
+
+// One Accounts entry in full; where allowed its amount can be changed here (in place, same date).
+function EntryModal({ row, canEdit, editing, setEditing, saving, onSave, onOpenLoan, onClose }) {
+  const transfer = row.kind === "transfer";
+  const amount = transfer ? row.transferAmount : Math.abs(row.amount);
+  const w = when(row.at);
+  const lines = [
+    ["Date", `${w.date} · ${w.time}`],
+    ["Type", row.label],
+    row.category && ["Category", row.category],
+    ["Account", row.account || "—"],
+    row.method && ["Method", row.method],
+    row.reference && ["Reference", row.reference],
+    row.by && ["Recorded by", row.by],
+    ["Balance after", money(row.balance)],
+  ].filter(Boolean);
+  const editable = canEdit && row.editId;
+  return (
+    <Modal onClose={onClose} maxWidth={460}>
+      <h2 style={{ margin: "0 0 4px", fontSize: 20, paddingRight: 40 }}>{row.details || row.label}</h2>
+      <div style={{ fontSize: 26, fontWeight: 800, margin: "6px 0 14px", color: transfer ? "var(--muted)" : row.amount > 0 ? "var(--forest)" : "var(--terracotta)" }}>
+        {transfer ? `⇄ ${money(amount)}` : `${row.amount > 0 ? "+" : "−"}${money(amount)}`}
+      </div>
+      <div className="entry-lines">
+        {lines.map(([k, v]) => (
+          <div key={k}><span>{k}</span><strong>{v}</strong></div>
+        ))}
+      </div>
+
+      {editable && editing && (
+        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+          {row.amountEditable && (
+            <div>
+              <label className="field-label">Amount (₹)</label>
+              <input className="field-input" type="number" min="0.01" step="0.01" autoFocus value={editing.amount} onChange={(e) => setEditing({ ...editing, amount: e.target.value })} />
+            </div>
+          )}
+          <div>
+            <label className="field-label">Description</label>
+            <input className="field-input" value={editing.details} onChange={(e) => setEditing({ ...editing, details: e.target.value })} placeholder={row.label} />
+          </div>
+          {!String(row.editId).startsWith("income:") && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label className="field-label">Method</label>
+                <select className="field-select" value={editing.method} onChange={(e) => setEditing({ ...editing, method: e.target.value })}>
+                  <option value="">—</option>
+                  {[...new Set([...PAYMENT_METHODS, editing.method].filter(Boolean))].map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Reference</label>
+                <input className="field-input" value={editing.reference} onChange={(e) => setEditing({ ...editing, reference: e.target.value })} />
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="field-label">Date & time</label>
+            <input className="field-input" type="datetime-local" value={editing.date} onChange={(e) => setEditing({ ...editing, date: e.target.value })} />
+          </div>
+          {row.amountEditable ? (
+            <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>A new amount is changed in place; the balances after it move by the difference.</p>
+          ) : (
+            <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>This kind of entry keeps its amount; the other details can be changed.</p>
+          )}
+          <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+            <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditing(null)} disabled={saving}>Cancel</button>
+            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={onSave} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          </div>
+        </div>
+      )}
+
+      {!editing && (
+        <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Close</button>
+          {row.loanId && onOpenLoan && <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => { if (onOpenLoan(row.loanId)) onClose(); }}>View loan</button>}
+          {editable && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              onClick={() => setEditing({ id: row.editId, amount: String(amount), details: row.details || "", method: row.method || "", reference: row.reference || "", date: istInput(row.at) })}
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// a date as "YYYY-MM-DDTHH:mm" in India time, for the date & time input
+function istInput(at) {
+  const d = new Date(new Date(at).getTime() + 330 * 60000);
+  return d.toISOString().slice(0, 16);
 }

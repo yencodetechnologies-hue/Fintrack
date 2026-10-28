@@ -69,6 +69,7 @@ const CUSTOM_PERMISSIONS = [
   { key: "reverse_transactions", label: "Reverse ledger transactions", group: "Admin powers" },
   { key: "edit_paid_expenses", label: "Edit expenses posted as the company", hint: "Even after payment: the payment is re-booked from the same fund", group: "Admin powers" },
   { key: "post_borrowed", label: "Post an expense as borrowed", hint: "Add Expense → Paid from another company / Borrowed from another company", group: "Admin powers" },
+  { key: "edit_entries", label: "Edit amounts in Accounts", hint: "Money added, company-paid expenses, borrowed loans, repayments: changed in place", group: "Admin powers" },
   { key: "delete_paid_expenses", label: "Delete paid expenses", hint: "Undoes the payment (money back to Cash/Bank, loan removed), then deletes", group: "Admin powers" },
   { key: "delete_company", label: "Delete the company", group: "Admin powers" },
   { key: "full_admin", label: "All admin access", hint: "Everything the primary admin can do — turns every switch on", group: "Admin powers" },

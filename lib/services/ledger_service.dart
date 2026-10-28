@@ -314,6 +314,11 @@ class LedgerService {
           {required String from, required String to, String q = "", int page = 1, int limit = 25}) =>
       _get("$_base/companies/$companyId/accounts/entries?userId=$userId&from=$from&to=$to&q=${Uri.encodeQueryComponent(q)}&page=$page&limit=$limit");
 
+  /// Changes one Accounts entry's amount in place (money added, company-paid expense, borrowed loan, repayment).
+  /// changes: amount, details, method, reference, date ("YYYY-MM-DDTHH:mm", India time) — any of them.
+  static Future<Map<String, dynamic>> editAccountsEntry(String companyId, String userId, String editId, Map<String, dynamic> changes) =>
+      _post("$_base/companies/$companyId/accounts/entries/edit", {"userId": userId, "editId": editId, ...changes});
+
   /// Accounts by day (older view): each day's money in/out, expenses and closing Cash + Bank balance.
   static Future<Map<String, dynamic>> accountsDays(String companyId, String userId, String from, String to) =>
       _get("$_base/companies/$companyId/accounts?userId=$userId&from=$from&to=$to");

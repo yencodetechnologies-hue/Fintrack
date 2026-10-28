@@ -58,6 +58,7 @@ class LedgerScope {
   bool get canDeletePaid => isPrimary || (permissionRole == "custom" && permissions?["delete_paid_expenses"] == true);
   /// Admin powers a custom role can be given: edit company-paid expenses, post an expense as borrowed.
   bool get canEditCompanyPosts => isPrimary || (permissionRole == "custom" && permissions?["edit_paid_expenses"] == true);
+  bool get canEditEntries => isPrimary || (permissionRole == "custom" && permissions?["edit_entries"] == true);
   bool get canPostBorrowed => isPrimary || (permissionRole == "custom" && permissions?["post_borrowed"] == true);
   /// Adding a new company / person to borrow from.
   bool get canAddLender => isAdmin && can("intercompany") && can("add_lenders");

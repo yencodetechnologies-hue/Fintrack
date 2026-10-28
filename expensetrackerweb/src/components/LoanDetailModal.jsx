@@ -214,7 +214,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                   </tr>
                 </thead>
                 <tbody>
-                  {statement.map((r) => {
+                  {[...statement].reverse().map((r) => {
                     // money out on the left, in on the right (same as every statement)
                     const out = weBorrowed ? r.paid : r.taken;
                     const inn = weBorrowed ? r.taken : r.paid;

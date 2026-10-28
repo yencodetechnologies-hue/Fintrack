@@ -365,6 +365,10 @@ export default function DashboardPage() {
       apply(getLedgerExpenses(companyId, user.id), setLedgerExpenses, (result) => result.expenses || []);
       apply(getLedgerTransactions(companyId, user.id), setTransactions, (result) => result.transactions || []);
       apply(getLedgerBorrowSources(companyId, user.id), setBorrowSources, (result) => result.companies || []);
+    } else if (activeTab === "accounts") {
+      apply(getLedgerExpenses(companyId, user.id), setLedgerExpenses, (result) => result.expenses || []);
+      apply(getLedgerLoans(companyId, user.id), setLoans, (result) => result.loans || []);
+      apply(getLedgerBorrowSources(companyId, user.id), setBorrowSources, (result) => result.companies || []);
     } else if (activeTab === "expenses") {
       apply(getLedgerBalances(companyId, user.id), setLedgerBalances);
       apply(getLedgerExpenses(companyId, user.id), setLedgerExpenses, (result) => result.expenses || []);
@@ -867,12 +871,6 @@ export default function DashboardPage() {
                 const lentTotal = lentByBorrower.reduce((sum, row) => sum + row.balance, 0);
                 const cashTotal = availableCompanyFunds.filter((f) => f.fundId === "cash").reduce((s, f) => s + Number(f.balance || 0), 0);
                 const bankTotal = availableCompanyFunds.filter((f) => f.fundId !== "cash").reduce((s, f) => s + Number(f.balance || 0), 0);
-                const loanLines = (rows, arrow) => rows.slice(0, 2).map((row) => (
-                  <div key={row.name} className="home-tile-line">
-                    <span>{arrow(row.name)}</span>
-                    <strong>{money(row.balance)}</strong>
-                  </div>
-                ));
                 return (
                   <div className={`home-tiles ${isAdmin ? "" : "staff"}`}>
                     <HomeTile
@@ -924,14 +922,14 @@ export default function DashboardPage() {
                           label="Pending borrowed"
                           value={money(borrowedTotal)}
                           color={borrowedTotal > 0 ? "var(--terracotta)" : undefined}
-                          sub={borrowedByLender.length ? loanLines(borrowedByLender, (name) => `from ${name}`) : "Nothing to repay"}
+                          sub={borrowedByLender.length ? undefined : "Nothing to repay"}
                           onClick={() => changeTab("interco")}
                           title="View company loans"
                         />
                         <HomeTile
                           label="Pending lent"
                           value={money(lentTotal)}
-                          sub={lentByBorrower.length ? loanLines(lentByBorrower, (name) => `to ${name}`) : "Nothing to collect"}
+                          sub={lentByBorrower.length ? undefined : "Nothing to collect"}
                           onClick={() => changeTab("interco")}
                           title="View company loans"
                         />
@@ -1506,7 +1504,23 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "accounts" && isAdmin && (
-            <AccountsPanel companyId={companyId} user={user} refreshKey={tick("balances", "expenses")} />
+            <AccountsPanel
+              companyId={companyId}
+              user={user}
+              // an expense row opens the full expense (with its Edit); false when it isn't loaded
+              onOpenExpense={(expenseId) => {
+                const expense = ledgerExpenses.find((x) => String(x._id) === String(expenseId));
+                if (!expense) return false;
+                setSelectedExpenseDetail(expense);
+                return true;
+              }}
+              onOpenLoan={(loanId) => {
+                const loan = loans.find((l) => String(l._id) === String(loanId));
+                if (!loan) return false;
+                setViewingLoan(loan);
+                return true;
+              }}
+              canEdit={permissionRole === "primary" || (permissionRole === "custom" && myPermissions?.edit_entries === true)} onChanged={load} refreshKey={tick("balances", "expenses")} />
           )}
 
           {activeTab === "funds" && isAdmin && (

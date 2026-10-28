@@ -178,6 +178,8 @@ export const getLedgerBalances = (companyId, userId) => get(ledgerUrl(`/companie
 export const getAccountsDays = (companyId, userId, from, to) =>
   get(ledgerUrl(`/companies/${companyId}/accounts?userId=${userId}&from=${from}&to=${to}`));
 // Accounts statement: every money in/out with the balance after it, searched and paged on the server
+// changes: { amount?, details?, method?, reference?, date? }
+export const editAccountsEntry = (companyId, userId, editId, changes) => post(ledgerUrl(`/companies/${companyId}/accounts/entries/edit`), { userId, editId, ...changes });
 export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25 }) =>
   get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`));
 // kind: expense | payment | fund

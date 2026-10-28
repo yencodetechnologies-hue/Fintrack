@@ -128,6 +128,8 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
     return () => { active = false; };
   }, [companyId, party.id, user.id, refreshKey]);
 
+  // running balances are worked out oldest first; the table lists the latest first
+  const newestFirst = data ? [...data.rows].reverse() : [];
   const t = data?.totals;
   const balance = t?.balance ?? party.owed;
   return (
@@ -153,9 +155,9 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
           </div>
           <TableCard
             title="Statement"
-            meta={tableMeta(data.rows.length, pageOf(data.rows, page, pageSize).page, pageOf(data.rows, page, pageSize).pages, "entries")}
-            page={pageOf(data.rows, page, pageSize).page}
-            pages={pageOf(data.rows, page, pageSize).pages}
+            meta={tableMeta(data.rows.length, pageOf(newestFirst, page, pageSize).page, pageOf(newestFirst, page, pageSize).pages, "entries")}
+            page={pageOf(newestFirst, page, pageSize).page}
+            pages={pageOf(newestFirst, page, pageSize).pages}
             onPage={setPage}
             count={data.rows.length}
             pageSize={pageSize}
@@ -178,7 +180,7 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
                   </tr>
                 </thead>
                 <tbody>
-                  {pageOf(data.rows, page, pageSize).rows.map((r) => (
+                  {pageOf(newestFirst, page, pageSize).rows.map((r) => (
                     <tr key={r._id} className="dt-click" tabIndex={0} title="View this loan" onClick={() => onOpenLoan(r.loanId)} onKeyDown={(e) => { if (e.key === "Enter") onOpenLoan(r.loanId); }}>
                       <td className="nowrap">{formatDate(r.date)}</td>
                       <td className="nowrap">{kindLabel[r.kind]}</td>

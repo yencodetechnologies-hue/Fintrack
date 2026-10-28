@@ -2152,3 +2152,16 @@ a {
 .text-size-ticks { display: flex; justify-content: space-between; padding: 0 12px; margin-top: 2px; }
 .text-size-ticks span { width: 2px; height: 8px; background: #D1D5DB; border-radius: 1px; }
 .text-size-ticks span.mid { height: 12px; background: #9CA3AF; }
+/* Accounts: change an amount in place */
+.acc-edit-pen { margin-left: 8px; border: none; background: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 6px; opacity: 0.55; }
+.dt tr:hover .acc-edit-pen { opacity: 1; }
+.acc-edit-pen:hover { color: var(--forest); background: var(--slate-bg); }
+.acc-edit { display: inline-flex; align-items: center; gap: 4px; }
+.acc-edit input { width: 110px; height: 32px; border: 1px solid var(--forest); border-radius: 8px; padding: 0 8px; font: inherit; font-size: 14px; text-align: right; }
+.acc-edit button { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--slate-border); background: #fff; cursor: pointer; font-size: 14px; }
+.acc-edit .acc-edit-ok { background: var(--forest); border-color: var(--forest); color: #fff; }
+.entry-lines { border: 1px solid var(--slate-border-2); border-radius: 10px; overflow: hidden; }
+.entry-lines > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; font-size: 14px; }
+.entry-lines > div + div { border-top: 1px solid var(--slate-border-2); }
+.entry-lines span { color: var(--muted); }
+.entry-lines strong { text-align: right; word-break: break-word; }

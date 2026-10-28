@@ -228,9 +228,9 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             // managers: open Payments, where "Your outstanding" is at the top
             onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s, mineOnly: true))) : null),
         stat("Borrowed", _secondaryLoading ? null : inr(borrowedTotal), color: kForest,
-            sub: borrowed.isEmpty ? "Nothing to repay" : borrowed.map((r) => r.name).join(", "), onTap: widget.onOpenInterco),
+            sub: borrowed.isEmpty ? "Nothing to repay" : null, onTap: widget.onOpenInterco),
         stat("Lent", _secondaryLoading ? null : inr(lentTotal),
-            sub: lent.isEmpty ? "Nothing to collect" : lent.map((r) => r.name).join(", "), onTap: widget.onOpenInterco),
+            sub: lent.isEmpty ? "Nothing to collect" : null, onTap: widget.onOpenInterco),
       ] else
         stat("Voucher balance", balancesReady ? inr(myAdvance > 0 ? myAdvance : 0) : null,
             sub: myAdvance > 0 ? "Tap to hand back" : "None with you",

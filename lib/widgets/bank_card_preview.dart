@@ -83,7 +83,7 @@ class _BodyPreview extends StatelessWidget {
         Text(bank.isEmpty ? 'BANK NAME' : bank.toUpperCase(),
             style: TextStyle(color: text, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.1),
             overflow: TextOverflow.ellipsis),
-        Text(sub, style: TextStyle(color: subtext, fontSize: 8, letterSpacing: 2)),
+        Text(sub, style: TextStyle(color: subtext, fontSize: 10, letterSpacing: 2)),
       ])),
       Icon(Icons.nfc_rounded, color: subtext, size: 24),
     ]),
@@ -94,12 +94,12 @@ class _BodyPreview extends StatelessWidget {
     ]),
     const Spacer(),
     Text('•••• •••• •••• ${digits.isEmpty ? "••••" : digits}',
-        style: TextStyle(color: text, fontSize: 18, letterSpacing: 4, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: text, fontSize: 20, letterSpacing: 4, fontWeight: FontWeight.w700)),
     const SizedBox(height: 10),
     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 7, letterSpacing: 1.5)),
+          Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 10, letterSpacing: 1.5)),
           const SizedBox(height: 2),
           Text(name.isEmpty ? 'YOUR NAME' : name.toUpperCase(),
               style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8),
@@ -134,7 +134,7 @@ class _Visa extends StatelessWidget {
   final Color c;
   const _Visa({this.c = Colors.white});
   @override Widget build(BuildContext context) => Text('VISA',
-      style: TextStyle(color: c, fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, letterSpacing: 2));
+      style: TextStyle(color: c, fontSize: 20, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, letterSpacing: 2));
 }
 class _MC extends StatelessWidget {
   const _MC();

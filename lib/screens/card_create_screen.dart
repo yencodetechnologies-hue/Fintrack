@@ -320,7 +320,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
         maxLength: maxLength,
         style: GoogleFonts.inter(
           color: _darkText,
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
@@ -393,7 +393,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
               value,
               style: GoogleFonts.inter(
                 color: _darkText,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -451,7 +451,7 @@ class _CardCreateScreenState extends State<CardCreateScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,

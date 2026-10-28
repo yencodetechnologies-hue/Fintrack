@@ -82,11 +82,11 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
       <div className="own-outstanding-head">
         <div>
           <div className="own-outstanding-title">Your outstanding</div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>
             {/* what's chosen (typed amount or ticked bills) comes off the total: what would still be owed after */}
             {money(round(total - paidNow))}
           </div>
-          <div style={{ color: tooMuch ? "var(--terracotta)" : "var(--muted)", fontSize: 12.5 }}>
+          <div style={{ color: tooMuch ? "var(--terracotta)" : "var(--muted)", fontSize: 13 }}>
             {!(total > 0)
               ? "The company doesn't owe you anything."
               : tooMuch

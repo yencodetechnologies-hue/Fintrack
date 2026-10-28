@@ -136,10 +136,10 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
   Future<void> _settleGroup() async {
     if (!_isCreator || _isSettled || _total <= 0) return;
     setState(() => _settling = true);
-    final companies =
-        (await ExpenseCompanyService.getUserCompanies(widget.userId)).where((c) => c["external"] != true).toList();
+    // who may pay for this group: only the company's allowed lenders (Admin's own companies + outside ones added there)
+    final sources = await LedgerService.borrowSources(_companyId, widget.userId);
     if (!mounted) return;
-    final lenders = companies
+    final lenders = List<Map<String, dynamic>>.from(sources["companies"] ?? const [])
         .where((company) => _id(company["_id"]) != _companyId)
         .toList();
     var settlementType = "own_company";
@@ -325,7 +325,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
               Text("Group expenses",
                   style: GoogleFonts.inter(
                       color: Colors.white,
-                      fontSize: 23,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold)),
               const SizedBox(height: 14),
               Container(
@@ -348,7 +348,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                           Text(_money(_total),
                               style: GoogleFonts.inter(
                                   color: darkSurface,
-                                  fontSize: 25,
+                                  fontSize: 22,
                                   fontWeight: FontWeight.bold)),
                         ]),
                     if (_isSettled)
@@ -484,7 +484,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                              color: const Color(0xFF64748B), fontSize: 10.5),
+                              color: const Color(0xFF64748B), fontSize: 11),
                         ),
                       ],
                     ),
@@ -493,7 +493,7 @@ class _GroupExpensesScreenState extends State<GroupExpensesScreen> {
                   Text(_money((expense["amount"] as num?) ?? 0),
                       style: GoogleFonts.inter(
                           color: darkSurface,
-                          fontSize: 12.5,
+                          fontSize: 13,
                           fontWeight: FontWeight.w700)),
                   const SizedBox(width: 4),
                   Icon(

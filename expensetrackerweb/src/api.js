@@ -94,6 +94,10 @@ export const getCompanyMemberCandidates = (userId) =>
 export const joinCompany = (userId, joinCode, userName) =>
   post(companyUrl("/company/join"), { userId, joinCode, userName });
 export const getUserCompanies = (userId) => get(companyUrl(`/user/${userId}/companies`));
+// companies this person removed from their list (Hidden companies view)
+export const getHiddenCompanies = (userId) => get(companyUrl(`/user/${userId}/companies?includeHidden=1`));
+// Admin only: remove a company from MY list (hidden: true) or restore it; the company itself is untouched
+export const setCompanyHidden = (companyId, userId, hidden) => post(ledgerUrl(`/companies/${companyId}/hide`), { userId, hidden });
 export const getCompanyDetails = (companyId, userId) =>
   get(companyUrl(`/company/${companyId}?userId=${userId}`));
 export const regenerateJoinCode = (companyId, userId) =>
@@ -173,6 +177,9 @@ export const getLedgerBalances = (companyId, userId) => get(ledgerUrl(`/companie
 // Accounts page: each day's money in/out, expenses and closing Cash + Bank balance, from..to as YYYY-MM-DD
 export const getAccountsDays = (companyId, userId, from, to) =>
   get(ledgerUrl(`/companies/${companyId}/accounts?userId=${userId}&from=${from}&to=${to}`));
+// Accounts statement: every money in/out with the balance after it, searched and paged on the server
+export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25 }) =>
+  get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`));
 // kind: expense | payment | fund
 export const getDescriptionSuggestions = (companyId, userId, kind) =>
   get(ledgerUrl(`/companies/${companyId}/descriptions?userId=${userId}&kind=${kind}`));
@@ -216,25 +223,29 @@ export const deleteCustomRole = (companyId, roleId, userId) => post(ledgerUrl(`/
 export const setMemberCustomRole = (companyId, memberUserId, userId, roleId) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/custom-role`), { userId, roleId });
 export const getLoanDetail = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}`));
 export const getLoanReceipts = (loanId, userId) => get(ledgerUrl(`/loans/${loanId}?userId=${userId}&receipts=1`));
+export const getLoanPartyStatement = (companyId, partyId, userId) => get(ledgerUrl(`/companies/${companyId}/loan-parties/${partyId}?userId=${userId}`));
 export const getLedgerLoans =(companyId, userId) => get(ledgerUrl(`/companies/${companyId}/loans?userId=${userId}`));
-export const getLedgerReport = (companyId, userId, from, to, category) => {
+// role: "all" | "manager" | "staff" | "role:<customRoleId>" (Reports page Role filter)
+export const getLedgerReport = (companyId, userId, from, to, category, role = "all") => {
   const params = new URLSearchParams({ userId });
   if (from) params.set("from", from);
   if (to) params.set("to", to);
   if (category && category !== "All") params.set("category", category);
+  if (role && role !== "all") params.set("role", role);
   return get(ledgerUrl(`/companies/${companyId}/report?${params}`));
 };
 export const getExpenseAnalysis = (companyId, userId, months = 12) =>
   get(ledgerUrl(`/companies/${companyId}/analysis?userId=${userId}&months=${months}`));
-export const getOutstandingReport = (companyId, userId) =>
-  get(ledgerUrl(`/companies/${companyId}/outstanding?userId=${userId}`));
+export const getOutstandingReport = (companyId, userId, role = "all") =>
+  get(ledgerUrl(`/companies/${companyId}/outstanding?userId=${userId}${role && role !== "all" ? `&role=${encodeURIComponent(role)}` : ""}`));
 export const getLedgerTransactions = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/transactions?userId=${userId}`));
 export const getLedgerAuditLog = (companyId, userId) => get(ledgerUrl(`/companies/${companyId}/audit-log?userId=${userId}`));
-export const getLedgerExportUrl = (companyId, userId, from, to, category) => {
+export const getLedgerExportUrl = (companyId, userId, from, to, category, role = "all") => {
   const params = new URLSearchParams({ userId, scope: "company" });
   if (from) params.set("from", from);
   if (to) params.set("to", to);
   if (category && category !== "All") params.set("category", category);
+  if (role && role !== "all") params.set("role", role);
   return ledgerUrl(`/companies/${companyId}/export?${params}`);
 };
 export const getLedgerExpenseReceipts = (expenseId, userId) =>

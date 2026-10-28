@@ -108,7 +108,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 22,
+            fontSize: 20,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -160,7 +160,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
                     "Enter 6-Digit Trip Code",
                     style: GoogleFonts.inter(
                       color: forestDark,
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -168,7 +168,7 @@ class _JoinTripScreenState extends State<JoinTripScreen> with SingleTickerProvid
                   Text(
                     "Ask the trip organizer for their 6-digit trip code (e.g. TRP892) and enter it below.",
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(color: textMuted, fontSize: 12.5),
+                    style: GoogleFonts.inter(color: textMuted, fontSize: 13),
                   ),
                   const SizedBox(height: 20),
 

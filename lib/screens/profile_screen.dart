@@ -537,7 +537,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
               style: GoogleFonts.inter(
                 color: darkText,
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 20,
               ),
             ),
           ],
@@ -546,7 +546,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           "Are you sure you want to permanently delete your account? All credit cards, active reminders, lend/liability entries, and personal details will be completely purged from our servers. This action is irreversible.",
           style: GoogleFonts.inter(
             color: darkText,
-            fontSize: 13.5,
+            fontSize: 14,
             height: 1.4,
           ),
         ),
@@ -700,7 +700,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                               "Account Passport",
                               style: GoogleFonts.inter(
                                 color: Colors.white,
-                                fontSize: 24,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -768,7 +768,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                     initial,
                                     style: GoogleFonts.inter(
                                       color: const Color(0xFFD4AF37),
-                                      fontSize: 26,
+                                      fontSize: 22,
                                       fontWeight: FontWeight.bold,
                                       fontStyle: FontStyle.italic,
                                     ),
@@ -787,7 +787,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                       widget.userName,
                                       style: GoogleFonts.inter(
                                         color: const Color(0xFF1E293B),
-                                        fontSize: 22,
+                                        fontSize: 20,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       maxLines: 1,
@@ -822,7 +822,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                   "VERIFIED ACCOUNT",
                                   style: GoogleFonts.ibmPlexMono(
                                     color: const Color(0xFFB8860B),
-                                    fontSize: 8.5,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.1,
                                   ),
@@ -861,7 +861,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                         "CREDIT CARDS",
                                         style: GoogleFonts.ibmPlexMono(
                                           color: const Color(0xFFB8860B),
-                                          fontSize: 9,
+                                          fontSize: 10,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 1.2,
                                         ),
@@ -890,7 +890,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                                         "BILL ALERTS",
                                         style: GoogleFonts.ibmPlexMono(
                                           color: const Color(0xFF195754),
-                                          fontSize: 9,
+                                          fontSize: 10,
                                           fontWeight: FontWeight.bold,
                                           letterSpacing: 1.2,
                                         ),
@@ -1076,7 +1076,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         title,
         style: GoogleFonts.inter(
           color: isLast ? const Color(0xFFB8452D) : const Color(0xFF1E293B),
-          fontSize: 14.5,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
       ),

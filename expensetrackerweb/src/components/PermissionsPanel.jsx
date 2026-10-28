@@ -74,8 +74,8 @@ export default function PermissionsPanel({ companyId, company, members = [], use
       <div className="card perm-card">
         <div className="perm-card-head">
           <div>
-            <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
-            <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 2 }}>{subtitle}</div>
+            <h2 style={{ margin: 0, fontSize: 20 }}>{title}</h2>
+            <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 2 }}>{subtitle}</div>
           </div>
           <span className="perm-count">{onCount}/{defs.length} on</span>
         </div>
@@ -124,8 +124,8 @@ export default function PermissionsPanel({ companyId, company, members = [], use
 
   return (
     <>
-      <h1 style={{ fontSize: 26, margin: "0 0 6px" }}>Permissions</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 22px", maxWidth: 680 }}>
+      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Permissions</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", maxWidth: 680 }}>
         Turn features on or off for everyone in a role. Switched-off features are hidden for them and refused by the server.
         {data.role === "primary" ? " As the primary admin, these never apply to you." : " You can change staff permissions, but only for features managers have."}
       </p>

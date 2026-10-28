@@ -109,7 +109,9 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
     final paidByMe = lifecycle == "paid_by_admin" && _sid(e["paidByAdminId"]) == s.userId;
     final creatorCanSwitchPayer = s.isAdmin && isCreator && (isApproved || lifecycle == "paid_by_company" || paidByMe);
     final canEdit = (s.can("edit_expenses") && ((s.isAdmin && !isPaid && !isAwaitingPayer) || (!s.isAdmin && isSubmitted && isCreator && !isPaid))) ||
-        (creatorCanSwitchPayer && (s.can("edit_expenses") || s.can("record_payments")));
+        (creatorCanSwitchPayer && (s.can("edit_expenses") || s.can("record_payments"))) ||
+        // the company Admin can still edit an expense posted as this company
+        (s.isPrimary && s.can("edit_expenses") && e["lifecycle"] == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null);
     final canDelete = s.can("edit_expenses") && ((s.isAdmin && (!isPaid || s.canDeletePaid)) || (!s.isAdmin && isSubmitted && isCreator));
     final canReplaceReceipts = s.isAdmin && s.can("edit_expenses");
     final canRemoveReceipts = s.isAdmin && s.can("remove_receipts");
@@ -133,6 +135,8 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
       if (lifecycle == "paid_by_company")
         ("Paid by", _val(borrowedFrom.isNotEmpty ? borrowedFrom : companyName, sub: borrowedFrom.isNotEmpty ? "Borrowed by $companyName" : null)),
       if (lifecycle == "paid_by_voucher" && e["voucherId"] != null) ("Paid by", _val("Voucher money given in advance")),
+      if (lifecycle == "paid_by_voucher" && e["voucherSettledAt"] != null)
+        (e["voucherClosed"] == true ? "Voucher closed on" : "Voucher claimed on", _val(_dateTime(e["voucherSettledAt"]))),
       if (((e["advanceUsed"] as num?) ?? 0) > 0) ("From voucher balance", _val(inr(e["advanceUsed"]))),
       if (!isPaid && e["useAdvance"] == true) ("Voucher balance", _val("Will be used when approved")),
       if (isPaid && paymentText.isNotEmpty) ("Payment", _val(paymentText)),
@@ -171,8 +175,8 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
             if (e["verification"] == "pending") statusPill("Verification pending", kAmber),
           ]),
           const SizedBox(height: 10),
-          Text(e["description"]?.toString() ?? "Expense", style: GoogleFonts.inter(fontSize: 19, fontWeight: FontWeight.w700, color: kDark)),
-          Text(inr(e["amount"]), style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.bold, color: kForest)),
+          Text(e["description"]?.toString() ?? "Expense", style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: kDark)),
+          Text(inr(e["amount"]), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: kForest)),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -184,7 +188,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
                   decoration: BoxDecoration(border: i == 0 ? null : const Border(top: BorderSide(color: Color(0xFFF1F5F9)))),
                   child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(rows[i].$1.toUpperCase(),
-                        style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
                     const SizedBox(width: 12),
                     Expanded(child: Align(alignment: Alignment.centerRight, child: rows[i].$2)),
                   ]),
@@ -193,10 +197,10 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
           ),
           if (_loadingReceipts || _attachment.isNotEmpty || _paymentReceipt.isNotEmpty || canReplaceReceipts || canRemoveReceipts) ...[
             const SizedBox(height: 14),
-            Text("RECEIPTS", style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
+            Text("RECEIPTS", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
             const SizedBox(height: 8),
             if (_loadingReceipts)
-              Text("Loading receipts…", style: GoogleFonts.inter(fontSize: 12.5, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.6)))
+              Text("Loading receipts…", style: GoogleFonts.inter(fontSize: 13, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.6)))
             else
               Wrap(spacing: 10, runSpacing: 10, children: [
                 if (_attachment.isNotEmpty) _thumb(_attachment, "Bill / receipt"),
@@ -287,8 +291,8 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
   }
 
   Widget _val(String text, {String? sub}) => Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text(text, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600, color: kDark)),
-        if (sub != null && sub.isNotEmpty) Text(sub, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+        Text(text, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: kDark)),
+        if (sub != null && sub.isNotEmpty) Text(sub, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
       ]);
 
   Widget _thumb(String url, String label) => InkWell(
@@ -303,7 +307,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
             Padding(
               padding: const EdgeInsets.all(6),
               child: Row(children: [
-                Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: kDark))),
+                Expanded(child: Text(label, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kDark))),
                 Text("View ↗", style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
               ]),
             ),
@@ -378,8 +382,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
   const outside = "__outside__";
   String? lenderPick; // "co:<companyId>:<fundId>" or outside
   List<Map<String, dynamic>>? allCompanies; // every other company, loaded the first time "Another company" is picked
-  final outsideName = TextEditingController();
-  final outsideGstin = TextEditingController();
+  final outsideLender = NewLender();
 
   Widget choice(String value, String title, String sub, String current, VoidCallback onTap) => Expanded(
         child: InkWell(
@@ -395,7 +398,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kDark)),
               const SizedBox(height: 2),
-              Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+              Text(sub, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             ]),
           ),
         ),
@@ -411,7 +414,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
         final lenderCo = lenderId == null ? null : [...s.managedOtherCompanies, ...rest].where((c) => c["_id"].toString() == lenderId).firstOrNull;
         final notifiesLender = lenderCo != null && !mineIds.contains(lenderId) && lenderCo["external"] != true;
         final lenderName = lenderPick == outside
-            ? (outsideName.text.trim().isEmpty ? "the outside company" : outsideName.text.trim())
+            ? (outsideLender.displayName.isEmpty ? "the new lender" : outsideLender.displayName)
             : lenderCo?["name"]?.toString() ?? "";
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("${e["description"]} · ${inr(amount)} — you got this money back, so the expense closes.",
@@ -459,17 +462,12 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
                 ],
                 // every other company (no account choice: booked to its Cash)
                 for (final c in rest)
-                  DropdownMenuItem(value: "co:${c["_id"]}:cash", child: Text("${c["name"]}${c["external"] == true ? " (outside)" : ""}", overflow: TextOverflow.ellipsis)),
-                const DropdownMenuItem(value: outside, child: Text("An outside company…")),
+                  DropdownMenuItem(value: "co:${c["_id"]}:cash", child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis)),
+                const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
               ],
               onChanged: (v) => set(() => lenderPick = v),
             ),
-            if (lenderPick == outside) ...[
-              const SizedBox(height: 8),
-              TextField(controller: outsideName, onChanged: (_) => set(() {}), decoration: fieldDecoration("Company name *", icon: Icons.business_rounded)),
-              const SizedBox(height: 8),
-              TextField(controller: outsideGstin, textCapitalization: TextCapitalization.characters, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
-            ],
+            if (lenderPick == outside) ...outsideLender.fields(set),
             if (lenderPick != null)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -506,9 +504,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
             (from == "person" && personId == null) || (from == "borrow" && lenderPick == null)
                 ? null
                 : () async {
-                    if (from == "borrow" && lenderPick == outside && (outsideName.text.trim().isEmpty || outsideGstin.text.trim().isEmpty)) {
-                      return toast(ctx, "Enter the outside company's name and GSTIN", error: true);
-                    }
+                    if (from == "borrow" && lenderPick == outside && outsideLender.error != null) return toast(ctx, outsideLender.error!, error: true);
                     if (short && !await topUpFund(ctx, s, selected, amount)) return;
                     if (!ctx.mounted) return;
                     final res = await LedgerService.markReceived(e["_id"].toString(), {
@@ -516,7 +512,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
                       "from": from,
                       if (from == "company") "fundId": fund,
                       if (from == "person") "personId": personId,
-                      if (from == "borrow" && lenderPick == outside) "newCompany": {"name": outsideName.text.trim(), "gstin": outsideGstin.text.trim().toUpperCase()},
+                      if (from == "borrow" && lenderPick == outside) "newCompany": outsideLender.body,
                       if (from == "borrow" && lenderPick != outside) ...{"sourceCompanyId": lenderPick!.split(":")[1], "sourceFundId": lenderPick!.split(":")[2]},
                       "method": method,
                       "reference": ref.text.trim(),
@@ -552,8 +548,7 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
   String method = "UPI";
   String receipt = "";
   final ref = TextEditingController();
-  final newName = TextEditingController();
-  final newGstin = TextEditingController();
+  final newLender = NewLender();
   final needsVerify = () {
     final t = s.company["verificationThreshold"] as num?;
     return t != null && amount > t && s.admins.length > 1;
@@ -616,12 +611,12 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
             if (!addingCompany)
               sources.isEmpty
                   ? Text(s.isAdmin ? "No other companies yet — add one below." : "No other companies are available to borrow from.",
-                      style: GoogleFonts.inter(color: kTerracotta, fontSize: 12.5))
+                      style: GoogleFonts.inter(color: kTerracotta, fontSize: 13))
                   : DropdownButtonFormField<String>(
                       initialValue: sourceId,
                       isExpanded: true,
-                      decoration: fieldDecoration("Source company", icon: Icons.business_rounded),
-                      items: sources.map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(c["name"].toString()))).toList(),
+                      decoration: fieldDecoration("Borrowed from", icon: Icons.business_rounded),
+                      items: sources.map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (v) => set(() => sourceId = v),
                     ),
             if (s.isAdmin)
@@ -631,20 +626,16 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
                   sourceId = null;
                 }),
                 icon: Icon(addingCompany ? Icons.close_rounded : Icons.add_rounded, size: 18),
-                label: Text(addingCompany ? "Pick an existing company" : "Add an outside company"),
+                label: Text(addingCompany ? "Pick from the list" : "+ Add company or person"),
               ),
-            if (addingCompany) ...[
-              TextField(controller: newName, decoration: fieldDecoration("Company name", icon: Icons.business_rounded)),
-              const SizedBox(height: 8),
-              TextField(controller: newGstin, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
-            ],
+            if (addingCompany) ...newLender.fields(set),
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                   s.isAdmin
                       ? "A registered company's managers confirm the payment before it is booked; an outside company is booked straight away."
                       : "Recorded straight away as money borrowed from that company.",
-                  style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                  style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             ),
           ],
           const SizedBox(height: 12),
@@ -670,7 +661,7 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(10)),
               child: Text("Above the verification limit: another manager must verify this payment.",
-                  style: GoogleFonts.inter(color: kAmber, fontWeight: FontWeight.bold, fontSize: 12.5)),
+                  style: GoogleFonts.inter(color: kAmber, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           const SizedBox(height: 16),
           primaryButton(insufficient ? "Add money & pay" : "Record payment", () async {
@@ -685,8 +676,8 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
                     body["fundId"] = fund;
                   } else if (payer == "borrow") {
                     if (addingCompany) {
-                      if (newName.text.trim().isEmpty || newGstin.text.trim().isEmpty) return toast(ctx, "Enter the outside company name and GSTIN", error: true);
-                      body["newCompany"] = {"name": newName.text.trim(), "gstin": newGstin.text.trim()};
+                      if (newLender.error != null) return toast(ctx, newLender.error!, error: true);
+                      body["newCompany"] = newLender.body;
                     } else {
                       if (sourceId == null) return toast(ctx, "Choose the company paying", error: true);
                       body.addAll({"sourceCompanyId": sourceId, "sourceFundId": "cash"});
@@ -717,7 +708,9 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
   }
   final canSwitchPayer = s.isAdmin && isCreator && startPayer != null;
   final shownPayer = startPayer == "unpaid" ? "manager" : startPayer;
-  final detailsLocked = lifecycle.startsWith("paid") || e["status"] == "paid";
+  // ...except one posted as this company from its own Cash/Bank: the company Admin can still edit it (the payment is re-booked)
+  final adminCanEdit = s.isPrimary && lifecycle == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null;
+  final detailsLocked = !adminCanEdit && (lifecycle.startsWith("paid") || e["status"] == "paid");
   final amount = TextEditingController(text: (e["amount"] ?? "").toString());
   final desc = TextEditingController(text: e["description"]?.toString() ?? "");
   final options = {...companyCategories(s.company), if (e["category"] != null) e["category"].toString()}.toList();
@@ -734,7 +727,13 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (detailsLocked)
             Text("Paid expenses keep their amount and details; you can change who paid and the receipt.",
-                style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+                style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+          if (adminCanEdit)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Text("Paid by the company. Changing the amount or category re-books the payment: the fund gets the old amount back and pays the new one.",
+                  style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+            ),
           if (!detailsLocked) ...[
             TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
             const SizedBox(height: 10),
@@ -831,7 +830,7 @@ Future<void> showVisibilitySheet(BuildContext context, LedgerScope s, Map<String
   final staff = s.members.where((m) => m["userId"].toString() != s.userId).toList();
   final selected = <String>{...List.from(e["visibleTo"] ?? const []).map((v) => idOf(v))};
   return showLedgerSheet(context, "Staff visibility", (ctx) => StatefulBuilder(builder: (ctx, set) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text("Choose who can see \"${e["description"]}\" in their list.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+        Text("Choose who can see \"${e["description"]}\" in their list.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         if (staff.isEmpty) Text("No other members yet.", style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.6))),
         ...staff.map((m) => CheckboxListTile(

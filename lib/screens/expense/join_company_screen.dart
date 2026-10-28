@@ -109,7 +109,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -164,7 +164,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
                     style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: "Enter your full name",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixIcon: const Icon(Icons.person_rounded, color: darkSurface, size: 20),
@@ -194,14 +194,14 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
                     },
                     style: GoogleFonts.ibmPlexMono(
                       color: darkText,
-                      fontSize: 28,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 8,
                     ),
                     decoration: InputDecoration(
                       counterText: "",
                       hintText: "123456",
-                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.25), fontSize: 28, letterSpacing: 8),
+                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.25), fontSize: 22, letterSpacing: 8),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -223,7 +223,7 @@ class _JoinCompanyScreenState extends State<JoinCompanyScreen> {
                           : const Icon(Icons.group_add_rounded, color: Colors.white, size: 18),
                       label: Text(
                         _isJoining ? "Joining Company..." : "Join Company",
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: darkSurface,

@@ -11,6 +11,7 @@ export default function ExpenseDetailModal({
   isAdmin,
   can = () => true,
   canDeletePaid = false, // the Admin, or a custom role with "Delete paid expenses"
+  isCompanyAdmin = false,
   company,
   onClose,
   onEdit,
@@ -91,7 +92,9 @@ export default function ExpenseDetailModal({
   const creatorCanSwitchPayer = isAdmin && isCreator && (isApproved || lifecycle === "paid_by_company" || paidByMe);
   const canEdit =
     (can("edit_expenses") && ((isAdmin && !isPaid && !isAwaitingPayer) || (!isAdmin && isSubmitted && isCreator && !isPaid))) ||
-    (creatorCanSwitchPayer && (can("edit_expenses") || can("record_payments")));
+    (creatorCanSwitchPayer && (can("edit_expenses") || can("record_payments"))) ||
+    // the company Admin can still edit an expense posted as this company
+    (isCompanyAdmin && can("edit_expenses") && lifecycle === "paid_by_company" && expense.payerType === "company" && !expense.payerCompanyId && !expense.groupId);
 
   // managers can fix receipt images at any status
   const canReplaceReceipts = isAdmin && can("edit_expenses");
@@ -176,6 +179,7 @@ export default function ExpenseDetailModal({
         : (expense.companyId?.name || company?.name || "Company"),
     ],
     lifecycle === "paid_by_voucher" && expense.voucherId && ["Paid by", "Voucher money given in advance"],
+    lifecycle === "paid_by_voucher" && expense.voucherSettledAt && [expense.voucherClosed ? "Voucher closed on" : "Voucher claimed on", formatDateTime(expense.voucherSettledAt)],
     Number(expense.advanceUsed) > 0 && ["From voucher balance", money(expense.advanceUsed)],
     !isPaid && expense.useAdvance && ["Voucher balance", "Will be used when approved"],
     isPaid && paymentText && ["Payment", paymentText],
@@ -214,10 +218,10 @@ export default function ExpenseDetailModal({
         </div>
       </div>
 
-      <h2 style={{ margin: "14px 0 2px", fontSize: 21, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>
+      <h2 style={{ margin: "14px 0 2px", fontSize: 20, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>
         {expense.description}
       </h2>
-      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>
+      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>
         {money(expense.amount)}
       </div>
 
@@ -236,7 +240,7 @@ export default function ExpenseDetailModal({
         <div style={{ marginBottom: 6 }}>
           <div style={{ ...labelStyle, marginBottom: 8 }}>Receipts</div>
           {loadingReceipts ? (
-            <div style={{ color: "var(--muted)", fontSize: 12.5, fontStyle: "italic", padding: "8px 0" }}>Loading receipts…</div>
+            <div style={{ color: "var(--muted)", fontSize: 13, fontStyle: "italic", padding: "8px 0" }}>Loading receipts…</div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
               {[
@@ -361,7 +365,7 @@ const labelStyle = {
 
 const valStyle = {
   margin: 0,
-  fontSize: 13.5,
+  fontSize: 14,
   fontWeight: 600,
   color: "var(--dark-text)",
   wordBreak: "break-word",
@@ -370,7 +374,7 @@ const valStyle = {
 
 const subValStyle = {
   display: "block",
-  fontSize: 11.5,
+  fontSize: 12,
   fontWeight: 500,
   color: "var(--muted)",
 };

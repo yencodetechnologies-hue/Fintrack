@@ -56,8 +56,8 @@ export default function CreateVoucherModal({ companyId, user, members, funds, on
         background: fundedBy === key ? "rgba(25, 87, 84, 0.06)" : "#fff",
       }}
     >
-      <div style={{ fontWeight: 700, fontSize: 13.5, color: "var(--dark-text)" }}>{title}</div>
-      <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 2 }}>{sub}</div>
+      <div style={{ fontWeight: 700, fontSize: 14, color: "var(--dark-text)" }}>{title}</div>
+      <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{sub}</div>
     </button>
   );
 

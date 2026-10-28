@@ -32,6 +32,9 @@ class LedgerScope {
   final String? permissionRole;
   /// My custom role's name (e.g. "Incharge"), when I'm in one.
   final String? roleName;
+  /// Companies this company may borrow from / be paid by (the Admin's own companies + outside ones added here),
+  /// from the server's borrow list. The same for every role in the company.
+  final Set<String> lenderIds;
 
   LedgerScope({
     required this.userId,
@@ -45,6 +48,7 @@ class LedgerScope {
     this.permissions,
     this.permissionRole,
     this.roleName,
+    this.lenderIds = const {},
   });
 
   /// False only when this feature is switched off for my role; switched-off features are hidden (the server refuses them too).
@@ -73,7 +77,7 @@ class LedgerScope {
 
   /// Other registered companies this user manages; they can pay this company's bills (booked as a loan).
   List<Map<String, dynamic>> get managedOtherCompanies => companies
-      .where((c) => c["_id"].toString() != companyId && c["userRole"] == "admin" && c["external"] != true)
+      .where((c) => c["_id"].toString() != companyId && c["userRole"] == "admin" && c["external"] != true && lenderIds.contains(c["_id"].toString()))
       .toList();
 
   String get companyId => company["_id"].toString();
@@ -237,7 +241,7 @@ Color lifecycleColor(String? s) {
 Widget statusPill(String text, Color color) => Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
-      child: Text(text, style: GoogleFonts.inter(color: color, fontSize: 10.5, fontWeight: FontWeight.bold)),
+      child: Text(text, style: GoogleFonts.inter(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
     );
 
 Widget ledgerCard({required Widget child, EdgeInsets padding = const EdgeInsets.all(14)}) => Container(
@@ -249,7 +253,7 @@ Widget ledgerCard({required Widget child, EdgeInsets padding = const EdgeInsets.
 
 Widget sectionTitle(String text) => Padding(
       padding: const EdgeInsets.fromLTRB(2, 18, 2, 10),
-      child: Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+      child: Text(text, style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
     );
 
 TextStyle get labelStyle => GoogleFonts.inter(color: kDark, fontWeight: FontWeight.bold, fontSize: 13);
@@ -346,7 +350,7 @@ class _ToastViewState extends State<_ToastView> with SingleTickerProviderStateMi
                   children: [
                     Icon(widget.error ? Icons.error_outline_rounded : Icons.check_circle_rounded, color: widget.error ? Colors.white : kMint, size: 20),
                     const SizedBox(width: 10),
-                    Expanded(child: Text(widget.message, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5))),
+                    Expanded(child: Text(widget.message, style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14))),
                   ],
                 ),
               ),
@@ -578,7 +582,7 @@ Future<({String name, bool isNew})?> pickCategory(BuildContext context, List<Str
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     if (icon != null) ...[Icon(icon, size: 16, color: selected ? Colors.white : kForest), const SizedBox(width: 5)],
-                    Text(label, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w600, color: selected ? Colors.white : kDark)),
+                    Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: selected ? Colors.white : kDark)),
                   ]),
                 ),
               ),
@@ -616,6 +620,55 @@ Widget categoryField(String category, VoidCallback onTap, {bool enabled = true})
           suffixIcon: const Icon(Icons.expand_more_rounded),
           enabled: enabled,
         ),
-        child: Text(category, style: GoogleFonts.inter(fontSize: 14.5, color: kDark), overflow: TextOverflow.ellipsis),
+        child: Text(category, style: GoogleFonts.inter(fontSize: 14, color: kDark), overflow: TextOverflow.ellipsis),
       ),
     );
+
+/// "+ Add company or person…" in the borrow pickers (same as the web): a company needs a name and GSTIN,
+/// a person a name (phone optional).
+class NewLender {
+  String kind = "company";
+  final name = TextEditingController();
+  final gstin = TextEditingController();
+  final phone = TextEditingController();
+
+  bool get isPerson => kind == "person";
+  String get displayName => name.text.trim();
+
+  /// The message to show when something required is missing, else null.
+  String? get error => isPerson
+      ? (name.text.trim().isEmpty ? "Enter the person's name" : null)
+      : (name.text.trim().isEmpty || gstin.text.trim().isEmpty ? "Enter the new company's name and GSTIN" : null);
+
+  /// What to send as `newCompany`.
+  Map<String, dynamic> get body => isPerson
+      ? {"kind": "person", "name": name.text.trim(), "phone": phone.text.trim()}
+      : {"name": name.text.trim(), "gstin": gstin.text.trim().toUpperCase()};
+
+  List<Widget> fields(StateSetter set) => [
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: "company", label: Text("Company"), icon: Icon(Icons.business_rounded)),
+            ButtonSegment(value: "person", label: Text("Person"), icon: Icon(Icons.person_rounded)),
+          ],
+          selected: {kind},
+          onSelectionChanged: (v) => set(() => kind = v.first),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: name,
+          onChanged: (_) => set(() {}),
+          textCapitalization: TextCapitalization.words,
+          decoration: fieldDecoration(isPerson ? "Person's name *" : "Company name *", icon: isPerson ? Icons.person_rounded : Icons.business_rounded),
+        ),
+        const SizedBox(height: 8),
+        if (isPerson)
+          TextField(controller: phone, keyboardType: TextInputType.phone, decoration: fieldDecoration("Phone (optional)", icon: Icons.phone_rounded))
+        else
+          TextField(controller: gstin, textCapitalization: TextCapitalization.characters, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
+      ];
+}
+
+/// A lender's name in a picker: people are marked "(person)", outside companies "(outside)".
+String lenderLabel(Map c) => "${c["name"]}${c["lenderKind"] == "person" ? " (person)" : c["external"] == true ? " (outside)" : ""}";

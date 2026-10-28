@@ -110,7 +110,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
             padding: const EdgeInsets.only(bottom: 8),
             child: TextField(
               onChanged: (v) => setState(() => _search = v),
-              style: GoogleFonts.inter(color: darkText, fontSize: 13.5),
+              style: GoogleFonts.inter(color: darkText, fontSize: 14),
               decoration: InputDecoration(
                 hintText: "Search staff name, email or company…",
                 hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13),
@@ -163,7 +163,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
             ),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(c["name"]?.toString() ?? "Member", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5)),
+                Text(c["name"]?.toString() ?? "Member", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14)),
                 if (companies.isNotEmpty)
                   Text(companies.join(", "), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: const Color(0xFF334155), fontSize: 11, fontWeight: FontWeight.w600)),
                 if ((c["email"]?.toString() ?? "").isNotEmpty)
@@ -251,7 +251,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                 "Company Created!",
                 style: GoogleFonts.inter(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -287,7 +287,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                       joinCode,
                       style: GoogleFonts.ibmPlexMono(
                         color: darkText,
-                        fontSize: 28,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 4,
                       ),
@@ -336,7 +336,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                   ),
                   child: Text(
                     "Go to Company Dashboard",
-                    style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -371,7 +371,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -426,7 +426,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: "Enter your full name",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixIcon: const Icon(Icons.person_rounded, color: darkSurface, size: 20),
@@ -450,7 +450,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: "e.g. Acme Corporation, Yencode Tech",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixIcon: const Icon(Icons.business_rounded, color: darkSurface, size: 20),
@@ -474,7 +474,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                     style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: "e.g. Engineering Team Reimbursement Ledger",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -498,7 +498,7 @@ class _CreateCompanyScreenState extends State<CreateCompanyScreen> {
                           : const Icon(Icons.add_business_rounded, color: Colors.white, size: 18),
                       label: Text(
                         _isCreating ? "Creating Company..." : "Create & Generate Code",
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: darkSurface,

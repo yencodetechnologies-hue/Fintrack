@@ -112,7 +112,7 @@ export function CompanyLogoCard({ company, user, onChanged }) {
       <CompanyAvatar company={{ ...company, logo }} size={64} radius={14} style={{ border: "1px solid var(--slate-border)" }} />
       <div style={{ flex: 1, minWidth: 180 }}>
         <h3 style={{ fontSize: 16, margin: "0 0 4px" }}>Company logo</h3>
-        <p style={{ color: "var(--muted)", fontSize: 12.5, margin: 0 }}>Shown on the company tile for everyone in {company.name}. PNG, JPG or WebP; a square image works best.</p>
+        <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>Shown on the company tile for everyone in {company.name}. PNG, JPG or WebP; a square image works best.</p>
       </div>
       <div style={{ display: "flex", gap: 8 }}>
         <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" onChange={pick} style={{ display: "none" }} />

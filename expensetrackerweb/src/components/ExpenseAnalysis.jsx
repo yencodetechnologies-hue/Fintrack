@@ -12,8 +12,8 @@ const monthLabel = (key, withYear) => `${MONTHS[Number(key.slice(5)) - 1]}${with
 function Tile({ label, value, sub, subColor }) {
   return (
     <div className="stat-card">
-      <div style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 700, letterSpacing: 0.6, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "var(--dark-text)" }}>{value}</div>
+      <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, letterSpacing: 0.6, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: "var(--dark-text)" }}>{value}</div>
       {sub && <small style={{ color: subColor || "var(--muted)", fontWeight: 600 }}>{sub}</small>}
     </div>
   );
@@ -40,7 +40,7 @@ function ColumnChart({ rows, label, height = 180, highlightLast = false }) {
     <div style={{ position: "relative", paddingLeft: 56 }}>
       {[1, 0.5, 0].map((f) => (
         <div key={f} style={{ position: "absolute", left: 56, right: 0, top: (1 - f) * height, borderTop: `1px solid ${GRID}` }}>
-          <span style={{ position: "absolute", left: -56, top: -8, width: 50, textAlign: "right", fontSize: 10.5, color: "var(--muted)" }}>
+          <span style={{ position: "absolute", left: -56, top: -8, width: 50, textAlign: "right", fontSize: 11, color: "var(--muted)" }}>
             {f === 0 ? "₹0" : `₹${Math.round(nice * f).toLocaleString("en-IN")}`}
           </span>
         </div>
@@ -67,7 +67,7 @@ function ColumnChart({ rows, label, height = 180, highlightLast = false }) {
                 }}
               />
               {active && (
-                <div style={{ position: "absolute", bottom: Math.min(h + 8, height - 10), left: "50%", transform: "translateX(-50%)", background: "var(--dark-text)", color: "#fff", borderRadius: 8, padding: "6px 9px", fontSize: 11.5, whiteSpace: "nowrap", zIndex: 2, pointerEvents: "none" }}>
+                <div style={{ position: "absolute", bottom: Math.min(h + 8, height - 10), left: "50%", transform: "translateX(-50%)", background: "var(--dark-text)", color: "#fff", borderRadius: 8, padding: "6px 9px", fontSize: 12, whiteSpace: "nowrap", zIndex: 2, pointerEvents: "none" }}>
                   <strong>{label(r, true)}</strong><br />{money(r.total)} · {r.count} expense{r.count === 1 ? "" : "s"}
                 </div>
               )}
@@ -77,7 +77,7 @@ function ColumnChart({ rows, label, height = 180, highlightLast = false }) {
       </div>
       <div style={{ display: "flex", gap: 2, marginTop: 6 }}>
         {rows.map((r, i) => (
-          <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 10.5, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden" }}>{label(r, false)}</div>
+          <div key={i} style={{ flex: 1, textAlign: "center", fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden" }}>{label(r, false)}</div>
         ))}
       </div>
     </div>
@@ -130,7 +130,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
         <div>
-          <h1 style={{ fontSize: 26, margin: 0 }}>Expense analysis</h1>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Expense analysis</h1>
           <p style={{ color: "var(--muted)", margin: "4px 0 0" }}>Spending patterns for managers. Rejected and group expenses are excluded.</p>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -194,7 +194,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
           </Panel>
 
           <Panel title="Unusual expenses">
-            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 10px" }}>At least 2× the average for their category.</p>
+            <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 10px" }}>At least 2× the average for their category.</p>
             {data.unusual.length === 0 ? (
               <div style={{ color: "var(--muted)", fontSize: 13 }}>Nothing unusual in this period.</div>
             ) : data.unusual.map((u) => (
@@ -212,7 +212,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
           </Panel>
 
           <Panel title="Recurring expenses">
-            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 10px" }}>Same description in 3 or more different months.</p>
+            <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 10px" }}>Same description in 3 or more different months.</p>
             {data.recurring.length === 0 ? (
               <div style={{ color: "var(--muted)", fontSize: 13 }}>No recurring expenses found yet.</div>
             ) : data.recurring.map((r) => (

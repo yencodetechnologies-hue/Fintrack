@@ -155,7 +155,7 @@ class QFinNavBar extends StatelessWidget {
                                           item.label,
                                           style: GoogleFonts.inter(
                                             color: activeTextCol,
-                                            fontSize: 12.5,
+                                            fontSize: 13,
                                             fontWeight: FontWeight.bold,
                                           ),
                                           maxLines: 1,

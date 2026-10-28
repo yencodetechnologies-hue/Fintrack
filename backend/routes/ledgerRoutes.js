@@ -25,6 +25,7 @@ router.get("/companies/:companyId/transactions", c.listTransactions);
 router.get("/companies/:companyId/audit-log", c.auditLog);
 router.get("/companies/:companyId/descriptions", c.descriptionSuggestions);
 router.get("/companies/:companyId/accounts", c.accountsDays);
+router.get("/companies/:companyId/accounts/entries", c.accountsEntries);
 
 router.post("/transactions/:transactionId/verify", c.verifyTransaction);
 router.post("/routed-payments", c.routedPayment);
@@ -33,6 +34,7 @@ router.get("/companies/:companyId/borrow-sources", c.listCompaniesForBorrow);
 router.post("/companies/:companyId/settings", c.updateCompanySettings);
 router.post("/companies/:companyId/logo", c.setCompanyLogo);
 router.post("/company-order", c.saveCompanyOrder);
+router.post("/companies/:companyId/hide", c.setCompanyHidden);
 router.post("/company-groups", c.saveCompanyGroup);
 router.post("/company-groups/:groupId", c.saveCompanyGroup);
 router.post("/company-groups/:groupId/delete", c.deleteCompanyGroup);
@@ -59,6 +61,7 @@ router.post("/companies/:companyId/members/:memberUserId/role", c.setMemberRole)
 router.post("/expenses/:expenseId/visibility", c.setExpenseVisibility);
 router.post("/expenses/:expenseId/payer-confirmation", c.confirmExpensePayer);
 router.get("/companies/:companyId/loans", c.listLoans);
+router.get("/companies/:companyId/loan-parties/:partyId", c.loanPartyStatement);
 router.get("/companies/:companyId/payer-confirmations", c.listPayerConfirmations);
 router.post("/loans", c.createLoan);
 router.get("/loans/:loanId", c.loanDetail);

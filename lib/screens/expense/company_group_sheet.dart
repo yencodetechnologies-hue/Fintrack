@@ -21,7 +21,7 @@ Future<bool> showCompanyGroupSheet(BuildContext context, {required String userId
   await showLedgerSheet(context, group == null ? "New company group" : "Edit company group", (ctx) => StatefulBuilder(builder: (ctx, set) {
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("Keep related companies together. Each company stays separate, with its own members, money and books.",
-              style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+              style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
           const SizedBox(height: 12),
           TextField(controller: name, decoration: fieldDecoration("Group name *, e.g. YD Group", icon: Icons.folder_rounded)),
           const SizedBox(height: 12),
@@ -32,7 +32,7 @@ Future<bool> showCompanyGroupSheet(BuildContext context, {required String userId
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
               child: Text("A group needs at least two companies you run. Add a new one below.",
-                  style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+                  style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
             ),
           for (final c in mine)
               Builder(builder: (_) {
@@ -52,8 +52,8 @@ Future<bool> showCompanyGroupSheet(BuildContext context, {required String userId
                     controlAffinity: ListTileControlAffinity.leading,
                     onChanged: (v) => set(() => v == true ? picked.add(id) : picked.remove(id)),
                     secondary: CompanyAvatar(company: c, size: 30, radius: 8),
-                    title: Text(c["name"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13.5, color: kDark)),
-                    subtitle: elsewhere == null ? null : Text("Now in “$elsewhere”; picking it moves it here", style: GoogleFonts.inter(fontSize: 11.5)),
+                    title: Text(c["name"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14, color: kDark)),
+                    subtitle: elsewhere == null ? null : Text("Now in “$elsewhere”; picking it moves it here", style: GoogleFonts.inter(fontSize: 12)),
                   ),
                 );
               }),

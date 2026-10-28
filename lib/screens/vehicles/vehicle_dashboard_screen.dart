@@ -76,7 +76,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text("Delete Vehicle?", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text("Delete Vehicle?", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 20)),
         content: Text("Are you sure you want to remove '$vehicleName'?", style: GoogleFonts.inter(fontSize: 14, color: const Color(0xFF475569))),
         actions: [
           TextButton(
@@ -87,7 +87,11 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: terracotta, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
               Navigator.pop(ctx);
-              final ok = await VehicleService.deleteVehicle(vehicleId);
+              final ok = await VehicleService.deleteVehicle(vehicleId, widget.userId);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(ok ? "$vehicleName removed" : "Couldn't remove $vehicleName. Check your connection and try again."),
+              ));
               if (ok) _fetchVehicles();
             },
             child: Text("Delete", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -121,7 +125,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,
@@ -165,7 +169,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                           Text("MY GARAGE", style: GoogleFonts.ibmPlexMono(color: Colors.white60, fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text(
-                            "${_vehicles.length} Vehicles Managed",
+                            "${_vehicles.length} ${_vehicles.length == 1 ? "Vehicle" : "Vehicles"} Managed",
                             style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -235,10 +239,10 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
             child: const FaIcon(FontAwesomeIcons.car, color: forestDark, size: 32),
           ),
           const SizedBox(height: 16),
-          Text("No Vehicles Added Yet", style: GoogleFonts.inter(color: darkText, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text("No Vehicles Added Yet", style: GoogleFonts.inter(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text(
-            "Add your Bike, Car, or Auto to track mileage, live speed, fuel usage, and range alerts.",
+            "Add your bike or car to track mileage, live speed, fuel usage, and range alerts.",
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 13, height: 1.4),
           ),
@@ -318,7 +322,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                         ),
                         Text(
                           "$brand $model",
-                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 12.5),
+                          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6), fontSize: 13),
                         ),
                       ],
                     ),
@@ -357,7 +361,7 @@ class _VehicleDashboardScreenState extends State<VehicleDashboardScreen> {
                     children: [
                       Text("ESTIMATED SAFE RANGE", style: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 2),
-                      Text("${estRangeKm.toStringAsFixed(0)} km", style: GoogleFonts.inter(color: forestDark, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text("${estRangeKm.toStringAsFixed(0)} km", style: GoogleFonts.inter(color: forestDark, fontSize: 20, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   Column(

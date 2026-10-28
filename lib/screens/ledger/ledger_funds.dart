@@ -149,7 +149,7 @@ class _FundsPageState extends State<FundsPage> {
                   sourceBank == "direct"
                       ? "This amount is added as new money; no other balance changes."
                       : "This amount is taken out of the selected bank's balance and moved here.",
-                  style: GoogleFonts.inter(fontSize: 11.5, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.55))),
+                  style: GoogleFonts.inter(fontSize: 12, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.55))),
             ],
           ],
           const SizedBox(height: 16),
@@ -186,14 +186,14 @@ class _FundsPageState extends State<FundsPage> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(emoji, style: const TextStyle(fontSize: 26)),
+            Text(emoji, style: const TextStyle(fontSize: 22)),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: kDark)),
+                Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: kDark)),
                 Text(sub, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
                 const SizedBox(height: 6),
-                Text(inr(balance), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: kForest)),
+                Text(inr(balance), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: kForest)),
               ]),
             ),
             if (action != null) action,
@@ -208,7 +208,7 @@ class _FundsPageState extends State<FundsPage> {
         body: RefreshIndicator(
           onRefresh: _loadIncome,
           child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
-            Text("Track $_cashName and bank balances, and where company money moves.", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+            Text("Track $_cashName and bank balances, and where company money moves.", style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
             const SizedBox(height: 12),
             fundCard(
               emoji: "💵",
@@ -242,7 +242,7 @@ class _FundsPageState extends State<FundsPage> {
                   for (final i in _income.take(10))
                     ListTile(
                       dense: true,
-                      leading: Text(i["destinationType"] == "cash" ? "💵" : "🏦", style: const TextStyle(fontSize: 18)),
+                      leading: Text(i["destinationType"] == "cash" ? "💵" : "🏦", style: const TextStyle(fontSize: 20)),
                       title: Text(
                         (i["description"]?.toString() ?? "").isNotEmpty
                             ? i["description"].toString()
@@ -253,7 +253,7 @@ class _FundsPageState extends State<FundsPage> {
                       ),
                       subtitle: Text(
                         "${(i["description"]?.toString() ?? "").isNotEmpty ? "${_incomeRoute(i)} · " : ""}${dateLabel(i["createdAt"])}",
-                        style: GoogleFonts.inter(fontSize: 11.5),
+                        style: GoogleFonts.inter(fontSize: 12),
                       ),
                       trailing: Text("+${inr(i["amount"])}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kForest)),
                     ),

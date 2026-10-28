@@ -78,6 +78,9 @@ const expenseSchema = new mongoose.Schema(
     groupId: { type: mongoose.Schema.Types.ObjectId, ref: "ExpenseGroup", default: null, index: true },
     // a voucher claim, or a staff expense that asked to be paid from the voucher balance (advance) they hold
     voucherId: { type: mongoose.Schema.Types.ObjectId, ref: "Voucher", default: null },
+    // a voucher's expense keeps the voucher's date; this is when it was actually claimed / closed
+    voucherSettledAt: { type: Date, default: null },
+    voucherClosed: { type: Boolean, default: false },
     useAdvance: { type: Boolean, default: false },
     advanceUsed: { type: Number, default: 0 },
     logAs: {

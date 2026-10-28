@@ -58,7 +58,7 @@ export default function StaffVouchers({ companyId, company, user, isAdmin = fals
 
   return (
     <section style={{ marginBottom: 22 }}>
-      <h2 style={{ margin: "0 0 12px", fontSize: 19 }}>{isAdmin ? "Open vouchers" : "Vouchers"}</h2>
+      <h2 style={{ margin: "0 0 12px", fontSize: 20 }}>{isAdmin ? "Open vouchers" : "Vouchers"}</h2>
       <div style={{ display: "grid", gap: 10 }}>
         {open.map((v) => {
           const mine = String(v.createdBy?._id || v.createdBy) === String(user.id);

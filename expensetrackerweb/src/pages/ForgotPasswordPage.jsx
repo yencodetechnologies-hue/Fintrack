@@ -60,8 +60,8 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout>
-      <h1 style={{ fontSize: 24, margin: "0 0 4px" }}>{titles[step][0]}</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 24px" }}>{titles[step][1]}</p>
+      <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>{titles[step][0]}</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 24px" }}>{titles[step][1]}</p>
 
       {step === "email" && (
         <form onSubmit={sendCode}>
@@ -133,7 +133,7 @@ export default function ForgotPasswordPage() {
         </form>
       )}
 
-      <p style={{ textAlign: "center", fontSize: 13.5, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
+      <p style={{ textAlign: "center", fontSize: 14, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
         Remembered it? <Link to="/login" style={{ color: "var(--forest)", fontWeight: 700 }}>Back to sign in</Link>
       </p>
     </AuthLayout>
@@ -149,6 +149,6 @@ const showButton = {
   background: "none",
   border: "none",
   color: "var(--forest)",
-  fontSize: 11.5,
+  fontSize: 12,
   fontWeight: 700,
 };

@@ -2,8 +2,8 @@ import { formatDate, money } from "../utils.js";
 
 // Shows a person's open bills oldest first and which ones `amount` will close (same FIFO rule as the server).
 export default function PayableBillsPreview({ bills, loading, amount }) {
-  if (loading) return <div style={{ color: "var(--muted)", fontSize: 12.5, fontStyle: "italic", marginTop: 10 }}>Loading open bills…</div>;
-  if (!bills.length) return <div style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 10 }}>No open bills.</div>;
+  if (loading) return <div style={{ color: "var(--muted)", fontSize: 13, fontStyle: "italic", marginTop: 10 }}>Loading open bills…</div>;
+  if (!bills.length) return <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>No open bills.</div>;
 
   const { rows } = bills.reduce(
     (acc, bill) => {
@@ -22,7 +22,7 @@ export default function PayableBillsPreview({ bills, loading, amount }) {
         {Number(amount) > 0 && <span style={{ color: "var(--forest)" }}>{closing} of {rows.length} will be closed</span>}
       </div>
       {rows.some((r) => r.claim) && (
-        <p style={{ margin: "0 0 6px", fontSize: 11.5, color: "var(--muted)", lineHeight: 1.4 }}>
+        <p style={{ margin: "0 0 6px", fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
           Approved claims this payment reaches are recorded as paid by this person, then closed.
         </p>
       )}
@@ -36,7 +36,7 @@ export default function PayableBillsPreview({ bills, loading, amount }) {
               alignItems: "center",
               gap: 10,
               padding: "8px 12px",
-              fontSize: 12.5,
+              fontSize: 13,
               borderBottom: idx < rows.length - 1 ? "1px solid var(--slate-border-2)" : "none",
               background: r.state === "closed" ? "#ECFDF5" : r.state === "partial" ? "#FFF7ED" : "transparent",
             }}

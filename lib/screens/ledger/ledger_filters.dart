@@ -115,7 +115,7 @@ Widget filterPill({
                   Expanded(
                     child: Text(e.value,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.inter(fontSize: 13.5, fontWeight: e.key == value ? FontWeight.w700 : FontWeight.w500, color: e.key == value ? kForest : kDark)),
+                        style: GoogleFonts.inter(fontSize: 14, fontWeight: e.key == value ? FontWeight.w700 : FontWeight.w500, color: e.key == value ? kForest : kDark)),
                   ),
                   if (e.key == value) const Icon(Icons.check_rounded, size: 18, color: kForest),
                 ]),

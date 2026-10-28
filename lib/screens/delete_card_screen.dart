@@ -66,7 +66,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,
@@ -87,7 +87,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
               return Center(
                 child: Text(
                   "Error: ${snapshot.error}",
-                  style: GoogleFonts.karla(color: DeleteCardTheme.textMuted, fontSize: 15),
+                  style: GoogleFonts.karla(color: DeleteCardTheme.textMuted, fontSize: 16),
                 ),
               );
             }
@@ -122,7 +122,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                         "No Cards Found",
                         style: GoogleFonts.inter(
                           color: DeleteCardTheme.darkText,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.w600,
                           fontStyle: FontStyle.italic,
                         ),
@@ -304,7 +304,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                     "Delete Credit Card",
                     style: GoogleFonts.inter(
                       color: DeleteCardTheme.darkText,
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -358,7 +358,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                                 style: GoogleFonts.inter(
                                   color: DeleteCardTheme.darkText,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                 ),
                               ),
                               const SizedBox(height: 2),
@@ -397,7 +397,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                             style: GoogleFonts.inter(
                               color: DeleteCardTheme.darkText,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                         ),
@@ -447,7 +447,7 @@ class _DeleteCardScreenState extends State<DeleteCardScreen> {
                             style: GoogleFonts.inter(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                         ),

@@ -16,7 +16,7 @@ function currentPayer(expense, userId) {
   return null;
 }
 
-export default function EditExpenseModal({ expense, user, isAdmin = false, myRoleLabel = "Manager", funds = [], customCategories, hiddenCategories = [], onClose, onUpdated }) {
+export default function EditExpenseModal({ expense, user, isAdmin = false, isCompanyAdmin = false, myRoleLabel = "Manager", funds = [], customCategories, hiddenCategories = [], onClose, onUpdated }) {
   const { showToast } = useToast();
   const [amount, setAmount] = useState(String(expense.amount ?? ""));
   const [description, setDescription] = useState(expense.description || "");
@@ -34,7 +34,10 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, myRol
   const [payer, setPayer] = useState(shownPayer);
   const [fundId, setFundId] = useState(funds[0]?.fundId || "cash");
   // once paid, amount and details are locked; only who-paid and the receipt can change
-  const detailsLocked = Boolean(expense.lifecycle?.startsWith("paid") || expense.status === "paid");
+  // ...except one posted as this company from its own Cash/Bank: the company Admin can still edit it (the payment is re-booked)
+  const companyPost = expense.lifecycle === "paid_by_company" && expense.payerType === "company" && !expense.payerCompanyId && !expense.groupId;
+  const adminCanEdit = isCompanyAdmin && companyPost;
+  const detailsLocked = !adminCanEdit && Boolean(expense.lifecycle?.startsWith("paid") || expense.status === "paid");
   const payerChanged = canSwitchPayer && payer !== shownPayer;
   const selectedFund = funds.find((f) => String(f.fundId) === String(fundId));
   const fundTooLow = payer === "company" && payerChanged && selectedFund && Number(selectedFund.balance || 0) < Number(expense.amount || 0);
@@ -125,8 +128,13 @@ export default function EditExpenseModal({ expense, user, isAdmin = false, myRol
     <Modal onClose={onClose} maxWidth={440}>
       <h2 style={{ marginTop: 0, fontSize: 20 }}>Edit Expense</h2>
       <form onSubmit={handleSubmit}>
+        {adminCanEdit && (
+          <p style={{ margin: "0 0 14px", padding: "8px 10px", background: "var(--slate-bg)", borderRadius: 8, fontSize: 13, color: "var(--muted)" }}>
+            Paid by the company. Changing the amount or category re-books the payment: the fund gets the old amount back and pays the new one.
+          </p>
+        )}
         {detailsLocked && (
-          <p style={{ margin: "0 0 14px", padding: "8px 10px", background: "var(--slate-bg)", borderRadius: 8, fontSize: 12.5, color: "var(--muted)" }}>
+          <p style={{ margin: "0 0 14px", padding: "8px 10px", background: "var(--slate-bg)", borderRadius: 8, fontSize: 13, color: "var(--muted)" }}>
             This expense is paid, so its details are locked.{canSwitchPayer ? " You can still change whether it is posted as you or the company, and the receipt." : " You can still change the receipt."}
           </p>
         )}

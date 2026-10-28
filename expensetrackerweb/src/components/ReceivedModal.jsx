@@ -4,6 +4,7 @@ import { useToast } from "../context/ToastContext.jsx";
 import { money, PAYMENT_METHODS, roleLabel } from "../utils.js";
 import Modal from "./Modal.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
+import { NewLenderFields, newLenderPayload } from "./NewLenderFields.jsx";
 
 // A manager's own expense (company owes them): record that they got the money back — from the company's
 // Cash/Bank, from another member who paid them personally (the company then owes that member), or from another
@@ -23,6 +24,8 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
   const [lenderPick, setLenderPick] = useState("");
   const [outsideName, setOutsideName] = useState("");
   const [outsideGstin, setOutsideGstin] = useState("");
+  const [outsideKind, setOutsideKind] = useState("company");
+  const [outsidePhone, setOutsidePhone] = useState("");
   // every other company (loaded the first time "Another company" is picked); mine come first with their accounts
   const [allCompanies, setAllCompanies] = useState(null);
   const thisCompanyId = String(company?._id || expense.companyId?._id || expense.companyId);
@@ -47,7 +50,10 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
     event.preventDefault();
     if (from === "person" && !personId) return showToast("Choose who paid you", "error");
     if (from === "borrow" && !lenderPick) return showToast("Choose the company that paid you", "error");
-    if (from === "borrow" && lenderPick === OUTSIDE && (!outsideName.trim() || !outsideGstin.trim())) return showToast("Enter the outside company's name and GSTIN", "error");
+    if (from === "borrow" && lenderPick === OUTSIDE) {
+      const check = newLenderPayload(outsideKind, outsideName, outsideGstin, outsidePhone);
+      if (check.error) return showToast(check.error, "error");
+    }
     if (short) return topUp.ask(fund, amount, save);
     save();
   }
@@ -61,7 +67,7 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
       personId: from === "person" ? personId : undefined,
       ...(from === "borrow"
         ? lenderPick === OUTSIDE
-          ? { newCompany: { name: outsideName.trim(), gstin: outsideGstin.trim().toUpperCase() } }
+          ? { newCompany: newLenderPayload(outsideKind, outsideName, outsideGstin, outsidePhone).newCompany }
           : { sourceCompanyId: lenderPick.split(":")[1], sourceFundId: lenderPick.split(":")[2] }
         : {}),
       method,
@@ -76,7 +82,7 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
   return (
     <Modal onClose={onClose} maxWidth={460}>
       <h2 style={{ marginTop: 0, marginBottom: 4 }}>Mark received</h2>
-      <p style={{ margin: "0 0 14px", color: "var(--muted)", fontSize: 13.5 }}>
+      <p style={{ margin: "0 0 14px", color: "var(--muted)", fontSize: 14 }}>
         {expense.description} · <strong style={{ color: "var(--dark-text)" }}>{money(amount)}</strong> — you got this money back, so the expense closes.
       </p>
       <form onSubmit={submit}>
@@ -120,16 +126,13 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
               ))}
               {restCompanies.length > 0 && (
                 <optgroup label="Other companies">
-                  {restCompanies.map((c) => <option key={c._id} value={`co:${c._id}:cash`}>{c.name}{c.external ? " (outside)" : ""}</option>)}
+                  {restCompanies.map((c) => <option key={c._id} value={`co:${c._id}:cash`}>{c.name}{c.lenderKind === "person" ? " (person)" : c.external ? " (outside)" : ""}</option>)}
                 </optgroup>
               )}
-              <option value={OUTSIDE}>An outside company…</option>
+              <option value={OUTSIDE}>+ Add company or person…</option>
             </select>
             {lenderPick === OUTSIDE && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-                <input className="field-input" placeholder="Company name *" value={outsideName} onChange={(e) => setOutsideName(e.target.value)} />
-                <input className="field-input" placeholder="GSTIN *" value={outsideGstin} onChange={(e) => setOutsideGstin(e.target.value.toUpperCase())} />
-              </div>
+              <NewLenderFields kind={outsideKind} onKind={setOutsideKind} name={outsideName} onName={setOutsideName} gstin={outsideGstin} onGstin={setOutsideGstin} phone={outsidePhone} onPhone={setOutsidePhone} />
             )}
             {lenderPick && (
               <div style={{ marginTop: 6, fontSize: 12, color: "var(--muted)", lineHeight: 1.45 }}>

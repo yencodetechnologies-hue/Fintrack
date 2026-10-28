@@ -167,9 +167,9 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(c["name"]?.toString() ?? "Company",
-                          maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w700, fontSize: 14.5)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w700, fontSize: 14)),
                       if (c["companyGroup"] is Map)
-                        Text(c["companyGroup"]["name"].toString(), style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 11.5)),
+                        Text(c["companyGroup"]["name"].toString(), style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12)),
                     ]),
                   ),
                   Icon(Icons.drag_handle_rounded, color: darkText.withValues(alpha: 0.45)),
@@ -200,6 +200,93 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
       ),
     );
     return tooltip == null ? pill : Tooltip(message: tooltip, child: pill);
+  }
+
+  // ---- Remove from my list (Admin only) — the company itself is not deleted ----
+  Future<void> _removeFromList(Map<String, dynamic> company) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text("Remove ${company["name"]} from your list?", style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Text(
+          "It only disappears from your own company list. The company, its members, expenses and money are not deleted, and everyone else still sees it. You can restore it from Removed companies.",
+          style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.7), fontSize: 14),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: terracotta),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text("Remove from list", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await LedgerService.setCompanyHidden(company["_id"].toString(), widget.userId, true);
+    if (!mounted) return;
+    if (res["success"] != true) {
+      toast(context, res["message"]?.toString() ?? "Could not remove it from your list", error: true);
+      return;
+    }
+    toast(context, "${company["name"]} removed from your list");
+    setState(() => _userCompanies.removeWhere((c) => c["_id"].toString() == company["_id"].toString()));
+    _loadUserCompanies();
+  }
+
+  /// Removed companies, with Restore.
+  Future<void> _openRemoved() async {
+    final res = await LedgerService.userCompaniesWithHidden(widget.userId);
+    if (!mounted) return;
+    var removed = List<Map<String, dynamic>>.from(res["companies"] ?? const []).where((c) => c["hiddenFromList"] == true).toList();
+    var changed = false;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text("Removed companies", style: GoogleFonts.inter(color: darkText, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text("Still active for their members; restore to see them in your list again.",
+                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.55), fontSize: 13)),
+              const SizedBox(height: 10),
+              if (removed.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text("You haven't removed any companies.", style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.6))),
+                )
+              else
+                for (final c in removed)
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(c["name"].toString(), style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.w700)),
+                    trailing: OutlinedButton(
+                      onPressed: () async {
+                        final r = await LedgerService.setCompanyHidden(c["_id"].toString(), widget.userId, false);
+                        if (!ctx.mounted) return;
+                        if (r["success"] == true) {
+                          changed = true;
+                          set(() => removed = removed.where((x) => x["_id"] != c["_id"]).toList());
+                          toast(ctx, "${c["name"]} is back in your list");
+                        } else {
+                          toast(ctx, r["message"]?.toString() ?? "Could not restore it", error: true);
+                        }
+                      },
+                      child: const Text("Restore"),
+                    ),
+                  ),
+            ]),
+          ),
+        ),
+      ),
+    );
+    if (changed && mounted) _loadUserCompanies();
   }
 
   Future<void> _openCompanyGroup(Map<String, dynamic>? group) async {
@@ -325,7 +412,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -522,7 +609,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                   _reordering
                                       ? "Drag to rearrange"
                                       : "${_userCompanies.length} ${_userCompanies.length == 1 ? "company" : "companies"}",
-                                  style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5, fontWeight: FontWeight.w500),
+                                  style: GoogleFonts.inter(color: Colors.white.withValues(alpha: 0.6), fontSize: 13, fontWeight: FontWeight.w500),
                                 ),
                               ]),
                             ),
@@ -554,7 +641,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                                 Text(section.group?["name"]?.toString() ?? "Other companies",
                                     style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
                                 const SizedBox(width: 8),
-                                Text("${section.items.length}", style: GoogleFonts.inter(color: Colors.white60, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                                Text("${section.items.length}", style: GoogleFonts.inter(color: Colors.white60, fontSize: 13, fontWeight: FontWeight.w600)),
                                 const Spacer(),
                                 if (section.group != null &&
                                     (section.group!["createdBy"]?.toString() == widget.userId || section.items.every((c) => c["userRole"] == "admin")))
@@ -572,6 +659,15 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                           ],
                           const SizedBox(height: 10),
                         ],
+                        if (!_reordering)
+                          Center(
+                            child: TextButton.icon(
+                              onPressed: _openRemoved,
+                              style: TextButton.styleFrom(foregroundColor: Colors.white70),
+                              icon: const Icon(Icons.visibility_off_outlined, size: 17),
+                              label: Text("Removed companies", style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ),
+                          ),
                       ] else ...[
                         // Empty State if User Has No Companies Yet
                         Text(
@@ -587,7 +683,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                           "Create a new company ledger or join an existing company using a 6-digit code.",
                           style: GoogleFonts.inter(
                             color: Colors.white.withValues(alpha: 0.7),
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                         const SizedBox(height: 24),
@@ -757,7 +853,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
                               color: darkText,
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -796,7 +892,27 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.chevron_right_rounded, color: darkText.withValues(alpha: 0.4), size: 24),
+              if (isCreator)
+                PopupMenuButton<String>(
+                  tooltip: "More",
+                  icon: Icon(Icons.more_vert_rounded, color: darkText.withValues(alpha: 0.45)),
+                  color: Colors.white,
+                  onSelected: (v) {
+                    if (v == "remove") _removeFromList(company);
+                  },
+                  itemBuilder: (_) => [
+                    PopupMenuItem(
+                      value: "remove",
+                      child: Row(children: [
+                        const Icon(Icons.visibility_off_outlined, size: 18, color: terracotta),
+                        const SizedBox(width: 10),
+                        Text("Remove from my list", style: GoogleFonts.inter(color: darkText)),
+                      ]),
+                    ),
+                  ],
+                )
+              else
+                Icon(Icons.chevron_right_rounded, color: darkText.withValues(alpha: 0.4), size: 24),
             ],
           ),
         ),
@@ -858,7 +974,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
                       subtitle,
                       style: GoogleFonts.inter(
                         color: darkText.withValues(alpha: 0.6),
-                        fontSize: 12.5,
+                        fontSize: 13,
                       ),
                     ),
                   ],

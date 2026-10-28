@@ -102,7 +102,7 @@ class BankSelectorField extends StatelessWidget {
                         _selectedBankTitle,
                         style: GoogleFonts.inter(
                           color: hasSelection ? const Color(0xFF1E293B) : const Color(0xFF9CA3AF),
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: hasSelection ? FontWeight.bold : FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -144,7 +144,7 @@ class BankSelectorField extends StatelessWidget {
               onChanged: (_) => onCustomBankChanged(),
               style: GoogleFonts.inter(
                 color: const Color(0xFF1E293B),
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
@@ -295,7 +295,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
               ),
               child: TextField(
                 controller: _searchCtrl,
-                style: GoogleFonts.inter(color: _darkText, fontSize: 14.5),
+                style: GoogleFonts.inter(color: _darkText, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: "Search bank by name...",
                   hintStyle: GoogleFonts.inter(color: const Color(0xFF9CA3AF), fontSize: 14),
@@ -352,7 +352,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                               style: GoogleFonts.inter(
                                 color: _darkText,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 14.5,
+                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -394,7 +394,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                               style: GoogleFonts.inter(
                                 color: isSelected ? Colors.white : _greenAccent,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 15,
+                                fontSize: 16,
                               ),
                             ),
                           ),
@@ -406,7 +406,7 @@ class _BankPickerSheetState extends State<_BankPickerSheet> {
                             style: GoogleFonts.inter(
                               color: _darkText,
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                              fontSize: 14.5,
+                              fontSize: 14,
                             ),
                           ),
                         ),

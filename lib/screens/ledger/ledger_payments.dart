@@ -226,7 +226,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                       child: Text(widget.mineOnly
                               ? "What ${s.companyName} owes you for your expenses. Pay yourself from company funds, all at once or bill by bill."
                               : "Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
-                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
                     ),
                   ),
                   if (!widget.mineOnly) SliverPadding(
@@ -283,7 +283,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                               final ids = payableVisible.map((p) => p.userId);
                               allSelected ? _selected.removeAll(ids) : _selected.addAll(ids);
                             }),
-                            title: Text("Select all owed (${payableVisible.length})", style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: kDark)),
+                            title: Text("Select all owed (${payableVisible.length})", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: kDark)),
                           ),
                         for (var i = 0; i < visible.length; i++) ...[
                           if (i > 0 || payableVisible.isNotEmpty) const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -420,7 +420,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   child: Row(children: [
                     Expanded(
                       child: Text(e.value,
-                          style: GoogleFonts.inter(fontSize: 13.5, fontWeight: e.key == value ? FontWeight.w700 : FontWeight.w500, color: e.key == value ? kForest : kDark)),
+                          style: GoogleFonts.inter(fontSize: 14, fontWeight: e.key == value ? FontWeight.w700 : FontWeight.w500, color: e.key == value ? kForest : kDark)),
                     ),
                     if (e.key == value) const Icon(Icons.check_rounded, size: 18, color: kForest),
                   ]),
@@ -478,7 +478,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label.toUpperCase(), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: kDark.withValues(alpha: 0.55))),
           const SizedBox(height: 4),
-          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: color))),
+          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: color))),
           if (sub.isNotEmpty) ...[
             const SizedBox(height: 3),
             Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
@@ -511,11 +511,11 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(99)),
                   child: Text(p.role == "manager" ? s.managerName : p.role == "staff" ? s.staffName : "Former",
-                      style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: roleColor)),
+                      style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: roleColor)),
                 ),
               ]),
               const SizedBox(height: 2),
-              Text(meta, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+              Text(meta, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             ]),
           ),
           const SizedBox(width: 8),
@@ -626,7 +626,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kDark)),
                       const SizedBox(height: 2),
-                      Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                      Text(sub, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
                     ]),
                   ),
                 ),
@@ -634,7 +634,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
 
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text("The full balance is filled in. Lower any amount to pay part of it — the oldest bills close first and the rest stays owed.",
-                style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.65))),
+                style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
             const SizedBox(height: 10),
             Container(
               decoration: BoxDecoration(border: Border.all(color: const Color(0xFFE2E8F0)), borderRadius: BorderRadius.circular(12)),
@@ -652,7 +652,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                             final fromHeld = offset && p.advance > 0 ? " · ${inr(_min(p.advance, _max(0, p.owed - cashFor(p))))} from voucher balance" : "";
                             return Text(
                               over ? "Owed only ${inr(maxFor(p))}" : (left > 0 ? "Part payment · ${inr(left)} stays owed" : "Clears all ${inr(p.owed)}") + fromHeld,
-                              style: GoogleFonts.inter(fontSize: 11.5, color: over ? kTerracotta : kDark.withValues(alpha: 0.6)),
+                              style: GoogleFonts.inter(fontSize: 12, color: over ? kTerracotta : kDark.withValues(alpha: 0.6)),
                             );
                           }),
                         ]),
@@ -681,7 +681,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   child: Row(children: [
                     Expanded(
                       child: Text(total != fullTotal ? "Total · full balance ${inr(fullTotal)}" : "Total",
-                          style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.7))),
+                          style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.7))),
                     ),
                     Text(inr(total), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: kDark)),
                   ]),
@@ -724,7 +724,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   }
                 }),
                 title: Text("Set off voucher money they hold", style: GoogleFonts.inter(fontSize: 13, color: kDark)),
-                subtitle: Text("Their held voucher balance counts towards what they're owed, so less is paid now.", style: GoogleFonts.inter(fontSize: 11.5)),
+                subtitle: Text("Their held voucher balance counts towards what they're owed, so less is paid now.", style: GoogleFonts.inter(fontSize: 12)),
               ),
             const SizedBox(height: 16),
             primaryButton(

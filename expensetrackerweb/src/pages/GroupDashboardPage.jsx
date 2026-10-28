@@ -8,9 +8,9 @@ import {
   getCompanyDetails,
   getGroupExpenseReceipt,
   getGroupExpenses,
-  getUserCompanies,
   removeGroupMember,
   settleExpenseGroup,
+  getLedgerBorrowSources,
 } from "../api.js";
 import { fileToBase64, formatDate, money, personId, personName } from "../utils.js";
 import AppLayout from "../components/AppLayout.jsx";
@@ -29,7 +29,7 @@ export default function GroupDashboardPage() {
   const [settlePrompt, setSettlePrompt] = useState(false);
   const [settlementType, setSettlementType] = useState("own_company");
   const [lenderCompanyId, setLenderCompanyId] = useState("");
-  const [companies, setCompanies] = useState([]);
+  const [lenders, setLenders] = useState([]);
   const [receipt, setReceipt] = useState("");
   const [draft, setDraft] = useState({
     amount: "",
@@ -47,16 +47,14 @@ export default function GroupDashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    const [res, companyList] = await Promise.all([
-      getGroupExpenses(groupId, user.id),
-      getUserCompanies(user.id),
-    ]);
+    const res = await getGroupExpenses(groupId, user.id);
     if (res.success) {
       setGroup(res.group);
       setExpenses(res.expenses || []);
-      setCompanies(Array.isArray(companyList) ? companyList : companyList.companies || []);
       if (res.group?.companyId) {
         const cId = personId(res.group.companyId);
+        // who may pay for this group: only the company's allowed lenders, the same list for every role
+        getLedgerBorrowSources(cId, user.id).then((b) => b?.success && setLenders(b.companies || []));
         getCompanyDetails(cId, user.id).then((cRes) => {
           if (cRes.success && cRes.members) setCompanyMembers(cRes.members);
         });
@@ -80,7 +78,7 @@ export default function GroupDashboardPage() {
   const isSettled = group?.settlementStatus === "settled";
   const companyId = personId(group?.companyId);
   const companyName = personName(group?.companyId, "Company");
-  const lenderOptions = companies.filter((company) => company._id !== companyId);
+  const lenderOptions = lenders.filter((company) => company._id !== companyId);
 
   const groupMemberIds = new Set((group?.members || []).map((m) => personId(m)));
   const availableCompanyMembers = companyMembers.filter(
@@ -226,7 +224,7 @@ export default function GroupDashboardPage() {
               >
                 <div>
                   <div className="eyebrow">{companyName}</div>
-                  <h1 style={{ color: "#fff", margin: "8px 0 4px", fontSize: 32 }}>{group.name}</h1>
+                  <h1 style={{ color: "#fff", margin: "8px 0 4px", fontSize: 22 }}>{group.name}</h1>
                   <p style={{ color: "rgba(255,255,255,0.68)", margin: 0 }}>
                     Shared group expenses
                   </p>
@@ -261,7 +259,7 @@ export default function GroupDashboardPage() {
                       fontFamily: "Inter, system-ui, sans-serif",
                       fontWeight: 700,
                       color: "var(--forest)",
-                      fontSize: 28,
+                      fontSize: 22,
                     }}
                   >
                     {money(total)}
@@ -420,7 +418,7 @@ export default function GroupDashboardPage() {
                   }}
                 >
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 13.5 }}>{mName}</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>{mName}</div>
                     <small style={{ color: "var(--muted)" }}>
                       {isGroupCreator ? "Group Creator" : "Staff"}
                     </small>
@@ -428,7 +426,7 @@ export default function GroupDashboardPage() {
                   {isCreator && !isGroupCreator && (
                     <button
                       className="btn btn-outline-danger"
-                      style={{ padding: "4px 8px", fontSize: 11.5 }}
+                      style={{ padding: "4px 8px", fontSize: 12 }}
                       onClick={() => handleRemoveGroupMember(mId)}
                       disabled={updatingMember}
                     >

@@ -3,6 +3,7 @@ import { setMemberAdmin, setMemberCustomRole } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
 import { CompanyLogoCard } from "./CompanyLogo.jsx";
+import CompaniesManager from "./CompaniesManager.jsx";
 import InvitesList from "./InvitesList.jsx";
 import { companyCategories, roleLabel, roleNames } from "../utils.js";
 import {
@@ -206,13 +207,15 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
 
   return (
     <div>
-      <h1 style={{ fontSize: 26, margin: "0 0 6px" }}>Company Settings</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 28px" }}>
+      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Company Settings</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 28px" }}>
         Manage the join code, direct invites, staff roles, and company configuration.
       </p>
 
       {/* logo first: the primary Admin only */}
       {powers.admin && <CompanyLogoCard company={company} user={user} onChanged={onChanged} />}
+      {/* the Admin: add companies, remove one from my list (nothing deleted), restore removed ones */}
+      {powers.admin && <CompaniesManager user={user} currentCompanyId={company._id} />}
 
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
@@ -225,7 +228,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "10px 0" }}>
             <div
               style={{
-                fontSize: 32,
+                fontSize: 22,
                 fontWeight: 800,
                 letterSpacing: 6,
                 fontFamily: "Inter, system-ui, sans-serif",
@@ -252,7 +255,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       {isAdmin && can("members") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Direct Member Invite</h3>
-          <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 16px" }}>
             Add a registered user directly by email, or invite someone new to sign up and join.
           </p>
           <form onSubmit={handleAddMember} style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -326,8 +329,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
                 {m.name?.[0]?.toUpperCase() || "M"}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name}</div>
-                <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{m.name}</div>
+                <div style={{ fontSize: 12, color: "var(--muted)" }}>
                   {isCreator ? "Admin · Creator" : m.isAdmin ? "Admin" : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)}
                 </div>
               </div>
@@ -375,7 +378,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h3 style={{ fontSize: 16, margin: "0 0 4px" }}>Expense categories</h3>
-            <p style={{ color: "var(--muted)", fontSize: 12.5, margin: 0 }}>
+            <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
               {companyCategories(company).length} categories offered when posting expenses.
             </p>
           </div>
@@ -388,7 +391,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28 }}>
           <h3 style={{ fontSize: 16, marginTop: 0, marginBottom: 6 }}>Company Configuration</h3>
-          <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 16px" }}>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 16px" }}>
             Configure financial identification, currency and transaction approval threshold.
           </p>
           <form onSubmit={handleSaveSettings}>
@@ -439,8 +442,8 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
         <>
           <h3 style={{ fontSize: 16, marginBottom: 10, color: "var(--terracotta)" }}>Danger Zone</h3>
           <div className="card" style={{ maxWidth: 560, borderColor: "var(--terracotta-soft)" }}>
-            <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 4 }}>Delete this company</div>
-            <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Delete this company</div>
+            <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 0 }}>
               Permanently deletes {company.name} and all its expenses and ledger history for everyone.
             </p>
             <button className="btn btn-outline-danger" onClick={() => setDeleting(true)}>

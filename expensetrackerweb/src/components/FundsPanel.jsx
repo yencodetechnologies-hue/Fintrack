@@ -140,8 +140,8 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
 
   return (
     <div>
-      <h1 style={{ fontSize: 26, margin: "0 0 6px" }}>Company Funds</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 28px" }}>
+      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Company Funds</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 28px" }}>
         Track {cashName} and bank balances, and where company money moves.
       </p>
 
@@ -182,7 +182,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
 
       {mode === "bank" && (
         <form onSubmit={handleSaveBank} className="card" style={{ maxWidth: 440, marginBottom: 28 }}>
-          <h3 style={{ marginTop: 0, fontSize: 15 }}>New bank account</h3>
+          <h3 style={{ marginTop: 0, fontSize: 16 }}>New bank account</h3>
           <input className="field-input" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name *" style={{ marginBottom: 10 }} />
           <input className="field-input" value={holder} onChange={(e) => setHolder(e.target.value)} placeholder="Account holder name" style={{ marginBottom: 10 }} />
           <input className="field-input" value={number} onChange={(e) => setNumber(e.target.value)} placeholder="Account number *" style={{ marginBottom: 10 }} />
@@ -196,7 +196,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
 
       {mode === "income" && (
         <form onSubmit={handleSaveIncome} className="card" style={{ maxWidth: 440, marginBottom: 28 }}>
-          <h3 style={{ marginTop: 0, fontSize: 15 }}>Add income</h3>
+          <h3 style={{ marginTop: 0, fontSize: 16 }}>Add income</h3>
           <input className="field-input" type="number" step="0.01" value={incomeAmount} onChange={(e) => setIncomeAmount(e.target.value)} placeholder="Amount (₹) *" style={{ marginBottom: 10 }} />
           <div style={{ marginBottom: 10 }}>
             <DescriptionInput companyId={company._id} userId={user.id} kind="fund" value={incomeDescription} onChange={setIncomeDescription} placeholder="Description (optional)" style={{ marginBottom: 0 }} />
@@ -255,12 +255,12 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
                     {i.description || incomeRoute(i, cashName)}
                   </div>
                   {i.description && (
-                    <small style={{ color: "var(--muted)", fontSize: 11.5, display: "block" }}>
+                    <small style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
                       {incomeRoute(i, cashName)}
                     </small>
                   )}
                 </div>
-                <span style={{ color: "var(--muted)", fontSize: 11.5 }}>{formatDate(i.createdAt)}</span>
+                <span style={{ color: "var(--muted)", fontSize: 12 }}>{formatDate(i.createdAt)}</span>
                 <span style={{ color: "var(--forest)", fontWeight: 700 }}>+{money(i.amount)}</span>
               </div>
             ))}
@@ -287,7 +287,7 @@ function FundTile({
 }) {
   return (
     <div className="stat-card" style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-      <span style={{ fontSize: 22, marginTop: 2 }}>{icon}</span>
+      <span style={{ fontSize: 20, marginTop: 2 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         {isEditing ? (
           <form onSubmit={onSaveEdit} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 6 }}>
@@ -299,7 +299,7 @@ function FundTile({
               className="field-input"
               style={{
                 padding: "3px 8px",
-                fontSize: 13.5,
+                fontSize: 14,
                 fontWeight: 600,
                 height: 28,
                 flex: 1,
@@ -327,7 +327,7 @@ function FundTile({
           </form>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>{title}</div>
             {onStartEdit && (
               <button
                 type="button"
@@ -350,15 +350,15 @@ function FundTile({
             )}
           </div>
         )}
-        {subtitle && <div style={{ fontSize: 11.5, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 2 }}>{subtitle}</div>}
-        <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, color: "var(--forest)", fontSize: 19, marginTop: 8 }}>
+        {subtitle && <div style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 2 }}>{subtitle}</div>}
+        <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, color: "var(--forest)", fontSize: 20, marginTop: 8 }}>
           {money(balance)}
         </div>
       </div>
       {onDelete && (
         <button
           onClick={onDelete}
-          style={{ background: "none", border: "none", color: "var(--terracotta)", fontSize: 15, cursor: "pointer" }}
+          style={{ background: "none", border: "none", color: "var(--terracotta)", fontSize: 16, cursor: "pointer" }}
           title="Delete bank account"
         >
           🗑

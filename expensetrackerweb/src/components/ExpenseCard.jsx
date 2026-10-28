@@ -109,7 +109,7 @@ export default function ExpenseCard({
         style={{ cursor: onViewDetail ? "pointer" : "default" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 6 }}>
-          <div style={{ fontWeight: 700, fontSize: 15 }}>{expense.description}</div>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>{expense.description}</div>
           <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 16 }}>{money(expense.amount)}</div>
         </div>
         <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>{subtext}</div>
@@ -119,7 +119,7 @@ export default function ExpenseCard({
         <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--slate-border-2)" }}>
           {expense.attachment && (
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--forest)", marginBottom: 6 }}>📎 Receipt Attached</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--forest)", marginBottom: 6 }}>📎 Receipt Attached</div>
               <img src={expense.attachment} alt="Receipt" style={{ maxWidth: "100%", borderRadius: 10 }} />
             </div>
           )}
@@ -142,7 +142,7 @@ export default function ExpenseCard({
 
           {settlements.length > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 6 }}>Payment History ({settlements.length})</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Payment History ({settlements.length})</div>
               {settlements.map((s, idx) => {
                 const payerLabel = s.paidAs === "company" ? companyName : personName(s.paidBy);
                 return (
@@ -191,7 +191,7 @@ const menuItemStyle = {
   background: "none",
   border: "none",
   padding: "8px 10px",
-  fontSize: 12.5,
+  fontSize: 13,
   fontWeight: 600,
   borderRadius: 8,
   color: "var(--dark-text)",

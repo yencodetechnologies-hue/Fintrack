@@ -142,7 +142,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -182,7 +182,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                         ),
@@ -224,7 +224,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                         ),
@@ -289,7 +289,7 @@ class _ViewCardScreenState extends State<ViewCardScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -525,7 +525,7 @@ class _Body extends StatelessWidget {
         Text(bank.isEmpty ? 'BANK NAME' : bank.toUpperCase(),
             style: TextStyle(color: text, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.1),
             overflow: TextOverflow.ellipsis),
-        Text(sub, style: TextStyle(color: subtext, fontSize: 8, letterSpacing: 2)),
+        Text(sub, style: TextStyle(color: subtext, fontSize: 10, letterSpacing: 2)),
       ])),
       Row(children: [
         _B(icon: Icons.edit, onTap: onEdit, c: text.withValues(alpha: 0.15)),
@@ -540,12 +540,12 @@ class _Body extends StatelessWidget {
     ]),
     const Spacer(),
     Text('**** **** **** ${digits.isEmpty ? "0000" : digits}',
-        style: TextStyle(color: text, fontSize: 18, letterSpacing: 4, fontWeight: FontWeight.w700)),
+        style: TextStyle(color: text, fontSize: 20, letterSpacing: 4, fontWeight: FontWeight.w700)),
     const SizedBox(height: 10),
     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end, children: [
       Expanded(
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 7, letterSpacing: 1.5)),
+          Text('CARD HOLDER', style: TextStyle(color: subtext, fontSize: 10, letterSpacing: 1.5)),
           const SizedBox(height: 2),
           Text(name.isEmpty ? 'USER NAME' : name.toUpperCase(),
               style: TextStyle(color: text, fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.8),
@@ -590,7 +590,7 @@ class _Visa extends StatelessWidget {
   final Color c;
   const _Visa({this.c = Colors.white});
   @override Widget build(BuildContext context) => Text('VISA',
-      style: TextStyle(color: c, fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, letterSpacing: 2));
+      style: TextStyle(color: c, fontSize: 20, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, letterSpacing: 2));
 }
 class _MC extends StatelessWidget {
   const _MC();

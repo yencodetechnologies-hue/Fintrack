@@ -89,7 +89,7 @@ class _DescriptionFieldState extends State<DescriptionField> {
                     onTap: () => onSelected(d),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      child: Text(d, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 13.5, color: kDark)),
+                      child: Text(d, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 14, color: kDark)),
                     ),
                   ),
               ],

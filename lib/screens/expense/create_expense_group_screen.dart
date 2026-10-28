@@ -192,7 +192,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           ),
                           icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: Text(_companyError!, style: GoogleFonts.inter(fontSize: 12.5)),
+                          label: Text(_companyError!, style: GoogleFonts.inter(fontSize: 13)),
                         ),
                       ),
                     ],
@@ -265,7 +265,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                 "SHARED LEDGER",
                 style: GoogleFonts.inter(
                   color: mintLight,
-                  fontSize: 10.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.9,
                 ),
@@ -278,7 +278,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
           "Set up a group",
           style: GoogleFonts.inter(
             color: Colors.white,
-            fontSize: 26,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
             letterSpacing: -0.3,
           ),
@@ -288,7 +288,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
           "Create a collaborative space to track and split expenses with team members.",
           style: GoogleFonts.inter(
             color: Colors.white.withValues(alpha: 0.75),
-            fontSize: 13.5,
+            fontSize: 14,
             height: 1.45,
           ),
         ),
@@ -326,7 +326,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
         textCapitalization: TextCapitalization.words,
         style: GoogleFonts.inter(
           color: const Color(0xFF0F172A),
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
@@ -375,7 +375,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
           icon: const Icon(Icons.keyboard_arrow_down_rounded, color: primaryGreen, size: 24),
           style: GoogleFonts.inter(
             color: const Color(0xFF0F172A),
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
           decoration: InputDecoration(
@@ -408,7 +408,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                 name,
                 style: GoogleFonts.inter(
                   color: const Color(0xFF0F172A),
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -509,7 +509,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
               "No Company Selected",
               style: GoogleFonts.inter(
                 color: Colors.white,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -519,7 +519,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 color: Colors.white.withValues(alpha: 0.65),
-                fontSize: 12.5,
+                fontSize: 13,
                 height: 1.4,
               ),
             ),
@@ -616,7 +616,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                                   style: GoogleFonts.inter(
                                     color: const Color(0xFF0F172A),
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 14.5,
+                                    fontSize: 14,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -742,7 +742,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                   SizedBox(width: 10),
                   Text(
                     "Setting up group…",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
               )
@@ -756,7 +756,7 @@ class _CreateExpenseGroupScreenState extends State<CreateExpenseGroupScreen> {
                     style: GoogleFonts.inter(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 15.5,
+                      fontSize: 16,
                       letterSpacing: 0.2,
                     ),
                   ),

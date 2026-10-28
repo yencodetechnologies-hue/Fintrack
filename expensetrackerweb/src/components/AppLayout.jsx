@@ -53,7 +53,7 @@ const ICONS = {
 const WORKSPACE = [
   { tab: "home", label: "Home" },
   { tab: "expenses", label: "Expenses" },
-  { tab: "interco", label: "Inter-co" },
+  { tab: "interco", label: "Loans" },
   { tab: "reports", label: "Reports", adminOnly: true },
   { tab: "analysis", label: "Analysis", adminOnly: true },
   { tab: "vouchers", label: "Vouchers", adminOnly: true },

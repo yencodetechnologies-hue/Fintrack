@@ -562,7 +562,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 title,
                 style: GoogleFonts.inter(
                   color: const Color(0xFF1E293B),
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -696,7 +696,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
               value,
               style: GoogleFonts.inter(
                 color: const Color(0xFF1E293B),
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -742,7 +742,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -795,7 +795,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                             "Smart Payment Reminder",
                             style: GoogleFonts.inter(
                               color: const Color(0xFF1E293B),
-                              fontSize: 18,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -967,7 +967,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                                       "No bank is added",
                                       style: GoogleFonts.inter(
                                         color: _terracotta,
-                                        fontSize: 14.5,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -997,7 +997,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                         dropdownColor: Colors.white,
                         style: GoogleFonts.inter(
                           color: const Color(0xFF1E293B),
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
@@ -1068,7 +1068,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                       keyboardType: TextInputType.number,
                       style: GoogleFonts.inter(
                         color: const Color(0xFF1E293B),
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
@@ -1129,7 +1129,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
               Text(
                 "Reminder Settings",
                 style: GoogleFonts.inter(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),

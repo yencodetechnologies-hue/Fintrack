@@ -130,7 +130,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: [
               const Icon(Icons.add_circle_outline_rounded, color: Colors.white),
               const SizedBox(width: 8),
-              Text("Custom Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+              Text("Custom Category", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.white)),
             ],
           ),
           content: Column(
@@ -139,7 +139,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             children: [
               Text(
                 "Enter custom category name:",
-                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.75)),
+                style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.75)),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -159,7 +159,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
               const SizedBox(height: 16),
               Text(
                 "Choose Category Icon:",
-                style: GoogleFonts.inter(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.75), fontWeight: FontWeight.w600),
+                style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.75), fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 10),
               Wrap(
@@ -267,7 +267,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 Text(
                   "Select Category",
                   style: GoogleFonts.inter(
-                    fontSize: 19,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: darkText,
                   ),
@@ -341,7 +341,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(
-                              fontSize: 11.5,
+                              fontSize: 12,
                               fontWeight: isSelected || isCustomAction ? FontWeight.bold : FontWeight.w500,
                               color: isSelected ? darkSurface : (isCustomAction ? forestDark : darkText),
                               height: 1.15,
@@ -401,7 +401,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     Text(
                       "Visible To Members",
                       style: GoogleFonts.inter(
-                        fontSize: 19,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: darkText,
                       ),
@@ -461,7 +461,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                         subtitle: Text(
                           isSelf ? "Expense Creator (Always visible)" : (isChecked ? "Can view expense" : "Hidden until settled"),
                           style: GoogleFonts.inter(
-                            fontSize: 11.5,
+                            fontSize: 12,
                             color: isChecked ? forestDark : darkText.withValues(alpha: 0.4),
                           ),
                         ),
@@ -494,7 +494,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text("Done", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                    child: Text("Done", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14)),
                   ),
                 ),
               ],
@@ -644,7 +644,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -674,7 +674,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (widget.isAdmin && widget.lockedLogAs == null) ...[
                     Text(
                       "Log Expense As *",
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 6),
                     Container(
@@ -772,7 +772,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (widget.isAdmin && _logAs == "company") ...[
                     Text(
                       "Paid From *",
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
@@ -814,7 +814,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Category Selector
                   Text(
                     "Category",
-                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 5),
                   InkWell(
@@ -850,7 +850,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Amount Field
                   Text(
                     "Amount (₹) *",
-                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 5),
                   TextFormField(
@@ -864,16 +864,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     },
                     style: GoogleFonts.ibmPlexMono(
                       color: darkText,
-                      fontSize: 16.5,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: "0.00",
-                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 16.5),
+                      hintStyle: GoogleFonts.ibmPlexMono(color: darkText.withValues(alpha: 0.3), fontSize: 16),
                       prefixIcon: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                        child: Text("₹", style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: darkText)),
+                        child: Text("₹", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: darkText)),
                       ),
                       prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                       filled: true,
@@ -889,7 +889,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Description Field
                   Text(
                     "Description / Purpose *",
-                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 5),
                   TextFormField(
@@ -899,7 +899,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     decoration: InputDecoration(
                       isDense: true,
                       hintText: "e.g. Office lunch, Flight tickets",
-                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 13.5),
+                      hintStyle: GoogleFonts.inter(color: darkText.withValues(alpha: 0.4), fontSize: 14),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       prefixIcon: const Icon(Icons.description_rounded, color: darkSurface, size: 18),
@@ -914,7 +914,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Date Selector
                   Text(
                     "Expense Date",
-                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 5),
                   InkWell(
@@ -953,7 +953,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   if (widget.groupId == null && (!widget.isAdmin || _logAs == "self")) ...[
                     Text(
                       "Visible To (Select Members)",
-                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                      style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     const SizedBox(height: 5),
                     InkWell(
@@ -1023,7 +1023,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   // Receipt Attachment
                   Text(
                     "Receipt / Attachment (Optional)",
-                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                    style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   const SizedBox(height: 5),
                   GestureDetector(
@@ -1051,7 +1051,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 const SizedBox(height: 3),
                                 Text(
                                   "Tap to upload receipt image",
-                                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 12.5, fontWeight: FontWeight.w600),
+                                  style: GoogleFonts.inter(color: darkText.withValues(alpha: 0.5), fontSize: 13, fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -1070,7 +1070,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           : const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
                       label: Text(
                         _isSaving ? "Saving Expense..." : "Post Expense",
-                        style: GoogleFonts.inter(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.inter(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: darkSurface,

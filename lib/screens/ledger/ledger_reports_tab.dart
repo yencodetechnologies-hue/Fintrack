@@ -86,7 +86,7 @@ Widget _statTile(String label, num value, {Color color = kDark, String? sub, Col
         FittedBox(
           fit: BoxFit.scaleDown,
           alignment: Alignment.centerLeft,
-          child: Text(text ?? inr(value), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          child: Text(text ?? inr(value), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
         ),
         if (sub != null && sub.isNotEmpty) ...[
           const SizedBox(height: 3),
@@ -245,7 +245,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(children: [
           Expanded(child: Text(label, style: GoogleFonts.inter(color: kDark, fontWeight: FontWeight.w600))),
-          Text(inr(value), style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.bold, fontSize: 17)),
+          Text(inr(value), style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.bold, fontSize: 16)),
         ]),
       );
 }
@@ -320,7 +320,7 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Text(c["name"]?.toString() ?? "", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
                             Text("${c["loans"]} open loan${c["loans"] == 1 ? "" : "s"}${c["external"] == true ? " · outside company" : ""} · we owe ${inr(c["weOwe"])} · they owe ${inr(c["theyOwe"])}",
-                                style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+                                style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
                           ]),
                         ),
                         Text(
@@ -333,7 +333,7 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
         ),
         Text(
           "\"Company owes\" = paid out of pocket and not yet reimbursed + approved claims not yet paid. Awaiting approval is shown separately and not counted. \"Voucher money held\" is company money staff still have from vouchers.",
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 11.5),
+          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12),
         ),
       ]),
     );
@@ -358,12 +358,12 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
                               if (((r["awaitingApproval"] as num?) ?? 0) != 0) "Awaiting approval ${inr(r["awaitingApproval"])}",
                               if (((r["advanceHeld"] as num?) ?? 0) > 0) "Voucher money held ${inr(r["advanceHeld"])}",
                             ].join(" · "),
-                            style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55)),
+                            style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55)),
                           ),
                         ]),
                       ),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        Text("COMPANY OWES", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
+                        Text("COMPANY OWES", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
                         Text(inr(r["owed"]), style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: ((r["owed"] as num?) ?? 0) > 0 ? kTerracotta : kDark)),
                       ]),
                     ]),
@@ -424,7 +424,7 @@ class _AnalysisViewState extends State<_AnalysisView> with LedgerAutoRefresh {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
-        Text("Spending patterns for managers. Rejected and group expenses are excluded.", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+        Text("Spending patterns for managers. Rejected and group expenses are excluded.", style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
         const SizedBox(height: 8),
         Row(children: [
           for (final m in [3, 6, 12])
@@ -533,12 +533,12 @@ class _AnalysisViewState extends State<_AnalysisView> with LedgerAutoRefresh {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: kDark)),
-              Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+              Text(sub, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
             ]),
           ),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(right, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: kDark)),
-            Text(rightSub, style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: rightSubColor)),
+            Text(rightSub, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: rightSubColor)),
           ]),
         ]),
       );
@@ -562,7 +562,7 @@ class _AnalysisViewState extends State<_AnalysisView> with LedgerAutoRefresh {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(rows[i].label, maxLines: 1, overflow: TextOverflow.clip, style: GoogleFonts.inter(fontSize: 9.5, color: kDark.withValues(alpha: 0.6))),
+                Text(rows[i].label, maxLines: 1, overflow: TextOverflow.clip, style: GoogleFonts.inter(fontSize: 10, color: kDark.withValues(alpha: 0.6))),
               ]),
             ),
           ),
@@ -581,8 +581,8 @@ class _AnalysisViewState extends State<_AnalysisView> with LedgerAutoRefresh {
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              Expanded(child: Text(r[nameKey]?.toString() ?? "—", maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12.5, color: kDark))),
-              Text(inr(r["total"]), style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold, color: kDark)),
+              Expanded(child: Text(r[nameKey]?.toString() ?? "—", maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 13, color: kDark))),
+              Text(inr(r["total"]), style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold, color: kDark)),
             ]),
             const SizedBox(height: 3),
             Row(children: [
@@ -599,7 +599,7 @@ class _AnalysisViewState extends State<_AnalysisView> with LedgerAutoRefresh {
               ),
               const SizedBox(width: 8),
               Text("${total > 0 ? ((((r["total"] as num?) ?? 0) / total) * 100).round() : 0}% · ${extra(r)}",
-                  style: GoogleFonts.inter(fontSize: 10.5, color: kDark.withValues(alpha: 0.55))),
+                  style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
             ]),
           ]),
         ),

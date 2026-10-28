@@ -387,7 +387,7 @@ class _UpdateReminderPageState extends State<UpdateReminderPage> {
               value,
               style: const TextStyle(
                 color: _darkText,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -432,7 +432,7 @@ class _UpdateReminderPageState extends State<UpdateReminderPage> {
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
       ),
@@ -467,7 +467,7 @@ class _UpdateReminderPageState extends State<UpdateReminderPage> {
                     const Text(
                       "Update Details",
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: _darkText,
                       ),
@@ -480,7 +480,7 @@ class _UpdateReminderPageState extends State<UpdateReminderPage> {
                       dropdownColor: Colors.white,
                       style: const TextStyle(
                         color: _darkText,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
@@ -537,7 +537,7 @@ class _UpdateReminderPageState extends State<UpdateReminderPage> {
                       keyboardType: TextInputType.number,
                       style: const TextStyle(
                         color: _darkText,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(

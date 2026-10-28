@@ -33,8 +33,8 @@ export default function LoginPage() {
 
   return (
     <AuthLayout>
-      <h1 style={{ fontSize: 24, margin: "0 0 4px" }}>Sign in</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 24px" }}>
+      <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>Sign in</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 24px" }}>
         Welcome back. Enter your details to continue.
       </p>
 
@@ -73,7 +73,7 @@ export default function LoginPage() {
               background: "none",
               border: "none",
               color: "var(--forest)",
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: 700,
             }}
           >
@@ -81,7 +81,7 @@ export default function LoginPage() {
           </button>
         </div>
         <div style={{ textAlign: "right", marginTop: 8 }}>
-          <Link to={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`} style={{ color: "var(--forest)", fontSize: 12.5, fontWeight: 700 }}>
+          <Link to={`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`} style={{ color: "var(--forest)", fontSize: 13, fontWeight: 700 }}>
             Forgot password?
           </Link>
         </div>
@@ -90,7 +90,7 @@ export default function LoginPage() {
           {loading ? "Signing in..." : "Sign in"}
         </button>
 
-        <p style={{ textAlign: "center", fontSize: 13.5, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
+        <p style={{ textAlign: "center", fontSize: 14, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
           New here? <Link to="/signup" style={{ color: "var(--forest)", fontWeight: 700 }}>Create an account</Link>
         </p>
       </form>

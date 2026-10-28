@@ -99,7 +99,7 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
           Text(
             "Turn features on or off for everyone in a role. Switched-off features are hidden for them and refused by the server."
             "${data["role"] == "primary" ? " As the primary admin, these never apply to you." : " You can change staff permissions, but only for features managers have."}",
-            style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5),
+            style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 12),
           if (data["canEditManagers"] == true) _section("manager", _names.managers, "Every ${_names.manager.toLowerCase()} except the primary admin"),
@@ -142,7 +142,7 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
     final name = TextEditingController(text: role == "manager" ? _names.manager : _names.staff);
     await showLedgerSheet(context, "Rename $defaultName role", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("Shown everywhere in this company, on the web and in the app. Leave it empty to go back to \"$defaultName\".",
-              style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.65))),
+              style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
           const SizedBox(height: 12),
           TextField(controller: name, maxLength: 30, autofocus: true, decoration: fieldDecoration("Role name", icon: Icons.badge_rounded)),
           const SizedBox(height: 8),
@@ -172,7 +172,7 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: kDark)),
+              Text(title, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: kDark)),
               Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             ]),
           ),

@@ -33,7 +33,7 @@ class LedgerMoreTab extends StatelessWidget {
       children: [
         if (scope.isAdmin && scope.can("vouchers")) item(Icons.confirmation_number_rounded, "Vouchers", "Money given to staff up front, claims and hand-backs", VouchersPage(scope: scope)),
         // Payments sits in the bottom bar for managers who can pay people, so Inter-co lives here instead
-        if (paymentsInNav(scope) && scope.can("intercompany")) item(Icons.swap_horiz_rounded, "Inter-company", "Borrowing, lending and payments between companies", IntercoPage(scope: scope)),
+        if (paymentsInNav(scope) && scope.can("intercompany")) item(Icons.swap_horiz_rounded, "Loans", "Borrowing and lending with companies and people", IntercoPage(scope: scope)),
         // the Payments tab shows only my own; paying everyone else (with totals and history) is here
         if (paymentsInNav(scope)) item(Icons.groups_rounded, "Pay people", "What the company owes each ${scope.staffName.toLowerCase()} and ${scope.managerName.toLowerCase()}, and paying them", PaymentsPage(scope: scope)),
         if (scope.isAdmin && scope.can("funds")) item(Icons.calendar_month_rounded, "Accounts", "Each day's money in and out, expenses and closing balance", AccountsPage(scope: scope)),
@@ -168,9 +168,9 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
                               padding: const EdgeInsets.symmetric(vertical: 1),
                               child: Row(
                                 children: [
-                                  Expanded(child: Text(nameOf(e["accountId"], "Account"), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11.5, color: kDark))),
-                                  SizedBox(width: 80, child: Text((e["debit"] ?? 0) > 0 ? "Dr ${inr(e["debit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5))),
-                                  SizedBox(width: 80, child: Text((e["credit"] ?? 0) > 0 ? "Cr ${inr(e["credit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5))),
+                                  Expanded(child: Text(nameOf(e["accountId"], "Account"), maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12, color: kDark))),
+                                  SizedBox(width: 80, child: Text((e["debit"] ?? 0) > 0 ? "Dr ${inr(e["debit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12))),
+                                  SizedBox(width: 80, child: Text((e["credit"] ?? 0) > 0 ? "Cr ${inr(e["credit"])}" : "", textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12))),
                                 ],
                               ),
                             )),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 
+// Every call on one vehicle sends the owner's userId: the server only acts on your own vehicles.
 class VehicleService {
   static final String _baseUrl = AppConfig.vehicles;
 
@@ -64,9 +65,9 @@ class VehicleService {
   }
 
   // 3. Get Vehicle by ID
-  static Future<Map<String, dynamic>?> getVehicleById(String vehicleId) async {
+  static Future<Map<String, dynamic>?> getVehicleById(String vehicleId, String userId) async {
     try {
-      final res = await http.get(Uri.parse("$_baseUrl/$vehicleId"));
+      final res = await http.get(Uri.parse("$_baseUrl/$vehicleId?userId=$userId"));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data["success"] == true) {
@@ -80,12 +81,12 @@ class VehicleService {
   }
 
   // 4. Update Vehicle
-  static Future<Map<String, dynamic>> updateVehicle(String vehicleId, Map<String, dynamic> updateData) async {
+  static Future<Map<String, dynamic>> updateVehicle(String vehicleId, String userId, Map<String, dynamic> updateData) async {
     try {
       final res = await http.put(
         Uri.parse("$_baseUrl/$vehicleId"),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(updateData),
+        body: jsonEncode({...updateData, "userId": userId}),
       );
       return jsonDecode(res.body);
     } catch (e) {
@@ -94,9 +95,9 @@ class VehicleService {
   }
 
   // 5. Delete Vehicle
-  static Future<bool> deleteVehicle(String vehicleId) async {
+  static Future<bool> deleteVehicle(String vehicleId, String userId) async {
     try {
-      final res = await http.delete(Uri.parse("$_baseUrl/$vehicleId"));
+      final res = await http.delete(Uri.parse("$_baseUrl/$vehicleId?userId=$userId"));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         return data["success"] == true;
@@ -111,6 +112,7 @@ class VehicleService {
   // 6. Log Refuel / Recharge
   static Future<Map<String, dynamic>> addRefuelLog({
     required String vehicleId,
+    required String userId,
     required double fuelAdded,
     double cost = 0,
     double? odometer,
@@ -120,6 +122,7 @@ class VehicleService {
         Uri.parse("$_baseUrl/$vehicleId/refuel"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
+          "userId": userId,
           "fuelAdded": fuelAdded,
           "cost": cost,
           "odometer": odometer,
@@ -134,6 +137,7 @@ class VehicleService {
   // 7. Save Ride History
   static Future<Map<String, dynamic>> saveRide({
     required String vehicleId,
+    required String userId,
     required DateTime startTime,
     required DateTime endTime,
     required double distanceKm,
@@ -145,6 +149,7 @@ class VehicleService {
         Uri.parse("$_baseUrl/$vehicleId/ride"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
+          "userId": userId,
           "startTime": startTime.toIso8601String(),
           "endTime": endTime.toIso8601String(),
           "distanceKm": distanceKm,

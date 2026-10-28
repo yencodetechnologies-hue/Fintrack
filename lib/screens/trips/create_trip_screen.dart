@@ -160,7 +160,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 22,
+            fontSize: 20,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -200,7 +200,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                             const SizedBox(height: 5),
                             TextFormField(
                               controller: _nameController,
-                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 13.5),
+                              style: GoogleFonts.inter(color: darkText, fontWeight: FontWeight.bold, fontSize: 14),
                               decoration: _inputDeco("e.g. Goa Beach Trip, Manali Trek", prefixIcon: Icons.flight_takeoff_rounded),
                               validator: (v) => (v == null || v.trim().isEmpty) ? "Enter trip name" : null,
                             ),
@@ -365,7 +365,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                                 style: GoogleFonts.ibmPlexMono(
                                                   color: darkText,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 13.5,
+                                                  fontSize: 14,
                                                 ),
                                               ),
                                               const Icon(Icons.keyboard_arrow_down_rounded, color: darkText, size: 18),
@@ -389,7 +389,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                         style: GoogleFonts.ibmPlexMono(
                                           color: darkText,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 15,
+                                          fontSize: 16,
                                         ),
                                         decoration: _inputDeco(
                                           "e.g. 25000",
@@ -435,7 +435,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                             style: GoogleFonts.inter(
                                               color: _splitType == "equal" ? Colors.white : darkText,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 12.5,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ],
@@ -470,7 +470,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                             style: GoogleFonts.inter(
                                               color: _splitType == "custom" ? Colors.white : darkText,
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 12.5,
+                                              fontSize: 13,
                                             ),
                                           ),
                                         ],
@@ -548,7 +548,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           "Trip Created Successfully!",
           style: GoogleFonts.inter(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -556,7 +556,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
         Text(
           "Share the 6-digit Trip Code or QR code with your friends to let them join \"$tripName\".",
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5),
+          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
         ),
         const SizedBox(height: 18),
 
@@ -594,7 +594,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                 joinCode,
                 style: GoogleFonts.ibmPlexMono(
                   color: const Color(0xFF195754),
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 3,
                 ),
@@ -632,7 +632,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
       style: GoogleFonts.inter(
         color: const Color(0xFF1E293B),
         fontWeight: FontWeight.w700,
-        fontSize: 13.5,
+        fontSize: 14,
       ),
     );
   }
@@ -729,7 +729,7 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
                                 style: GoogleFonts.ibmPlexMono(
                                   color: isSelected ? Colors.white : const Color(0xFF1E293B),
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -766,9 +766,9 @@ class _CreateTripScreenState extends State<CreateTripScreen> {
           ? Icon(prefixIcon, color: const Color(0xFF6B7280), size: 18)
           : null,
       prefixText: prefix,
-      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF1E293B), fontWeight: FontWeight.bold, fontSize: 15),
+      prefixStyle: GoogleFonts.ibmPlexMono(color: const Color(0xFF1E293B), fontWeight: FontWeight.bold, fontSize: 16),
       hintText: hint,
-      hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280).withValues(alpha: 0.5), fontSize: 12.5),
+      hintStyle: GoogleFonts.inter(color: const Color(0xFF6B7280).withValues(alpha: 0.5), fontSize: 13),
       filled: true,
       fillColor: const Color(0xFFF8FAFC),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

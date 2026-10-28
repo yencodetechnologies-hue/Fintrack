@@ -4,6 +4,7 @@ import { addCustomCategory, createLedgerExpense, getLedgerBorrowSources, saveVis
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, companyCategories, fileToBase64, formatDate } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
+import { NewLenderFields, newLenderPayload } from "./NewLenderFields.jsx";
 import DescriptionInput from "./DescriptionInput.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 
@@ -112,6 +113,8 @@ export default function AddExpenseModal({
   const [lenderId, setLenderId] = useState("");
   const [outsideName, setOutsideName] = useState("");
   const [outsideGstin, setOutsideGstin] = useState("");
+  const [outsideKind, setOutsideKind] = useState("company");
+  const [outsidePhone, setOutsidePhone] = useState("");
   useEffect(() => {
     if (fundId !== BORROW || borrowSources !== null) return;
     getLedgerBorrowSources(company._id, user.id).then((res) => setBorrowSources(res.success ? res.companies || res.sources || [] : []));
@@ -138,15 +141,18 @@ export default function AddExpenseModal({
       return;
     }
     if (isBorrow && !otherPay) {
-      if (!lenderId) return showToast("Choose the company you borrowed from", "error");
-      if (lenderId === OUTSIDE && (!outsideName.trim() || !outsideGstin.trim())) return showToast("Enter the outside company's name and GSTIN", "error");
+      if (!lenderId) return showToast("Choose who you borrowed from", "error");
+      if (lenderId === OUTSIDE) {
+        const check = newLenderPayload(outsideKind, outsideName, outsideGstin, outsidePhone);
+        if (check.error) return showToast(check.error, "error");
+      }
     }
     setSaving(true);
     const res = await createLedgerExpense({
       // borrowed: the lender (a known company, or a new outside one)
       ...(otherPay
         ? { sourceCompanyId: otherPay.companyId, sourceFundId: otherPay.fundId }
-        : isBorrow ? (lenderId === OUTSIDE ? { newCompany: { name: outsideName.trim(), gstin: outsideGstin.trim() } } : { sourceCompanyId: lenderId }) : {}),
+        : isBorrow ? (lenderId === OUTSIDE ? { newCompany: newLenderPayload(outsideKind, outsideName, outsideGstin, outsidePhone).newCompany } : { sourceCompanyId: lenderId }) : {}),
       companyId: company._id,
       userId: user.id,
       amount: amt,
@@ -176,7 +182,7 @@ export default function AddExpenseModal({
   return (
     <Modal onClose={onClose} maxWidth={520}>
       <div style={{ marginBottom: 18 }}>
-        <h2 style={{ margin: "0 0 4px", fontSize: 21, fontWeight: 700, letterSpacing: "-0.2px" }}>Add Expense</h2>
+        <h2 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 700, letterSpacing: "-0.2px" }}>Add Expense</h2>
         <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
           Record a new expense for <strong>{company.name}</strong>
         </p>
@@ -304,19 +310,16 @@ export default function AddExpenseModal({
             )}
             {fundId === BORROW && (
               <div style={{ marginTop: 10 }}>
-                <label className="field-label">Lender company *</label>
+                <label className="field-label">Borrowed from *</label>
                 <select className="field-select" style={{ height: 40 }} value={lenderId} onChange={(e) => setLenderId(e.target.value)}>
-                  <option value="">{borrowSources === null ? "Loading companies…" : "Choose company"}</option>
+                  <option value="">{borrowSources === null ? "Loading…" : "Choose company or person"}</option>
                   {(borrowSources || []).filter((s) => String(s._id) !== String(company._id)).map((s) => (
-                    <option key={s._id} value={s._id}>{s.name}</option>
+                    <option key={s._id} value={s._id}>{s.name}{s.lenderKind === "person" ? " (person)" : ""}</option>
                   ))}
-                  <option value={OUTSIDE}>An outside company…</option>
+                  <option value={OUTSIDE}>+ Add company or person…</option>
                 </select>
                 {lenderId === OUTSIDE && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-                    <input className="field-input" placeholder="Company name *" value={outsideName} onChange={(e) => setOutsideName(e.target.value)} />
-                    <input className="field-input" placeholder="GSTIN *" value={outsideGstin} onChange={(e) => setOutsideGstin(e.target.value.toUpperCase())} />
-                  </div>
+                  <NewLenderFields kind={outsideKind} onKind={setOutsideKind} name={outsideName} onName={setOutsideName} gstin={outsideGstin} onGstin={setOutsideGstin} phone={outsidePhone} onPhone={setOutsidePhone} />
                 )}
                 <small style={{ display: "block", marginTop: 6, color: "var(--muted)", fontSize: 12, lineHeight: 1.45 }}>
                   {company.name} borrows {parsedAmt > 0 ? `₹${parsedAmt.toFixed(2)}` : "the amount"} from this company to pay the expense; it shows under Borrowed until repaid.
@@ -355,7 +358,7 @@ export default function AddExpenseModal({
           <div>
             <label className="field-label">Amount (₹) *</label>
             <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 15, fontWeight: 700, color: "var(--muted)" }}>
+              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, fontWeight: 700, color: "var(--muted)" }}>
                 ₹
               </span>
               <input
@@ -550,7 +553,7 @@ export default function AddExpenseModal({
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
               </div>
-              <span style={{ fontSize: 12.5, fontWeight: 600, color: attachment ? "var(--forest)" : "var(--dark-text)" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: attachment ? "var(--forest)" : "var(--dark-text)" }}>
                 {attachment ? "Receipt selected · Click to replace" : "Choose receipt image"}
               </span>
             </div>

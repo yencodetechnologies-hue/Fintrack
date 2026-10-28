@@ -31,7 +31,7 @@ export default function ReceiveModal({ expense, user, members, onClose, onReceiv
 
   return (
     <Modal onClose={onClose} maxWidth={400}>
-      <h2 style={{ marginTop: 0, fontSize: 19 }}>Mark Payment Received</h2>
+      <h2 style={{ marginTop: 0, fontSize: 20 }}>Mark Payment Received</h2>
       <form onSubmit={handleSubmit}>
         <label className="field-label">Who paid you? *</label>
         <select className="field-select" value={payerUserId} onChange={(e) => setPayerUserId(e.target.value)} style={{ marginBottom: 16 }}>

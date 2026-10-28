@@ -55,7 +55,7 @@ export default function PayModal({ expense, user, isAdmin, lockedPayAs, bankAcco
 
   return (
     <Modal onClose={onClose} maxWidth={440}>
-      <h2 style={{ marginTop: 0, fontSize: 19 }}>Pay Expense (₹{amount.toFixed(2)})</h2>
+      <h2 style={{ marginTop: 0, fontSize: 20 }}>Pay Expense (₹{amount.toFixed(2)})</h2>
       <form onSubmit={handleSubmit}>
         {showToggle && (
           <>

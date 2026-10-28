@@ -38,6 +38,9 @@ const companySchema = new mongoose.Schema(
     currency: { type: String, default: "INR" },
     verificationThreshold: { type: Number, default: null },
     external: { type: Boolean, default: false },
+    // an external lender can be a company or a person (a person has no GSTIN; phone is optional)
+    lenderKind: { type: String, enum: ["company", "person"], default: "company" },
+    phone: { type: String, trim: true, default: "" },
     cashBalance: {
       type: Number,
       default: 0,

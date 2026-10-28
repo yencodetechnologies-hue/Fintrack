@@ -9,7 +9,7 @@ import 'view_card_screen.dart';
 import 'view_reminder_page.dart';
 import 'LendLiabilityPage.dart';
 import 'trips/trips_home_screen.dart';
-// import 'vehicles/vehicle_dashboard_screen.dart';
+import 'vehicles/vehicle_dashboard_screen.dart';
 import 'expense/expense_landing_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -215,7 +215,7 @@ class _GridViewPageState extends State<GridViewPage> {
                             "$bank •••• $last4",
                             style: GoogleFonts.inter(
                               color: darkText,
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -237,7 +237,7 @@ class _GridViewPageState extends State<GridViewPage> {
                           "₹$amount",
                           style: GoogleFonts.inter(
                             color: darkText,
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -252,7 +252,7 @@ class _GridViewPageState extends State<GridViewPage> {
                             "DUE SOON",
                             style: GoogleFonts.ibmPlexMono(
                               color: const Color(0xFF8A6D00),
-                              fontSize: 9,
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -291,7 +291,7 @@ class _GridViewPageState extends State<GridViewPage> {
                     label: Text(
                       'Set Bill Reminder',
                       style: GoogleFonts.inter(
-                        fontSize: 13.5,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -508,7 +508,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                                 'No notifications',
                                                 style: GoogleFonts.inter(
                                                   color: Colors.white70,
-                                                  fontSize: 13.5,
+                                                  fontSize: 14,
                                                 ),
                                               ),
                                             ],
@@ -592,7 +592,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                                           (log['message'] as String?) ?? '',
                                                           style: GoogleFonts.inter(
                                                             color: Colors.white70,
-                                                            fontSize: 12.5,
+                                                            fontSize: 13,
                                                           ),
                                                           overflow: TextOverflow.ellipsis,
                                                         ),
@@ -739,14 +739,14 @@ class _GridViewPageState extends State<GridViewPage> {
         "color": terracotta,
         "page": (context) => TripsHomeScreen(userId: widget.userId, userName: widget.userName),
       },
-      // {
-      //   "title": "Vehicle Dashboard",
-      //   "subtitle": "Track mileage, live speed, fuel usage & safe range",
-      //   "icon": FontAwesomeIcons.gaugeHigh,
-      //   "badge": "Live Tracking",
-      //   "color": Colors.white,
-      //   "page": (context) => VehicleDashboardScreen(userId: widget.userId, userName: widget.userName),
-      // },
+      {
+        "title": "Vehicle Dashboard",
+        "subtitle": "Track mileage, live speed, fuel usage & safe range",
+        "icon": FontAwesomeIcons.gaugeHigh,
+        "badge": "Live Tracking",
+        "color": darkText,
+        "page": (context) => VehicleDashboardScreen(userId: widget.userId, userName: widget.userName),
+      },
     ];
 
     final initial = widget.userName.isNotEmpty ? widget.userName[0].toUpperCase() : 'U';
@@ -866,7 +866,7 @@ class _GridViewPageState extends State<GridViewPage> {
                     "${_getGreeting()}, ",
                     style: GoogleFonts.inter(
                       color: Colors.white.withValues(alpha: 0.75),
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w400,
                       fontStyle: FontStyle.italic,
                     ),
@@ -875,7 +875,7 @@ class _GridViewPageState extends State<GridViewPage> {
                     widget.userName,
                     style: GoogleFonts.inter(
                       color: Colors.white,
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -958,7 +958,7 @@ class _GridViewPageState extends State<GridViewPage> {
                               textAlign: TextAlign.center,
                               style: GoogleFonts.inter(
                                 color: darkText,
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1052,7 +1052,7 @@ class _GridViewPageState extends State<GridViewPage> {
                                     overflow: TextOverflow.ellipsis,
                                     style: GoogleFonts.inter(
                                       color: darkText,
-                                      fontSize: 15.5,
+                                      fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),

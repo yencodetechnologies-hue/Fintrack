@@ -42,7 +42,7 @@ export default function InvitesList({ company, user, refreshKey }) {
     <div className="card" style={{ maxWidth: 560, marginBottom: 28, padding: 0 }}>
       <div style={{ padding: "14px 16px 6px" }}>
         <h3 style={{ fontSize: 16, margin: 0 }}>Invites</h3>
-        <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "4px 0 0" }}>
+        <p style={{ color: "var(--muted)", fontSize: 13, margin: "4px 0 0" }}>
           {waiting ? `${waiting} waiting to sign up · ` : ""}{invites.length - waiting} joined
         </p>
       </div>
@@ -56,12 +56,12 @@ export default function InvitesList({ company, user, refreshKey }) {
         return (
           <div key={inv._id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: "1px solid var(--slate-border-2)", flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 180 }}>
-              <div style={{ fontWeight: 600, fontSize: 13.5, overflow: "hidden", textOverflow: "ellipsis" }}>{inv.email}</div>
-              <div style={{ fontSize: 11.5, color: "var(--muted)" }}>
+              <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis" }}>{inv.email}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>
                 as {inv.roleName || roleLabel(company, inv.role)}{inv.invitedBy ? ` · by ${inv.invitedBy}` : ""}
               </div>
             </div>
-            <span style={{ fontSize: 11.5, fontWeight: 700, color: status.color, background: status.bg, padding: "4px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: status.color, background: status.bg, padding: "4px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>
               {status.icon} {status.text}
             </span>
             {!joined && (

@@ -68,6 +68,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _capacityController = TextEditingController(text: '10');
   final _currentFuelController = TextEditingController(text: '7.5');
   final _safeAlertController = TextEditingController(text: '25');
+  final _odometerController = TextEditingController(); // optional: current reading, so trips add up from here
+
+  // true once the user types in mileage / tank / current fuel; typed model names then stop overwriting them
+  bool _specsTouched = false;
+  bool _applyingSpecs = false;
+  void _markSpecsTouched() {
+    if (!_applyingSpecs) _specsTouched = true;
+  }
 
   bool _isLoadingBrands = false;
   bool _isLoadingModels = false;
@@ -77,9 +85,12 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   void initState() {
     super.initState();
     _loadBrands();
+    _mileageController.addListener(_markSpecsTouched);
+    _capacityController.addListener(_markSpecsTouched);
+    _currentFuelController.addListener(_markSpecsTouched);
     _manualModelController.addListener(() {
       if (_addManually && _manualModelController.text.trim().isNotEmpty) {
-        _applyModelSpecs(_manualModelController.text);
+        _applyModelSpecs(_manualModelController.text, fromTyping: true);
       }
     });
   }
@@ -93,6 +104,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _capacityController.dispose();
     _currentFuelController.dispose();
     _safeAlertController.dispose();
+    _odometerController.dispose();
     super.dispose();
   }
 
@@ -134,16 +146,21 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
   }
 
-  void _applyModelSpecs(String model) {
+  // fromTyping: called on each keystroke of a hand-typed model; it then leaves numbers the user already edited alone
+  void _applyModelSpecs(String model, {bool fromTyping = false}) {
     if (model.trim().isEmpty) return;
+    if (fromTyping && _specsTouched) return;
     final typeStr = _vehicleType == VehicleType.bike ? 'bike' : 'car';
     final brand = _addManually ? _manualBrandController.text.trim() : (_selectedBrand ?? '');
     final spec = BrandModelService.getModelSpec(typeStr, brand, model);
 
+    _applyingSpecs = true;
     setState(() {
       _capacityController.text = spec.capacity.toStringAsFixed(spec.capacity.truncateToDouble() == spec.capacity ? 0 : 1);
       _currentFuelController.text = (spec.capacity * 0.75).toStringAsFixed(1);
       _mileageController.text = spec.defaultMileage.toStringAsFixed(1);
+      // a model picked from the list sets fresh numbers
+      if (!fromTyping) _specsTouched = false;
       _allowedFuelTypes = spec.availableFuelTypes;
 
       final currentKey = _fuelTypeKey(_fuelType);
@@ -151,6 +168,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         _fuelType = _parseFuelType(_allowedFuelTypes.first);
       }
     });
+    _applyingSpecs = false;
   }
 
   String _fuelTypeKey(FuelType type) {
@@ -187,6 +205,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   void _onVehicleTypeChanged(VehicleType type) {
     if (_vehicleType == type) return;
+    _applyingSpecs = true;
+    _specsTouched = false;
     setState(() {
       _vehicleType = type;
       _selectedBrand = null;
@@ -206,6 +226,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         _fuelType = _parseFuelType(_allowedFuelTypes.first);
       }
     });
+    _applyingSpecs = false;
     _loadBrands();
   }
 
@@ -222,6 +243,32 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       return;
     }
 
+    final isEv = _fuelType == FuelType.electric;
+    final mileageIn = double.tryParse(_mileageController.text.trim());
+    final capacityIn = double.tryParse(_capacityController.text.trim());
+    final fuelIn = double.tryParse(_currentFuelController.text.trim());
+    final alertIn = double.tryParse(_safeAlertController.text.trim());
+    final odoText = _odometerController.text.trim();
+    final odoIn = odoText.isEmpty ? 0.0 : double.tryParse(odoText);
+    String? problem;
+    if (mileageIn == null || mileageIn <= 0) {
+      problem = isEv ? 'Enter the range per kWh (more than 0)' : 'Enter the mileage in km/L (more than 0)';
+    } else if (capacityIn == null || capacityIn <= 0) {
+      problem = isEv ? 'Enter the battery size in kWh (more than 0)' : 'Enter the tank size in litres (more than 0)';
+    } else if (fuelIn == null || fuelIn < 0) {
+      problem = isEv ? 'Enter the current charge (0 or more)' : 'Enter the current fuel (0 or more)';
+    } else if (fuelIn > capacityIn) {
+      problem = isEv ? "Current charge can't be more than the battery size" : "Current fuel can't be more than the tank size";
+    } else if (alertIn == null || alertIn < 0) {
+      problem = 'Enter the low-range alert in km (0 or more)';
+    } else if (odoIn == null || odoIn < 0) {
+      problem = 'Enter the odometer reading in km (0 or more), or leave it empty';
+    }
+    if (problem != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(problem)));
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final name = _nicknameController.text.trim().isEmpty
@@ -231,10 +278,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     final typeStr = _vehicleType == VehicleType.bike ? 'bike' : 'car';
     final fuelStr = _fuelTypeKey(_fuelType);
 
-    final mileage = double.tryParse(_mileageController.text.trim()) ?? 15.0;
-    final capacity = double.tryParse(_capacityController.text.trim()) ?? 40.0;
-    final fuelLevel = double.tryParse(_currentFuelController.text.trim()) ?? (capacity * 0.75);
-    final lowThreshold = double.tryParse(_safeAlertController.text.trim()) ?? 25.0;
+    final mileage = mileageIn!;
+    final capacity = capacityIn!;
+    final fuelLevel = fuelIn!;
+    final lowThreshold = alertIn!;
 
     final res = await VehicleService.createVehicle(
       userId: widget.userId,
@@ -248,6 +295,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       tankCapacity: capacity,
       currentFuelLevel: fuelLevel,
       lowRangeThresholdKm: lowThreshold,
+      odometerKm: odoIn!,
     );
 
     if (mounted) {
@@ -355,7 +403,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                               menuMaxHeight: 340,
                               hint: Text(
                                 'Select brand / manufacturer',
-                                style: TextStyle(color: kBodyText.withValues(alpha: 0.6), fontSize: 13.5, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: kBodyText.withValues(alpha: 0.6), fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                               icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kGreen, size: 22),
                               decoration: _fieldDecoration('').copyWith(
@@ -386,7 +434,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                       Text(
                                         brand,
                                         style: TextStyle(
-                                          fontSize: 13.5,
+                                          fontSize: 14,
                                           color: kBodyText,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                                         ),
@@ -417,7 +465,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                               menuMaxHeight: 340,
                               hint: Text(
                                 _selectedBrand == null ? 'Select brand first' : 'Select model name',
-                                style: TextStyle(color: kBodyText.withValues(alpha: 0.6), fontSize: 13.5, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: kBodyText.withValues(alpha: 0.6), fontSize: 14, fontWeight: FontWeight.w500),
                               ),
                               icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kGreen, size: 22),
                               decoration: _fieldDecoration('').copyWith(
@@ -450,7 +498,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                                       Text(
                                         model,
                                         style: TextStyle(
-                                          fontSize: 13.5,
+                                          fontSize: 14,
                                           color: kBodyText,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                                         ),
@@ -513,6 +561,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 10),
+                    _buildLabeledField(
+                      label: 'Odometer now (km) · optional',
+                      controller: _odometerController,
+                    ),
                     const SizedBox(height: 28),
                     _buildSaveButton(),
                   ],
@@ -544,7 +597,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         Text(
           'Add a Vehicle',
           style: GoogleFonts.inter(
-            fontSize: 22,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
             color: kGreen,
           ),
@@ -557,7 +610,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 13.5,
+        fontSize: 14,
         fontWeight: FontWeight.bold,
         color: kGreen,
         letterSpacing: 0.2,
@@ -703,7 +756,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   InputDecoration _fieldDecoration(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(color: kBodyText.withValues(alpha: 0.55), fontSize: 13.5, fontWeight: FontWeight.w500),
+      hintStyle: TextStyle(color: kBodyText.withValues(alpha: 0.55), fontSize: 14, fontWeight: FontWeight.w500),
       filled: true,
       fillColor: Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -854,7 +907,7 @@ class _SearchablePickerSheetState extends State<_SearchablePickerSheet> {
             widget.title,
             style: GoogleFonts.inter(
               color: kGreen,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
+import 'ledger_companies_manager.dart';
 import 'ledger_company_logo.dart';
 
 /// Company settings for both roles (web's SettingsPanel): join code, members, categories, configuration, danger zone.
@@ -260,7 +261,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
           }
 
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("${list.length} categories offered when posting expenses.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+            Text("${list.length} categories offered when posting expenses.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(child: TextField(controller: add, decoration: fieldDecoration("New category", icon: Icons.add_rounded))),
@@ -310,9 +311,9 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
       padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(border: Border(top: BorderSide(color: kDark.withValues(alpha: 0.06)))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(inv["email"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13.5, color: kDark)),
+        Text(inv["email"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
         Text("as ${inv["roleName"] ?? s.roleLabel(inv["role"])}${inv["invitedBy"] != null ? " · by ${inv["invitedBy"]}" : ""}",
-            style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+            style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
         const SizedBox(height: 6),
         Row(children: [
           Flexible(
@@ -322,7 +323,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(icon, size: 14, color: color),
                 const SizedBox(width: 4),
-                Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w700, color: color))),
+                Flexible(child: Text(text, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: color))),
               ]),
             ),
           ),
@@ -352,7 +353,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: titleColor ?? kDark)),
-            if (sub != null) Padding(padding: const EdgeInsets.only(top: 2, bottom: 10), child: Text(sub, style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6)))),
+            if (sub != null) Padding(padding: const EdgeInsets.only(top: 2, bottom: 10), child: Text(sub, style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6)))),
             if (sub == null) const SizedBox(height: 10),
             ...children,
           ]),
@@ -364,6 +365,8 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
         backgroundColor: kForest,
         appBar: AppBar(backgroundColor: kForest, foregroundColor: Colors.white, elevation: 0, title: Text("Settings", style: GoogleFonts.inter(fontWeight: FontWeight.bold))),
         body: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
+          // the Admin: add companies, remove one from my list (nothing deleted), restore removed ones
+          if (s.isPrimary) CompaniesManagerCard(scope: s),
           // logo first, on the company tiles: the primary Admin only (the server checks too)
           if (s.isPrimary)
             card("Company logo", sub: "Shown on the company tile for everyone in ${s.companyName}.", children: [
@@ -389,7 +392,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
           if (s.isAdmin && s.can("settings"))
             card("Join code", sub: "Share it with staff so they can join ${s.companyName}.", children: [
               Row(children: [
-                Expanded(child: Text(_joinCode, style: GoogleFonts.ibmPlexMono(fontSize: 28, letterSpacing: 6, fontWeight: FontWeight.bold, color: expired ? kDark.withValues(alpha: 0.35) : kForest))),
+                Expanded(child: Text(_joinCode, style: GoogleFonts.ibmPlexMono(fontSize: 22, letterSpacing: 6, fontWeight: FontWeight.bold, color: expired ? kDark.withValues(alpha: 0.35) : kForest))),
                 IconButton(
                   tooltip: "Copy",
                   icon: const Icon(Icons.copy_rounded, color: kForest),
@@ -399,7 +402,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                   },
                 ),
               ]),
-              Text(timer, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: expired ? kTerracotta : kForest)),
+              Text(timer, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: expired ? kTerracotta : kForest)),
               const SizedBox(height: 10),
               primaryButton("Generate new code", _newCode, color: kForestDark),
             ]),
@@ -458,7 +461,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("${m["name"] ?? "Member"}${isMe ? " (You)" : ""}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
                         Text("${isCreator ? "Admin · Creator" : m["isAdmin"] == true ? "Admin" : (customRole.isNotEmpty ? customRole : (isManager ? s.managerName : s.staffName))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
-                            style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+                            style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
                       ]),
                     ),
                     // an Admin can only be changed by an Admin
@@ -504,7 +507,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
             const SizedBox(height: 10),
             TextField(controller: _threshold, enabled: s.isAdmin && s.can("settings"), keyboardType: TextInputType.number, decoration: fieldDecoration("Verification threshold ₹", icon: Icons.verified_user_rounded)),
             const SizedBox(height: 6),
-            Text("Payments above this need a second manager to verify.", style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+            Text("Payments above this need a second manager to verify.", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
             if (s.isAdmin && s.can("settings")) ...[const SizedBox(height: 12), primaryButton("Save settings", _save)],
           ]),
           // the primary admin (company creator), or a custom role with "Delete the company"

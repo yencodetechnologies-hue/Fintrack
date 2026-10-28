@@ -60,6 +60,9 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
     super.dispose();
   }
 
+  // companies this company may borrow from (server list, same for every role); kept across scope rebuilds
+  Set<String> _lenderIds = {};
+
   void _hydrateScope() {
     final initialCompany = _companies.firstWhere(
       (c) => c["_id"]?.toString() == _companyId,
@@ -96,6 +99,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
         permissions: permissions,
         permissionRole: permissionRole,
         roleName: roleName,
+        lenderIds: _lenderIds,
       );
 
   // every open tab (and this screen) reloads through the shared ledger-changed signal
@@ -117,10 +121,14 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
     final results = await Future.wait([
       LedgerService.companyDetails(_companyId, widget.userId),
       LedgerService.balances(_companyId, widget.userId),
+      LedgerService.borrowSources(_companyId, widget.userId),
     ]);
     if (!mounted) return;
     final details = results[0];
     final balances = results[1];
+    if (results[2]["success"] == true) {
+      _lenderIds = {for (final c in List.from(results[2]["companies"] ?? const [])) c["_id"].toString()};
+    }
     if (details["success"] != true) {
       if (_scope == null) setState(() => _error = details["message"]?.toString() ?? "Could not load company");
       return;
@@ -144,6 +152,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       _companyId = id;
       _tab = 0;
       _scope = null;
+      _lenderIds = {};
       _hydrateScope();
     });
     LedgerLive.watch(id, widget.userId);
@@ -175,7 +184,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       if (scope != null && paymentsInNav(scope))
         (icon: Icons.payments_rounded, label: "Payments", build: (s) => PaymentsPage(scope: s, embedded: true, mineOnly: true))
       else if (scope?.can("intercompany") ?? true)
-        (icon: Icons.swap_horiz_rounded, label: "Inter-co", build: (s) => LedgerIntercoTab(scope: s)),
+        (icon: Icons.swap_horiz_rounded, label: "Loans", build: (s) => LedgerIntercoTab(scope: s)),
       if (admin && (scope!.can("reports") || scope.can("analysis")))
         (icon: Icons.bar_chart_rounded, label: "Reports", build: (s) => LedgerReportsTab(scope: s)),
       (icon: Icons.more_horiz_rounded, label: "More", build: (s) => LedgerMoreTab(scope: s)),
@@ -221,7 +230,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                     scope?.companyName ??
                         _companies.firstWhere((c) => c["_id"]?.toString() == _companyId, orElse: () => const {"name": "Company"})["name"].toString(),
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(width: 4),

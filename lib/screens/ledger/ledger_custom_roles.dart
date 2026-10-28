@@ -64,7 +64,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
   Future<void> _addRole() async {
     final name = TextEditingController();
     await showLedgerSheet(context, "Add role", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("Every switch starts off; you turn on what this role may do.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.65))),
+          Text("Every switch starts off; you turn on what this role may do.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
           const SizedBox(height: 12),
           TextField(controller: name, maxLength: 40, autofocus: true, decoration: fieldDecoration("Role name, e.g. Accountant", icon: Icons.badge_rounded)),
           const SizedBox(height: 8),
@@ -131,7 +131,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
       Padding(
         padding: const EdgeInsets.only(top: 10, bottom: 4),
         child: Row(children: [
-          Expanded(child: Text("Custom roles", style: GoogleFonts.inter(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800))),
+          Expanded(child: Text("Custom roles", style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800))),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: kForest, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: _busy ? null : _addRole,
@@ -141,7 +141,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
         ]),
       ),
       Text("Make your own roles, like Accountant. Every ability — staff, manager and admin — is a switch, and all start off. Turn on only what the role needs.",
-          style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
       const SizedBox(height: 12),
       if (widget.roles.isEmpty)
         ledgerCard(child: Center(child: Text("No custom roles yet.", style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.6)))))
@@ -170,7 +170,7 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(role["name"]?.toString() ?? "Role", style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: kDark)),
+              Text(role["name"]?.toString() ?? "Role", style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: kDark)),
               const SizedBox(height: 4),
               Text("${members.length} member${members.length == 1 ? "" : "s"}${full ? " · all admin access" : manager ? " · manager-level access" : ""}",
                   style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
@@ -203,13 +203,13 @@ class _CustomRolesSectionState extends State<CustomRolesSection> {
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), border: Border.all(color: const Color(0xFFF1F5F9)), borderRadius: BorderRadius.circular(12)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("MEMBERS", style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: kDark.withValues(alpha: 0.55))),
+            Text("MEMBERS", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: kDark.withValues(alpha: 0.55))),
             const SizedBox(height: 6),
-            if (members.isEmpty) Text("Nobody in this role yet.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+            if (members.isEmpty) Text("Nobody in this role yet.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final m in members)
                 InputChip(
-                  label: Text(m["name"]?.toString() ?? "Member", style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  label: Text(m["name"]?.toString() ?? "Member", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600)),
                   backgroundColor: Colors.white,
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
                   deleteIcon: const Icon(Icons.close_rounded, size: 16),

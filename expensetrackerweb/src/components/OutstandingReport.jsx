@@ -2,131 +2,91 @@ import { useCallback, useEffect, useState } from "react";
 import { getOutstandingReport } from "../api.js";
 import { money, roleNames } from "../utils.js";
 
-const th = { textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--muted)", padding: "8px 10px", borderBottom: "1px solid var(--slate-border)" };
-const td = { padding: "9px 10px", fontSize: 13, borderBottom: "1px solid var(--slate-border-2)" };
-const num = { ...td, textAlign: "right", whiteSpace: "nowrap" };
-
-function Tile({ label, value, color }) {
-  return (
-    <div className="stat-card">
-      <div style={{ fontSize: 10.5, color: "var(--muted)", fontWeight: 700, letterSpacing: 0.6, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color: color || "var(--dark-text)" }}>{money(value)}</div>
-    </div>
-  );
-}
-
-function PeopleTable({ title, rows }) {
-  return (
-    <div className="card" style={{ marginBottom: 16, padding: 0, overflowX: "auto" }}>
-      <h3 style={{ fontSize: 16, margin: 0, padding: "14px 14px 6px" }}>{title}</h3>
-      {rows.length === 0 ? (
-        <div style={{ color: "var(--muted)", padding: "6px 14px 16px", fontSize: 13 }}>Nothing outstanding.</div>
-      ) : (
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
-          <thead>
-            <tr>
-              <th style={th}>NAME</th>
-              <th style={{ ...th, textAlign: "right" }}>PAID, NOT REIMBURSED</th>
-              <th style={{ ...th, textAlign: "right" }}>APPROVED CLAIMS</th>
-              <th style={{ ...th, textAlign: "right" }}>COMPANY OWES</th>
-              <th style={{ ...th, textAlign: "right" }}>AWAITING APPROVAL</th>
-              <th style={{ ...th, textAlign: "right" }}>VOUCHER MONEY HELD</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.userId}>
-                <td style={td}><strong>{r.name}</strong></td>
-                <td style={num}>{money(r.recorded)}</td>
-                <td style={num}>{money(r.claims)}{r.claimCount ? <small style={{ color: "var(--muted)" }}> ({r.claimCount})</small> : null}</td>
-                <td style={{ ...num, fontWeight: 800, color: r.owed > 0 ? "var(--terracotta)" : "var(--dark-text)" }}>{money(r.owed)}</td>
-                <td style={{ ...num, color: "var(--muted)" }}>{money(r.awaitingApproval)}{r.awaitingCount ? <small> ({r.awaitingCount})</small> : null}</td>
-                <td style={{ ...num, color: r.advanceHeld > 0 ? "var(--forest)" : "var(--muted)" }}>{money(r.advanceHeld || 0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  );
-}
-
-// Who the company owes right now (managers, staff) and where it stands with other companies.
-export default function OutstandingReport({ companyId, company, userId, refreshKey }) {
+// Who the company owes right now (managers and staff) and where it stands with other companies. Kept short:
+// people and companies with nothing outstanding are left out.
+export default function OutstandingReport({ companyId, company, userId, role = "all", refreshKey }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    const res = await getOutstandingReport(companyId, userId);
+    const res = await getOutstandingReport(companyId, userId, role);
     if (res.success) {
       setData(res);
       setError("");
     } else setError(res.message || "Could not load outstanding report");
-  }, [companyId, userId]);
+  }, [companyId, userId, role]);
 
   useEffect(() => {
     load();
   }, [load, refreshKey]);
 
+  const names = roleNames(company);
+  const people = data
+    ? [
+        ...data.managers.map((r) => ({ ...r, role: names.manager })),
+        ...data.staff.map((r) => ({ ...r, role: names.staff })),
+      ]
+        .filter((r) => r.owed > 0 || r.awaitingApproval > 0 || (r.advanceHeld || 0) > 0)
+        .sort((a, b) => b.owed - a.owed)
+    : [];
+  const companies = data ? data.companies.filter((c) => c.weOwe > 0 || c.theyOwe > 0) : [];
+
   return (
-    <section style={{ marginTop: 28 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
-        <h2 style={{ fontSize: 20, margin: 0 }}>Outstanding</h2>
-        <button className="btn btn-outline" onClick={load}>Refresh</button>
-      </div>
+    <section className="report-section">
+      <h2>Outstanding</h2>
       {error ? (
         <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>
       ) : !data ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner" /></div>
+        <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner dark" /></div>
       ) : (
         <>
-          <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
-            <Tile label="OWED TO MANAGERS" value={data.totals.owedToManagers} color="var(--terracotta)" />
-            <Tile label="OWED TO STAFF" value={data.totals.owedToStaff} color="var(--terracotta)" />
-            <Tile label="WE OWE COMPANIES" value={data.totals.weOweCompanies} color="var(--terracotta)" />
-            <Tile label="COMPANIES OWE US" value={data.totals.companiesOweUs} color="var(--forest)" />
-            <Tile label="AWAITING APPROVAL" value={data.totals.awaitingApproval} />
-            <Tile label="VOUCHER MONEY WITH STAFF" value={data.totals.advanceHeld || 0} />
+          <div className="card report-strip">
+            <div><small>Owed to {names.managers.toLowerCase()}</small><strong className={data.totals.owedToManagers > 0 ? "out" : ""}>{money(data.totals.owedToManagers)}</strong></div>
+            <div><small>Owed to {names.staffs.toLowerCase()}</small><strong className={data.totals.owedToStaff > 0 ? "out" : ""}>{money(data.totals.owedToStaff)}</strong></div>
+            <div><small>Awaiting approval</small><strong>{money(data.totals.awaitingApproval)}</strong></div>
+            <div><small>We owe companies</small><strong className={data.totals.weOweCompanies > 0 ? "out" : ""}>{money(data.totals.weOweCompanies)}</strong></div>
+            <div><small>Companies owe us</small><strong className={data.totals.companiesOweUs > 0 ? "in" : ""}>{money(data.totals.companiesOweUs)}</strong></div>
           </div>
 
-          <PeopleTable title={roleNames(company).managers} rows={data.managers} />
-          <PeopleTable title={roleNames(company).staffs} rows={data.staff} />
-
-          <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-            <h3 style={{ fontSize: 16, margin: 0, padding: "14px 14px 6px" }}>Companies</h3>
-            {data.companies.length === 0 ? (
-              <div style={{ color: "var(--muted)", padding: "6px 14px 16px", fontSize: 13 }}>No open company loans.</div>
+          <div className="card report-list">
+            <h3>People</h3>
+            {people.length === 0 ? (
+              <p className="report-empty">Nobody is owed anything right now.</p>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-                <thead>
-                  <tr>
-                    <th style={th}>COMPANY</th>
-                    <th style={{ ...th, textAlign: "right" }}>WE OWE THEM</th>
-                    <th style={{ ...th, textAlign: "right" }}>THEY OWE US</th>
-                    <th style={{ ...th, textAlign: "right" }}>NET</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.companies.map((c) => (
-                    <tr key={c.companyId}>
-                      <td style={td}>
-                        <strong>{c.name}</strong>
-                        <small style={{ color: "var(--muted)" }}> · {c.loans} open loan{c.loans === 1 ? "" : "s"}{c.external ? " · outside company" : ""}</small>
-                      </td>
-                      <td style={num}>{money(c.weOwe)}</td>
-                      <td style={num}>{money(c.theyOwe)}</td>
-                      <td style={{ ...num, fontWeight: 800, color: c.net < 0 ? "var(--terracotta)" : "var(--forest)" }}>
-                        {c.net < 0 ? `We owe ${money(-c.net)}` : c.net > 0 ? `They owe ${money(c.net)}` : "Settled"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              people.map((r) => {
+                const details = [
+                  r.recorded > 0 ? `paid ${money(r.recorded)}` : "",
+                  r.claims > 0 ? `claims ${money(r.claims)}` : "",
+                  r.awaitingApproval > 0 ? `${money(r.awaitingApproval)} awaiting approval` : "",
+                  (r.advanceHeld || 0) > 0 ? `holds ${money(r.advanceHeld)} voucher money` : "",
+                ].filter(Boolean);
+                return (
+                  <div key={r.userId} className="report-row">
+                    <span>
+                      <strong>{r.name}</strong>
+                      <small>{r.role}{details.length ? ` · ${details.join(" · ")}` : ""}</small>
+                    </span>
+                    <b className={r.owed > 0 ? "out" : ""}>{r.owed > 0 ? money(r.owed) : "—"}</b>
+                  </div>
+                );
+              })
             )}
           </div>
-          <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
-            "Company owes" = paid out of pocket and not yet reimbursed + approved claims not yet paid. Awaiting approval is shown separately and not counted. "Voucher money held" is company money staff still have from vouchers.
-          </p>
+
+          {companies.length > 0 && (
+            <div className="card report-list">
+              <h3>Companies</h3>
+              {companies.map((c) => (
+                <div key={c.companyId} className="report-row">
+                  <span>
+                    <strong>{c.name}</strong>
+                    <small>{c.loans} open loan{c.loans === 1 ? "" : "s"}{c.external ? " · outside company" : ""}</small>
+                  </span>
+                  <b className={c.net < 0 ? "out" : "in"}>{c.net < 0 ? `We owe ${money(-c.net)}` : c.net > 0 ? `They owe ${money(c.net)}` : "Settled"}</b>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </section>

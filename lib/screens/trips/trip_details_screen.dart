@@ -94,7 +94,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 "Invite Members",
                 style: GoogleFonts.inter(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -142,7 +142,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       joinCode,
                       style: GoogleFonts.ibmPlexMono(
                         color: TripDetailsTheme.scaffoldBg,
-                        fontSize: 26,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 4,
                       ),
@@ -166,7 +166,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                   onPressed: () => Navigator.pop(sheetCtx),
                   child: Text(
                     "Done",
-                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
               ),
@@ -218,7 +218,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 "Remove Member",
                 style: GoogleFonts.inter(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -350,7 +350,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         "Edit Trip Details",
                         style: GoogleFonts.inter(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -504,7 +504,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.black.withValues(alpha: 0.1))),
-                                child: Text(startDate != null ? dateFmt.format(startDate!) : "Start Date", style: GoogleFonts.inter(fontSize: 12.5, color: TripDetailsTheme.darkText)),
+                                child: Text(startDate != null ? dateFmt.format(startDate!) : "Start Date", style: GoogleFonts.inter(fontSize: 13, color: TripDetailsTheme.darkText)),
                               ),
                             ),
                           ),
@@ -519,7 +519,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.black.withValues(alpha: 0.1))),
-                                child: Text(endDate != null ? dateFmt.format(endDate!) : "End Date", style: GoogleFonts.inter(fontSize: 12.5, color: TripDetailsTheme.darkText)),
+                                child: Text(endDate != null ? dateFmt.format(endDate!) : "End Date", style: GoogleFonts.inter(fontSize: 13, color: TripDetailsTheme.darkText)),
                               ),
                             ),
                           ),
@@ -558,7 +558,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               _refreshTrip();
                             }
                           },
-                          child: Text("Save Trip Details", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          child: Text("Save Trip Details", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                       ),
                     ],
@@ -613,7 +613,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                 isOrganizer ? "Delete Trip" : "Leave Trip",
                 style: GoogleFonts.inter(
                   color: Colors.white,
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -824,7 +824,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   style: GoogleFonts.inter(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
+                                    fontSize: 13,
                                   ),
                                 ),
                               ],
@@ -866,7 +866,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 currencyFormatter.format(totalBudget),
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
-                                  fontSize: 18,
+                                  fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -942,7 +942,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12.5,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -964,7 +964,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                     style: GoogleFonts.inter(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12.5,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -1045,7 +1045,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                                 style: GoogleFonts.inter(
                                                   color: TripDetailsTheme.darkText,
                                                   fontWeight: FontWeight.bold,
-                                                  fontSize: 14.5,
+                                                  fontSize: 14,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -1062,7 +1062,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                                   "AUTO",
                                                   style: GoogleFonts.ibmPlexMono(
                                                     color: TripDetailsTheme.scaffoldBg,
-                                                    fontSize: 9,
+                                                    fontSize: 10,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
@@ -1079,7 +1079,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                                   : "Member Share",
                                           style: GoogleFonts.inter(
                                             color: TripDetailsTheme.textMuted,
-                                            fontSize: 11.5,
+                                            fontSize: 12,
                                           ),
                                         ),
                                       ],
@@ -1100,19 +1100,19 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                       style: GoogleFonts.ibmPlexMono(
                                         color: TripDetailsTheme.darkText,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 15,
+                                        fontSize: 16,
                                       ),
                                       decoration: InputDecoration(
                                         prefixText: !isPercentageMode ? "$symbol " : null,
                                         suffixText: isPercentageMode ? " %" : null,
                                         prefixStyle: GoogleFonts.ibmPlexMono(
                                           color: TripDetailsTheme.textMuted,
-                                          fontSize: 13.5,
+                                          fontSize: 14,
                                         ),
                                         suffixStyle: GoogleFonts.ibmPlexMono(
                                           color: TripDetailsTheme.textMuted,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 13.5,
+                                          fontSize: 14,
                                         ),
                                         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                         filled: true,
@@ -1184,7 +1184,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                         ),
                       ),
@@ -1223,7 +1223,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 22,
+            fontSize: 20,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -1288,7 +1288,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -1316,7 +1316,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           style: GoogleFonts.inter(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -1342,7 +1342,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
               return Center(
                 child: Text(
                   "Trip details not found.",
-                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 15),
+                  style: GoogleFonts.inter(color: Colors.white70, fontSize: 16),
                 ),
               );
             }
@@ -1425,7 +1425,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                       style: GoogleFonts.ibmPlexMono(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ],
@@ -1440,7 +1440,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           name,
                           style: GoogleFonts.inter(
                             color: TripDetailsTheme.darkText,
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -1453,7 +1453,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                             Expanded(
                               child: Text(
                                 "$fromLoc ➔ $toLoc",
-                                style: GoogleFonts.inter(color: TripDetailsTheme.darkText.withValues(alpha: 0.8), fontSize: 14.5),
+                                style: GoogleFonts.inter(color: TripDetailsTheme.darkText.withValues(alpha: 0.8), fontSize: 14),
                               ),
                             ),
                           ],
@@ -1476,7 +1476,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 const SizedBox(height: 2),
                                 Text(
                                   currencyFormatter.format(budget),
-                                  style: GoogleFonts.ibmPlexMono(color: TripDetailsTheme.darkText, fontSize: 17, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.ibmPlexMono(color: TripDetailsTheme.darkText, fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -1493,7 +1493,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                   Text(
                                     dateStr,
                                     textAlign: TextAlign.end,
-                                    style: GoogleFonts.inter(color: TripDetailsTheme.darkText, fontSize: 11.5, fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.inter(color: TripDetailsTheme.darkText, fontSize: 12, fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                     maxLines: 2,
                                   ),
@@ -1515,7 +1515,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           "Budget Split Breakdown",
                           style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontSize: 19,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             fontStyle: FontStyle.italic,
                           ),
@@ -1602,7 +1602,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                         style: GoogleFonts.inter(
                                           color: TripDetailsTheme.darkText,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 15,
+                                          fontSize: 16,
                                         ),
                                       ),
                                       if (isMe) ...[
@@ -1686,7 +1686,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           style: GoogleFonts.inter(
                             color: const Color(0xFFEF4444),
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                         ),
                       ),
@@ -1793,7 +1793,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                                 style: GoogleFonts.ibmPlexMono(
                                   color: isSelected ? Colors.white : TripDetailsTheme.darkText,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                 ),
                               ),
                               const SizedBox(width: 8),

@@ -143,7 +143,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
                             color: Colors.white,
-                            fontSize: 22,
+                            fontSize: 20,
                             fontWeight: FontWeight.w600,
                             fontStyle: FontStyle.italic,
                           ),
@@ -244,7 +244,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                                           "₹${totalDueAmount.toStringAsFixed(0)}",
                                           style: GoogleFonts.inter(
                                             color: const Color(0xFF1E293B),
-                                            fontSize: 24,
+                                            fontSize: 22,
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
@@ -455,14 +455,14 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                     style: GoogleFonts.inter(
                       color: const Color(0xFF1E293B),
                       fontWeight: FontWeight.bold,
-                      fontSize: 11.5,
+                      fontSize: 12,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Text(
                   "× ${item["count"]} times",
-                  style: GoogleFonts.inter(color: Colors.black45, fontSize: 11.5),
+                  style: GoogleFonts.inter(color: Colors.black45, fontSize: 12),
                 ),
               ],
             ),
@@ -485,7 +485,7 @@ class _ViewReminderPageState extends State<ViewReminderPage> {
                       const SizedBox(width: 4),
                       Text(
                         t.toString(),
-                        style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 11.5, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.inter(color: const Color(0xFF1E293B), fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -576,7 +576,7 @@ class _ReminderCreditCard extends StatelessWidget {
                     Text(bank.isEmpty ? 'BANK NAME' : bank.toUpperCase(),
                         style: TextStyle(color: textColor, fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 1.1),
                         overflow: TextOverflow.ellipsis),
-                    Text('CREDIT CARD', style: TextStyle(color: subtext, fontSize: 8, letterSpacing: 2)),
+                    Text('CREDIT CARD', style: TextStyle(color: subtext, fontSize: 10, letterSpacing: 2)),
                   ])),
                   // paid/unpaid badge
                   GestureDetector(
@@ -614,15 +614,15 @@ class _ReminderCreditCard extends StatelessWidget {
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text("AMOUNT DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
+                      Text("AMOUNT DUE", style: TextStyle(color: subtext, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.5)),
                       const SizedBox(height: 3),
-                      Text("₹$amount", style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
+                      Text("₹$amount", style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis),
                     ]),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text("STMT / DUE", style: TextStyle(color: subtext, fontSize: 8, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
+                      Text("STMT / DUE", style: TextStyle(color: subtext, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2)),
                       const SizedBox(height: 3),
                       Text("$statementDate  /  $paymentDate",
                           style: TextStyle(color: textColor, fontSize: 10, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
@@ -663,7 +663,7 @@ class _Btn extends StatelessWidget {
               const SizedBox(width: 7),
               Text(
                 label,
-                style: GoogleFonts.inter(color: color, fontWeight: FontWeight.bold, fontSize: 13.5),
+                style: GoogleFonts.inter(color: color, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
           ),
@@ -692,7 +692,7 @@ class _ConfirmDlg extends StatelessWidget {
         ),
         title: Text(
           title,
-          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18),
+          style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 20),
         ),
         content: Text(
           message,
@@ -715,7 +715,7 @@ class _ConfirmDlg extends StatelessWidget {
             onPressed: onConfirm,
             child: Text(
               confirmLabel,
-              style: GoogleFonts.inter(color: confirmColor == const Color(0xFF10B981) ? const Color(0xFF113F3D) : Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+              style: GoogleFonts.inter(color: confirmColor == const Color(0xFF10B981) ? const Color(0xFF113F3D) : Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
         ],

@@ -345,7 +345,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
         maxLength: maxLength,
         style: GoogleFonts.inter(
           color: _darkText,
-          fontSize: 15,
+          fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
         decoration: InputDecoration(
@@ -419,7 +419,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
               date == null ? "Select Date" : format.format(date),
               style: GoogleFonts.inter(
                 color: _darkText,
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -476,7 +476,7 @@ class _UpdateCardScreenState extends State<UpdateCardScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 22,
+            fontSize: 20,
           ),
         ),
         centerTitle: true,

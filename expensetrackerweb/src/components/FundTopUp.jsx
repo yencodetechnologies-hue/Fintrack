@@ -90,7 +90,7 @@ function AddFundModal({ companyId, user, funds, fund, need, onClose, onAdded }) 
       <form onSubmit={submit}>
         <label className="field-label">Amount (₹) *</label>
         <input className="field-input" type="number" step="0.01" min={shortBy} value={amountText} onChange={(e) => setAmountText(e.target.value)} />
-        <small style={{ display: "block", marginTop: 4, color: "var(--muted)", fontSize: 11.5 }}>At least {money(shortBy)}</small>
+        <small style={{ display: "block", marginTop: 4, color: "var(--muted)", fontSize: 12 }}>At least {money(shortBy)}</small>
         <label className="field-label" style={{ display: "block", marginTop: 12 }}>Money coming from *</label>
         <select className="field-select" value={source} onChange={(e) => setSource(e.target.value)}>
           <option value="direct">{isCash ? "Direct cash (new money)" : "Direct income (new money)"}</option>

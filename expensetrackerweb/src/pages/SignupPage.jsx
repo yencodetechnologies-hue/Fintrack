@@ -37,8 +37,8 @@ export default function SignupPage() {
 
   return (
     <AuthLayout>
-      <h1 style={{ fontSize: 24, margin: "0 0 4px" }}>Create your account</h1>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, margin: "0 0 24px" }}>
+      <h1 style={{ fontSize: 22, margin: "0 0 4px" }}>Create your account</h1>
+      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 24px" }}>
         Join Expense Tracker in a minute.
       </p>
 
@@ -80,7 +80,7 @@ export default function SignupPage() {
           {loading ? "Creating account..." : "Sign up"}
         </button>
 
-        <p style={{ textAlign: "center", fontSize: 13.5, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
+        <p style={{ textAlign: "center", fontSize: 14, color: "var(--muted)", marginTop: 18, marginBottom: 0 }}>
           Already have an account? <Link to="/login" style={{ color: "var(--forest)", fontWeight: 700 }}>Sign in</Link>
         </p>
       </form>

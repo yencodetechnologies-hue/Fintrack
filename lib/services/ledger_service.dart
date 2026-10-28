@@ -66,6 +66,12 @@ class LedgerService {
 
   static Future<Map<String, dynamic>> userCompanies(String userId) =>
       _get("$_company/user/$userId/companies");
+  /// All my companies including the ones I removed from my list (each has hiddenFromList).
+  static Future<Map<String, dynamic>> userCompaniesWithHidden(String userId) =>
+      _get("$_company/user/$userId/companies?includeHidden=1");
+  /// Admin only: remove a company from MY list (hidden: true) or restore it. The company itself is untouched.
+  static Future<Map<String, dynamic>> setCompanyHidden(String companyId, String userId, bool hidden) =>
+      _post("$_base/companies/$companyId/hide", {"userId": userId, "hidden": hidden});
 
   static Future<Map<String, dynamic>> _delete(String url, Map<String, dynamic> body) async {
     try {
@@ -220,6 +226,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> loans(String companyId, String userId) =>
       _get("$_base/companies/$companyId/loans?userId=$userId");
 
+  /// Every loan with one company / person as a statement (oldest first, running balance; > 0 = we owe them).
+  static Future<Map<String, dynamic>> loanPartyStatement(String companyId, String partyId, String userId) =>
+      _get("$_base/companies/$companyId/loan-parties/$partyId?userId=$userId");
+
   static Future<Map<String, dynamic>> payerConfirmations(String companyId, String userId) =>
       _get("$_base/companies/$companyId/payer-confirmations?userId=$userId");
 
@@ -299,7 +309,12 @@ class LedgerService {
   static Future<Map<String, dynamic>> descriptionSuggestions(String companyId, String userId, String kind) =>
       _get("$_base/companies/$companyId/descriptions?userId=$userId&kind=$kind");
 
-  /// Accounts screen: each day's money in/out, expenses and closing Cash + Bank balance (from/to as yyyy-MM-dd).
+  /// Accounts statement: every money in/out with the balance after it, searched and paged on the server.
+  static Future<Map<String, dynamic>> accountsEntries(String companyId, String userId,
+          {required String from, required String to, String q = "", int page = 1, int limit = 25}) =>
+      _get("$_base/companies/$companyId/accounts/entries?userId=$userId&from=$from&to=$to&q=${Uri.encodeQueryComponent(q)}&page=$page&limit=$limit");
+
+  /// Accounts by day (older view): each day's money in/out, expenses and closing Cash + Bank balance.
   static Future<Map<String, dynamic>> accountsDays(String companyId, String userId, String from, String to) =>
       _get("$_base/companies/$companyId/accounts?userId=$userId&from=$from&to=$to");
 

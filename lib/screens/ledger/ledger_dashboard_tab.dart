@@ -174,7 +174,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
                     Expanded(
                       child: Text(o.value,
                           style: GoogleFonts.inter(
-                              fontSize: 13.5, fontWeight: o.key == _totalPeriod ? FontWeight.w700 : FontWeight.w500, color: o.key == _totalPeriod ? kForest : kForest)),
+                              fontSize: 14, fontWeight: o.key == _totalPeriod ? FontWeight.w700 : FontWeight.w500, color: o.key == _totalPeriod ? kForest : kForest)),
                     ),
                     if (o.key == _totalPeriod) const Icon(Icons.check_rounded, size: 18, color: kForest),
                   ]),
@@ -187,7 +187,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             borderRadius: BorderRadius.circular(99),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.7) : kForest)),
+            Text(_periodLabel, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.7) : kForest)),
             Icon(Icons.expand_more_rounded, size: 15, color: _totalPeriod == "month" ? kForest.withValues(alpha: 0.6) : kForest),
           ]),
         ),
@@ -252,7 +252,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         extendedPadding: const EdgeInsets.symmetric(horizontal: 16),
         onPressed: () => showPostExpenseSheet(context, s, existing: _expenses, advance: myAdvance, onDone: _load),
         icon: const Icon(Icons.add_rounded, color: kForest, size: 20),
-        label: Text("Expense", style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 13.5)),
+        label: Text("Expense", style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 14)),
       ),
       body: RefreshIndicator(
       onRefresh: _load,
@@ -339,7 +339,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
                   maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 13, color: kForest)),
               const SizedBox(height: 1),
               Text("${postedByName(e, s.companyName)} · ${expenseStatusLabel(e, s.companyName)}",
-                  maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 10.5, color: kForest.withValues(alpha: 0.55))),
+                  maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kForest.withValues(alpha: 0.55))),
             ]),
           ),
           const SizedBox(width: 10),
@@ -358,7 +358,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
         decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-        child: Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5)),
+        child: Text(text, style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
       );
 
   Widget _todayShimmer() => Column(
@@ -378,7 +378,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
       );
 
   static TextStyle get _statLabel =>
-      GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.5);
+      GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5);
 
   /// The one big figure at the top (company balance for managers, what the company owes staff).
   Widget _heroCard(_Stat h) => Material(
@@ -400,7 +400,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
-                      child: Text(h.value!, style: GoogleFonts.inter(color: h.color, fontSize: 22, fontWeight: FontWeight.w800)),
+                      child: Text(h.value!, style: GoogleFonts.inter(color: h.color, fontSize: 20, fontWeight: FontWeight.w800)),
                     ),
                   if (h.sub != null)
                     Text(h.sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.55), fontSize: 11)),
@@ -452,10 +452,10 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
-                child: Text(c.value!, style: GoogleFonts.inter(color: c.color, fontSize: 15, fontWeight: FontWeight.w700)),
+                child: Text(c.value!, style: GoogleFonts.inter(color: c.color, fontSize: 16, fontWeight: FontWeight.w700)),
               ),
             if (c.sub != null)
-              Text(c.sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 10.5)),
+              Text(c.sub!, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.5), fontSize: 11)),
           ]),
         ),
       );
@@ -472,7 +472,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Icon(icon, color: kForest, size: 18),
               const SizedBox(height: 3),
-              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w600, fontSize: 11.5)),
+              Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w600, fontSize: 12)),
             ]),
           ),
         ),
@@ -489,13 +489,13 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
             Text(t["memo"]?.toString() ?? "Transaction",
-                maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kForest)),
+                maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: kForest)),
             const SizedBox(height: 2),
             Text("${nameOf(t["createdBy"], "Manager")} · ${dateLabel(t["createdAt"])}",
-                style: GoogleFonts.inter(fontSize: 10.5, color: kForest.withValues(alpha: 0.6))),
+                style: GoogleFonts.inter(fontSize: 11, color: kForest.withValues(alpha: 0.6))),
           ]),
         ),
-        Text(inr(amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 12.5, color: kForest)),
+        Text(inr(amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13, color: kForest)),
         const SizedBox(width: 6),
         if (!mine)
           TextButton(
@@ -524,7 +524,7 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
         (ctx) => StatefulBuilder(
               builder: (ctx, set) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text("You put your own money into ${s.companyName}. The company owes you this amount until it pays you back.",
-                    style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+                    style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
                 const SizedBox(height: 12),
                 TextField(
                     controller: amount,
@@ -704,13 +704,13 @@ class BillsPreview extends StatelessWidget {
     if (loading) {
       return Padding(
         padding: const EdgeInsets.only(top: 10),
-        child: Text("Loading open bills…", style: GoogleFonts.inter(fontSize: 12.5, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.6))),
+        child: Text("Loading open bills…", style: GoogleFonts.inter(fontSize: 13, fontStyle: FontStyle.italic, color: kDark.withValues(alpha: 0.6))),
       );
     }
     if (bills.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 10),
-        child: Text("No open bills.", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+        child: Text("No open bills.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
       );
     }
     var left = amount;
@@ -733,7 +733,7 @@ class BillsPreview extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text("Approved claims this payment reaches are recorded as paid by this person, then closed.",
-                style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
           ),
         const SizedBox(height: 6),
         Container(
@@ -755,7 +755,7 @@ class BillsPreview extends StatelessWidget {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(r.bill["description"]?.toString() ?? "Payable",
-                          maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: kDark)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: kDark)),
                       Text(
                         [
                           dateLabel(r.bill["date"]),
@@ -768,7 +768,7 @@ class BillsPreview extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text(inr(r.remaining), style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 12.5, color: kDark)),
+                    Text(inr(r.remaining), style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13, color: kDark)),
                     Text(r.state == "closed" ? "✓ Will be closed" : r.state == "partial" ? "Partly paid ${inr(r.applied)}" : "Stays open",
                         style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.bold, color: stateColor)),
                   ]),

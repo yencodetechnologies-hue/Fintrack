@@ -4,7 +4,7 @@ export default function ConfirmDialog({ title, message, confirmLabel = "Confirm"
   return (
     <Modal onClose={onCancel} maxWidth={380}>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <p style={{ color: "var(--muted)", fontSize: 13.5, lineHeight: 1.5 }}>{message}</p>
+      <p style={{ color: "var(--muted)", fontSize: 14, lineHeight: 1.5 }}>{message}</p>
       <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
         <button className="btn btn-outline" style={{ flex: 1 }} onClick={onCancel}>
           Cancel

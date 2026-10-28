@@ -179,7 +179,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                     Expanded(
                         child: Text("Add members",
                             style: GoogleFonts.inter(
-                                fontSize: 21, fontWeight: FontWeight.bold))),
+                                fontSize: 20, fontWeight: FontWeight.bold))),
                     IconButton(
                         onPressed: () => Navigator.pop(sheetContext),
                         icon: const Icon(Icons.close_rounded)),
@@ -280,7 +280,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                         Text(widget.groupName,
                             style: GoogleFonts.inter(
                                 color: Colors.white,
-                                fontSize: 24,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold)),
                         const SizedBox(height: 6),
                         Text(
@@ -357,7 +357,7 @@ class _GroupSettingsScreenState extends State<GroupSettingsScreen> {
                                   style: const TextStyle(
                                       color: darkText,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 15),
+                                      fontSize: 16),
                                 ),
                                 subtitle: Text(
                                   isAdmin

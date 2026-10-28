@@ -12,7 +12,7 @@ export default function ProfilePage() {
     <AppLayout title="Profile">
       <main className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>
         <div className="eyebrow" style={{ marginBottom: 10 }}>Account</div>
-        <h1 style={{ color: "#fff", fontSize: 36, margin: "0 0 10px" }}>Your profile</h1>
+        <h1 style={{ color: "#fff", fontSize: 22, margin: "0 0 10px" }}>Your profile</h1>
         <p style={{ color: "rgba(255,255,255,0.68)", margin: "0 0 28px", maxWidth: 520 }}>
           Your account details.
         </p>

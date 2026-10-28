@@ -341,7 +341,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
               style: GoogleFonts.inter(
                 color: _darkText,
                 fontWeight: FontWeight.bold,
-                fontSize: 18,
+                fontSize: 20,
               ),
             ),
           ],
@@ -383,7 +383,7 @@ class _LendLiabilityPageState extends State<LendLiabilityPage>
                 style: GoogleFonts.inter(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13.5,
+                  fontSize: 14,
                 ),
               ),
             ),
@@ -1114,7 +1114,7 @@ class _LendCard extends StatelessWidget {
                       style: GoogleFonts.inter(
                         color: activeColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 20,
                       ),
                     ),
                   ),
@@ -1137,7 +1137,7 @@ class _LendCard extends StatelessWidget {
                         entry.reason,
                         style: GoogleFonts.inter(
                           color: Colors.black54,
-                          fontSize: 12.5,
+                          fontSize: 13,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1284,7 +1284,7 @@ class _LiabilityCard extends StatelessWidget {
                       style: GoogleFonts.inter(
                         color: activeColor,
                         fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                        fontSize: 20,
                       ),
                     ),
                   ),
@@ -1307,7 +1307,7 @@ class _LiabilityCard extends StatelessWidget {
                         entry.reason,
                         style: GoogleFonts.inter(
                           color: Colors.black54,
-                          fontSize: 12.5,
+                          fontSize: 13,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1423,7 +1423,7 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
                   style: GoogleFonts.inter(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 19,
+                    fontSize: 20,
                   ),
                 ),
               ],
@@ -1453,7 +1453,7 @@ class _BottomSheetFormState extends State<_BottomSheetForm> {
                       icon: Icon(widget.buttonIcon, size: 20, color: Colors.white),
                       label: Text(
                         widget.buttonLabel,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.accentColor == const Color(0xFF10B981) ? const Color(0xFF00B074) : widget.accentColor,
@@ -1497,7 +1497,7 @@ class _FormField extends StatelessWidget {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+      style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
       validator: (v) => (v == null || v.trim().isEmpty) ? "Enter $label" : null,
       decoration: InputDecoration(
         labelText: label,
@@ -1594,7 +1594,7 @@ class _SummaryCard extends StatelessWidget {
             "₹${amount.toStringAsFixed(2)}",
             style: GoogleFonts.inter(
               color: const Color(0xFF1E293B),
-              fontSize: 32,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
             ),
@@ -1685,7 +1685,7 @@ class _InfoChip extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: GoogleFonts.inter(color: Colors.black54, fontSize: 10.5, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.inter(color: Colors.black54, fontSize: 11, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: 1),
                 Text(
@@ -1735,7 +1735,7 @@ class _ActionButton extends StatelessWidget {
             const SizedBox(width: 7),
             Text(
               label,
-              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.5),
+              style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ],
         ),
@@ -1822,7 +1822,7 @@ class _EmptyState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500, height: 1.6),
+            style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500, height: 1.6),
           ),
         ],
       ),

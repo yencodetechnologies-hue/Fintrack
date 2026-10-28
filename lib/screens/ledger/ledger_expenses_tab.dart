@@ -56,6 +56,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
   @override
   void dispose() {
     _search.dispose();
+    _listScroll.dispose();
     super.dispose();
   }
 
@@ -115,12 +116,71 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     });
   }
 
+  // Pagination: 25 a page over the filtered list, still grouped by day. A day split across pages keeps its full
+  // count and total in its header. Any filter / search change goes back to page 1.
+  static const int _perPage = 25;
+  int _page = 1;
+  String _pageFilterSig = "";
+  final ScrollController _listScroll = ScrollController();
+
+  void _goToPage(int page) {
+    setState(() => _page = page);
+    if (_listScroll.hasClients) _listScroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  }
+
+  Widget _pager(int total, int pages) {
+    Widget button(IconData icon, String label, VoidCallback? onTap, {bool iconAfter = false}) => Material(
+          color: Colors.white.withValues(alpha: onTap == null ? 0.06 : 0.14),
+          shape: const StadiumBorder(),
+          child: InkWell(
+            customBorder: const StadiumBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (!iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
+                Text(label, style: GoogleFonts.inter(color: onTap == null ? Colors.white30 : Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                if (iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
+              ]),
+            ),
+          ),
+        );
+    final first = (_page - 1) * _perPage + 1;
+    final last = (_page * _perPage).clamp(0, total);
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(children: [
+        Text("$first–$last of $total", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+        const Spacer(),
+        button(Icons.chevron_left_rounded, "Prev", _page > 1 ? () => _goToPage(_page - 1) : null),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text("$_page / $pages", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+        ),
+        button(Icons.chevron_right_rounded, "Next", _page < pages ? () => _goToPage(_page + 1) : null, iconAfter: true),
+      ]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final list = _filtered;
-    final groups = <String, List<Map<String, dynamic>>>{};
+    // every day's full list (for the header count/total), then just this page's expenses grouped by day
+    final dayAll = <String, List<Map<String, dynamic>>>{};
     for (final e in list) {
+      dayAll.putIfAbsent(_dayKey(e), () => []).add(e);
+    }
+    final sig = "$_status|${_search.text.trim()}|$_postedBy|$_from|$_to";
+    if (sig != _pageFilterSig) {
+      _pageFilterSig = sig;
+      _page = 1;
+    }
+    final pages = list.isEmpty ? 1 : (list.length / _perPage).ceil();
+    if (_page > pages) _page = pages;
+    final pageItems = list.skip((_page - 1) * _perPage).take(_perPage);
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final e in pageItems) {
       groups.putIfAbsent(_dayKey(e), () => []).add(e);
     }
 
@@ -138,6 +198,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
           : RefreshIndicator(
               onRefresh: _load,
               child: ListView(
+                controller: _listScroll,
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                 children: [
                   SingleChildScrollView(
@@ -167,7 +228,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(children: [
                         Text("${list.length} ${list.length == 1 ? "expense" : "expenses"} · Total",
-                            style: GoogleFonts.inter(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                            style: GoogleFonts.inter(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
                         const Spacer(),
                         Text(inr(list.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0))),
                             style: GoogleFonts.inter(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
@@ -191,8 +252,10 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                         if (_filtering) TextButton(onPressed: _reset, child: const Text("Reset filters", style: TextStyle(color: Colors.white))),
                       ]),
                     )
-                  else
-                    ...groups.entries.map((g) => _group(g.key, g.value)),
+                  else ...[
+                    ...groups.entries.map((g) => _group(g.key, g.value, dayItems: dayAll[g.key])),
+                    _pager(list.length, pages),
+                  ],
                 ],
               ),
             ),
@@ -235,8 +298,11 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     );
   }
 
-  Widget _group(String key, List<Map<String, dynamic>> items) {
-    final total = items.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0));
+  /// One day's expenses on this page; dayItems = all of that day's matching expenses (count and total in the header).
+  Widget _group(String key, List<Map<String, dynamic>> items, {List<Map<String, dynamic>>? dayItems}) {
+    final all = dayItems ?? items;
+    final total = all.fold<num>(0, (sum, e) => sum + ((e["amount"] as num?) ?? 0));
+    final continued = all.isNotEmpty && items.isNotEmpty && !identical(all.first, items.first);
     final d = DateTime.tryParse(key);
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
@@ -258,12 +324,12 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white),
               const SizedBox(width: 5),
-              Text(label, style: GoogleFonts.inter(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700)),
+              Text(label, style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
             ]),
           ),
           const Spacer(),
-          Text("${items.length} ${items.length == 1 ? "expense" : "expenses"} · ${inr(total)}",
-              style: GoogleFonts.inter(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.w600)),
+          Text("${continued ? "continued · " : ""}${all.length} ${all.length == 1 ? "expense" : "expenses"} · ${inr(total)}",
+              style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
         ]),
       ),
       Container(
@@ -320,7 +386,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
             const SizedBox(width: 5),
             Expanded(
               child: Text(expenseStatusLabel(e, s.companyName),
-                  style: GoogleFonts.inter(fontSize: 11.5, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.65))),
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.65))),
             ),
             if (action != null) action,
           ]),
@@ -339,7 +405,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
             padding: const EdgeInsets.symmetric(horizontal: 14),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          child: Text(label, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.bold)),
+          child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold)),
         ),
       );
 }
@@ -361,8 +427,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
   const borrow = "__borrow__", outside = "__outside__";
   List<Map<String, dynamic>>? lenders; // loaded the first time Borrowed is picked
   String? lenderId;
-  final outsideName = TextEditingController();
-  final outsideGstin = TextEditingController();
+  final outsideLender = NewLender();
   final hidden = s.hiddenStaffIds.toSet();
   final visibleTo = s.members.map((m) => m["userId"].toString()).where((id) => !hidden.contains(id)).toSet();
 
@@ -373,14 +438,12 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
     final other = fund.startsWith("co:") ? fund.split(":") : null;
     final isBorrow = s.isAdmin && postAs == "company" && (fund == borrow || other != null);
     if (isBorrow && other == null) {
-      if (lenderId == null) return toast(ctx, "Choose the company you borrowed from", error: true);
-      if (lenderId == outside && (outsideName.text.trim().isEmpty || outsideGstin.text.trim().isEmpty)) {
-        return toast(ctx, "Enter the outside company's name and GSTIN", error: true);
-      }
+      if (lenderId == null) return toast(ctx, "Choose who you borrowed from", error: true);
+      if (lenderId == outside && outsideLender.error != null) return toast(ctx, outsideLender.error!, error: true);
     }
     final res = await LedgerService.createExpense({
       if (other != null) ...{"sourceCompanyId": other[1], "sourceFundId": other[2]},
-      if (isBorrow && other == null && lenderId == outside) "newCompany": {"name": outsideName.text.trim(), "gstin": outsideGstin.text.trim().toUpperCase()},
+      if (isBorrow && other == null && lenderId == outside) "newCompany": outsideLender.body,
       if (isBorrow && other == null && lenderId != outside) "sourceCompanyId": lenderId,
       "companyId": s.companyId,
       "userId": s.userId,
@@ -460,7 +523,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
         }
 
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("Record a new expense for ${s.companyName}", style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+          Text("Record a new expense for ${s.companyName}", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
           const SizedBox(height: 12),
           if (s.isAdmin && s.can("post_as_company")) ...[
             Text("Post expense as", style: labelStyle),
@@ -485,7 +548,8 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                 items: [
                   ...s.funds.map((f) => DropdownMenuItem(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis))),
                   // my other companies' Cash/Bank: paying from one books it as borrowed from that company
-                  if (s.can("intercompany"))
+                  // borrowing straight from Add Expense: the company Admin only
+                  if (s.isPrimary && s.can("intercompany"))
                     for (final c in s.managedOtherCompanies) ...[
                       DropdownMenuItem(
                         value: "co:${c["_id"]}:cash",
@@ -497,7 +561,8 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                           child: Text("${c["name"]} · ${bankLabel(b)} · ${inr(b["balance"] ?? 0)}", overflow: TextOverflow.ellipsis),
                         ),
                     ],
-                  if (s.can("intercompany")) const DropdownMenuItem(value: borrow, child: Text("Borrowed from another company…")),
+                  // borrowing straight from Add Expense: the company Admin only
+                  if (s.isPrimary && s.can("intercompany")) const DropdownMenuItem(value: borrow, child: Text("Borrowed from another company…")),
                 ],
                 onChanged: (v) {
                   set(() => fund = v ?? "cash");
@@ -516,29 +581,24 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text("${otherCo["name"]} pays this, so ${s.companyName} borrows ${amt > 0 ? inr(amt) : "the amount"} from it. It shows under Borrowed here and Lent there until repaid.",
-                      style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                      style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
                 ),
               if (fund == borrow) ...[
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   initialValue: lenderId,
                   isExpanded: true,
-                  decoration: fieldDecoration(lenders == null ? "Loading companies…" : "Lender company *", icon: Icons.business_rounded),
+                  decoration: fieldDecoration(lenders == null ? "Loading…" : "Borrowed from *", icon: Icons.business_rounded),
                   items: [
-                    ...(lenders ?? const []).map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(c["name"].toString(), overflow: TextOverflow.ellipsis))),
-                    const DropdownMenuItem(value: outside, child: Text("An outside company…")),
+                    ...(lenders ?? const []).map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis))),
+                    const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
                   ],
                   onChanged: (v) => set(() => lenderId = v),
                 ),
-                if (lenderId == outside) ...[
-                  const SizedBox(height: 8),
-                  TextField(controller: outsideName, decoration: fieldDecoration("Company name *", icon: Icons.business_rounded)),
-                  const SizedBox(height: 8),
-                  TextField(controller: outsideGstin, textCapitalization: TextCapitalization.characters, decoration: fieldDecoration("GSTIN *", icon: Icons.badge_rounded)),
-                ],
+                if (lenderId == outside) ...outsideLender.fields(set),
                 const SizedBox(height: 6),
                 Text("${s.companyName} borrows ${amt > 0 ? inr(amt) : "the amount"} from this company to pay the expense; it shows under Borrowed until repaid. A registered company you don't manage confirms it first.",
-                    style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                    style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
               ],
               if (insufficient)
                 Padding(
@@ -607,7 +667,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
               controlAffinity: ListTileControlAffinity.leading,
               value: useAdvance,
               onChanged: (v) => set(() => useAdvance = v == true),
-              title: Text("Use my voucher balance (${inr(advance)})", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13.5, color: kDark)),
+              title: Text("Use my voucher balance (${inr(advance)})", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14, color: kDark)),
               subtitle: Text(
                 amt > 0
                     ? (amt > advance ? "${inr(advance)} from your balance, company owes you ${inr(amt - advance)}." : "All ${inr(amt)} comes from your balance.")
@@ -633,7 +693,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                 );
               }).toList(),
             ),
-            Text("Choose which staff can view this expense in their list.", style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+            Text("Choose which staff can view this expense in their list.", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
           ],
           const SizedBox(height: 10),
           OutlinedButton.icon(

@@ -23,6 +23,11 @@ const companyMemberSchema = new mongoose.Schema(
     },
     // where this person put the company in their own companies list (0 = top); null = never arranged
     sortOrder: { type: Number, default: null },
+    // Removed from this person's own company list (Admin only). The company itself is untouched; Restore brings it back.
+    hiddenFromList: {
+      type: Boolean,
+      default: false,
+    },
     // Members this manager last unticked under "Visible To" when posting; new members stay visible.
     hiddenStaffIds: {
       type: [mongoose.Schema.Types.ObjectId],

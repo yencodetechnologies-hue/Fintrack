@@ -99,7 +99,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 22,
+            fontSize: 20,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -163,7 +163,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                           textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                             color: TripHistoryTheme.textMuted,
-                            fontSize: 13.5,
+                            fontSize: 14,
                           ),
                         ),
                       ],
@@ -336,7 +336,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                                   dateStr,
                                   style: GoogleFonts.inter(
                                     color: TripHistoryTheme.textMuted,
-                                    fontSize: 12.5,
+                                    fontSize: 13,
                                   ),
                                 ),
                                 Text(

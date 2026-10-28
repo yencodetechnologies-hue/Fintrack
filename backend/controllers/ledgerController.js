@@ -436,6 +436,10 @@ exports.createExpense = handle(async (req, res) => {
   await requirePermission(companyId, userId, "post_expenses");
   if (isCompanyPost) await requirePermission(companyId, userId, "post_as_company");
   if (isBorrowPost) {
+    // posting an expense straight as borrowed from another company: the company Admin only
+    if (role !== "super_admin" && (await permissionsFor(companyId, userId)).role !== "primary") {
+      throw fail(403, "Only the company Admin can post an expense as borrowed from another company");
+    }
     await requirePermission(companyId, userId, "intercompany");
     const { sourceCompanyId, newCompany } = req.body;
     if (!sourceCompanyId && !(newCompany && String(newCompany.name || "").trim())) throw fail(400, "Choose the company you borrowed from");
@@ -900,8 +904,18 @@ exports.updateExpense = handle(async (req, res) => {
 
   // Manager can edit before paid by company
   const isPaid = expense.status === "paid" || (expense.lifecycle && expense.lifecycle.startsWith("paid"));
+  // ...except an expense posted as this company (paid from its own Cash/Bank): the company Admin can still edit it
+  let companyPost = null;
   if (isPaid) {
-    throw fail(400, "This expense can no longer be edited because it has already been paid");
+    const oldTx = expense.lifecycle === "paid_by_company" && expense.payerType === "company" && !expense.payerCompanyId && !expense.groupId && expense.transactionId
+      ? await LedgerTransaction.findById(expense.transactionId)
+      : null;
+    const ownPost = oldTx && !oldTx.reversedBy && !oldTx.routeId && oldTx.type === "company_paid" && String(oldTx.companyId) === String(expense.companyId);
+    if (!ownPost) throw fail(400, "This expense can no longer be edited because it has already been paid");
+    if (role !== "super_admin" && (await permissionsFor(expense.companyId, userId)).role !== "primary") {
+      throw fail(403, "Only the company Admin can edit an expense posted as the company");
+    }
+    companyPost = oldTx;
   }
   // the lender company is confirming this exact amount
   if (expense.lifecycle === "awaiting_confirmation") {
@@ -922,6 +936,40 @@ exports.updateExpense = handle(async (req, res) => {
     expense.category = String(category).trim();
   }
   if (date) expense.date = new Date(date);
+
+  // a company post whose amount or category changed: undo the old payment and book it again from the same fund
+  if (companyPost && (round(expense.amount) !== round(before.amount) || expense.category !== before.category)) {
+    const companyId = expense.companyId;
+    const entries = await LedgerEntry.find({ transactionId: companyPost._id });
+    const accounts = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) } });
+    const accMap = new Map(accounts.map((a) => [a._id.toString(), a]));
+    const fundAcc = accounts.find((a) => a.type === "bank" && entries.some((e) => String(e.accountId) === String(a._id) && e.credit > 0));
+    const fund = fundAcc?.bankAccountId ? String(fundAcc.bankAccountId) : "cash";
+    const oldAmount = round(before.amount);
+    const newAmount = round(expense.amount);
+    if (newAmount > oldAmount) {
+      const available = await getEffectiveFundBalance(companyId, fund);
+      if (available + oldAmount < newAmount) {
+        throw fail(400, `Insufficient balance in ${fundAcc?.name || "the fund"} (₹${(available + oldAmount).toFixed(2)} available, ₹${newAmount.toFixed(2)} required)`);
+      }
+    }
+    const reversal = await post(
+      { companyId, type: "reversal", memo: `Expense edited: ${before.description}`, expenseId: expense._id, reverses: companyPost._id, createdBy: userId },
+      entries.map((e) => ({ account: accMap.get(e.accountId.toString()), debit: e.credit, credit: e.debit }))
+    );
+    companyPost.reversedBy = reversal._id;
+    await companyPost.save();
+    const verification = (await needsVerification(companyId, newAmount)) ? "pending" : null;
+    const tx = await post(
+      { companyId, type: "company_paid", expenseId: expense._id, memo: expense.description, method: companyPost.method || "", reference: companyPost.reference || "", createdBy: userId, verification },
+      [{ account: await expenseAccount(companyId, expense.category), debit: newAmount }, { account: await fundAccount(companyId, fund), credit: newAmount }]
+    );
+    // the fund gets the old amount back and pays the new one
+    if (newAmount !== oldAmount) await applyCompanyFund(companyId, fund, round(oldAmount - newAmount));
+    expense.transactionId = tx._id;
+    expense.verification = verification;
+    if (verification) await notifyCompanyAdmins(companyId, { title: "Payment needs verification", body: `${expense.description} · ₹${newAmount}`, data: { transactionId: tx._id, companyId } }, userId);
+  }
 
   await expense.save();
   await audit(userId, expense.companyId, "update", "expense", expense._id, before, snapshot(expense));
@@ -1558,24 +1606,38 @@ async function resolveSourceCompany(userId, companyId, sourceCompanyId, newCompa
   if (sourceCompanyId) {
     source = await Company.findById(sourceCompanyId);
     if (!source) throw fail(404, "Source company not found");
+    if (!(await lenderIdsFor(companyId, userId)).has(String(source._id))) {
+      throw fail(403, "You can only borrow from your Admin's own companies or outside companies added here");
+    }
   } else if (newCompany && newCompany.name && String(newCompany.name).trim()) {
+    // adding a company: managers / Admin only (never staff), and only with the Inter-company switch on
     await requireRole(companyId, userId, ["admin", "super_admin"]);
-    if (!newCompany.gstin || !String(newCompany.gstin).trim()) throw fail(400, "GSTIN is required for an outside company");
+    await requirePermission(companyId, userId, "intercompany");
+    // a lender can also be a person: no GSTIN, optional phone
+    const isPerson = newCompany.kind === "person";
+    if (!isPerson && (!newCompany.gstin || !String(newCompany.gstin).trim())) throw fail(400, "GSTIN is required to add a company");
     // reuse an outside company this company's admins already added (guards double taps and repeat entries)
     const name = String(newCompany.name).trim();
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const people = [...new Set([...(await adminIds(companyId)), String(userId)])];
-    source = await Company.findOne({ external: true, createdBy: { $in: people }, name: new RegExp(`^${escaped}$`, "i") });
+    source = await Company.findOne({
+      external: true,
+      createdBy: { $in: people },
+      name: new RegExp(`^${escaped}$`, "i"),
+      ...(isPerson ? { lenderKind: "person" } : { lenderKind: { $ne: "person" } }),
+    });
     if (source) return source;
     source = await Company.create({
-      name: String(newCompany.name).trim(),
-      gstin: newCompany.gstin ? String(newCompany.gstin).trim().toUpperCase() : "",
+      name,
+      gstin: !isPerson && newCompany.gstin ? String(newCompany.gstin).trim().toUpperCase() : "",
+      phone: isPerson && newCompany.phone ? String(newCompany.phone).trim() : "",
+      lenderKind: isPerson ? "person" : "company",
       joinCode: await uniqueJoinCode(),
       joinCodeCreatedAt: new Date(),
       createdBy: userId,
       external: true,
     });
-    await audit(userId, companyId, "create", "company", source._id, null, { name: source.name, gstin: source.gstin, external: true });
+    await audit(userId, companyId, "create", "company", source._id, null, { name: source.name, gstin: source.gstin, lenderKind: source.lenderKind, external: true });
   } else {
     throw fail(400, "Select the source company or add a new one");
   }
@@ -1606,10 +1668,119 @@ exports.listLoans = handle(async (req, res) => {
   const { userId } = req.query;
   await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   const loans = await CompanyLoan.find({ $or: [{ borrowerCompanyId: companyId }, { lenderCompanyId: companyId }] })
-    .populate("borrowerCompanyId", "name").populate("lenderCompanyId", "name").sort({ createdAt: -1 });
+    .populate("borrowerCompanyId", "name external lenderKind").populate("lenderCompanyId", "name external lenderKind").sort({ createdAt: -1 });
   const rows = [];
   for (const loan of loans) rows.push(loanView(loan, await loanBalance(loan)));
-  res.json({ success: true, loans: rows });
+  // expenses charged to another registered company that it hasn't confirmed yet (no loan until it does)
+  const pending = await Expense.find({ lifecycle: "awaiting_confirmation", $or: [{ companyId }, { payerCompanyId: companyId }] })
+    .select("companyId payerCompanyId amount description category date createdAt createdBy")
+    .populate("companyId", "name external lenderKind").populate("payerCompanyId", "name external lenderKind").populate("createdBy", "name").lean();
+  res.json({ success: true, loans: rows, pending });
+});
+
+// Every loan with one company / person as an account statement, oldest first: what was borrowed or lent and each
+// repayment, with a running balance. balance > 0 = this company owes them, < 0 = they owe this company.
+exports.loanPartyStatement = handle(async (req, res) => {
+  const { companyId, partyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
+  const party = await Company.findById(partyId).select("name external lenderKind phone gstin");
+  if (!party) throw fail(404, "Company or person not found");
+  const loans = await CompanyLoan.find({
+    $or: [{ borrowerCompanyId: companyId, lenderCompanyId: partyId }, { borrowerCompanyId: partyId, lenderCompanyId: companyId }],
+  }).populate("createdBy", "name").lean();
+  // the bill / group each loan paid: what it was for and who took it
+  const [expenses, groups, pendingExpenses] = await Promise.all([
+    Expense.find({ _id: { $in: loans.map((l) => l.expenseId).filter(Boolean) } }).select("description category date createdAt createdBy").populate("createdBy", "name").lean(),
+    ExpenseGroup.find({ _id: { $in: loans.map((l) => l.groupId).filter(Boolean) } }).select("name createdBy").populate("createdBy", "name").lean(),
+    Expense.find({
+      lifecycle: "awaiting_confirmation",
+      $or: [{ companyId, payerCompanyId: partyId }, { companyId: partyId, payerCompanyId: companyId }],
+    }).select("companyId amount description category date createdAt createdBy payerMethod payerReference").populate("createdBy", "name").lean(),
+  ]);
+  const expenseById = new Map(expenses.map((e) => [String(e._id), e]));
+  const groupById = new Map(groups.map((g) => [String(g._id), g]));
+  const loanIds = loans.map((l) => l._id);
+  const [alive, repayTxs] = await Promise.all([
+    LedgerTransaction.find({ _id: { $in: loans.flatMap((l) => l.transactionIds || []) }, reversedBy: null, type: { $ne: "reversal" } }).select("_id").lean(),
+    LedgerTransaction.find({ loanId: { $in: loanIds }, type: "loan_repayment", reversedBy: null }).populate("createdBy", "name").lean(),
+  ]);
+  const aliveIds = new Set(alive.map((t) => String(t._id)));
+  // a repayment is posted on the borrower's books
+  const loanById = new Map(loans.map((l) => [String(l._id), l]));
+  const borrowerRepays = repayTxs.filter((t) => String(t.companyId) === String(loanById.get(String(t.loanId))?.borrowerCompanyId));
+  const entries = borrowerRepays.length ? await LedgerEntry.find({ transactionId: { $in: borrowerRepays.map((t) => t._id) } }).select("transactionId debit").lean() : [];
+  const paid = new Map();
+  for (const e of entries) paid.set(String(e.transactionId), round((paid.get(String(e.transactionId)) || 0) + e.debit));
+
+  const sourceLabel = (l) => (l.source === "expense" ? "Paid an expense" : l.source === "group" ? "Paid a group's expenses" : "Direct loan");
+  const rows = [];
+  for (const l of loans) {
+    // a deleted / reversed loan never happened
+    if (!(l.transactionIds || []).some((id) => aliveIds.has(String(id)))) continue;
+    const weBorrowed = String(l.borrowerCompanyId) === String(companyId);
+    const bill = l.expenseId ? expenseById.get(String(l.expenseId)) : null;
+    const group = l.groupId ? groupById.get(String(l.groupId)) : null;
+    rows.push({
+      _id: `loan-${l._id}`,
+      loanId: l._id,
+      // a borrowing that paid a bill is dated by the bill
+      date: bill?.date || l.createdAt,
+      kind: weBorrowed ? "borrowed" : "lent",
+      source: l.source,
+      particulars: bill ? bill.description : group ? `Group: ${group.name}` : l.note || sourceLabel(l),
+      category: bill?.category || "",
+      // who took it: the person who posted the bill (or settled the group), and who recorded the borrowing
+      takenBy: bill?.createdBy?.name || group?.createdBy?.name || "",
+      by: l.createdBy?.name || "",
+      method: l.method,
+      reference: l.reference,
+      amount: round(l.amount),
+    });
+  }
+  // not on the books yet: shown, but not counted in the balance
+  const pending = pendingExpenses.map((e) => ({
+    _id: `pending-${e._id}`,
+    expenseId: e._id,
+    date: e.date || e.createdAt,
+    kind: String(e.companyId) === String(companyId) ? "borrowed" : "lent",
+    pending: true,
+    particulars: e.description,
+    category: e.category,
+    takenBy: e.createdBy?.name || "",
+    method: e.payerMethod,
+    reference: e.payerReference,
+    amount: round(e.amount),
+  }));
+  for (const t of borrowerRepays) {
+    const l = loanById.get(String(t.loanId));
+    const weBorrowed = String(l.borrowerCompanyId) === String(companyId);
+    rows.push({ _id: String(t._id), loanId: l._id, date: t.createdAt, kind: weBorrowed ? "repaid" : "received", particulars: t.memo || "Repayment", by: t.createdBy?.name || "", method: t.method, reference: t.reference, amount: paid.get(String(t._id)) || 0 });
+  }
+  rows.sort((a, b) => new Date(a.date) - new Date(b.date));
+  let balance = 0;
+  let borrowed = 0;
+  let repaid = 0;
+  let lent = 0;
+  let received = 0;
+  for (const r of rows) {
+    // money in = borrowed / received back; money out = repaid / lent
+    r.moneyIn = r.kind === "borrowed" || r.kind === "received" ? r.amount : 0;
+    r.moneyOut = r.kind === "repaid" || r.kind === "lent" ? r.amount : 0;
+    balance = round(balance + (r.kind === "borrowed" || r.kind === "received" ? r.amount : -r.amount));
+    r.balance = balance;
+    if (r.kind === "borrowed") borrowed += r.amount;
+    if (r.kind === "repaid") repaid += r.amount;
+    if (r.kind === "lent") lent += r.amount;
+    if (r.kind === "received") received += r.amount;
+  }
+  res.json({
+    success: true,
+    party,
+    rows,
+    pending,
+    totals: { borrowed: round(borrowed), repaid: round(repaid), lent: round(lent), received: round(received), balance },
+  });
 });
 
 // One loan in full: the bill (or group) it paid, who started the payment, who confirmed it, and every repayment.
@@ -1688,12 +1859,19 @@ exports.loanDetail = handle(async (req, res) => {
 exports.createLoan = handle(async (req, res) => {
   const { userId, borrowerCompanyId, lenderCompanyId, amount, fundId, method, reference, note } = req.body;
   const value = round(parseFloat(amount));
-  if (!(value > 0) || !borrowerCompanyId || !lenderCompanyId || String(borrowerCompanyId) === String(lenderCompanyId)) throw fail(400, "Choose two companies and a valid amount");
+  // lender: one of the allowed companies (lenderCompanyId), or a new one added right here (newCompany: { name, gstin })
+  const newCompany = req.body.newCompany;
+  if (!(value > 0) || !borrowerCompanyId || (!lenderCompanyId && !newCompany?.name) || String(borrowerCompanyId) === String(lenderCompanyId)) {
+    throw fail(400, "Choose two companies and a valid amount");
+  }
   await requireRole(borrowerCompanyId, userId, ["admin", "super_admin"]);
   await requirePermission(borrowerCompanyId, userId, "intercompany");
-  const [borrower, lender] = await Promise.all([Company.findById(borrowerCompanyId), Company.findById(lenderCompanyId)]);
-  if (!borrower || !lender) throw fail(404, "Company not found");
-  const loan = await CompanyLoan.create({ borrowerCompanyId, lenderCompanyId, amount: value, source: "direct", method: method || "", reference: reference || "", note: note || "", createdBy: userId });
+  const borrower = await Company.findById(borrowerCompanyId);
+  if (!borrower) throw fail(404, "Company not found");
+  // checks the allowed list for an existing company, or creates / reuses the added one
+  const lender = await resolveSourceCompany(userId, borrowerCompanyId, lenderCompanyId, lenderCompanyId ? null : newCompany);
+  if (String(lender._id) === String(borrower._id)) throw fail(400, "Choose another company");
+  const loan = await CompanyLoan.create({ borrowerCompanyId, lenderCompanyId: lender._id, amount: value, source: "direct", method: method || "", reference: reference || "", note: note || "", createdBy: userId });
   const routeId = newRouteId();
   const txs = await postAll([
     [{ companyId: borrower._id, type: "borrowed", loanId: loan._id, routeId, memo: `Borrowed from ${lender.name}: ${note || "Company loan"}`, method: method || "", reference: reference || "", createdBy: userId }, [{ account: await fundAccount(borrower._id, fundId), debit: value }, { account: await intercoAccount(borrower._id, lender), credit: value }]],
@@ -1903,6 +2081,9 @@ exports.settleExpenseGroup = handle(async (req, res) => {
     }
     const lender = await Company.findById(lenderCompanyId);
     if (!lender) throw fail(404, "The paying company was not found");
+    if (!(await lenderIdsFor(borrower._id, userId)).has(String(lender._id))) {
+      throw fail(403, "You can only borrow from your Admin's own companies or outside companies added here");
+    }
 
     const loan = await CompanyLoan.create({
       borrowerCompanyId: borrower._id,
@@ -2186,12 +2367,48 @@ exports.setCompanyLogo = handle(async (req, res) => {
 });
 
 // Companies any admin of this company belongs to, plus companies it already deals with (incl. external ones added inline).
+// Companies this company may borrow from / be paid by. Worked out from the company, not the viewer:
+//  - managers / Admin: the Admin's companies (the creator and anyone made full Admin here — companies they created or
+//    are full Admin of) plus outside companies this company's managers already added;
+//  - staff (staffOnly): only companies the Admin created (incl. outside ones the Admin added), never manager-added ones.
+async function sameAdminCompanyIds(companyId, { staffOnly = false } = {}) {
+  const company = await Company.findById(companyId).select("createdBy").lean();
+  if (!company) return new Set();
+  const [fullAdmins, managers] = await Promise.all([
+    CompanyMember.find({ companyId, isAdmin: true }).distinct("userId"),
+    adminIds(companyId),
+  ]);
+  const owners = [...new Set([String(company.createdBy || ""), ...fullAdmins.map(String)].filter(Boolean))];
+  if (staffOnly) {
+    const created = await Company.find({ _id: { $ne: companyId }, createdBy: { $in: owners } }).distinct("_id");
+    return new Set(created.map(String));
+  }
+  const adminOf = await CompanyMember.find({ userId: { $in: owners }, isAdmin: true }).distinct("companyId");
+  const companies = await Company.find({
+    _id: { $ne: companyId },
+    $or: [
+      { createdBy: { $in: owners }, external: { $ne: true } },
+      { _id: { $in: adminOf }, external: { $ne: true } },
+      // outside companies added inline by this company's managers / Admin
+      { external: true, createdBy: { $in: [...new Set([...owners, ...managers.map(String)])] } },
+    ],
+  }).distinct("_id");
+  return new Set(companies.map(String));
+}
+
+// The allowed list for this person: staff get the narrower Admin-created list.
+async function lenderIdsFor(companyId, userId) {
+  const role = await roleIn(companyId, userId);
+  return sameAdminCompanyIds(companyId, { staffOnly: !isAdminRole(role) });
+}
+
 exports.listCompaniesForBorrow = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
-  const companies = await Company.find({ _id: { $ne: companyId } })
-    .select("name gstin external")
+  const allowed = await lenderIdsFor(companyId, userId);
+  const companies = await Company.find({ _id: { $in: [...allowed] } })
+    .select("name gstin external lenderKind phone cashAccountName bankAccounts._id bankAccounts.bankName bankAccounts.accountNumber")
     .sort({ name: 1 });
   res.json({ success: true, companies });
 });
@@ -2208,15 +2425,41 @@ function periodFilter(from, to) {
   return Object.keys(f).length ? f : null;
 }
 
-async function companyReport(companyId, from, to, category) {
+// Report "Role" filter → the people in it, as a Set of userId strings; null = everyone.
+// role: "manager" (built-in managers, incl. the creator) | "staff" (built-in staff) | "role:<customRoleId>" | anything else = all.
+async function reportRoleMembers(companyId, role) {
+  if (!role || role === "all" || role === "All") return null;
+  const [company, members] = await Promise.all([
+    Company.findById(companyId).select("createdBy").lean(),
+    CompanyMember.find({ companyId }).select("userId role customRoleId").lean(),
+  ]);
+  const creator = String(company?.createdBy || "");
+  const ids = new Set();
+  if (role === "manager") {
+    if (creator) ids.add(creator);
+    for (const m of members) if (m.role === "admin" && !m.customRoleId) ids.add(String(m.userId));
+  } else if (role === "staff") {
+    for (const m of members) if (m.role !== "admin" && !m.customRoleId && String(m.userId) !== creator) ids.add(String(m.userId));
+  } else if (role.startsWith("role:")) {
+    const roleId = role.slice(5);
+    for (const m of members) if (m.customRoleId && String(m.customRoleId) === roleId) ids.add(String(m.userId));
+  } else {
+    return null;
+  }
+  return ids;
+}
+
+async function companyReport(companyId, from, to, category, role) {
+  const inRole = await reportRoleMembers(companyId, role);
   const period = periodFilter(from, to);
   const expQuery = { companyId, lifecycle: { $in: ["paid_by_admin", "paid_by_person", "paid_by_company", "reimbursed", "paid_by_voucher"] } };
   if (period) expQuery.date = period;
   if (category && category !== "All") expQuery.category = category;
+  if (inRole) expQuery.createdBy = { $in: [...inRole] };
   const expenses = await Expense.find(expQuery).select("amount lifecycle category");
   const sum = (list) => round(list.reduce((s, e) => s + e.amount, 0));
 
-  const payables = await LedgerAccount.find({ companyId, type: "admin_payable" });
+  const payables = (await LedgerAccount.find({ companyId, type: "admin_payable" })).filter((a) => !inRole || inRole.has(String(a.userId)));
   let owed = 0;
   for (const a of payables) {
     const t = await accountTotals(a._id);
@@ -2238,10 +2481,10 @@ async function companyReport(companyId, from, to, category) {
 
 exports.report = handle(async (req, res) => {
   const { companyId } = req.params;
-  const { userId, from, to, category } = req.query;
+  const { userId, from, to, category, role } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
   await requirePermission(companyId, userId, "reports");
-  res.json({ success: true, report: await companyReport(companyId, from, to, category) });
+  res.json({ success: true, report: await companyReport(companyId, from, to, category, role) });
 });
 
 // ---------- Categories (managers) ----------
@@ -2416,6 +2659,8 @@ exports.outstandingReport = handle(async (req, res) => {
   for (const [id, held] of await advanceHeldByPerson(companyId)) {
     if (held > 0) person(id).advanceHeld = held;
   }
+  const inRole = await reportRoleMembers(companyId, req.query.role);
+  if (inRole) for (const key of [...people.keys()]) if (!inRole.has(key)) people.delete(key);
   const ids = [...people.keys()];
   const [users, members] = await Promise.all([
     User.find({ _id: { $in: ids } }).select("name"),
@@ -2482,6 +2727,15 @@ exports.exportCsv = handle(async (req, res) => {
   const txQuery = full ? {} : { companyId };
   const period = periodFilter(from, to);
   if (period) txQuery.createdAt = period;
+  if (!full) {
+    const inRole = await reportRoleMembers(companyId, req.query.role);
+    if (inRole) txQuery.createdBy = { $in: [...inRole] };
+    const category = req.query.category;
+    if (category && category !== "All") {
+      const ids = await Expense.find({ companyId, category }).distinct("_id");
+      txQuery.expenseId = { $in: ids };
+    }
+  }
   const txs = await LedgerTransaction.find(txQuery).populate("companyId", "name").populate("createdBy", "name").sort({ createdAt: 1 }).lean();
   const entries = await LedgerEntry.find({ transactionId: { $in: txs.map((t) => t._id) } }).populate("accountId", "name").lean();
   const byTx = {};
@@ -2932,7 +3186,10 @@ async function settleVoucher(found, actorId, body, closing) {
         amount: value,
         description: String(description || "").trim() || voucher.purpose,
         category: cat,
-        date: date ? new Date(date) : new Date(),
+        // stays on the day the voucher was given, not the day it was claimed or closed
+        date: date ? new Date(date) : voucher.createdAt,
+        voucherSettledAt: new Date(),
+        voucherClosed: Boolean(closing),
         attachment: attachment || "",
         lifecycle: "paid_by_voucher",
         approvedBy: voucher.createdBy,
@@ -3702,4 +3959,156 @@ exports.saveCompanyOrder = handle(async (req, res) => {
     ids.map((companyId, index) => ({ updateOne: { filter: { companyId, userId }, update: { $set: { sortOrder: index } } } }))
   );
   res.json({ success: true });
+});
+
+// Accounts statement: every money movement (not day totals) — each Cash/Bank payment in or out, each Add Income,
+// each transfer between my own accounts — newest first, with the Cash + Bank balance after it, paged.
+// GET /companies/:companyId/accounts/entries?userId&from&to&q&page&limit
+exports.accountsEntries = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "funds");
+  const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
+  if (!company) throw fail(404, "Company not found");
+
+  const today = istDay(Date.now());
+  const valid = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
+  const toDay = valid(req.query.to) && req.query.to < today ? req.query.to : today;
+  const fromDay = valid(req.query.from) ? (req.query.from > toDay ? toDay : req.query.from) : "2000-01-01";
+  const since = istStart(fromDay);
+  const limit = Math.min(100, Math.max(5, parseInt(req.query.limit, 10) || 25));
+  const q = String(req.query.q || "").trim().toLowerCase();
+
+  const cashName = company.cashAccountName || "Cash";
+  const bankName = (id) => {
+    const b = (company.bankAccounts || []).find((x) => String(x._id) === String(id));
+    return b ? `${b.bankName}${b.accountNumber ? ` (…${String(b.accountNumber).slice(-4)})` : ""}` : "Bank";
+  };
+  const fundAccs = await LedgerAccount.find({ companyId, type: "bank" }).lean();
+  const fundName = new Map(fundAccs.map((a) => [String(a._id), a.bankAccountId ? bankName(a.bankAccountId) : cashName]));
+
+  // ledger movements that changed the shown Cash/Bank (same rule as the day view), from the first day up to now
+  const txs = await LedgerTransaction.find({ companyId, date: { $gte: since } }).lean();
+  const originals = new Map(
+    (await LedgerTransaction.find({ _id: { $in: txs.filter((t) => t.reverses).map((t) => t.reverses) } }).lean()).map((t) => [String(t._id), t])
+  );
+  const loans = new Map(
+    (await CompanyLoan.find({ _id: { $in: txs.map((t) => t.loanId).filter(Boolean) } }).select("borrowerCompanyId").lean()).map((l) => [String(l._id), l])
+  );
+  const moves = (t) => {
+    if (FUND_TRACKED_TYPES.has(t.type)) return true;
+    if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(companyId);
+    return false;
+  };
+  const counted = txs.filter((t) => (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
+  const lines = await LedgerEntry.find({ transactionId: { $in: counted.map((t) => t._id) }, accountId: { $in: fundAccs.map((a) => a._id) } }).lean();
+  const txById = new Map(counted.map((t) => [String(t._id), t]));
+  const expenseIds = counted.map((t) => t.expenseId).filter(Boolean);
+  const expenses = new Map((await Expense.find({ _id: { $in: expenseIds } }).select("description category").lean()).map((x) => [String(x._id), x]));
+  const incomes = await CompanyIncome.find({ companyId, createdAt: { $gte: since } }).populate("createdBy", "name").lean();
+  const people = new Map(
+    (await User.find({ _id: { $in: counted.map((t) => t.createdBy) } }).select("name").lean()).map((u) => [String(u._id), u.name])
+  );
+
+  const all = [];
+  for (const e of lines) {
+    const t = txById.get(String(e.transactionId));
+    const amount = round(e.debit - e.credit);
+    if (!amount) continue;
+    const original = t.type === "reversal" ? originals.get(String(t.reverses)) : null;
+    const x = t.expenseId ? expenses.get(String(t.expenseId)) : null;
+    all.push({
+      _id: `${t._id}:${e._id}`,
+      at: t.date,
+      kind: original ? "reversal" : t.type,
+      label: original ? `Reversed: ${MOVE_LABELS[original.type] || original.type}` : MOVE_LABELS[t.type] || t.type,
+      details: t.note || x?.description || t.memo || "",
+      category: x?.category || "",
+      account: fundName.get(String(e.accountId)) || "Fund",
+      amount, // + in, − out
+      method: t.method || "",
+      reference: t.reference || "",
+      by: people.get(String(t.createdBy)) || "",
+      expenseId: t.expenseId || null,
+    });
+  }
+  for (const i of incomes) {
+    const transfer = Boolean(i.sourceBankAccountId);
+    const to = i.destinationType === "cash" ? cashName : i.destinationName || "Bank";
+    all.push({
+      _id: String(i._id),
+      at: i.createdAt,
+      kind: transfer ? "transfer" : "income",
+      label: transfer ? "Transfer between accounts" : "Money added",
+      details: i.description || "",
+      category: "",
+      account: transfer ? `${i.sourceName || "Bank"} → ${to}` : to,
+      // a transfer moves money between my own accounts, so Cash + Bank stays the same
+      amount: transfer ? 0 : round(i.amount),
+      transferAmount: transfer ? round(i.amount) : 0,
+      method: "",
+      reference: "",
+      by: i.createdBy?.name || "",
+      expenseId: null,
+    });
+  }
+
+  // newest first; walk back from today's real Cash + Bank to give each row the balance right after it
+  all.sort((a, b) => new Date(b.at) - new Date(a.at));
+  const current = round(Number(company.cashBalance || 0) + (company.bankAccounts || []).reduce((s, b) => s + Number(b.balance || 0), 0));
+  let running = current;
+  for (const r of all) {
+    r.balance = running;
+    running = round(running - r.amount);
+  }
+  const inRange = all.filter((r) => istDay(r.at) >= fromDay && istDay(r.at) <= toDay);
+  const afterPeriod = all.filter((r) => istDay(r.at) > toDay);
+  const closing = afterPeriod.length ? round(afterPeriod[afterPeriod.length - 1].balance - afterPeriod[afterPeriod.length - 1].amount) : current;
+  const opening = round(closing - inRange.reduce((s, r) => s + r.amount, 0));
+  const matches = q
+    ? inRange.filter((r) =>
+        [r.label, r.details, r.category, r.account, r.method, r.reference, r.by, String(Math.abs(r.amount || r.transferAmount))]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)
+      )
+    : inRange;
+
+  const pages = Math.max(1, Math.ceil(matches.length / limit));
+  const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1));
+  res.json({
+    success: true,
+    from: fromDay,
+    to: toDay,
+    currentBalance: current,
+    summary: {
+      opening,
+      closing,
+      moneyIn: round(inRange.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)),
+      moneyOut: round(inRange.reduce((s, r) => s + (r.amount < 0 ? -r.amount : 0), 0)),
+      count: inRange.length,
+    },
+    total: matches.length,
+    page,
+    pages,
+    limit,
+    entries: matches.slice((page - 1) * limit, page * limit),
+  });
+});
+
+
+// Remove a company from MY company list, or restore it (hidden: true / false). Only the company's Admin (the creator
+// or someone made full Admin) may do it. Nothing else changes: the company, its members, expenses and money stay,
+// and everyone else still sees it.
+exports.setCompanyHidden = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.body;
+  const hidden = req.body.hidden !== false;
+  const mine = await permissionsFor(companyId, userId);
+  if (mine.role !== "primary") throw fail(403, "Only the company's Admin can remove it from the list");
+  const updated = await CompanyMember.findOneAndUpdate({ companyId, userId }, { $set: { hiddenFromList: hidden } }, { returnDocument: "after" });
+  if (!updated) throw fail(404, "You are not a member of this company");
+  await audit(userId, companyId, hidden ? "hide_from_list" : "restore_to_list", "company", companyId, null, { hidden });
+  res.json({ success: true, hidden });
 });

@@ -97,7 +97,7 @@ export default function CompanyGroupModal({ group, companies, user, onClose, onS
                   <input type="checkbox" checked={on} onChange={() => toggle(String(c._id))} style={{ width: 17, height: 17, accentColor: "var(--forest)" }} />
                   <CompanyAvatar company={c} size={28} radius={7} style={{ border: "1px solid var(--slate-border)" }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <strong style={{ fontSize: 13.5, color: "var(--dark-text)" }}>{c.name}</strong>
+                    <strong style={{ fontSize: 14, color: "var(--dark-text)" }}>{c.name}</strong>
                     {elsewhere && <small style={{ display: "block" }}>Now in “{elsewhere}”; picking it moves it here</small>}
                   </span>
                 </label>

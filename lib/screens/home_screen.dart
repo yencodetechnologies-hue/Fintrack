@@ -317,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Text(
                           "Q",
                           style: GoogleFonts.inter(
-                            fontSize: 32,
+                            fontSize: 22,
                             fontWeight: FontWeight.w500,
                             fontStyle: FontStyle.italic,
                             color: goldText,
@@ -331,7 +331,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     "Welcome back to ${AppConfig.appName}",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      fontSize: 26,
+                      fontSize: 22,
                       fontWeight: FontWeight.w500,
                       fontStyle: FontStyle.italic,
                       color: Colors.white,
@@ -661,7 +661,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   keyboardType: type,
                   style: GoogleFonts.inter(
                     color: darkText,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(

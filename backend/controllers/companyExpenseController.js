@@ -444,8 +444,10 @@ exports.getUserCompanies = async (req, res) => {
     const { userId } = req.params;
     const memberships = await CompanyMember.find({ userId }).populate("companyId");
     
+    // companies the person removed from their list stay out unless ?includeHidden=1 (the Hidden companies view)
+    const includeHidden = req.query.includeHidden === "1";
     const companies = memberships
-      .filter((m) => m.companyId != null)
+      .filter((m) => m.companyId != null && (includeHidden || !m.hiddenFromList))
       .map((m) => {
         const compDoc = m.companyId._doc || m.companyId;
         const isCreator = compDoc.createdBy && compDoc.createdBy.toString() === userId.toString();
@@ -462,6 +464,7 @@ exports.getUserCompanies = async (req, res) => {
           joinedAt: m.joinedAt,
           // my own arrangement of the companies list (null = never arranged)
           sortOrder: m.sortOrder ?? null,
+          hiddenFromList: Boolean(m.hiddenFromList),
         };
       });
 

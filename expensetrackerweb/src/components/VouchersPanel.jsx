@@ -79,7 +79,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 18 }}>
-        <h1 style={{ fontSize: 26, margin: 0 }}>Vouchers</h1>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Vouchers</h1>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Create voucher</button>
       </div>
 
@@ -95,7 +95,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
 
           {pendingReturns.length > 0 && (
             <>
-              <h2 style={{ margin: "4px 0 12px", fontSize: 19 }}>Hand-backs to confirm</h2>
+              <h2 style={{ margin: "4px 0 12px", fontSize: 20 }}>Hand-backs to confirm</h2>
               <div className="card expense-list" style={{ marginBottom: 20 }}>
                 {pendingReturns.map((r) => {
                   const own = String(r.userId?._id || r.userId) === String(user.id);
@@ -154,7 +154,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 19 }}>All vouchers</h2>
+            <h2 style={{ margin: 0, fontSize: 20 }}>All vouchers</h2>
             <select className="field-select" style={{ width: "auto" }} value={filter} onChange={(e) => setFilter(e.target.value)}>
               <option value="all">All</option>
               <option value="open">Open</option>

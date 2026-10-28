@@ -38,14 +38,14 @@ Future<void> showCreateVoucherSheet(BuildContext context, LedgerScope s, {VoidCa
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
                     const SizedBox(height: 2),
-                    Text(sub, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6))),
+                    Text(sub, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
                   ]),
                 ),
               ),
             );
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("Give a staff member money up front. They claim what they actually spent.",
-              style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+              style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: recipientId,
@@ -142,7 +142,7 @@ Future<void> showClaimVoucherSheet(BuildContext context, LedgerScope s, Map<Stri
         ];
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(closing ? "Record what $staffName actually used. It is saved as $staffName's expense and the voucher is marked as used." : "Enter what you actually spent. The money was already given to you.",
-              style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+              style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -166,7 +166,7 @@ Future<void> showClaimVoucherSheet(BuildContext context, LedgerScope s, Map<Stri
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(lines.join(" "),
-                  style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: owed > 0 ? kTerracotta : kForest)),
+                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: owed > 0 ? kTerracotta : kForest)),
             ),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
@@ -216,7 +216,7 @@ Future<void> showHandBackSheet(BuildContext context, LedgerScope s, num held, {V
   final note = TextEditingController();
   return showLedgerSheet(context, "Hand back balance", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text("You hold ${inr(held)} of voucher money. Give the cash to a manager; it goes back into company Cash when they confirm.",
-            style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+            style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
         const SizedBox(height: 12),
         TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
         const SizedBox(height: 10),
@@ -288,7 +288,7 @@ class _StaffVoucherSectionState extends State<StaffVoucherSection> with LedgerAu
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Padding(
         padding: const EdgeInsets.fromLTRB(2, 12, 2, 6),
-        child: Text(admin ? "Open vouchers" : "Vouchers", style: GoogleFonts.inter(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+        child: Text(admin ? "Open vouchers" : "Vouchers", style: GoogleFonts.inter(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
       ),
       ...open.map((v) => VoucherTicket(
             scope: widget.scope,
@@ -301,7 +301,7 @@ class _StaffVoucherSectionState extends State<StaffVoucherSection> with LedgerAu
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
             child: Text("Hand-back of ${inr(r["amount"])} waiting for a manager to confirm · ${dateLabel(r["createdAt"])}",
-                style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.7), fontSize: 12.5)),
+                style: GoogleFonts.inter(color: kForest.withValues(alpha: 0.7), fontSize: 13)),
           )),
     ]);
   }
@@ -401,25 +401,25 @@ class VoucherTicket extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(color: kForest.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(99)),
-                          child: Text("Today", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: _ink)),
+                          child: Text("Today", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: _ink)),
                         ),
                       ],
                     ]),
                     const SizedBox(height: 8),
                     Text(v["purpose"]?.toString() ?? "Voucher",
-                        maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 15.5)),
+                        maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(color: kForest, fontWeight: FontWeight.w700, fontSize: 16)),
                     const SizedBox(height: 6),
                     Row(children: [
                       CircleAvatar(
                         radius: 9,
                         backgroundColor: kForest,
                         child: Text(person.isEmpty ? "?" : person.characters.first.toUpperCase(),
-                            style: GoogleFonts.inter(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700)),
+                            style: GoogleFonts.inter(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
                       ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(admin ? person : "From $person",
-                            overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w600, color: kForest)),
+                            overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: kForest)),
                       ),
                     ]),
                     const SizedBox(height: 4),
@@ -435,11 +435,11 @@ class VoucherTicket extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text("AMOUNT", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: kForest.withValues(alpha: 0.5))),
+                    Text("AMOUNT", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: kForest.withValues(alpha: 0.5))),
                     const SizedBox(height: 2),
                     FittedBox(
                       fit: BoxFit.scaleDown,
-                      child: Text(inr(v["amount"]), style: GoogleFonts.inter(color: kForest, fontSize: 19, fontWeight: FontWeight.w800)),
+                      child: Text(inr(v["amount"]), style: GoogleFonts.inter(color: kForest, fontSize: 20, fontWeight: FontWeight.w800)),
                     ),
                     const SizedBox(height: 10),
                     action,
@@ -465,7 +465,7 @@ class VoucherTicket extends StatelessWidget {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           onPressed: onTap,
-          child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 13.5)),
+          child: Text(label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 14)),
         ),
       );
 }
@@ -521,7 +521,7 @@ Widget _voucherPill(String? status) {
   return Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(color: st.$2, borderRadius: BorderRadius.circular(20)),
-    child: Text(st.$1, style: GoogleFonts.inter(color: st.$3, fontSize: 10.5, fontWeight: FontWeight.bold)),
+    child: Text(st.$1, style: GoogleFonts.inter(color: st.$3, fontSize: 11, fontWeight: FontWeight.bold)),
   );
 }
 
@@ -597,9 +597,9 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(label, style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.55))),
+              Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.55))),
               const SizedBox(height: 4),
-              FittedBox(fit: BoxFit.scaleDown, child: Text(inr(value), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.bold, color: color))),
+              FittedBox(fit: BoxFit.scaleDown, child: Text(inr(value), style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.bold, color: color))),
             ]),
           ),
         );
@@ -682,11 +682,11 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
                                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                       Text(p["name"]?.toString() ?? "", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
                                       Text("Given ${inr(p["given"])} · Claimed ${inr(p["claimed"])} · Open ${inr(p["open"])}",
-                                          style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+                                          style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
                                     ]),
                                   ),
                                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                                    Text("HOLDING", style: GoogleFonts.inter(fontSize: 9.5, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
+                                    Text("HOLDING", style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
                                     Text(inr(((p["held"] as num?) ?? 0) > 0 ? p["held"] : 0),
                                         style: GoogleFonts.inter(
                                             fontWeight: FontWeight.w800, color: ((p["held"] as num?) ?? 0) > 0 ? kTerracotta : kDark)),
@@ -845,12 +845,12 @@ Future<void> showVoucherDetail(BuildContext context, LedgerScope s, Map<String, 
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (icon != null) ...[Icon(icon, size: 15, color: kForest.withValues(alpha: 0.7)), const SizedBox(width: 8)],
           Text(label.toUpperCase(),
-              style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
+              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.4, color: kDark.withValues(alpha: 0.5))),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Text(value, textAlign: TextAlign.right, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: color ?? kDark)),
-              if (sub != null) Text(sub, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+              if (sub != null) Text(sub, textAlign: TextAlign.right, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
             ]),
           ),
         ]),
@@ -872,7 +872,7 @@ Future<void> showVoucherDetail(BuildContext context, LedgerScope s, Map<String, 
           Row(children: [
             _voucherPill(v["status"]?.toString()),
             const Spacer(),
-            Text(inr(amount), style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.bold, color: kForest)),
+            Text(inr(amount), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.bold, color: kForest)),
           ]),
           const SizedBox(height: 8),
           Container(
@@ -903,7 +903,7 @@ Future<void> showVoucherDetail(BuildContext context, LedgerScope s, Map<String, 
           ),
           if (v["expenseId"] != null) ...[
             const SizedBox(height: 12),
-            Text("CLAIM RECEIPT", style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
+            Text("CLAIM RECEIPT", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.5))),
             const SizedBox(height: 6),
             if (loading)
               const LinearProgressIndicator(color: kForest)
@@ -932,14 +932,14 @@ Future<void> showVoucherDetail(BuildContext context, LedgerScope s, Map<String, 
                   showClaimVoucherSheet(context, s, v, 0, closing: true);
                 },
                 icon: const Icon(Icons.check_circle_outline_rounded, size: 20),
-                label: Text("Close voucher", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15)),
+                label: Text("Close voucher", style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 16)),
               ),
             ),
             Padding(
               padding: const EdgeInsets.only(top: 6, bottom: 12),
               child: Center(
                 child: Text("Records it as used by ${nameOf(v["recipientId"], "staff")} · you can edit the amount",
-                    textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.55))),
+                    textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
               ),
             ),
             Row(children: [

@@ -78,10 +78,10 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
           child: Column(children: [
             const Icon(Icons.check_circle_rounded, color: kForest, size: 34),
             const SizedBox(height: 8),
-            Text("Nothing outstanding", style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: kDark)),
+            Text("Nothing outstanding", style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: kDark)),
             const SizedBox(height: 4),
             Text("${s.companyName} has paid back all your approved expenses.",
-                textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.5, color: kDark.withValues(alpha: 0.6))),
+                textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
             // next step after paying myself: other people's bills (also in More → Pay people)
             if (paymentsInNav(s)) ...[
               const SizedBox(height: 14),
@@ -124,10 +124,10 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
         color: Colors.white,
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text("YOUR OUTSTANDING", style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: kDark.withValues(alpha: 0.55))),
+          Text("YOUR OUTSTANDING", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: kDark.withValues(alpha: 0.55))),
           const SizedBox(height: 3),
           // what's chosen (typed amount or ticked bills) comes off the total: what would still be owed after
-          Text(inr(_round(total - paidNow)), style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: kTerracotta)),
+          Text(inr(_round(total - paidNow)), style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w800, color: kTerracotta)),
           Text(
             tooMuch
                 ? "You're owed only ${inr(total)}"
@@ -156,7 +156,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                   controller: _amount,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(_selected.clear),
-                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: kDark),
+                  style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: kDark),
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
@@ -204,7 +204,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                   ),
                   onPressed: () => _pay(bills),
                   icon: const Icon(Icons.account_balance_wallet_rounded, size: 18),
-                  label: FittedBox(child: Text("Pay all · ${inr(total)}", style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w800))),
+                  label: FittedBox(child: Text("Pay all · ${inr(total)}", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800))),
                 ),
               ),
             ),
@@ -225,7 +225,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
-        child: Text(text, style: GoogleFonts.inter(fontSize: 10.5, fontWeight: FontWeight.w700, color: fg)),
+        child: Text(text, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
       );
     }
 
@@ -246,7 +246,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                     allOn ? _selected.clear() : _selected.addAll(bills.map(_keyOf));
                   }),
           title: Text(byAmount ? "Covered by the amount (oldest first)" : "Select all (${bills.length})",
-              style: GoogleFonts.inter(fontSize: 12.5, fontWeight: FontWeight.w700, color: kDark)),
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: kDark)),
         ),
         for (final b in sorted) ...[
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -272,7 +272,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                               ? "approved, not yet paid"
                               : (((b["remaining"] as num?) ?? 0) < ((b["amount"] as num?) ?? 0) ? "part paid · ${inr(b["amount"])} in all" : "paid by you"),
                         ].join(" · "),
-                        style: GoogleFonts.inter(fontSize: 11.5, color: kDark.withValues(alpha: 0.6)),
+                        style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6)),
                       ),
                       if (showPlan) Padding(padding: const EdgeInsets.only(top: 4), child: planTag(p.state, p.take, (b["remaining"] as num?) ?? 0)),
                     ]),
@@ -311,7 +311,7 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
         ),
         onPressed: onTap,
         icon: Icon(icon, size: 18),
-        label: FittedBox(child: Text(label, style: GoogleFonts.inter(fontSize: 13.5, fontWeight: FontWeight.w700))),
+        label: FittedBox(child: Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700))),
       ),
     );
   }

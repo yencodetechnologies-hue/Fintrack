@@ -469,24 +469,14 @@ class BrandModelService {
     final mLower = model.toLowerCase();
     final bLower = brand.toLowerCase();
 
-    // A. Check Electric Vehicles (EVs)
-    final isEv = mLower.contains("ev") ||
-        mLower.contains("electric") ||
-        mLower.contains("ioniq") ||
-        mLower.contains("taycan") ||
-        mLower.contains("e-tron") ||
-        mLower.contains("ec3") ||
-        mLower.contains("tesla") ||
-        bLower.contains("tesla") ||
-        bLower.contains("ather") ||
-        bLower.contains("ola") ||
-        bLower.contains("revolt") ||
-        mLower.contains("chetak") ||
-        mLower.contains("iqube") ||
-        mLower.contains("vida");
+    // A. Check Electric Vehicles (EVs): whole words only, so "Evoque", "Seven" or "Motorola" don't count
+    bool word(String text, String w) => RegExp('(^|[^a-z0-9])${RegExp.escape(w)}(\$|[^a-z0-9])').hasMatch(text);
+    const evModelWords = ["ev", "ev6", "ev9", "electric", "ioniq", "taycan", "e-tron", "etron", "ec3", "chetak", "iqube", "vida", "eqs", "eqb"];
+    const evBrands = ["tesla", "ather", "ola", "ola electric", "revolt", "ultraviolette", "simple energy", "okinawa", "ampere", "byd"];
+    final isEv = evModelWords.any((w) => word(mLower, w)) || evBrands.any((b) => word(bLower, b));
 
     if (isEv) {
-      final isBikeEv = vehicleType == "bike" || bLower.contains("ather") || bLower.contains("ola") || bLower.contains("revolt");
+      final isBikeEv = vehicleType == "bike" || ["ather", "ola", "revolt", "ultraviolette", "okinawa", "ampere"].any((b) => word(bLower, b));
       return VehicleModelSpec(
         capacity: isBikeEv ? 3.7 : 40.5,
         defaultMileage: isBikeEv ? 35.0 : 7.5,

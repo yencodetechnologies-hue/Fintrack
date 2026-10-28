@@ -6,7 +6,7 @@ import { formatDateTime, money, VOUCHER_STATUS } from "../utils.js";
 
 const boxStyle = { margin: "18px 0", padding: "4px 14px", background: "var(--slate-bg)", border: "1px solid var(--slate-border-2)", borderRadius: 12 };
 const rowStyle = { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, padding: "9px 0", fontSize: 13 };
-const subStyle = { display: "block", fontSize: 11.5, color: "var(--muted)", fontWeight: 400, marginTop: 2 };
+const subStyle = { display: "block", fontSize: 12, color: "var(--muted)", fontWeight: 400, marginTop: 2 };
 const round = (n) => Math.round(n * 100) / 100;
 
 // Everything about one voucher: who got it, who paid for it, and how it was claimed (with the claim receipt).
@@ -50,8 +50,8 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel, o
       <div style={{ paddingRight: 40 }}>
         <span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span>
       </div>
-      <h2 style={{ margin: "14px 0 2px", fontSize: 21, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>{voucher.purpose}</h2>
-      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 30, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
+      <h2 style={{ margin: "14px 0 2px", fontSize: 20, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>{voucher.purpose}</h2>
+      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
 
       <dl style={boxStyle}>
         {rows.map(([label, value], idx) => (

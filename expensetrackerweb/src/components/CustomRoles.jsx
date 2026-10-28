@@ -96,7 +96,7 @@ export default function CustomRoles({ companyId, company, user, members, definit
               <div key={role._id} className="card perm-card">
                 <div className="perm-card-head">
                   <div style={{ minWidth: 0 }}>
-                    <h2 style={{ margin: 0, fontSize: 18, overflowWrap: "anywhere" }}>{role.name}</h2>
+                    <h2 style={{ margin: 0, fontSize: 20, overflowWrap: "anywhere" }}>{role.name}</h2>
                     <div style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
                       {role.members.length} member{role.members.length === 1 ? "" : "s"}
                       {full ? " · all admin access" : role.base === "manager" ? " · manager-level access" : ""}
@@ -117,7 +117,7 @@ export default function CustomRoles({ companyId, company, user, members, definit
 
                 <div className="role-members">
                   <div className="role-members-head">Members</div>
-                  {role.members.length === 0 && <div style={{ color: "var(--muted)", fontSize: 12.5 }}>Nobody in this role yet.</div>}
+                  {role.members.length === 0 && <div style={{ color: "var(--muted)", fontSize: 13 }}>Nobody in this role yet.</div>}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {role.members.map((m) => (
                       <span key={m.userId} className="role-member-chip">

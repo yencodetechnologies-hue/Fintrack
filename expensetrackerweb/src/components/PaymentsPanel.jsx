@@ -139,7 +139,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 26, margin: 0 }}>Payments</h1>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Payments</h1>
         <button className="btn btn-outline" onClick={load}>Refresh</button>
       </div>
       <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.</p>
@@ -241,7 +241,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
           </>
           )}
 
-          <h2 style={{ fontSize: 19, margin: "28px 0 12px" }}>Payment history</h2>
+          <h2 style={{ fontSize: 20, margin: "28px 0 12px" }}>Payment history</h2>
           <div className="card payments-toolbar payments-history-toolbar">
             <input className="field-input" placeholder="Search payments…" value={historySearch} onChange={(e) => setHistorySearch(e.target.value)} />
             <select className="field-select" value={historyPerson} onChange={(e) => setHistoryPerson(e.target.value)}>

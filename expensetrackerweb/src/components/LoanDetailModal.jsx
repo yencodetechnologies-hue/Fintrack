@@ -67,6 +67,14 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
   const open = balance > 0;
   const pct = amount > 0 ? Math.min(100, Math.round((repaid / amount) * 100)) : 0;
   const sourceLabel = loan.source === "expense" ? "Paid an expense" : loan.source === "group" ? "Paid a group's expenses" : "Direct loan";
+  // the loan itself, then each repayment (reversed ones shown crossed out, not counted)
+  const statement = [];
+  let due = amount;
+  statement.push({ _id: "loan", date: loan.createdAt, label: weBorrowed ? `Borrowed from ${lender}` : `Lent to ${borrower}`, meta: [loan.note || sourceLabel, loan.method, loan.reference && `Ref ${loan.reference}`].filter(Boolean).join(" · "), taken: amount, due });
+  for (const r of repayments) {
+    if (!r.reversed) due = Math.round((due - r.amount) * 100) / 100;
+    statement.push({ _id: r._id, date: r.date, label: weBorrowed ? "Repaid" : "Received back", meta: [r.by && `by ${r.by}`, r.byLender && "marked received by lender", r.method, r.reference && `Ref ${r.reference}`, r.reversed && "reversed"].filter(Boolean).join(" · "), paid: r.amount, reversed: r.reversed, due: Math.max(0, due) });
+  }
   const method = bill?.method || loan.method;
   const reference = bill?.reference || loan.reference;
 
@@ -80,7 +88,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
           {!open && <span className="loan-chip good">Repaid</span>}
         </div>
         <h2 style={{ margin: 0, fontSize: 20 }}>{weBorrowed ? `Loan from ${lender}` : `Loan to ${borrower}`}</h2>
-        <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>Recorded {formatDateTime(loan.createdAt)}</div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>Recorded {formatDateTime(loan.createdAt)}{loan.createdBy?.name ? ` by ${loan.createdBy.name}` : ""}</div>
         {loan.note && (
           <div className="loan-reason">
             <span className="loan-label">{loan.source === "direct" ? "Reason for borrowing" : "Note"}</span>
@@ -115,7 +123,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
             <div className="loan-label">{open ? "Still due" : "Fully repaid"}</div>
             <div className="loan-due" style={{ color: open ? "var(--terracotta)" : "var(--forest)" }}>{money(open ? balance : amount)}</div>
           </div>
-          <div style={{ textAlign: "right", fontSize: 12.5, color: "var(--muted)" }}>
+          <div style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
             {money(repaid)} repaid
             <br />of {money(amount)}
           </div>
@@ -147,10 +155,10 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
           <div className="loan-bill">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--dark-text)", wordBreak: "break-word" }}>{bill.description}</div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>{bill.category || "General"} · {formatDate(bill.date)}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--dark-text)", wordBreak: "break-word" }}>{bill.description}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{bill.category || "General"} · {formatDate(bill.date)}</div>
               </div>
-              <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 18, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
+              <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
             </div>
             {(bill.postedBy || bill.approvedBy) && (
               <div className="loan-bill-meta">
@@ -178,37 +186,44 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
           <div className="loan-bill">
             <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--dark-text)" }}>{group.name}</div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--dark-text)" }}>{group.name}</div>
+                <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>
                   {[group.createdBy && `Group admin ${group.createdBy}`, group.settledAt && `Settled ${formatDate(group.settledAt)}`].filter(Boolean).join(" · ")}
                 </div>
               </div>
-              {group.amount != null && <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 18, color: "var(--forest)" }}>{money(group.amount)}</div>}
+              {group.amount != null && <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)" }}>{money(group.amount)}</div>}
             </div>
           </div>
         </section>
       )}
 
-      {/* Repayments */}
+      {/* Statement: the loan, then every repayment, with what is still due after each */}
       {data && (
         <section className="loan-section">
-          <h3>Repayments</h3>
-          {repayments.length === 0 ? (
-            <div className="loan-empty">No repayments yet{!open ? "." : weBorrowed ? " — use Repay below when you pay it back." : " — use Received below when they pay you back."}</div>
-          ) : (
-            <ol className="loan-timeline">
-              {repayments.map((r) => (
-                <li key={r._id} className={r.reversed ? "reversed" : ""}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <strong>{money(r.amount)}</strong>
-                    <span style={{ color: "var(--muted)", fontSize: 12.5 }}>{formatDate(r.date)}</span>
-                  </div>
-                  <div style={{ fontSize: 12.5, color: "var(--muted)" }}>
-                    {[r.by && `by ${r.by}`, r.byLender && "marked received by lender", r.method, r.reference && `Ref ${r.reference}`, r.reversed && "reversed"].filter(Boolean).join(" · ")}
-                  </div>
-                </li>
-              ))}
-            </ol>
+          <h3>Statement</h3>
+          <div className="card accounts-statement loan-statement">
+            <div className="statement-row statement-head" aria-hidden="true">
+              <span>Date</span>
+              <span>Details</span>
+              <span className="num">{weBorrowed ? "Borrowed" : "Lent"}</span>
+              <span className="num">{weBorrowed ? "Paid" : "Received"}</span>
+              <span className="num">Due</span>
+            </div>
+            {statement.map((r) => (
+              <div key={r._id} className="statement-row" style={r.reversed ? { opacity: 0.5, textDecoration: "line-through" } : undefined}>
+                <span className="statement-date"><strong>{formatDate(r.date)}</strong></span>
+                <span className="statement-details">
+                  <strong>{r.label}</strong>
+                  {r.meta && <small>{r.meta}</small>}
+                </span>
+                <span className="num out" data-label={weBorrowed ? "Borrowed" : "Lent"}>{r.taken ? money(r.taken) : "—"}</span>
+                <span className="num in" data-label={weBorrowed ? "Paid" : "Received"}>{r.paid ? money(r.paid) : "—"}</span>
+                <span className="num statement-balance" data-label="Due">{money(r.due)}</span>
+              </div>
+            ))}
+          </div>
+          {repayments.length === 0 && open && (
+            <div className="loan-empty">No repayments yet{weBorrowed ? " — use Repay below when you pay it back." : " — use Received below when they pay you back."}</div>
           )}
         </section>
       )}

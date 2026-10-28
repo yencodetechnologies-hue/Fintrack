@@ -103,7 +103,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
           style: GoogleFonts.inter(
             color: Colors.white,
             fontWeight: FontWeight.w600,
-            fontSize: 21,
+            fontSize: 20,
             fontStyle: FontStyle.italic,
           ),
         ),
@@ -196,7 +196,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                 style: GoogleFonts.inter(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13.5,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -250,7 +250,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                 style: GoogleFonts.inter(
                                   color: TripsTheme.forestDark,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13.5,
+                                  fontSize: 14,
                                 ),
                               ),
                             ],
@@ -267,7 +267,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                   "Saved Trips",
                   style: GoogleFonts.inter(
                     color: Colors.white,
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     fontStyle: FontStyle.italic,
                   ),
@@ -320,7 +320,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                               "No Active Trips",
                               style: GoogleFonts.inter(
                                 color: TripsTheme.forestDark,
-                                fontSize: 19,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -481,7 +481,7 @@ class _TripsHomeScreenState extends State<TripsHomeScreen> {
                                         dateStr,
                                         style: GoogleFonts.inter(
                                           color: TripsTheme.textMuted,
-                                          fontSize: 12.5,
+                                          fontSize: 13,
                                         ),
                                       ),
                                       Text(

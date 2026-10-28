@@ -68,7 +68,7 @@ export default function ClaimVoucherModal({ voucher, company, user, held = 0, mo
         <label className="field-label">{closing ? "Amount used (₹)" : "Amount spent (₹)"}</label>
         <input className="field-input" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
         {value > 0 && (
-          <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 600, color: owed > 0 ? "var(--terracotta)" : "var(--forest)" }}>
+          <div style={{ marginTop: 6, fontSize: 13, fontWeight: 600, color: owed > 0 ? "var(--terracotta)" : "var(--forest)" }}>
             {left > 0 && (closing ? `${money(left)} stays with ${staffName} as their voucher balance.` : `${money(left)} stays with you as your voucher balance.`)}
             {extra > 0 && fromHeld > 0 && (closing ? `${money(fromHeld)} comes from ${staffName}'s voucher balance. ` : `${money(fromHeld)} comes from your voucher balance. `)}
             {owed > 0 && (closing ? `The company will owe ${staffName} ${money(owed)}.` : `The company will owe you ${money(owed)}.`)}

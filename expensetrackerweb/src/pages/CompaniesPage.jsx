@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { useToast } from "../context/ToastContext.jsx";
-import { createCompany, getCompanyMemberCandidates, getUserCompanies, getUserExpenseGroups, joinCompany } from "../api.js";
+import { createCompany, getCompanyMemberCandidates, getHiddenCompanies, getUserCompanies, getUserExpenseGroups, joinCompany, setCompanyHidden } from "../api.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 import CreateGroupModal from "../components/CreateGroupModal.jsx";
@@ -71,6 +72,36 @@ export default function CompaniesPage() {
     const placed = (c) => (c.sortOrder ?? null) !== null;
     setCompanies([...rows.filter(placed).sort((a, b) => a.sortOrder - b.sortOrder), ...rows.filter((c) => !placed(c))]);
     setLoading(false);
+  }
+
+  // ---- Remove from list (Admin only): hides the company from MY list; nothing in the company changes ----
+  const [removing, setRemoving] = useState(null); // company being removed (confirm)
+  const [hidden, setHidden] = useState(null); // companies I removed, loaded when "Hidden companies" is opened
+  const isCompanyAdmin = (c) => Boolean(c.isCompanyAdmin) || String(c.createdBy?._id || c.createdBy) === String(user.id);
+
+  async function confirmRemove() {
+    const c = removing;
+    setRemoving(null);
+    const res = await setCompanyHidden(c._id, user.id, true);
+    if (!res.success) return showToast(res.message || "Could not remove it from your list", "error");
+    showToast(`${c.name} removed from your list. Restore it any time from Hidden companies.`);
+    setCompanies((list) => list.filter((x) => String(x._id) !== String(c._id)));
+    if (hidden) setHidden((list) => [...list, { ...c, hiddenFromList: true }]);
+  }
+
+  async function openHidden() {
+    if (hidden) return setHidden(null); // toggle closed
+    const res = await getHiddenCompanies(user.id);
+    const rows = Array.isArray(res) ? res : res.companies || [];
+    setHidden(rows.filter((c) => c.hiddenFromList));
+  }
+
+  async function restore(c) {
+    const res = await setCompanyHidden(c._id, user.id, false);
+    if (!res.success) return showToast(res.message || "Could not restore it", "error");
+    showToast(`${c.name} is back in your list`);
+    setHidden((list) => list.filter((x) => String(x._id) !== String(c._id)));
+    load();
   }
 
   async function loadGroups() {
@@ -182,11 +213,11 @@ export default function CompaniesPage() {
         <div style={{ marginBottom: 36 }}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>Workspace</div>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 20 }}>
-            <h1 style={{ color: "var(--dark-text)", fontSize: 36, margin: 0, lineHeight: 1.15 }}>
+            <h1 style={{ color: "var(--dark-text)", fontSize: 22, margin: 0, lineHeight: 1.15 }}>
               {activeView === "companies" ? "Your companies" : "Your groups"}
             </h1>
           </div>
-          <p style={{ color: "var(--muted)", fontSize: 14.5, marginTop: 12, maxWidth: 520 }}>
+          <p style={{ color: "var(--muted)", fontSize: 14, marginTop: 12, maxWidth: 520 }}>
             {activeView === "companies" ? "Pick a company to open its ledger, or create a new one to start tracking shared expenses." : "Create a group inside a company and track shared group expenses together."}
           </p>
         </div>
@@ -230,28 +261,75 @@ export default function CompaniesPage() {
               ) : null}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
             {section.items.map((c) => (
+              <div key={c._id} className="company-tile-wrap">
+              {isCompanyAdmin(c) && (
+                <button
+                  type="button"
+                  className="company-tile-remove"
+                  title="Remove from my list (the company is not deleted)"
+                  aria-label={`Remove ${c.name} from my list`}
+                  onClick={() => setRemoving(c)}
+                >
+                  ✕
+                </button>
+              )}
               <button
-                key={c._id}
                 className="list-row company-tile"
-                style={{ textAlign: "left", cursor: "pointer", padding: 20 }}
+                style={{ textAlign: "left", cursor: "pointer", padding: 20, width: "100%" }}
                 onClick={() => navigate(`/company/${c._id}`)}
               >
                 {/* the company's logo (set by its Admin in Settings), else its first letter */}
                 <CompanyAvatar company={c} size={44} radius={11} style={{ marginBottom: 14 }} />
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "#fff" }}>{c.name}</div>
-                <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span className="pill" style={{ background: c.userRole === "admin" ? "#fff" : "rgba(255,255,255,0.18)", color: c.userRole === "admin" ? "var(--forest)" : "#fff" }}>
                     {c.isCompanyAdmin || String(c.createdBy?._id || c.createdBy) === String(user.id) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}
                   </span>
                   {c.details ? <span>{c.details}</span> : null}
                 </div>
               </button>
+              </div>
             ))}
           </div>
             </section>
           ))
         )}
         </>}
+
+        {activeView === "companies" && !loading && (
+          <div className="hidden-companies">
+            <button type="button" className="report-link" onClick={openHidden}>
+              {hidden ? "Hide removed companies" : "Removed companies"}
+            </button>
+            {hidden && (
+              hidden.length === 0 ? (
+                <p>You haven't removed any companies from your list.</p>
+              ) : (
+                <div className="card report-list">
+                  {hidden.map((c) => (
+                    <div key={c._id} className="report-row">
+                      <span>
+                        <strong>{c.name}</strong>
+                        <small>Removed from your list · still active for its members</small>
+                      </span>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => restore(c)}>Restore</button>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+        )}
+        {removing && (
+          <ConfirmDialog
+            title={`Remove ${removing.name} from your list?`}
+            message="It only disappears from your own company list. The company, its members, expenses and money are not deleted, and everyone else still sees it. You can restore it from Removed companies."
+            confirmLabel="Remove from list"
+            danger
+            onCancel={() => setRemoving(null)}
+            onConfirm={confirmRemove}
+          />
+        )}
 
         {activeView === "groups" && <>
           <div className="landing-actions">
@@ -265,7 +343,7 @@ export default function CompaniesPage() {
           ) : (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "26px 0 14px" }}>
-                <h2 style={{ color: "#fff", fontSize: 23, margin: 0 }}>My Groups</h2>
+                <h2 style={{ color: "#fff", fontSize: 20, margin: 0 }}>My Groups</h2>
                 <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{groups.length} groups</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
@@ -397,7 +475,7 @@ export default function CompaniesPage() {
                             />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                <strong style={{ fontSize: 13.5, color: "var(--dark-text)" }}>{c.name}</strong>
+                                <strong style={{ fontSize: 14, color: "var(--dark-text)" }}>{c.name}</strong>
                                 {c.companies && c.companies.length > 0 && (
                                   <span
                                     style={{
@@ -429,7 +507,7 @@ export default function CompaniesPage() {
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
                                   padding: "4px 8px",
-                                  fontSize: 11.5,
+                                  fontSize: 12,
                                   borderRadius: 6,
                                   border: "1px solid var(--slate-border)",
                                   background: "#fff",

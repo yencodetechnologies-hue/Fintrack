@@ -87,23 +87,36 @@ export default function CompaniesManager({ user, currentCompanyId }) {
       {!companies ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 16 }}><div className="spinner dark" /></div>
       ) : (
-        <div className="report-list" style={{ padding: 0 }}>
-          {companies.map((c) => (
-            <div key={c._id} className="report-row">
-              <span style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                <CompanyAvatar company={c} size={28} radius={7} style={{ border: "1px solid var(--slate-border)", flexShrink: 0 }} />
-                <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
-                  <strong>{c.name}{String(c._id) === String(currentCompanyId) ? " · this company" : ""}</strong>
-                  <small>{isAdminOf(c) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}</small>
-                </span>
-              </span>
-              {isAdminOf(c) ? (
-                <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setRemoving(c)}>Remove</button>
-              ) : (
-                <small style={{ color: "var(--muted)" }}>Only its Admin can remove</small>
-              )}
-            </div>
-          ))}
+        <div className="dt-card" style={{ marginBottom: 0 }}>
+          <div className="dt-scroll">
+            <table className="dt">
+              <thead>
+                <tr><th>Company</th><th>Your role</th><th className="num">Action</th></tr>
+              </thead>
+              <tbody>
+                {companies.map((c) => (
+                  <tr key={c._id}>
+                    <td className="dt-strong">
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                        <CompanyAvatar company={c} size={28} radius={7} style={{ border: "1px solid var(--slate-border)", flexShrink: 0 }} />
+                        {c.name}{String(c._id) === String(currentCompanyId) ? " · this company" : ""}
+                      </span>
+                    </td>
+                    <td>{isAdminOf(c) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}</td>
+                    <td>
+                      <span className="dt-actions">
+                        {isAdminOf(c) ? (
+                          <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setRemoving(c)}>Remove</button>
+                        ) : (
+                          <span className="dt-sub">Only its Admin can remove</span>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

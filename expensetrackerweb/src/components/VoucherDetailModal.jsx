@@ -51,7 +51,7 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel, o
         <span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span>
       </div>
       <h2 style={{ margin: "14px 0 2px", fontSize: 20, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>{voucher.purpose}</h2>
-      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
+      <div style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>{money(voucher.amount)}</div>
 
       <dl style={boxStyle}>
         {rows.map(([label, value], idx) => (

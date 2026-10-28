@@ -10,6 +10,7 @@ import 'ledger_expenses_tab.dart' show showPostExpenseSheet;
 import 'ledger_vouchers.dart';
 import 'ledger_funds.dart';
 import 'ledger_payments.dart';
+import 'ledger_interco_tab.dart' show showLoanDetail;
 
 /// Company Home, same content per role as the web's Home tab.
 /// One Home figure: label, amount (null while loading), colour, a short line under it, and where a tap goes.
@@ -302,6 +303,8 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
             _loading ? _todayShimmer() : _compactEmpty("No expenses today.")
           else
             _listCard([for (final e in today) _todayRow(e)]),
+          // loans recorded today (borrowed or lent); only shown when there are some
+          ..._todayLoans(),
           // only shown when something is waiting for a second manager
           if (s.isAdmin && s.can("verify") && _pending.isNotEmpty) ...[
             _sectionTitle("Pending verification"),
@@ -311,6 +314,46 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
       ),
       ),
     );
+  }
+
+  List<Widget> _todayLoans() {
+    final now = DateTime.now();
+    final loans = _loans.where((l) {
+      final d = DateTime.tryParse(l["createdAt"]?.toString() ?? "")?.toLocal();
+      return d != null && d.year == now.year && d.month == now.month && d.day == now.day;
+    }).toList();
+    if (loans.isEmpty) return const [];
+    return [
+      _sectionTitle("Loans today"),
+      _listCard([
+        for (final l in loans)
+          Builder(builder: (context) {
+            final weBorrowed = idOf(l["borrowerCompanyId"]) == s.companyId;
+            final other = nameOf(weBorrowed ? l["lenderCompanyId"] : l["borrowerCompanyId"], "Another company");
+            final source = l["source"] == "expense" ? "Paid an expense" : l["source"] == "group" ? "Paid a group's expenses" : "Direct loan";
+            final due = (l["balance"] as num?) ?? 0;
+            return InkWell(
+              onTap: () => showLoanDetail(context, s, l),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text("${weBorrowed ? "Borrowed from" : "Lent to"} $other", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: kDark)),
+                      Text([(l["note"]?.toString() ?? "").isNotEmpty ? l["note"].toString() : source, l["method"]?.toString() ?? ""].where((x) => x.isNotEmpty).join(" · "),
+                          style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
+                    ]),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(inr(l["amount"]), style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: weBorrowed ? kTerracotta : kForest)),
+                    Text(due > 0 ? "${inr(due)} due" : "Repaid", style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
+                  ]),
+                ]),
+              ),
+            );
+          }),
+      ]),
+    ];
   }
 
   /// Rows inside one white card, split by thin lines.

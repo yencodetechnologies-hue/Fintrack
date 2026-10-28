@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getAccountsEntries } from "../api.js";
 import { money } from "../utils.js";
+import { TableCard, tableMeta } from "./DataTable.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -51,8 +52,6 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
     return () => { alive = false; };
   }, [companyId, user.id, range.from, range.to, query, page, refreshKey]);
 
-  const first = data ? (data.page - 1) * data.limit + 1 : 0;
-  const last = data ? Math.min(data.total, data.page * data.limit) : 0;
 
   return (
     <div>
@@ -74,69 +73,75 @@ export default function AccountsPanel({ companyId, user, refreshKey }) {
         <>
           <div className="accounts-summary">
             <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>
-            <div className="stat-card"><small>Money in</small><strong className="in">+{money(data.summary.moneyIn)}</strong></div>
-            <div className="stat-card"><small>Money out</small><strong className="out">−{money(data.summary.moneyOut)}</strong></div>
+            <div className="stat-card"><small>Debit (out)</small><strong className="out">−{money(data.summary.moneyOut)}</strong></div>
+            <div className="stat-card"><small>Credit (in)</small><strong className="in">+{money(data.summary.moneyIn)}</strong></div>
             <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
             <div className="stat-card"><small>Transactions</small><strong>{data.summary.count}</strong></div>
           </div>
 
-          {data.total === 0 ? (
-            <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 28 }}>
-              {query ? "Nothing matches your search in this period." : "No money in or out in this period."}
-            </div>
-          ) : (
-            <div className={`card accounts-statement ${loading ? "loading" : ""}`}>
-              <div className="statement-row statement-head" aria-hidden="true">
-                <span>Date</span>
-                <span>Details</span>
-                <span className="num">Money in</span>
-                <span className="num">Money out</span>
-                <span className="num">Balance</span>
-              </div>
-              {data.entries.map((r) => {
-                const w = when(r.at);
-                const transfer = r.kind === "transfer";
-                return (
-                  <div key={r._id} className="statement-row">
-                    <span className="statement-date">
-                      <strong>{w.date}</strong>
-                      <small>{w.time}</small>
-                    </span>
-                    <span className="statement-details">
-                      <strong>{r.details || r.label}</strong>
-                      <small>
-                        {[r.details ? r.label : "", r.account, r.category, r.method, r.reference ? `Ref ${r.reference}` : "", r.by ? `by ${r.by}` : ""]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </small>
-                    </span>
-                    {transfer ? (
-                      <span className="num statement-transfer" data-label="Moved">{money(r.transferAmount)}</span>
-                    ) : (
-                      <>
-                        <span className="num in" data-label="In">{r.amount > 0 ? `+${money(r.amount)}` : "—"}</span>
-                        <span className="num out" data-label="Out">{r.amount < 0 ? `−${money(-r.amount)}` : "—"}</span>
-                      </>
-                    )}
-                    <span className="num statement-balance" data-label="Balance">{money(r.balance)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <TableCard title="Statement" meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} className={loading ? "dt-loading" : ""}>
+            {data.total === 0 ? (
+              <div className="dt-empty">{query ? "Nothing matches your search in this period." : "No money in or out in this period."}</div>
+            ) : (
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Details</th>
+                    <th>Account</th>
+                    <th>Method / Ref</th>
+                    <th className="num">Debit (out)</th>
+                    <th className="num">Credit (in)</th>
+                    <th className="num">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.entries.flatMap((r, i) => {
+                    const w = when(r.at);
+                    const transfer = r.kind === "transfer";
+                    // a black day row before the first entry of each day; the entries show just their time
+                    const newDay = i === 0 || when(data.entries[i - 1].at).date !== w.date;
+                    const dayRows = newDay ? data.entries.filter((e) => when(e.at).date === w.date) : [];
+                    const dayIn = dayRows.reduce((t, e) => t + (e.kind !== "transfer" && e.amount > 0 ? e.amount : 0), 0);
+                    const dayOut = dayRows.reduce((t, e) => t + (e.kind !== "transfer" && e.amount < 0 ? -e.amount : 0), 0);
+                    return [
+                      newDay && (
+                        <tr key={`day-${w.date}`} className="dt-group">
+                          <td colSpan={7} className="dt-day">
+                            {w.date}
+                            <span className="dt-group-total">
+                              {dayRows.length} {dayRows.length === 1 ? "entry" : "entries"}
+                              {dayOut > 0 ? ` · out ${money(dayOut)}` : ""}
+                              {dayIn > 0 ? ` · in ${money(dayIn)}` : ""}
+                            </span>
+                          </td>
+                        </tr>
+                      ),
+                      <tr key={r._id}>
+                        <td className="nowrap"><span className="dt-time">{w.time}</span></td>
+                        <td className="dt-wrap-text">
+                          <span className="dt-strong">{r.details || r.label}</span>
+                          <span className="dt-sub">{[r.details ? r.label : "", r.category, r.by ? `by ${r.by}` : ""].filter(Boolean).join(" · ")}</span>
+                        </td>
+                        <td>{r.account || "—"}</td>
+                        <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>
+                        {transfer ? (
+                          <td className="num muted" colSpan={2} style={{ textAlign: "center" }}>⇄ moved {money(r.transferAmount)}</td>
+                        ) : (
+                          <>
+                            <td className="num out">{r.amount < 0 ? `−${money(-r.amount)}` : "—"}</td>
+                            <td className="num in">{r.amount > 0 ? `+${money(r.amount)}` : "—"}</td>
+                          </>
+                        )}
+                        <td className="num">{money(r.balance)}</td>
+                      </tr>,
+                    ];
+                  })}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
 
-          {data.total > 0 && (
-            <div className="statement-pager">
-              <span>{first}–{last} of {data.total}</span>
-              <div>
-                <button type="button" className="btn btn-outline btn-sm" disabled={loading || data.page <= 1} onClick={() => setPage(1)}>« First</button>
-                <button type="button" className="btn btn-outline btn-sm" disabled={loading || data.page <= 1} onClick={() => setPage(data.page - 1)}>‹ Prev</button>
-                <strong>Page {data.page} of {data.pages}</strong>
-                <button type="button" className="btn btn-outline btn-sm" disabled={loading || data.page >= data.pages} onClick={() => setPage(data.page + 1)}>Next ›</button>
-                <button type="button" className="btn btn-outline btn-sm" disabled={loading || data.page >= data.pages} onClick={() => setPage(data.pages)}>Last »</button>
-              </div>
-            </div>
-          )}
           <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
             Balance is Cash + all bank accounts after each entry. A transfer between your own accounts doesn't change it.
             Expenses a person paid themselves don't appear here until the company pays them back.

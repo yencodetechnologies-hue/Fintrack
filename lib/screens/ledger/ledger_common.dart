@@ -56,6 +56,11 @@ class LedgerScope {
   bool get isPrimary => permissionRole == "primary";
   /// Deleting a paid expense (undoes its payment): the company Admin, or a custom role given that power.
   bool get canDeletePaid => isPrimary || (permissionRole == "custom" && permissions?["delete_paid_expenses"] == true);
+  /// Admin powers a custom role can be given: edit company-paid expenses, post an expense as borrowed.
+  bool get canEditCompanyPosts => isPrimary || (permissionRole == "custom" && permissions?["edit_paid_expenses"] == true);
+  bool get canPostBorrowed => isPrimary || (permissionRole == "custom" && permissions?["post_borrowed"] == true);
+  /// Adding a new company / person to borrow from.
+  bool get canAddLender => isAdmin && can("intercompany") && can("add_lenders");
   /// My role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name.
   String get myRoleLabel => isPrimary ? "Admin" : (roleName?.isNotEmpty ?? false) ? roleName! : managerName;
   bool get canEditPermissions =>

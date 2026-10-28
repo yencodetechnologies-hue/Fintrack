@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getLoanPartyStatement } from "../api.js";
 import { formatDate, money } from "../utils.js";
+import { TableCard } from "./DataTable.jsx";
 
 const kindLabel = { borrowed: "Borrowed", repaid: "Repaid", lent: "Lent", received: "Received back" };
 
@@ -54,27 +55,42 @@ export default function LoansPanel({ companyId, user, loans, pending = [], refre
         <div className="stat-card"><small>Owed to us</small><strong className="in">{money(totals.owedToUs)}</strong></div>
         <div className="stat-card"><small>Companies / people</small><strong>{parties.length}</strong></div>
       </div>
-      {parties.length === 0 ? (
-        <div className="card" style={{ color: "var(--muted)", padding: "12px 16px", fontSize: 13 }}>No loans yet. Use Record a loan when you borrow from a company or a person.</div>
-      ) : (
-        <div className="card expense-list">
-          {parties.map((p) => (
-            <div key={p.id} className="expense-row loan-party-row" role="button" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => setPartyId(p.id)} onKeyDown={(e) => { if (e.key === "Enter") setPartyId(p.id); }}>
-              <span className="loan-party-amount">
-                <strong style={{ color: p.owed > 0 ? "var(--terracotta)" : p.owed < 0 ? "var(--forest)" : "var(--muted)" }}>{money(Math.abs(p.owed))}</strong>
-                <small>{p.owed > 0 ? "We owe" : p.owed < 0 ? "Owes us" : "Settled"}</small>
-              </span>
-              <span className="expense-row-main">
-                <span className="expense-row-title">{p.name}</span>
-                <span className="expense-row-meta">
-                  {[p.person ? "Person" : p.external ? "Outside company" : "Company", p.count ? `${p.count} loan${p.count === 1 ? "" : "s"}` : "", p.count ? (p.open ? `${p.open} open` : "all repaid") : "", p.waiting ? `${p.waiting} awaiting confirmation` : "", `last ${formatDate(p.last)}`].filter(Boolean).join(" · ")}
-                </span>
-              </span>
-              <span style={{ color: "var(--muted)", fontSize: 18 }} aria-hidden="true">›</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <TableCard title="Loans" meta={`${parties.length} ${parties.length === 1 ? "company / person" : "companies / people"}`}>
+        {parties.length === 0 ? (
+          <div className="dt-empty">No loans yet. Use Record a loan when you borrow from a company or a person.</div>
+        ) : (
+          <table className="dt">
+            <thead>
+              <tr>
+                <th>Outstanding</th>
+                <th>Company / person</th>
+                <th>Type</th>
+                <th className="center">Loans</th>
+                <th>Status</th>
+                <th>Last</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parties.map((p) => (
+                <tr key={p.id} className="dt-click" tabIndex={0} onClick={() => setPartyId(p.id)} onKeyDown={(e) => { if (e.key === "Enter") setPartyId(p.id); }}>
+                  <td className={`num ${p.owed > 0 ? "out" : p.owed < 0 ? "in" : "muted"}`} style={{ textAlign: "left" }}>
+                    {money(Math.abs(p.owed))}
+                    <span className="dt-sub" style={{ fontWeight: 600 }}>{p.owed > 0 ? "We owe" : p.owed < 0 ? "Owes us" : "Settled"}</span>
+                  </td>
+                  <td className="dt-strong">{p.name}</td>
+                  <td>{p.person ? "Person" : p.external ? "Outside company" : "Company"}</td>
+                  <td className="center">{p.count}</td>
+                  <td>
+                    {p.count > 0 && <span className={`dt-status ${p.open ? "wait" : "good"}`}>{p.open ? `${p.open} open` : "All repaid"}</span>}
+                    {p.waiting ? <span className="dt-sub">{p.waiting} awaiting confirmation</span> : null}
+                  </td>
+                  <td className="nowrap">{formatDate(p.last)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
     </>
   );
 }
@@ -116,51 +132,63 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
             {t.lent > 0 && <div className="stat-card"><small>Lent</small><strong className="out">{money(t.lent)}</strong></div>}
             {t.lent > 0 && <div className="stat-card"><small>Received back</small><strong className="in">{money(t.received)}</strong></div>}
           </div>
-          {data.rows.length === 0 ? (
-            <div className="card" style={{ color: "var(--muted)", padding: 20, textAlign: "center" }}>No loans with {party.name}.</div>
-          ) : (
-            <div className="card accounts-statement">
-              <div className="statement-row statement-head" aria-hidden="true">
-                <span>Date</span>
-                <span>Details</span>
-                <span className="num">Credit (in)</span>
-                <span className="num">Debit (out)</span>
-                <span className="num">Balance</span>
-              </div>
-              {data.rows.map((r) => (
-                <div key={r._id} className="statement-row" role="button" tabIndex={0} style={{ cursor: "pointer" }} title="View this loan" onClick={() => onOpenLoan(r.loanId)} onKeyDown={(e) => { if (e.key === "Enter") onOpenLoan(r.loanId); }}>
-                  <span className="statement-date"><strong>{formatDate(r.date)}</strong></span>
-                  <span className="statement-details">
-                    <strong>{kindLabel[r.kind]}{r.particulars ? ` · ${r.particulars}` : ""}</strong>
-                    <small>{rowMeta(r) || "Tap to view the loan"}</small>
-                  </span>
-                  <span className="num in" data-label="In">{r.moneyIn ? `+${money(r.moneyIn)}` : "—"}</span>
-                  <span className="num out" data-label="Out">{r.moneyOut ? `−${money(r.moneyOut)}` : "—"}</span>
-                  <span className="num statement-balance" data-label="Balance">
-                    {r.balance > 0 ? `${money(r.balance)} due` : r.balance < 0 ? `${money(-r.balance)} to get` : money(0)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <TableCard title="Statement" meta={`${data.rows.length} ${data.rows.length === 1 ? "entry" : "entries"}`}>
+            {data.rows.length === 0 ? (
+              <div className="dt-empty">No loans with {party.name}.</div>
+            ) : (
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th>Taken by</th>
+                    <th>Method / Ref</th>
+                    <th className="num">Debit (out)</th>
+                    <th className="num">Credit (in)</th>
+                    <th className="num">Balance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.map((r) => (
+                    <tr key={r._id} className="dt-click" tabIndex={0} title="View this loan" onClick={() => onOpenLoan(r.loanId)} onKeyDown={(e) => { if (e.key === "Enter") onOpenLoan(r.loanId); }}>
+                      <td className="nowrap">{formatDate(r.date)}</td>
+                      <td className="nowrap">{kindLabel[r.kind]}</td>
+                      <td className="dt-wrap-text">
+                        <span className="dt-strong">{r.particulars}</span>
+                        {r.category && <span className="dt-sub">{r.category}</span>}
+                      </td>
+                      <td>{r.takenBy || r.by || "—"}{r.by && r.takenBy && r.by !== r.takenBy && <span className="dt-sub">recorded by {r.by}</span>}</td>
+                      <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>
+                      <td className="num out">{r.moneyOut ? `−${money(r.moneyOut)}` : "—"}</td>
+                      <td className="num in">{r.moneyIn ? `+${money(r.moneyIn)}` : "—"}</td>
+                      <td className="num">{r.balance > 0 ? `${money(r.balance)} due` : r.balance < 0 ? `${money(-r.balance)} to get` : money(0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
           {data.pending?.length > 0 && (
-            <>
-              <h3 style={{ fontSize: 15, margin: "18px 0 8px" }}>Awaiting confirmation</h3>
-              <div className="card accounts-statement">
-                {data.pending.map((r) => (
-                  <div key={r._id} className="statement-row">
-                    <span className="statement-date"><strong>{formatDate(r.date)}</strong></span>
-                    <span className="statement-details">
-                      <strong>{r.kind === "borrowed" ? "Borrowing" : "Asked to pay"} · {r.particulars}</strong>
-                      <small>{[rowMeta(r), r.kind === "borrowed" ? `waiting for ${party.name} to confirm` : "accept or reject it under Payment confirmations"].filter(Boolean).join(" · ")}</small>
-                    </span>
-                    <span className="num" data-label="Amount" style={{ color: "var(--muted)" }}>{money(r.amount)}</span>
-                    <span className="num" style={{ color: "var(--muted)", fontSize: 12 }}>Not counted yet</span>
-                    <span />
-                  </div>
-                ))}
-              </div>
-            </>
+            <TableCard title="Awaiting confirmation" meta={`${data.pending.length} not counted yet`}>
+              <table className="dt">
+                <thead>
+                  <tr><th>Date</th><th>Type</th><th>Details</th><th>Taken by</th><th>Status</th><th className="num">Amount</th></tr>
+                </thead>
+                <tbody>
+                  {data.pending.map((r) => (
+                    <tr key={r._id}>
+                      <td className="nowrap">{formatDate(r.date)}</td>
+                      <td className="nowrap">{r.kind === "borrowed" ? "Borrowing" : "Asked to pay"}</td>
+                      <td className="dt-wrap-text"><span className="dt-strong">{r.particulars}</span>{r.category && <span className="dt-sub">{r.category}</span>}</td>
+                      <td>{r.takenBy || "—"}</td>
+                      <td><span className="dt-status wait">{r.kind === "borrowed" ? `Waiting for ${party.name}` : "Accept under Payment confirmations"}</span></td>
+                      <td className="num muted">{money(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
           )}
         </>
       )}
@@ -168,12 +196,3 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
   );
 }
 
-// category · who took it · who recorded it · method · reference
-const rowMeta = (r) =>
-  [
-    r.category,
-    r.takenBy ? `taken by ${r.takenBy}` : "",
-    r.by && r.by !== r.takenBy ? `recorded by ${r.by}` : "",
-    r.method,
-    r.reference ? `Ref ${r.reference}` : "",
-  ].filter(Boolean).join(" · ");

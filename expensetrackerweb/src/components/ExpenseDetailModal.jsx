@@ -221,7 +221,7 @@ export default function ExpenseDetailModal({
       <h2 style={{ margin: "14px 0 2px", fontSize: 20, lineHeight: 1.25, color: "var(--dark-text)", wordBreak: "break-word" }}>
         {expense.description}
       </h2>
-      <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>
+      <div style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif", fontSize: 22, fontWeight: 700, color: "var(--forest)" }}>
         {money(expense.amount)}
       </div>
 

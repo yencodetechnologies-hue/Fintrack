@@ -158,7 +158,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                 <div style={{ fontWeight: 700, fontSize: 16, color: "var(--dark-text)", wordBreak: "break-word" }}>{bill.description}</div>
                 <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{bill.category || "General"} · {formatDate(bill.date)}</div>
               </div>
-              <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
+              <div style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)", whiteSpace: "nowrap" }}>{money(bill.amount)}</div>
             </div>
             {(bill.postedBy || bill.approvedBy) && (
               <div className="loan-bill-meta">
@@ -191,7 +191,7 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
                   {[group.createdBy && `Group admin ${group.createdBy}`, group.settledAt && `Settled ${formatDate(group.settledAt)}`].filter(Boolean).join(" · ")}
                 </div>
               </div>
-              {group.amount != null && <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)" }}>{money(group.amount)}</div>}
+              {group.amount != null && <div style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 20, color: "var(--forest)" }}>{money(group.amount)}</div>}
             </div>
           </div>
         </section>
@@ -201,26 +201,36 @@ export default function LoanDetailModal({ initialLoan, companyId, user, onClose,
       {data && (
         <section className="loan-section">
           <h3>Statement</h3>
-          <div className="card accounts-statement loan-statement">
-            <div className="statement-row statement-head" aria-hidden="true">
-              <span>Date</span>
-              <span>Details</span>
-              <span className="num">{weBorrowed ? "Borrowed" : "Lent"}</span>
-              <span className="num">{weBorrowed ? "Paid" : "Received"}</span>
-              <span className="num">Due</span>
+          <div className="dt-card" style={{ marginBottom: 8 }}>
+            <div className="dt-scroll">
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Details</th>
+                    <th className="num">{weBorrowed ? "Paid" : "Lent"}</th>
+                    <th className="num">{weBorrowed ? "Borrowed" : "Received"}</th>
+                    <th className="num">Due</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statement.map((r) => {
+                    // money out on the left, in on the right (same as every statement)
+                    const out = weBorrowed ? r.paid : r.taken;
+                    const inn = weBorrowed ? r.taken : r.paid;
+                    return (
+                      <tr key={r._id} style={r.reversed ? { opacity: 0.5, textDecoration: "line-through" } : undefined}>
+                        <td className="nowrap">{formatDate(r.date)}</td>
+                        <td className="dt-wrap-text"><span className="dt-strong">{r.label}</span>{r.meta && <span className="dt-sub">{r.meta}</span>}</td>
+                        <td className="num out">{out ? money(out) : "—"}</td>
+                        <td className="num in">{inn ? money(inn) : "—"}</td>
+                        <td className="num">{money(r.due)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            {statement.map((r) => (
-              <div key={r._id} className="statement-row" style={r.reversed ? { opacity: 0.5, textDecoration: "line-through" } : undefined}>
-                <span className="statement-date"><strong>{formatDate(r.date)}</strong></span>
-                <span className="statement-details">
-                  <strong>{r.label}</strong>
-                  {r.meta && <small>{r.meta}</small>}
-                </span>
-                <span className="num out" data-label={weBorrowed ? "Borrowed" : "Lent"}>{r.taken ? money(r.taken) : "—"}</span>
-                <span className="num in" data-label={weBorrowed ? "Paid" : "Received"}>{r.paid ? money(r.paid) : "—"}</span>
-                <span className="num statement-balance" data-label="Due">{money(r.due)}</span>
-              </div>
-            ))}
           </div>
           {repayments.length === 0 && open && (
             <div className="loan-empty">No repayments yet{weBorrowed ? " — use Repay below when you pay it back." : " — use Received below when they pay you back."}</div>

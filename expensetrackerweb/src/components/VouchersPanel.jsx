@@ -6,10 +6,8 @@ import ConfirmDialog from "./ConfirmDialog.jsx";
 import CreateVoucherModal from "./CreateVoucherModal.jsx";
 import VoucherDetailModal from "./VoucherDetailModal.jsx";
 import ClaimVoucherModal from "./ClaimVoucherModal.jsx";
+import { TableCard, pageOf, tableMeta } from "./DataTable.jsx";
 
-const th = { textAlign: "left", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, color: "var(--muted)", padding: "8px 10px", borderBottom: "1px solid var(--slate-border)" };
-const td = { padding: "9px 10px", fontSize: 13, borderBottom: "1px solid var(--slate-border-2)" };
-const num = { ...td, textAlign: "right", whiteSpace: "nowrap" };
 
 
 // Managers: every voucher, what each staff member holds, and hand-backs to confirm.
@@ -17,6 +15,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
   const { showToast } = useToast();
   const [data, setData] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -94,121 +93,132 @@ export default function VouchersPanel({ companyId, company, user, members, funds
           </div>
 
           {pendingReturns.length > 0 && (
-            <>
-              <h2 style={{ margin: "4px 0 12px", fontSize: 20 }}>Hand-backs to confirm</h2>
-              <div className="card expense-list" style={{ marginBottom: 20 }}>
-                {pendingReturns.map((r) => {
-                  const own = String(r.userId?._id || r.userId) === String(user.id);
-                  return (
-                    <div key={r._id} className="expense-row static">
-                      <span className="expense-row-main">
-                        <span className="expense-row-title">{r.userId?.name || "Staff"} is handing back cash</span>
-                        <span className="expense-row-meta">{formatDate(r.createdAt)}{r.note ? ` · ${r.note}` : ""}</span>
-                      </span>
-                      <span className="expense-row-amount">{money(r.amount)}</span>
-                      <span className="expense-row-action" style={{ display: "flex", gap: 6 }}>
-                        {own ? (
-                          <span style={{ fontSize: 12, color: "var(--muted)" }}>Another manager confirms</span>
-                        ) : (
-                          <>
-                            <button className="btn btn-primary btn-sm" disabled={busy === r._id} onClick={() => decide(r, true)}>Received</button>
-                            <button className="btn btn-outline btn-sm" disabled={busy === r._id} onClick={() => decide(r, false)}>Decline</button>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
+            <TableCard title="Hand-backs to confirm" meta={`${pendingReturns.length} waiting`}>
+              <table className="dt">
+                <thead>
+                  <tr><th>Date</th><th>Staff</th><th>Note</th><th className="num">Amount</th><th className="num">Action</th></tr>
+                </thead>
+                <tbody>
+                  {pendingReturns.map((r) => {
+                    const own = String(r.userId?._id || r.userId) === String(user.id);
+                    return (
+                      <tr key={r._id}>
+                        <td className="nowrap">{formatDate(r.createdAt)}</td>
+                        <td className="dt-strong">{r.userId?.name || "Staff"}</td>
+                        <td className="muted">{r.note || "—"}</td>
+                        <td className="num">{money(r.amount)}</td>
+                        <td>
+                          <span className="dt-actions">
+                            {own ? (
+                              <span className="dt-sub">Another manager confirms</span>
+                            ) : (
+                              <>
+                                <button className="btn btn-primary btn-sm" disabled={busy === r._id} onClick={() => decide(r, true)}>Received</button>
+                                <button className="btn btn-outline btn-sm" disabled={busy === r._id} onClick={() => decide(r, false)}>Decline</button>
+                              </>
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableCard>
           )}
 
-          <div className="card" style={{ padding: 0, overflowX: "auto", marginBottom: 20 }}>
-            <h3 style={{ fontSize: 16, margin: 0, padding: "14px 14px 6px" }}>By staff member</h3>
+          <TableCard title="By staff member" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`}>
             {people.length === 0 ? (
-              <div style={{ color: "var(--muted)", padding: "6px 14px 16px", fontSize: 13 }}>No vouchers given yet.</div>
+              <div className="dt-empty">No vouchers given yet.</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+              <table className="dt">
                 <thead>
-                  <tr>
-                    <th style={th}>NAME</th>
-                    <th style={{ ...th, textAlign: "right" }}>GIVEN</th>
-                    <th style={{ ...th, textAlign: "right" }}>CLAIMED</th>
-                    <th style={{ ...th, textAlign: "right" }}>OPEN</th>
-                    <th style={{ ...th, textAlign: "right" }}>HOLDING</th>
-                  </tr>
+                  <tr><th>Name</th><th className="num">Given</th><th className="num">Claimed</th><th className="num">Open</th><th className="num">Holding</th></tr>
                 </thead>
                 <tbody>
                   {people.map((p) => (
                     <tr key={p.userId}>
-                      <td style={td}><strong>{p.name}</strong></td>
-                      <td style={num}>{money(p.given)}</td>
-                      <td style={num}>{money(p.claimed)}</td>
-                      <td style={num}>{money(p.open)}</td>
-                      <td style={{ ...num, fontWeight: 800, color: p.held > 0 ? "var(--terracotta)" : "var(--dark-text)" }}>{money(Math.max(0, p.held))}</td>
+                      <td className="dt-strong">{p.name}</td>
+                      <td className="num">{money(p.given)}</td>
+                      <td className="num">{money(p.claimed)}</td>
+                      <td className="num">{money(p.open)}</td>
+                      <td className={`num ${p.held > 0 ? "out" : ""}`}>{money(Math.max(0, p.held))}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             )}
-          </div>
+          </TableCard>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 20 }}>All vouchers</h2>
-            <select className="field-select" style={{ width: "auto" }} value={filter} onChange={(e) => setFilter(e.target.value)}>
-              <option value="all">All</option>
-              <option value="open">Open</option>
-              <option value="claimed">Claimed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-          {shown.length === 0 ? (
-            <div className="card" style={{ color: "var(--muted)", textAlign: "center" }}>No vouchers here.</div>
-          ) : (
-            <div className="card expense-list">
-              {shown.map((v) => {
-                const status = STATUS[v.status] || STATUS.open;
-                const funded = v.fundedBy === "company" ? `Company${v.fundName ? ` · ${v.fundName}` : ""}` : `${v.createdBy?.name || "Manager"} (self)`;
-                const left = v.status === "claimed" ? Math.round((v.amount - v.claimedAmount) * 100) / 100 : 0;
-                return (
-                  <div key={v._id} className="expense-row" role="button" tabIndex={0} style={{ cursor: "pointer" }} onClick={() => setViewing(v)} onKeyDown={(e) => { if (e.key === "Enter") setViewing(v); }} title="View voucher details">
-                    <span className="expense-row-main">
-                      <span className="expense-row-title">{v.purpose}</span>
-                      <span className="expense-row-meta">
-                        To {v.recipientId?.name || "Staff"} · by {v.createdBy?.name || "Manager"} · {formatDate(v.createdAt)} · Paid by {funded}
-                      </span>
-                      {v.status === "claimed" && (
-                        <span className="expense-row-meta">
-                          Claimed {money(v.claimedAmount)} on {formatDate(v.claimedAt)}
-                          {left > 0 ? ` · ${money(left)} left with them` : ""}
-                          {v.owedToRecipient > 0 ? ` · company owes them ${money(v.owedToRecipient)}` : ""}
-                        </span>
-                      )}
-                      {v.status === "cancelled" && v.cancelledBy && <span className="expense-row-meta">Cancelled by {v.cancelledBy.name} · {formatDate(v.cancelledAt)}</span>}
-                      {v.closedBy && <span className="expense-row-meta">Closed by {v.closedBy.name} · {formatDate(v.closedAt)}</span>}
-                    </span>
-                    <span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span>
-                    <span className="expense-row-amount">{money(v.amount)}</span>
-                    <span className="expense-row-action">
-                      {v.status === "open" && (
-                        <span style={{ display: "flex", gap: 6 }}>
-                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
-                            <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setClosingVoucher(v); }}>Close</button>
-                          )}
-                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
-                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setCancelling(v); }}>Cancel</button>
-                          )}
-                          {String(v.createdBy?._id || v.createdBy) === String(user.id) && (
-                            <button className="btn btn-outline-danger btn-sm" onClick={(e) => { e.stopPropagation(); setDeleting(v); }}>Delete</button>
-                          )}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {(() => {
+            const paged = pageOf(shown, page, 25);
+            return (
+              <TableCard
+                title="All vouchers"
+                meta={tableMeta(shown.length, paged.page, paged.pages, "vouchers")}
+                page={paged.page}
+                pages={paged.pages}
+                onPage={setPage}
+                actions={
+                  <select className="field-select" style={{ width: "auto", height: 34 }} value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }}>
+                    <option value="all">All</option>
+                    <option value="open">Open</option>
+                    <option value="claimed">Claimed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                }
+              >
+                {shown.length === 0 ? (
+                  <div className="dt-empty">No vouchers here.</div>
+                ) : (
+                  <table className="dt">
+                    <thead>
+                      <tr><th>Date</th><th>Purpose</th><th>Given to</th><th>Given by</th><th>Paid from</th><th>Status</th><th className="num">Amount</th><th className="num">Action</th></tr>
+                    </thead>
+                    <tbody>
+                      {paged.rows.map((v) => {
+                        const status = STATUS[v.status] || STATUS.open;
+                        const funded = v.fundedBy === "company" ? `Company${v.fundName ? ` · ${v.fundName}` : ""}` : `${v.createdBy?.name || "Manager"} (self)`;
+                        const left = v.status === "claimed" ? Math.round((v.amount - v.claimedAmount) * 100) / 100 : 0;
+                        const mine = String(v.createdBy?._id || v.createdBy) === String(user.id);
+                        return (
+                          <tr key={v._id} className="dt-click" tabIndex={0} onClick={() => setViewing(v)} onKeyDown={(e) => { if (e.key === "Enter") setViewing(v); }} title="View voucher details">
+                            <td className="nowrap">{formatDate(v.createdAt)}</td>
+                            <td className="dt-wrap-text">
+                              <span className="dt-strong">{v.purpose}</span>
+                              {v.status === "claimed" && (
+                                <span className="dt-sub">
+                                  Claimed {money(v.claimedAmount)} on {formatDate(v.claimedAt)}
+                                  {left > 0 ? ` · ${money(left)} left with them` : ""}
+                                  {v.owedToRecipient > 0 ? ` · company owes them ${money(v.owedToRecipient)}` : ""}
+                                </span>
+                              )}
+                              {v.status === "cancelled" && v.cancelledBy && <span className="dt-sub">Cancelled by {v.cancelledBy.name} · {formatDate(v.cancelledAt)}</span>}
+                              {v.closedBy && <span className="dt-sub">Closed by {v.closedBy.name} · {formatDate(v.closedAt)}</span>}
+                            </td>
+                            <td>{v.recipientId?.name || "Staff"}</td>
+                            <td>{v.createdBy?.name || "Manager"}</td>
+                            <td>{funded}</td>
+                            <td><span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span></td>
+                            <td className="num">{money(v.amount)}</td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              {v.status === "open" && mine && (
+                                <span className="dt-actions">
+                                  <button className="btn btn-primary btn-sm" onClick={() => setClosingVoucher(v)}>Close</button>
+                                  <button className="btn btn-outline-danger btn-sm" onClick={() => setCancelling(v)}>Cancel</button>
+                                  <button className="btn btn-outline-danger btn-sm" onClick={() => setDeleting(v)}>Delete</button>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </TableCard>
+            );
+          })()}
         </>
       )}
 

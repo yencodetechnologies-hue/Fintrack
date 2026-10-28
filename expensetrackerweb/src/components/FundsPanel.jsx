@@ -3,6 +3,7 @@ import DescriptionInput from "./DescriptionInput.jsx";
 import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory, updateCashAccountName } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, formatDate, money } from "../utils.js";
+import { TableCard } from "./DataTable.jsx";
 
 function incomeRoute(i, cashName) {
   const to = i.destinationType === "cash" ? cashName : i.destinationName;
@@ -234,38 +235,23 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       )}
 
       {income.length > 0 && (
-        <>
-          <h3 style={{ fontSize: 16, marginBottom: 10 }}>Recent Income</h3>
-          <div className="card" style={{ padding: 6 }}>
-            {income.slice(0, 10).map((i, idx) => (
-              <div
-                key={i._id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 12px",
-                  fontSize: 13,
-                  borderBottom: idx < income.length - 1 ? "1px solid var(--slate-border-2)" : "none",
-                }}
-              >
-                <span>{i.destinationType === "cash" ? "💵" : "🏦"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {i.description || incomeRoute(i, cashName)}
-                  </div>
-                  {i.description && (
-                    <small style={{ color: "var(--muted)", fontSize: 12, display: "block" }}>
-                      {incomeRoute(i, cashName)}
-                    </small>
-                  )}
-                </div>
-                <span style={{ color: "var(--muted)", fontSize: 12 }}>{formatDate(i.createdAt)}</span>
-                <span style={{ color: "var(--forest)", fontWeight: 700 }}>+{money(i.amount)}</span>
-              </div>
-            ))}
-          </div>
-        </>
+        <TableCard title="Recent income" meta={`last ${Math.min(10, income.length)} of ${income.length}`}>
+          <table className="dt">
+            <thead>
+              <tr><th>Date</th><th>Details</th><th>Into</th><th className="num">Amount</th></tr>
+            </thead>
+            <tbody>
+              {income.slice(0, 10).map((i) => (
+                <tr key={i._id}>
+                  <td className="nowrap">{formatDate(i.createdAt)}</td>
+                  <td className="dt-wrap-text dt-strong">{i.description || incomeRoute(i, cashName)}</td>
+                  <td>{i.destinationType === "cash" ? "💵" : "🏦"} {incomeRoute(i, cashName)}</td>
+                  <td className="num in">+{money(i.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableCard>
       )}
     </div>
   );
@@ -351,7 +337,7 @@ function FundTile({
           </div>
         )}
         {subtitle && <div style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "pre-wrap", marginTop: 2 }}>{subtitle}</div>}
-        <div style={{ fontFamily: "Inter, system-ui, sans-serif", fontWeight: 700, color: "var(--forest)", fontSize: 20, marginTop: 8 }}>
+        <div style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif", fontWeight: 700, color: "var(--forest)", fontSize: 20, marginTop: 8 }}>
           {money(balance)}
         </div>
       </div>

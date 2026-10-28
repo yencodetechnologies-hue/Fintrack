@@ -36,7 +36,7 @@ class LedgerMoreTab extends StatelessWidget {
         if (paymentsInNav(scope) && scope.can("intercompany")) item(Icons.swap_horiz_rounded, "Loans", "Borrowing and lending with companies and people", IntercoPage(scope: scope)),
         // the Payments tab shows only my own; paying everyone else (with totals and history) is here
         if (paymentsInNav(scope)) item(Icons.groups_rounded, "Pay people", "What the company owes each ${scope.staffName.toLowerCase()} and ${scope.managerName.toLowerCase()}, and paying them", PaymentsPage(scope: scope)),
-        if (scope.isAdmin && scope.can("funds")) item(Icons.calendar_month_rounded, "Accounts", "Each day's money in and out, expenses and closing balance", AccountsPage(scope: scope)),
+        if (scope.isAdmin && scope.can("accounts")) item(Icons.calendar_month_rounded, "Accounts", "Each day's money in and out, expenses and closing balance", AccountsPage(scope: scope)),
         if (scope.isAdmin && scope.can("funds")) item(Icons.account_balance_wallet_rounded, "Company funds", "${scope.cashName}, bank accounts and income", FundsPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.menu_book_rounded, "Ledger", "Every transaction and its entries", _LedgerPage(scope: scope)),
         if (scope.isAdmin && scope.can("ledger_audit")) item(Icons.history_rounded, "Audit log", "Who did what, and when", _AuditPage(scope: scope)),

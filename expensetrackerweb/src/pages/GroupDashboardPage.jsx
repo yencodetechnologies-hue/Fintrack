@@ -15,6 +15,7 @@ import {
 import { fileToBase64, formatDate, money, personId, personName } from "../utils.js";
 import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
+import { TableCard } from "../components/DataTable.jsx";
 
 export default function GroupDashboardPage() {
   const { groupId } = useParams();
@@ -256,7 +257,7 @@ export default function GroupDashboardPage() {
                   <div className="field-label">TOTAL RECORDED</div>
                   <div
                     style={{
-                      fontFamily: "Inter, system-ui, sans-serif",
+                      fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
                       fontWeight: 700,
                       color: "var(--forest)",
                       fontSize: 22,
@@ -298,36 +299,33 @@ export default function GroupDashboardPage() {
                   {expenses.length} entries
                 </span>
               </div>
-              {expenses.length === 0 ? (
-                <div className="card" style={{ textAlign: "center", color: "var(--muted)" }}>
-                  No expenses in this group yet.
-                </div>
-              ) : (
-                expenses.map((expense) => (
-                  <article className="card" key={expense._id} style={{ marginBottom: 10, padding: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-                      <div>
-                        <span className="pill pill-category">{expense.category || "General"}</span>
-                        <h3 style={{ margin: "10px 0 4px", fontSize: 16 }}>{expense.description}</h3>
-                        <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                          {personName(expense.createdBy)} ·{" "}
-                          {formatDate(expense.date || expense.createdAt)}
-                        </span>
-                      </div>
-                      <strong style={{ whiteSpace: "nowrap" }}>{money(expense.amount)}</strong>
-                    </div>
-                    {expense.hasAttachment && (
-                      <button
-                        className="btn btn-outline"
-                        style={{ marginTop: 12 }}
-                        onClick={() => handleReceipt(expense)}
-                      >
-                        View receipt
-                      </button>
-                    )}
-                  </article>
-                ))
-              )}
+              <TableCard title="Group expenses" meta={`${expenses.length} ${expenses.length === 1 ? "entry" : "entries"}`}>
+                {expenses.length === 0 ? (
+                  <div className="dt-empty">No expenses in this group yet.</div>
+                ) : (
+                  <table className="dt">
+                    <thead>
+                      <tr><th>Date</th><th>Description</th><th>Category</th><th>Posted by</th><th className="num">Amount</th><th className="num">Receipt</th></tr>
+                    </thead>
+                    <tbody>
+                      {expenses.map((expense) => (
+                        <tr key={expense._id}>
+                          <td className="nowrap">{formatDate(expense.date || expense.createdAt)}</td>
+                          <td className="dt-wrap-text dt-strong">{expense.description}</td>
+                          <td>{expense.category || "General"}</td>
+                          <td>{personName(expense.createdBy)}</td>
+                          <td className="num">{money(expense.amount)}</td>
+                          <td>
+                            <span className="dt-actions">
+                              {expense.hasAttachment ? <button className="btn btn-outline btn-sm" onClick={() => handleReceipt(expense)}>View receipt</button> : <span className="dt-sub">—</span>}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </TableCard>
             </>
           )
         )}

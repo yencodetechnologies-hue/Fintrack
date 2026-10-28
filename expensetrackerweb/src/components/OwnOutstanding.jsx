@@ -127,41 +127,57 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
       </div>
 
       {bills.length > 0 && (
-        <div className="expense-list" style={{ marginTop: 12 }}>
-          <label className="own-outstanding-row head">
-            <input
-              type="checkbox"
-              checked={byAmount ? false : allOn}
-              disabled={byAmount}
-              onChange={() => {
-                setAmountText("");
-                setSelected(allOn ? new Set() : new Set(bills.map(keyOf)));
-              }}
-            />
-            <span>{byAmount ? "Covered by the amount (oldest first)" : `Select all (${bills.length})`}</span>
-          </label>
-          {sorted.map((b) => {
-            const p = plan.get(keyOf(b));
-            const covered = byAmount && !tooMuch && p.state !== "open";
-            const on = byAmount ? covered : selected.has(keyOf(b));
-            return (
-              <label key={keyOf(b)} className={`own-outstanding-row${on ? " on" : ""}${byAmount && !tooMuch ? ` plan-${p.state}` : ""}`}>
-                <input type="checkbox" checked={on} disabled={byAmount} onChange={() => toggle(b)} />
-                <span className="own-outstanding-main">
-                  <span style={{ fontWeight: 600 }}>{b.description}</span>
-                  <span style={{ color: "var(--muted)", fontSize: 12 }}>
-                    {[b.category, formatDate(b.date || b.postedAt), b.claim ? "approved, not yet paid" : b.remaining < b.amount ? `part paid · ${money(b.amount)} in all` : "paid by you"].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-                {byAmount && !tooMuch && (
-                  <span className={`own-plan-tag ${p.state}`}>
-                    {p.state === "closed" ? "Closes" : p.state === "part" ? `${money(p.take)} of ${money(b.remaining)}` : "Stays owed"}
-                  </span>
-                )}
-                <strong>{money(b.remaining)}</strong>
-              </label>
-            );
-          })}
+        <div className="dt-card" style={{ marginTop: 12 }}>
+          <div className="dt-scroll">
+            <table className="dt">
+              <thead>
+                <tr>
+                  <th style={{ width: 36 }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={byAmount ? false : allOn}
+                      disabled={byAmount}
+                      onChange={() => {
+                        setAmountText("");
+                        setSelected(allOn ? new Set() : new Set(bills.map(keyOf)));
+                      }}
+                    />
+                  </th>
+                  <th>{byAmount ? "Covered by the amount (oldest first)" : `Bill (${bills.length})`}</th>
+                  <th>Category</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  {byAmount && !tooMuch && <th>This payment</th>}
+                  <th className="num">Owed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((b) => {
+                  const p = plan.get(keyOf(b));
+                  const covered = byAmount && !tooMuch && p.state !== "open";
+                  const on = byAmount ? covered : selected.has(keyOf(b));
+                  return (
+                    <tr key={keyOf(b)} className={`${on ? "dt-selected" : ""}${byAmount ? "" : " dt-click"}`} onClick={() => { if (!byAmount) toggle(b); }}>
+                      <td><input type="checkbox" checked={on} disabled={byAmount} onChange={() => toggle(b)} onClick={(e) => e.stopPropagation()} /></td>
+                      <td className="dt-wrap-text dt-strong">{b.description}</td>
+                      <td>{b.category || "—"}</td>
+                      <td className="nowrap">{formatDate(b.date || b.postedAt)}</td>
+                      <td className="muted">{b.claim ? "Approved, not yet paid" : b.remaining < b.amount ? `Part paid · ${money(b.amount)} in all` : "Paid by you"}</td>
+                      {byAmount && !tooMuch && (
+                        <td>
+                          <span className={`own-plan-tag ${p.state}`}>
+                            {p.state === "closed" ? "Closes" : p.state === "part" ? `${money(p.take)} of ${money(b.remaining)}` : "Stays owed"}
+                          </span>
+                        </td>
+                      )}
+                      <td className="num">{money(b.remaining)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

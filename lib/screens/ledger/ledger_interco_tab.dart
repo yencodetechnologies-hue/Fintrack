@@ -300,7 +300,7 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
               items: [
                 ..._sources.map((c) => DropdownMenuItem(
                     value: c["_id"].toString(), child: Text("${c["name"]}${c["lenderKind"] == "person" ? " (person)" : ""}", overflow: TextOverflow.ellipsis))),
-                const DropdownMenuItem(value: addCompany, child: Text("+ Add company or person…")),
+                if (s.canAddLender) const DropdownMenuItem(value: addCompany, child: Text("+ Add company or person…")),
               ],
               onChanged: (v) => set(() => lender = v),
             ),

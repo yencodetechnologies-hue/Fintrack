@@ -549,7 +549,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                   ...s.funds.map((f) => DropdownMenuItem(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis))),
                   // my other companies' Cash/Bank: paying from one books it as borrowed from that company
                   // borrowing straight from Add Expense: the company Admin only
-                  if (s.isPrimary && s.can("intercompany"))
+                  if (s.canPostBorrowed && s.can("intercompany"))
                     for (final c in s.managedOtherCompanies) ...[
                       DropdownMenuItem(
                         value: "co:${c["_id"]}:cash",
@@ -562,7 +562,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                         ),
                     ],
                   // borrowing straight from Add Expense: the company Admin only
-                  if (s.isPrimary && s.can("intercompany")) const DropdownMenuItem(value: borrow, child: Text("Borrowed from another company…")),
+                  if (s.canPostBorrowed && s.can("intercompany")) const DropdownMenuItem(value: borrow, child: Text("Borrowed from another company…")),
                 ],
                 onChanged: (v) {
                   set(() => fund = v ?? "cash");
@@ -591,7 +591,7 @@ Future<void> showPostExpenseSheet(BuildContext context, LedgerScope s,
                   decoration: fieldDecoration(lenders == null ? "Loading…" : "Borrowed from *", icon: Icons.business_rounded),
                   items: [
                     ...(lenders ?? const []).map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis))),
-                    const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
+                    if (s.canAddLender) const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
                   ],
                   onChanged: (v) => set(() => lenderId = v),
                 ),

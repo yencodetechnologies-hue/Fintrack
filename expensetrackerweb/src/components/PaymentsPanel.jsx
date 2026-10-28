@@ -5,6 +5,7 @@ import { formatDate, money, PAYMENT_METHODS, roleNames } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
+import { TableCard, pageOf, tableMeta } from "./DataTable.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 import OwnOutstanding from "./OwnOutstanding.jsx";
 
@@ -31,6 +32,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
   const [viewing, setViewing] = useState(null); // person whose bills are open
   const [historyPerson, setHistoryPerson] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
 
@@ -197,47 +199,53 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             </div>
           )}
 
-          {visible.length === 0 ? (
-            <div className="card" style={{ color: "var(--muted)", textAlign: "center", padding: 24 }}>
-              {show === "owed" ? "Nobody is owed money right now." : "No one matches your search."}
-            </div>
-          ) : (
-            <div className="card expense-list">
-              <div className="payments-row payments-head">
-                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all" />
-                <span>Person</span>
-                <span className="payments-num">Owed</span>
-                <span />
-              </div>
-              {visible.map((p) => {
-                const me = p.userId === String(user.id);
-                return (
-                  <div key={p.userId} className={`payments-row ${selected.has(p.userId) ? "is-selected" : ""}`}>
-                    <input type="checkbox" checked={selected.has(p.userId)} disabled={!payable(p)} onChange={() => toggle(p.userId)} aria-label={`Select ${p.name}`} />
-                    <span className="payments-person">
-                      <span className="payments-avatar">{initial(p.name)}</span>
-                      <span style={{ minWidth: 0 }}>
-                        <span className="payments-name">
-                          {p.name}{me ? " (you)" : ""}
-                          <span className={`payments-role ${p.role}`}>{p.role === "manager" ? roleNames(company).manager : p.role === "staff" ? roleNames(company).staff : "Former"}</span>
-                        </span>
-                        <span className="payments-meta">
+          <TableCard title="People owed" meta={`${visible.length} ${visible.length === 1 ? "person" : "people"}`}>
+            {visible.length === 0 ? (
+              <div className="dt-empty">{show === "owed" ? "Nobody is owed money right now." : "No one matches your search."}</div>
+            ) : (
+              <table className="dt">
+                <thead>
+                  <tr>
+                    <th style={{ width: 36 }}><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all" /></th>
+                    <th>Person</th>
+                    <th>Role</th>
+                    <th>Details</th>
+                    <th className="num">Owed</th>
+                    <th className="num">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((p) => {
+                    const me = p.userId === String(user.id);
+                    return (
+                      <tr key={p.userId} className={selected.has(p.userId) ? "dt-selected" : ""}>
+                        <td><input type="checkbox" checked={selected.has(p.userId)} disabled={!payable(p)} onChange={() => toggle(p.userId)} aria-label={`Select ${p.name}`} /></td>
+                        <td className="dt-strong">
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            <span className="payments-avatar">{initial(p.name)}</span>
+                            {p.name}{me ? " (you)" : ""}
+                          </span>
+                        </td>
+                        <td><span className={`payments-role ${p.role}`}>{p.role === "manager" ? roleNames(company).manager : p.role === "staff" ? roleNames(company).staff : "Former"}</span></td>
+                        <td className="muted">
                           {p.claims > 0 ? `${money(p.claims)} in approved claims` : p.owed > 0 ? "Paid out of pocket" : "Nothing owed"}
-                          {p.advance > 0 ? ` · holds ${money(p.advance)} voucher money` : ""}
-                        </span>
-                      </span>
-                    </span>
-                    <span className="payments-num" style={{ color: p.owed > 0 ? "var(--terracotta)" : "var(--muted)" }}>{money(p.owed)}</span>
-                    <span className="payments-actions">
-                      {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
-                      {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
-                      {me && p.owed > 0 && <span className="payments-meta">Pick "{user.name} (You)" above to pay it</span>}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                          {p.advance > 0 && <span className="dt-sub">holds {money(p.advance)} voucher money</span>}
+                        </td>
+                        <td className={`num ${p.owed > 0 ? "out" : "muted"}`}>{money(p.owed)}</td>
+                        <td>
+                          <span className="dt-actions">
+                            {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
+                            {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
+                            {me && p.owed > 0 && <span className="dt-sub">Pick "{user.name} (You)" above to pay it</span>}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
           </>
           )}
 
@@ -255,21 +263,35 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
               onChange={(from, to) => { setHistoryFrom(from); setHistoryTo(to); }}
             />
           </div>
-          {history.length === 0 ? (
-            <div className="card" style={{ color: "var(--muted)", textAlign: "center", padding: 20 }}>No payments match.</div>
-          ) : (
-            <div className="card expense-list">
-              {history.map((h) => (
-                <div key={h.id} className="expense-row static">
-                  <span className="expense-row-main">
-                    <span className="expense-row-title">{h.personName}</span>
-                    <span className="expense-row-meta">{formatDate(h.date)} · {h.how}{h.method ? ` · ${h.method}` : ""}{h.reference ? ` · Ref ${h.reference}` : ""} · by {h.by}</span>
-                  </span>
-                  <span className="expense-row-amount" style={{ color: "var(--forest)" }}>{money(h.amount)}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const paged = pageOf(history, historyPage, 25);
+            return (
+              <TableCard title="Payments" meta={tableMeta(history.length, paged.page, paged.pages, "payments")} page={paged.page} pages={paged.pages} onPage={setHistoryPage}>
+                {history.length === 0 ? (
+                  <div className="dt-empty">No payments match.</div>
+                ) : (
+                  <table className="dt">
+                    <thead>
+                      <tr><th>Date</th><th>Paid to</th><th>How</th><th>Method</th><th>Reference</th><th>Paid by</th><th className="num">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                      {paged.rows.map((h) => (
+                        <tr key={h.id}>
+                          <td className="nowrap">{formatDate(h.date)}</td>
+                          <td className="dt-strong">{h.personName}</td>
+                          <td>{h.how}</td>
+                          <td>{h.method || "—"}</td>
+                          <td className="dt-mono">{h.reference || "—"}</td>
+                          <td>{h.by}</td>
+                          <td className="num in">{money(h.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </TableCard>
+            );
+          })()}
         </>
       )}
 

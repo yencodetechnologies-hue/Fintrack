@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getExpenseAnalysis } from "../api.js";
 import { formatDate, money } from "../utils.js";
+import { TableCard } from "./DataTable.jsx";
 
 const BAR = "var(--forest)";
 const BAR_SOFT = "#9CC9B4";
@@ -163,18 +164,22 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
             action={<button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => setShowTable((v) => !v)}>{showTable ? "Chart" : "Table"}</button>}
           >
             {showTable ? (
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr><th style={{ textAlign: "left", padding: 6 }}>Month</th><th style={{ textAlign: "right", padding: 6 }}>Expenses</th><th style={{ textAlign: "right", padding: 6 }}>Total</th></tr></thead>
-                <tbody>
-                  {data.monthly.map((m) => (
-                    <tr key={m.month} style={{ borderTop: `1px solid ${GRID}` }}>
-                      <td style={{ padding: 6 }}>{monthLabel(m.month, true)}</td>
-                      <td style={{ padding: 6, textAlign: "right" }}>{m.count}</td>
-                      <td style={{ padding: 6, textAlign: "right", fontWeight: 700 }}>{money(m.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="dt-card" style={{ marginBottom: 0 }}>
+                <div className="dt-scroll">
+                  <table className="dt">
+                    <thead><tr><th>Month</th><th className="num">Expenses</th><th className="num">Total</th></tr></thead>
+                    <tbody>
+                      {data.monthly.map((m) => (
+                        <tr key={m.month}>
+                          <td>{monthLabel(m.month, true)}</td>
+                          <td className="num" style={{ fontWeight: 400 }}>{m.count}</td>
+                          <td className="num">{money(m.total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             ) : (
               <ColumnChart rows={data.monthly} label={(r, full) => monthLabel(r.month, full || data.months > 12)} highlightLast />
             )}
@@ -193,41 +198,54 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
             <ColumnChart rows={data.weekday} label={(r) => WEEKDAYS[r.day]} height={120} />
           </Panel>
 
-          <Panel title="Unusual expenses">
-            <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 10px" }}>At least 2× the average for their category.</p>
+          <TableCard title="Unusual expenses" meta="At least 2× the average for their category">
             {data.unusual.length === 0 ? (
-              <div style={{ color: "var(--muted)", fontSize: 13 }}>Nothing unusual in this period.</div>
-            ) : data.unusual.map((u) => (
-              <div key={u._id} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderTop: `1px solid ${GRID}`, fontSize: 13 }}>
-                <span>
-                  <strong>{u.description}</strong><br />
-                  <small style={{ color: "var(--muted)" }}>{u.category} · {u.by || "—"} · {formatDate(u.date)}</small>
-                </span>
-                <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <strong>{money(u.amount)}</strong><br />
-                  <small style={{ color: "var(--terracotta)", fontWeight: 700 }}>⚠ {u.ratio}× avg ({money(u.categoryAvg)})</small>
-                </span>
-              </div>
-            ))}
-          </Panel>
+              <div className="dt-empty">Nothing unusual in this period.</div>
+            ) : (
+              <table className="dt">
+                <thead>
+                  <tr><th>Date</th><th>Description</th><th>Category</th><th>Posted by</th><th className="num">Category avg</th><th className="num">Times avg</th><th className="num">Amount</th></tr>
+                </thead>
+                <tbody>
+                  {data.unusual.map((u) => (
+                    <tr key={u._id}>
+                      <td className="nowrap">{formatDate(u.date)}</td>
+                      <td className="dt-wrap-text dt-strong">{u.description}</td>
+                      <td>{u.category}</td>
+                      <td>{u.by || "—"}</td>
+                      <td className="num" style={{ fontWeight: 400 }}>{money(u.categoryAvg)}</td>
+                      <td className="num out">⚠ {u.ratio}×</td>
+                      <td className="num">{money(u.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
 
-          <Panel title="Recurring expenses">
-            <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 10px" }}>Same description in 3 or more different months.</p>
+          <TableCard title="Recurring expenses" meta="Same description in 3 or more different months">
             {data.recurring.length === 0 ? (
-              <div style={{ color: "var(--muted)", fontSize: 13 }}>No recurring expenses found yet.</div>
-            ) : data.recurring.map((r) => (
-              <div key={r.description} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 0", borderTop: `1px solid ${GRID}`, fontSize: 13 }}>
-                <span>
-                  <strong>{r.description}</strong><br />
-                  <small style={{ color: "var(--muted)" }}>{r.months} months · {r.count} times · last {formatDate(r.lastDate)}</small>
-                </span>
-                <span style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                  <strong>{money(r.avgAmount)}</strong> <small style={{ color: "var(--muted)" }}>avg</small><br />
-                  <small style={{ color: "var(--muted)" }}>{money(r.total)} total</small>
-                </span>
-              </div>
-            ))}
-          </Panel>
+              <div className="dt-empty">No recurring expenses found yet.</div>
+            ) : (
+              <table className="dt">
+                <thead>
+                  <tr><th>Description</th><th className="center">Months</th><th className="center">Times</th><th>Last</th><th className="num">Average</th><th className="num">Total</th></tr>
+                </thead>
+                <tbody>
+                  {data.recurring.map((r) => (
+                    <tr key={r.description}>
+                      <td className="dt-wrap-text dt-strong">{r.description}</td>
+                      <td className="center">{r.months}</td>
+                      <td className="center">{r.count}</td>
+                      <td className="nowrap">{formatDate(r.lastDate)}</td>
+                      <td className="num">{money(r.avgAmount)}</td>
+                      <td className="num" style={{ fontWeight: 400 }}>{money(r.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </TableCard>
         </>
       )}
     </>

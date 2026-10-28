@@ -17,6 +17,7 @@ import {
 } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import { useNavigate } from "react-router-dom";
+import { TableCard } from "./DataTable.jsx";
 
 export default function SettingsPanel({ company, members, user, isAdmin, can = () => true, powers = {}, onChanged }) {
   const { showToast } = useToast();
@@ -231,7 +232,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
                 fontSize: 22,
                 fontWeight: 800,
                 letterSpacing: 6,
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
                 color: isExpired ? "var(--muted)" : "var(--forest)",
               }}
             >
@@ -292,87 +293,69 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       {isAdmin && can("members") && <InvitesList company={company} user={user} refreshKey={invitesKey} />}
 
       {/* the count is staff only; managers (incl. the creator) are listed but not counted */}
-      <h3 style={{ fontSize: 16, marginBottom: 10 }}>
-        {names.staffs} ({members.filter((m) => m.role !== "admin").length})
-        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)", marginLeft: 8 }}>
-          · {members.filter((m) => m.role === "admin").length} {(members.filter((m) => m.role === "admin").length === 1 ? names.manager : names.managers).toLowerCase()}
-        </span>
-      </h3>
-      <div className="card" style={{ maxWidth: 560, padding: 6, marginBottom: 28 }}>
-        {members.map((m, idx) => {
-          const isCreator = String(company.createdBy) === String(m.userId);
-          return (
-            <div
-              key={m.userId}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "10px 12px",
-                borderBottom: idx < members.length - 1 ? "1px solid var(--slate-border-2)" : "none",
-              }}
-            >
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: "50%",
-                  background: "var(--forest)",
-                  color: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  flexShrink: 0,
-                }}
-              >
-                {m.name?.[0]?.toUpperCase() || "M"}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{m.name}</div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {isCreator ? "Admin · Creator" : m.isAdmin ? "Admin" : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)}
-                </div>
-              </div>
-
-              {isAdmin && (can("members") || iAmAdmin) && !isCreator && (!m.isAdmin || iAmAdmin) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <select
-                    className="field-select"
-                    style={{ padding: "4px 8px", fontSize: 12 }}
-                    value={m.isAdmin ? "coadmin" : m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "admin" : "member"}
-                    disabled={Boolean(m.customRoleId) && !isPrimary}
-                    title={m.customRoleId && !isPrimary ? "Only the primary admin can change someone in a custom role" : undefined}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (v === "coadmin") return handleAdmin(m.userId, true);
-                      if (v.startsWith("role:")) return handleCustomRole(m.userId, v.slice(5));
-                      // an Admin back to manager just loses Admin; to staff, the role change clears it too
-                      if (m.isAdmin && v === "admin") return handleAdmin(m.userId, false);
-                      return handleRoleChange(m.userId, v);
-                    }}
-                  >
-                    <option value="member">{names.staff}</option>
-                    <option value="admin">{names.manager}</option>
-                    {/* only an Admin can make someone an Admin (full access, like the creator) */}
-                    {(iAmAdmin || m.isAdmin) && <option value="coadmin" disabled={!iAmAdmin}>Admin</option>}
-                    {(isPrimary || m.customRoleId) && (company.customRoles || []).map((r) => (
-                      <option key={r._id} value={`role:${r._id}`} disabled={!isPrimary}>{r.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn btn-outline-danger"
-                    style={{ padding: "5px 10px", fontSize: 12 }}
-                    onClick={() => setRemoving(m)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <TableCard
+        title="Members"
+        meta={`${members.filter((m) => m.role !== "admin").length} ${names.staffs.toLowerCase()} · ${members.filter((m) => m.role === "admin").length} ${(members.filter((m) => m.role === "admin").length === 1 ? names.manager : names.managers).toLowerCase()}`}
+      >
+        <table className="dt">
+          <thead>
+            <tr><th>Name</th><th>Email</th><th>Role</th>{isAdmin && <th className="num">Action</th>}</tr>
+          </thead>
+          <tbody>
+            {members.map((m) => {
+              const isCreator = String(company.createdBy) === String(m.userId);
+              const canManage = isAdmin && (can("members") || iAmAdmin) && !isCreator && (!m.isAdmin || iAmAdmin);
+              return (
+                <tr key={m.userId}>
+                  <td className="dt-strong">
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                      <span className="payments-avatar">{m.name?.[0]?.toUpperCase() || "M"}</span>
+                      {m.name}
+                    </span>
+                  </td>
+                  <td className="muted">{m.email || "—"}</td>
+                  <td>
+                    {canManage ? (
+                      <select
+                        className="field-select"
+                        style={{ padding: "4px 8px", fontSize: 13, height: 34, width: "auto" }}
+                        value={m.isAdmin ? "coadmin" : m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "admin" : "member"}
+                        disabled={Boolean(m.customRoleId) && !isPrimary}
+                        title={m.customRoleId && !isPrimary ? "Only the primary admin can change someone in a custom role" : undefined}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "coadmin") return handleAdmin(m.userId, true);
+                          if (v.startsWith("role:")) return handleCustomRole(m.userId, v.slice(5));
+                          // an Admin back to manager just loses Admin; to staff, the role change clears it too
+                          if (m.isAdmin && v === "admin") return handleAdmin(m.userId, false);
+                          return handleRoleChange(m.userId, v);
+                        }}
+                      >
+                        <option value="member">{names.staff}</option>
+                        <option value="admin">{names.manager}</option>
+                        {/* only an Admin can make someone an Admin (full access, like the creator) */}
+                        {(iAmAdmin || m.isAdmin) && <option value="coadmin" disabled={!iAmAdmin}>Admin</option>}
+                        {(isPrimary || m.customRoleId) && (company.customRoles || []).map((r) => (
+                          <option key={r._id} value={`role:${r._id}`} disabled={!isPrimary}>{r.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      isCreator ? "Admin · Creator" : m.isAdmin ? "Admin" : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)
+                    )}
+                  </td>
+                  {isAdmin && (
+                    <td>
+                      <span className="dt-actions">
+                        {canManage && <button className="btn btn-outline-danger btn-sm" onClick={() => setRemoving(m)}>Remove</button>}
+                      </span>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </TableCard>
 
       {isAdmin && can("settings") && (
         <div className="card" style={{ maxWidth: 560, marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

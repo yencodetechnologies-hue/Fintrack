@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getOutstandingReport } from "../api.js";
 import { money, roleNames } from "../utils.js";
+import { TableCard } from "./DataTable.jsx";
 
 // Who the company owes right now (managers and staff) and where it stands with other companies. Kept short:
 // people and companies with nothing outstanding are left out.
@@ -48,44 +49,51 @@ export default function OutstandingReport({ companyId, company, userId, role = "
             <div><small>Companies owe us</small><strong className={data.totals.companiesOweUs > 0 ? "in" : ""}>{money(data.totals.companiesOweUs)}</strong></div>
           </div>
 
-          <div className="card report-list">
-            <h3>People</h3>
+          <TableCard title="People" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`}>
             {people.length === 0 ? (
-              <p className="report-empty">Nobody is owed anything right now.</p>
+              <div className="dt-empty">Nobody is owed anything right now.</div>
             ) : (
-              people.map((r) => {
-                const details = [
-                  r.recorded > 0 ? `paid ${money(r.recorded)}` : "",
-                  r.claims > 0 ? `claims ${money(r.claims)}` : "",
-                  r.awaitingApproval > 0 ? `${money(r.awaitingApproval)} awaiting approval` : "",
-                  (r.advanceHeld || 0) > 0 ? `holds ${money(r.advanceHeld)} voucher money` : "",
-                ].filter(Boolean);
-                return (
-                  <div key={r.userId} className="report-row">
-                    <span>
-                      <strong>{r.name}</strong>
-                      <small>{r.role}{details.length ? ` · ${details.join(" · ")}` : ""}</small>
-                    </span>
-                    <b className={r.owed > 0 ? "out" : ""}>{r.owed > 0 ? money(r.owed) : "—"}</b>
-                  </div>
-                );
-              })
+              <table className="dt">
+                <thead>
+                  <tr><th>Name</th><th>Role</th><th className="num">Paid by them</th><th className="num">Claims</th><th className="num">Awaiting approval</th><th className="num">Voucher money</th><th className="num">Owed</th></tr>
+                </thead>
+                <tbody>
+                  {people.map((r) => (
+                    <tr key={r.userId}>
+                      <td className="dt-strong">{r.name}</td>
+                      <td>{r.role}</td>
+                      <td className="num">{r.recorded > 0 ? money(r.recorded) : "—"}</td>
+                      <td className="num">{r.claims > 0 ? money(r.claims) : "—"}</td>
+                      <td className="num">{r.awaitingApproval > 0 ? money(r.awaitingApproval) : "—"}</td>
+                      <td className="num">{(r.advanceHeld || 0) > 0 ? money(r.advanceHeld) : "—"}</td>
+                      <td className={`num ${r.owed > 0 ? "out" : ""}`}>{r.owed > 0 ? money(r.owed) : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
-          </div>
+          </TableCard>
 
           {companies.length > 0 && (
-            <div className="card report-list">
-              <h3>Companies</h3>
-              {companies.map((c) => (
-                <div key={c.companyId} className="report-row">
-                  <span>
-                    <strong>{c.name}</strong>
-                    <small>{c.loans} open loan{c.loans === 1 ? "" : "s"}{c.external ? " · outside company" : ""}</small>
-                  </span>
-                  <b className={c.net < 0 ? "out" : "in"}>{c.net < 0 ? `We owe ${money(-c.net)}` : c.net > 0 ? `They owe ${money(c.net)}` : "Settled"}</b>
-                </div>
-              ))}
-            </div>
+            <TableCard title="Companies" meta={`${companies.length} with open loans`}>
+              <table className="dt">
+                <thead>
+                  <tr><th>Company / person</th><th>Type</th><th className="center">Open loans</th><th className="num">We owe</th><th className="num">They owe</th><th className="num">Net</th></tr>
+                </thead>
+                <tbody>
+                  {companies.map((c) => (
+                    <tr key={c.companyId}>
+                      <td className="dt-strong">{c.name}</td>
+                      <td>{c.external ? "Outside company" : "Company"}</td>
+                      <td className="center">{c.loans}</td>
+                      <td className="num out">{c.weOwe > 0 ? money(c.weOwe) : "—"}</td>
+                      <td className="num in">{c.theyOwe > 0 ? money(c.theyOwe) : "—"}</td>
+                      <td className={`num ${c.net < 0 ? "out" : "in"}`}>{c.net < 0 ? `We owe ${money(-c.net)}` : c.net > 0 ? `They owe ${money(c.net)}` : "Settled"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
           )}
         </>
       )}

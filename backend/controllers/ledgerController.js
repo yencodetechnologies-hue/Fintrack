@@ -436,8 +436,8 @@ exports.createExpense = handle(async (req, res) => {
   await requirePermission(companyId, userId, "post_expenses");
   if (isCompanyPost) await requirePermission(companyId, userId, "post_as_company");
   if (isBorrowPost) {
-    // posting an expense straight as borrowed from another company: the company Admin only
-    if (role !== "super_admin" && (await permissionsFor(companyId, userId)).role !== "primary") {
+    // posting an expense straight as borrowed from another company: the company Admin, or a custom role with that power
+    if (role !== "super_admin" && !hasPower(await permissionsFor(companyId, userId), "post_borrowed")) {
       throw fail(403, "Only the company Admin can post an expense as borrowed from another company");
     }
     await requirePermission(companyId, userId, "intercompany");
@@ -912,7 +912,7 @@ exports.updateExpense = handle(async (req, res) => {
       : null;
     const ownPost = oldTx && !oldTx.reversedBy && !oldTx.routeId && oldTx.type === "company_paid" && String(oldTx.companyId) === String(expense.companyId);
     if (!ownPost) throw fail(400, "This expense can no longer be edited because it has already been paid");
-    if (role !== "super_admin" && (await permissionsFor(expense.companyId, userId)).role !== "primary") {
+    if (role !== "super_admin" && !hasPower(await permissionsFor(expense.companyId, userId), "edit_paid_expenses")) {
       throw fail(403, "Only the company Admin can edit an expense posted as the company");
     }
     companyPost = oldTx;
@@ -1613,6 +1613,7 @@ async function resolveSourceCompany(userId, companyId, sourceCompanyId, newCompa
     // adding a company: managers / Admin only (never staff), and only with the Inter-company switch on
     await requireRole(companyId, userId, ["admin", "super_admin"]);
     await requirePermission(companyId, userId, "intercompany");
+    await requirePermission(companyId, userId, "add_lenders");
     // a lender can also be a person: no GSTIN, optional phone
     const isPerson = newCompany.kind === "person";
     if (!isPerson && (!newCompany.gstin || !String(newCompany.gstin).trim())) throw fail(400, "GSTIN is required to add a company");
@@ -3968,7 +3969,7 @@ exports.accountsEntries = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.query;
   await requireRole(companyId, userId, ["admin", "super_admin"]);
-  await requirePermission(companyId, userId, "funds");
+  await requirePermission(companyId, userId, "accounts");
   const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
   if (!company) throw fail(404, "Company not found");
 

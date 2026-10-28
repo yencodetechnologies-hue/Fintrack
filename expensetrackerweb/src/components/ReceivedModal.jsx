@@ -11,7 +11,7 @@ import { NewLenderFields, newLenderPayload } from "./NewLenderFields.jsx";
 // company (this company borrows from it: a company I manage, or an outside one). Closes it.
 const OUTSIDE = "__outside__";
 
-export default function ReceivedModal({ expense, company, user, members, funds, otherCompanies = [], canBorrow = false, onClose, onDone }) {
+export default function ReceivedModal({ expense, company, user, members, funds, otherCompanies = [], canBorrow = false, canAddLender = false, onClose, onDone }) {
   const { showToast } = useToast();
   const [from, setFrom] = useState("company");
   const [fundId, setFundId] = useState(funds[0]?.fundId || "cash");
@@ -129,7 +129,7 @@ export default function ReceivedModal({ expense, company, user, members, funds, 
                   {restCompanies.map((c) => <option key={c._id} value={`co:${c._id}:cash`}>{c.name}{c.lenderKind === "person" ? " (person)" : c.external ? " (outside)" : ""}</option>)}
                 </optgroup>
               )}
-              <option value={OUTSIDE}>+ Add company or person…</option>
+              {canAddLender && <option value={OUTSIDE}>+ Add company or person…</option>}
             </select>
             {lenderPick === OUTSIDE && (
               <NewLenderFields kind={outsideKind} onKind={setOutsideKind} name={outsideName} onName={setOutsideName} gstin={outsideGstin} onGstin={setOutsideGstin} phone={outsidePhone} onPhone={setOutsidePhone} />

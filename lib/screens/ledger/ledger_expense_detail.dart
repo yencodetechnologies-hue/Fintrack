@@ -111,7 +111,7 @@ class _ExpenseDetailSheetState extends State<_ExpenseDetailSheet> {
     final canEdit = (s.can("edit_expenses") && ((s.isAdmin && !isPaid && !isAwaitingPayer) || (!s.isAdmin && isSubmitted && isCreator && !isPaid))) ||
         (creatorCanSwitchPayer && (s.can("edit_expenses") || s.can("record_payments"))) ||
         // the company Admin can still edit an expense posted as this company
-        (s.isPrimary && s.can("edit_expenses") && e["lifecycle"] == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null);
+        (s.canEditCompanyPosts && s.can("edit_expenses") && e["lifecycle"] == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null);
     final canDelete = s.can("edit_expenses") && ((s.isAdmin && (!isPaid || s.canDeletePaid)) || (!s.isAdmin && isSubmitted && isCreator));
     final canReplaceReceipts = s.isAdmin && s.can("edit_expenses");
     final canRemoveReceipts = s.isAdmin && s.can("remove_receipts");
@@ -463,7 +463,7 @@ Future<void> showReceivedSheet(BuildContext context, LedgerScope s, Map<String, 
                 // every other company (no account choice: booked to its Cash)
                 for (final c in rest)
                   DropdownMenuItem(value: "co:${c["_id"]}:cash", child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis)),
-                const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
+                if (s.canAddLender) const DropdownMenuItem(value: outside, child: Text("+ Add company or person…")),
               ],
               onChanged: (v) => set(() => lenderPick = v),
             ),
@@ -619,7 +619,7 @@ Future<void> showPaySheet(BuildContext context, LedgerScope s, Map<String, dynam
                       items: sources.map((c) => DropdownMenuItem(value: c["_id"].toString(), child: Text(lenderLabel(c), overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (v) => set(() => sourceId = v),
                     ),
-            if (s.isAdmin)
+            if (s.canAddLender)
               TextButton.icon(
                 onPressed: () => set(() {
                   addingCompany = !addingCompany;
@@ -709,7 +709,7 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
   final canSwitchPayer = s.isAdmin && isCreator && startPayer != null;
   final shownPayer = startPayer == "unpaid" ? "manager" : startPayer;
   // ...except one posted as this company from its own Cash/Bank: the company Admin can still edit it (the payment is re-booked)
-  final adminCanEdit = s.isPrimary && lifecycle == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null;
+  final adminCanEdit = s.canEditCompanyPosts && lifecycle == "paid_by_company" && e["payerType"] == "company" && e["payerCompanyId"] == null && e["groupId"] == null;
   final detailsLocked = !adminCanEdit && (lifecycle.startsWith("paid") || e["status"] == "paid");
   final amount = TextEditingController(text: (e["amount"] ?? "").toString());
   final desc = TextEditingController(text: e["description"]?.toString() ?? "");

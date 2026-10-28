@@ -19,6 +19,7 @@ export default function AddExpenseModal({
   canPostAsCompany = true,
   myRoleLabel = "Manager", // my actual role here: Admin, a custom role name, or the manager name
   canBorrow = false, // the Inter-company permission: offers "Borrowed from another company" under Paid from
+  canAddLender = false, // the "Add a new lender" switch: offers "+ Add company or person…"
   otherCompanies = [], // other companies this manager runs: their Cash/Bank are offered too (booked as borrowed from them)
   members,
   customCategories,
@@ -316,7 +317,7 @@ export default function AddExpenseModal({
                   {(borrowSources || []).filter((s) => String(s._id) !== String(company._id)).map((s) => (
                     <option key={s._id} value={s._id}>{s.name}{s.lenderKind === "person" ? " (person)" : ""}</option>
                   ))}
-                  <option value={OUTSIDE}>+ Add company or person…</option>
+                  {canAddLender && <option value={OUTSIDE}>+ Add company or person…</option>}
                 </select>
                 {lenderId === OUTSIDE && (
                   <NewLenderFields kind={outsideKind} onKind={setOutsideKind} name={outsideName} onName={setOutsideName} gstin={outsideGstin} onGstin={setOutsideGstin} phone={outsidePhone} onPhone={setOutsidePhone} />

@@ -333,8 +333,8 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
         Row(children: [cell("Opening balance", inr(summary["opening"] ?? 0)), cell("Closing balance", inr(summary["closing"] ?? 0))]),
         line,
         Row(children: [
-          cell("Money in", "+${inr(summary["moneyIn"] ?? 0)}"),
-          cell("Money out", "−${inr(summary["moneyOut"] ?? 0)}", color: kTerracotta),
+          cell("Debit (out)", "−${inr(summary["moneyOut"] ?? 0)}", color: kTerracotta),
+          cell("Credit (in)", "+${inr(summary["moneyIn"] ?? 0)}"),
           cell("Entries", "${summary["count"] ?? 0}", color: kDark),
         ]),
       ]),

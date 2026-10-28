@@ -3,6 +3,7 @@ import AppLayout from "../components/AppLayout.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { useState } from "react";
+import TextSizeCard from "../components/TextSize.jsx";
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
@@ -32,6 +33,7 @@ export default function ProfilePage() {
             <button type="button" className="btn btn-primary" onClick={() => setConfirmingLogout(true)}>Log out</button>
           </div>
         </section>
+        <TextSizeCard style={{ maxWidth: 560, marginTop: 18 }} />
       </main>
       {confirmingLogout && <ConfirmDialog title="Log out?" message="You'll need to sign in again to access your account." confirmLabel="Log out" danger onConfirm={logout} onCancel={() => setConfirmingLogout(false)} />}
     </AppLayout>

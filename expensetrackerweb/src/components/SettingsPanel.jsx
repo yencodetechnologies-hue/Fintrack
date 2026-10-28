@@ -18,6 +18,7 @@ import {
 import { useToast } from "../context/ToastContext.jsx";
 import { useNavigate } from "react-router-dom";
 import { TableCard } from "./DataTable.jsx";
+import TextSizeCard from "./TextSize.jsx";
 
 export default function SettingsPanel({ company, members, user, isAdmin, can = () => true, powers = {}, onChanged }) {
   const { showToast } = useToast();
@@ -212,6 +213,9 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 28px" }}>
         Manage the join code, direct invites, staff roles, and company configuration.
       </p>
+
+      {/* everyone: their own text size for the whole web */}
+      <TextSizeCard style={{ maxWidth: 560, marginBottom: 28 }} />
 
       {/* logo first: the primary Admin only */}
       {powers.admin && <CompanyLogoCard company={company} user={user} onChanged={onChanged} />}

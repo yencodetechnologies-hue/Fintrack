@@ -257,7 +257,29 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
             <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
           </div>
 
-          <TableCard title={fundName ? `${fundName} statement` : "Statement"} meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} count={data.total} pageSize={PAGE_SIZE} onPageSize={(n) => { setPageSize(n); setPage(1); }} className={`${loading ? "dt-loading" : ""}${embedded ? " dt-left" : ""}`}>
+          <TableCard
+            title={fundName ? `${fundName} statement` : "Statement"}
+            meta={tableMeta(data.total, data.page, data.pages, "entries")}
+            actions={
+              embedded && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={handleExport}
+                  disabled={exporting}
+                >
+                  {exporting ? "Exporting…" : "Export CSV"}
+                </button>
+              )
+            }
+            page={data.page}
+            pages={data.pages}
+            onPage={setPage}
+            count={data.total}
+            pageSize={PAGE_SIZE}
+            onPageSize={(n) => { setPageSize(n); setPage(1); }}
+            className={`${loading ? "dt-loading" : ""}${embedded ? " dt-left" : ""}`}
+          >
             {data.total === 0 ? (
               <div className="dt-empty">{query ? "Nothing matches your search in this period." : movesOnly ? "No money added or moved between accounts in this period." : "No money in or out in this period."}</div>
             ) : (

@@ -1,4 +1,5 @@
 // Live production backend URL
+const LOCAL_API_BASE = "http://localhost:3009";
 const LIVE_API_BASE = "https://fintrack.yencodetechnologies.in";
 export const API_BASE = LIVE_API_BASE;
 

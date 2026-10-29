@@ -143,3 +143,20 @@ export const VOUCHER_STATUS = {
   claimed: { label: "Claimed", bg: "#EEF2FF", color: "#4338CA" },
   cancelled: { label: "Cancelled", bg: "#F1F5F9", color: "#64748B" },
 };
+
+export function downloadCsv(filename, rows) {
+  const escapeCsv = (v) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csvContent = "\uFEFF" + rows.map((r) => r.map(escapeCsv).join(",")).join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}

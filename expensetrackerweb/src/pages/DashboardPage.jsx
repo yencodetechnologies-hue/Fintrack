@@ -36,7 +36,7 @@ import {
   deleteLedgerExpense,
   reverseLedgerTransaction,
 } from "../api.js";
-import { bankAccountLabel, companyCategories, expenseStatusLabel, fileToBase64, formatDate, money, PAYMENT_METHODS, postedByName, roleLabel, roleNames } from "../utils.js";
+import { bankAccountLabel, companyCategories, downloadCsv, expenseStatusLabel, fileToBase64, formatDate, money, PAYMENT_METHODS, postedByName, roleLabel, roleNames } from "../utils.js";
 import Modal from "../components/Modal.jsx";
 import AppLayout, { rememberCompany } from "../components/AppLayout.jsx";
 import ExpenseCard from "../components/ExpenseCard.jsx";
@@ -572,6 +572,56 @@ export default function DashboardPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const exportExpensesToCsv = useCallback(() => {
+    const items = groupedLedgerExpenses.flatMap((g) => g.items);
+    if (!items.length) {
+      showToast("No expenses to export", "error");
+      return;
+    }
+    const rows = [["Date", "Time", "Description", "Category", "Posted By", "Status", "Amount", "Verification", "Payment Method"]];
+    for (const e of items) {
+      const d = new Date(e.date || e.createdAt);
+      rows.push([
+        formatDate(d),
+        d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        e.description || "",
+        e.category || "",
+        e.createdBy?.name || "Staff",
+        expenseStatusLabel(e.lifecycle || ""),
+        Number(e.amount || 0).toFixed(2),
+        e.verification || "",
+        e.paymentMode || "",
+      ]);
+    }
+    downloadCsv(`${company?.name ? `${company.name}-` : ""}expenses.csv`, rows);
+  }, [groupedLedgerExpenses, company?.name, showToast]);
+
+  const exportLoansToCsv = useCallback(() => {
+    if (!loans.length) {
+      showToast("No loans to export", "error");
+      return;
+    }
+    const rows = [["Date", "Lender", "Borrower", "Type", "Amount", "Outstanding Balance", "Method", "Reference", "Status", "Note"]];
+    for (const l of loans) {
+      const weBorrowed = String(l.borrowerCompanyId?._id || l.borrowerCompanyId) === String(companyId);
+      const lenderName = l.lenderCompanyId?.name || (weBorrowed ? "Lender" : company?.name);
+      const borrowerName = l.borrowerCompanyId?.name || (weBorrowed ? company?.name : "Borrower");
+      rows.push([
+        formatDate(l.date || l.createdAt),
+        lenderName,
+        borrowerName,
+        weBorrowed ? "Borrowed" : "Lent",
+        Number(l.amount || 0).toFixed(2),
+        Number(l.balance || 0).toFixed(2),
+        l.method || "",
+        l.reference || "",
+        Number(l.balance || 0) > 0 ? "Open" : "Settled",
+        l.note || "",
+      ]);
+    }
+    downloadCsv(`${company?.name ? `${company.name}-` : ""}loans.csv`, rows);
+  }, [loans, companyId, company?.name, showToast]);
+
   async function handleToggleStatus(expense, status) {
     const res = await resetExpenseStatus(expense._id, user.id, status);
     if (res.success) {
@@ -1061,7 +1111,12 @@ export default function DashboardPage() {
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
                 <h1 style={{ fontSize: 22, margin: 0 }}>Expenses</h1>
-                {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <button type="button" className="btn btn-outline" onClick={exportExpensesToCsv}>
+                    Export CSV
+                  </button>
+                  {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
+                </div>
               </div>
               <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and track company expense submissions.</p>
               <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
@@ -1314,12 +1369,17 @@ export default function DashboardPage() {
             <>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
                 <h1 style={{ fontSize: 22, margin: 0 }}>Loans</h1>
-                {isAdmin && can("intercompany") && (
-                  <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button>
-                    <button className="btn btn-primary" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Record a loan</button>
-                  </div>
-                )}
+                <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <button type="button" className="btn btn-outline" onClick={exportLoansToCsv}>
+                    Export CSV
+                  </button>
+                  {isAdmin && can("intercompany") && (
+                    <>
+                      <button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button>
+                      <button className="btn btn-primary" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Record a loan</button>
+                    </>
+                  )}
+                </div>
               </div>
               <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Track borrowings, lendings, and settlements with other companies and people.</p>
               {isAdmin && payerRequests.length > 0 && (
@@ -2157,10 +2217,43 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, r
   if (loading) return <div style={{ display: "flex", justifyContent: "center", padding: 35 }}><div className="spinner dark" /></div>;
   const ledger = title === "Ledger";
   const paged = pageOf(rows, page, pageSize);
+
+  function handleExport() {
+    if (!rows.length) return;
+    const csvRows = [["Date", "Time", ledger ? "Transaction" : "Action", "By", ledger ? "Entries" : "Record", ...(ledger ? ["Amount", "Status"] : [])]];
+    for (const r of rows) {
+      const at = new Date(r.createdAt || r.at);
+      const total = Array.isArray(r.entries) ? r.entries.reduce((sum, entry) => sum + Number(entry.debit || 0), 0) : "";
+      const entriesSummary = (r.entries || [])
+        .map((e) => `${Number(e.debit) > 0 ? "Dr" : "Cr"} ${e.accountId?.name || "Account"} (${money(Number(e.debit) > 0 ? e.debit : e.credit)})`)
+        .join("; ");
+      const rowData = [
+        formatDate(at),
+        at.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+        r.memo || r.action || "",
+        r.createdBy?.name || r.userId?.name || "Staff",
+        ledger ? entriesSummary : (r.object || "—"),
+      ];
+      if (ledger) {
+        rowData.push(total !== "" ? Number(total).toFixed(2) : "", r.reversedBy ? "Reversed" : "Active");
+      }
+      csvRows.push(rowData);
+    }
+    downloadCsv(`${title.toLowerCase()}-export.csv`, csvRows);
+  }
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, margin: 0 }}>{title}</h1>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleExport}
+          disabled={!rows.length}
+        >
+          Export CSV
+        </button>
       </div>
       <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
         {ledger

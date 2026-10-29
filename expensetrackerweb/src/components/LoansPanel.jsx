@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getLoanPartyStatement } from "../api.js";
-import { formatDate, money } from "../utils.js";
+import { downloadCsv, formatDate, money } from "../utils.js";
 import { TableCard, pageOf, tableMeta, usePageSize } from "./DataTable.jsx";
 
 const kindLabel = { borrowed: "Borrowed", repaid: "Repaid", lent: "Lent", received: "Received back" };
@@ -132,14 +132,41 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
   const newestFirst = data ? [...data.rows].reverse() : [];
   const t = data?.totals;
   const balance = t?.balance ?? party.owed;
+
+  function exportPartyStatement() {
+    if (!newestFirst.length) return;
+    const rows = [["Date", "Type", "Details", "Category", "Taken By", "Recorded By", "Method", "Reference", "Debit (Out)", "Credit (In)", "Balance"]];
+    for (const r of newestFirst) {
+      rows.push([
+        formatDate(r.date),
+        kindLabel[r.kind] || r.kind || "",
+        r.particulars || "",
+        r.category || "",
+        r.takenBy || "",
+        r.by || "",
+        r.method || "",
+        r.reference || "",
+        r.moneyOut ? String(r.moneyOut) : "",
+        r.moneyIn ? String(r.moneyIn) : "",
+        r.balance != null ? String(r.balance) : "",
+      ]);
+    }
+    downloadCsv(`${party.name.replace(/\s+/g, "-")}-loan-statement.csv`, rows);
+  }
+
   return (
     <>
       <button type="button" className="report-link" style={{ marginTop: 14 }} onClick={onBack}>‹ All loans</button>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", margin: "6px 0 12px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", margin: "6px 0 12px" }}>
         <h2 style={{ fontSize: 20, margin: 0 }}>{party.name}</h2>
-        <span style={{ fontWeight: 800, fontSize: 16, color: balance > 0 ? "var(--terracotta)" : balance < 0 ? "var(--forest)" : "var(--muted)" }}>
-          {balance > 0 ? `We owe ${money(balance)}` : balance < 0 ? `Owes us ${money(-balance)}` : "Settled"}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 800, fontSize: 16, color: balance > 0 ? "var(--terracotta)" : balance < 0 ? "var(--forest)" : "var(--muted)" }}>
+            {balance > 0 ? `We owe ${money(balance)}` : balance < 0 ? `Owes us ${money(-balance)}` : "Settled"}
+          </span>
+          <button type="button" className="btn btn-outline btn-sm" onClick={exportPartyStatement}>
+            Export CSV
+          </button>
+        </div>
       </div>
       {error ? (
         <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>

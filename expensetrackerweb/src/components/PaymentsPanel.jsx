@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { editAccountsEntry, getLedgerBalances, getLedgerTransactions, getPayableBills, reimburseAdmin } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money, PAYMENT_METHODS, roleNames, methodForFund } from "../utils.js";
+import { downloadCsv, formatDate, money, PAYMENT_METHODS, roleNames, methodForFund } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
@@ -162,8 +162,10 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         const personName = debit?.accountId?.name?.replace(/^Payable to /, "") || "Someone";
         const bySelf = /personally$/.test(t.memo || "");
         const how = t.type === "advance_offset" ? "Set off from voucher balance" : bySelf ? t.memo : `Company · ${credit?.accountId?.name || "fund"}`;
-        return { id: t._id, note: t.note || "", company: !bySelf && t.type === "reimburse", fundName: credit?.accountId?.name || "", date: t.date || t.createdAt, personName, amount: Number(debit?.debit || 0), // who paid: the company (its name), or the manager who paid out of their own pocket
-        by: bySelf ? (t.memo.match(/^Paid by (.+) personally$/)?.[1] || t.createdBy?.name || "Manager") : company?.name || "Company", how, method: t.method, reference: t.reference };
+        return {
+          id: t._id, note: t.note || "", company: !bySelf && t.type === "reimburse", fundName: credit?.accountId?.name || "", date: t.date || t.createdAt, personName, amount: Number(debit?.debit || 0), // who paid: the company (its name), or the manager who paid out of their own pocket
+          by: bySelf ? (t.memo.match(/^Paid by (.+) personally$/)?.[1] || t.createdBy?.name || "Manager") : company?.name || "Company", how, method: t.method, reference: t.reference
+        };
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date)); // by payment date, which can be backdated
     const q = historySearch.trim().toLowerCase();
@@ -184,11 +186,51 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
     onChanged?.();
   };
 
+  const handleExportPayments = () => {
+    if (show === "history") {
+      if (!history.length) return showToast("No payment history to export", "error");
+      const rows = [["Date", "Person", "Paid By", "How", "Method", "Reference", "Amount", "Note"]];
+      for (const r of history) {
+        rows.push([
+          formatDate(r.date),
+          r.personName || "",
+          r.by || "",
+          r.how || "",
+          r.method || "",
+          r.reference || "",
+          Number(r.amount || 0).toFixed(2),
+          r.note || "",
+        ]);
+      }
+      downloadCsv(`${company?.name ? `${company.name}-` : ""}payment-history.csv`, rows);
+    } else {
+      const list = visible || people;
+      if (!list.length) return showToast("No records to export", "error");
+      const rows = [["Name", "Role", "Phone", "Outstanding Owed", "Claims", "Unpaid Expenses"]];
+      for (const p of list) {
+        rows.push([
+          p.name || "",
+          p.groupLabel || "",
+          p.phone || "",
+          Number(p.owed || 0).toFixed(2),
+          String(p.claimsCount || 0),
+          String(p.unpaidCount || 0),
+        ]);
+      }
+      downloadCsv(`${company?.name ? `${company.name}-` : ""}payments-owed.csv`, rows);
+    }
+  };
+
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, margin: 0 }}>Payments</h1>
-        <button className="btn btn-outline" onClick={load}>Refresh</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button type="button" className="btn btn-outline" onClick={handleExportPayments}>
+            Export CSV
+          </button>
+          <button className="btn btn-outline" onClick={load}>Refresh</button>
+        </div>
       </div>
       <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each person, from company funds or out of your own pocket.</p>
 
@@ -220,9 +262,9 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                   tabIndex={t.onClick ? 0 : undefined}
                   title={t.onClick ? "Show only these people" : undefined}
                 >
-                  <div className="home-tile-label" title={t.label}>{t.label}</div>
+                  <div className="home-tile-label">{t.label}</div>
                   <div className="home-tile-value" style={t.color ? { color: t.color } : undefined}>{t.value}</div>
-                  <div className="home-tile-sub" title={t.sub}>{t.sub}</div>
+                  <div className="home-tile-sub">{t.sub}</div>
                 </div>
               );
             })}
@@ -272,84 +314,84 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
           })()}
 
           {role !== "me" && (
-          <>
-          {selectedPeople.length > 0 && (
-            <div className="payments-selection">
-              <span><strong>{selectedPeople.length}</strong> selected · <strong>{money(selectedTotal)}</strong></span>
-              <span style={{ display: "flex", gap: 8 }}>
-                <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
-                <button className="btn btn-primary btn-sm" onClick={() => setPaying(selectedPeople)}>Pay selected</button>
-              </span>
-            </div>
-          )}
+            <>
+              {selectedPeople.length > 0 && (
+                <div className="payments-selection">
+                  <span><strong>{selectedPeople.length}</strong> selected · <strong>{money(selectedTotal)}</strong></span>
+                  <span style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-outline btn-sm" onClick={() => setSelected(new Set())}>Clear</button>
+                    <button className="btn btn-primary btn-sm" onClick={() => setPaying(selectedPeople)}>Pay selected</button>
+                  </span>
+                </div>
+              )}
 
-          <TableCard
-            title="People owed"
-            meta={tableMeta(visible.length, pageOf(visible, peoplePage, pageSize).page, pageOf(visible, peoplePage, pageSize).pages, "people")}
-            actions={
-              <label className="payments-check-compact" title="Include members with zero outstanding balance">
-                <input
-                  type="checkbox"
-                  checked={show === "all"}
-                  onChange={(e) => setShow(e.target.checked ? "all" : "owed")}
-                />
-                <span>Include settled</span>
-              </label>
-            }
-            page={pageOf(visible, peoplePage, pageSize).page}
-            pages={pageOf(visible, peoplePage, pageSize).pages}
-            onPage={setPeoplePage}
-            count={visible.length}
-            pageSize={pageSize}
-            onPageSize={changePageSize}
-          >
-            {visible.length === 0 ? (
-              <div className="dt-empty">{show === "owed" ? "Nobody is owed money right now." : "No one matches your search."}</div>
-            ) : (
-              <table className="dt">
-                <thead>
-                  <tr>
-                    <th style={{ width: 36 }}><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all" /></th>
-                    <th>Person</th>
-                    <th>Role</th>
-                    <th>Details</th>
-                    <th className="num">Owed</th>
-                    <th className="num">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pageOf(visible, peoplePage, pageSize).rows.map((p) => {
-                    const me = p.userId === String(user.id);
-                    return (
-                      <tr key={p.userId} className={selected.has(p.userId) ? "dt-selected" : ""}>
-                        <td><input type="checkbox" checked={selected.has(p.userId)} disabled={!payable(p)} onChange={() => toggle(p.userId)} aria-label={`Select ${p.name}`} /></td>
-                        <td className="dt-strong">
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                            <span className="payments-avatar">{initial(p.name)}</span>
-                            {p.name}{me ? " (you)" : ""}
-                          </span>
-                        </td>
-                        <td><span className={`payments-role ${p.group.startsWith("role:") ? "custom" : p.group}`}>{p.groupLabel}</span></td>
-                        <td className="muted">
-                          {p.claims > 0 ? `${money(p.claims)} in approved claims` : p.owed > 0 ? "Paid out of pocket" : "Nothing owed"}
-                          {p.advance > 0 && <span className="dt-sub">holds {money(p.advance)} voucher money</span>}
-                        </td>
-                        <td className={`num ${p.owed > 0 ? "out" : "muted"}`}>{money(p.owed)}</td>
-                        <td>
-                          <span className="dt-actions">
-                            {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
-                            {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
-                            {me && p.owed > 0 && <span className="dt-sub">Pick "{user.name} (You)" above to pay it</span>}
-                          </span>
-                        </td>
+              <TableCard
+                title="People owed"
+                meta={tableMeta(visible.length, pageOf(visible, peoplePage, pageSize).page, pageOf(visible, peoplePage, pageSize).pages, "people")}
+                actions={
+                  <label className="payments-check-compact" title="Include members with zero outstanding balance">
+                    <input
+                      type="checkbox"
+                      checked={show === "all"}
+                      onChange={(e) => setShow(e.target.checked ? "all" : "owed")}
+                    />
+                    <span>Include settled</span>
+                  </label>
+                }
+                page={pageOf(visible, peoplePage, pageSize).page}
+                pages={pageOf(visible, peoplePage, pageSize).pages}
+                onPage={setPeoplePage}
+                count={visible.length}
+                pageSize={pageSize}
+                onPageSize={changePageSize}
+              >
+                {visible.length === 0 ? (
+                  <div className="dt-empty">{show === "owed" ? "Nobody is owed money right now." : "No one matches your search."}</div>
+                ) : (
+                  <table className="dt">
+                    <thead>
+                      <tr>
+                        <th style={{ width: 36 }}><input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} aria-label="Select all" /></th>
+                        <th>Person</th>
+                        <th>Role</th>
+                        <th>Details</th>
+                        <th className="num">Owed</th>
+                        <th className="num">Action</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </TableCard>
-          </>
+                    </thead>
+                    <tbody>
+                      {pageOf(visible, peoplePage, pageSize).rows.map((p) => {
+                        const me = p.userId === String(user.id);
+                        return (
+                          <tr key={p.userId} className={selected.has(p.userId) ? "dt-selected" : ""}>
+                            <td><input type="checkbox" checked={selected.has(p.userId)} disabled={!payable(p)} onChange={() => toggle(p.userId)} aria-label={`Select ${p.name}`} /></td>
+                            <td className="dt-strong">
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                <span className="payments-avatar">{initial(p.name)}</span>
+                                {p.name}{me ? " (you)" : ""}
+                              </span>
+                            </td>
+                            <td><span className={`payments-role ${p.group.startsWith("role:") ? "custom" : p.group}`}>{p.groupLabel}</span></td>
+                            <td className="muted">
+                              {p.claims > 0 ? `${money(p.claims)} in approved claims` : p.owed > 0 ? "Paid out of pocket" : "Nothing owed"}
+                              {p.advance > 0 && <span className="dt-sub">holds {money(p.advance)} voucher money</span>}
+                            </td>
+                            <td className={`num ${p.owed > 0 ? "out" : "muted"}`}>{money(p.owed)}</td>
+                            <td>
+                              <span className="dt-actions">
+                                {p.owed > 0 && <button className="btn btn-outline btn-sm" onClick={() => setViewing(p)}>View bills</button>}
+                                {payable(p) && <button className="btn btn-primary btn-sm" onClick={() => setPaying([p])}>Pay</button>}
+                                {me && p.owed > 0 && <span className="dt-sub">Pick "{user.name} (You)" above to pay it</span>}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </TableCard>
+            </>
           )}
 
           <h2 style={{ fontSize: 20, margin: "28px 0 12px" }}>Payment history</h2>

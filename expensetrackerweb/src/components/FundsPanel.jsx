@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import DescriptionInput from "./DescriptionInput.jsx";
-import { addBankAccount, addIncome, deleteBankAccount, getCompanyDetails, updateCashAccountName } from "../api.js";
+import { addBankAccount, addIncome, deleteBankAccount, getAccountsEntries, getCompanyDetails, updateCashAccountName } from "../api.js";
 import AccountsPanel from "./AccountsPanel.jsx";
 import { useToast } from "../context/ToastContext.jsx";
-import { bankAccountLabel, money } from "../utils.js";
+import { bankAccountLabel, downloadCsv, formatDate, money } from "../utils.js";
 
 export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged, refreshKey, canEdit = false }) {
   const { showToast } = useToast();
@@ -19,6 +19,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   const [statementKey, setStatementKey] = useState(0);
   const [mode, setMode] = useState("");
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [bankName, setBankName] = useState("");
   const [holder, setHolder] = useState("");
@@ -141,11 +142,82 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
     }
   }
 
+  async function handleExportFunds() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const fundTitle = viewFund === "cash" ? cashName : accounts.find((x) => String(x._id) === viewFund)?.bankName || "Bank";
+      let allEntries = [];
+      const res = await getAccountsEntries(company._id, user.id, {
+        from: "2000-01-01",
+        to: new Date().toISOString().slice(0, 10),
+        page: 1,
+        limit: 100,
+        fund: viewFund,
+        movesOnly: true,
+      });
+      if (res?.success && Array.isArray(res.entries)) {
+        allEntries = [...res.entries];
+        if (res.pages > 1) {
+          const rest = await Promise.all(
+            Array.from({ length: res.pages - 1 }, (_, i) =>
+              getAccountsEntries(company._id, user.id, {
+                from: "2000-01-01",
+                to: new Date().toISOString().slice(0, 10),
+                page: i + 2,
+                limit: 100,
+                fund: viewFund,
+                movesOnly: true,
+              })
+            )
+          );
+          for (const p of rest) {
+            if (p?.success && Array.isArray(p.entries)) allEntries.push(...p.entries);
+          }
+        }
+      }
+
+      if (!allEntries.length) {
+        showToast("No fund transactions to export", "error");
+        return;
+      }
+
+      const rows = [["Date", "Time", "Details", "Account", "Debit (Out)", "Credit (In)", "Balance", "By"]];
+      for (const r of allEntries) {
+        const d = new Date(r.at);
+        rows.push([
+          formatDate(d),
+          d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }),
+          r.details || r.label || "",
+          r.account || "",
+          r.amount < 0 ? String(-r.amount) : "",
+          r.amount > 0 ? String(r.amount) : (r.transferAmount ? String(r.transferAmount) : ""),
+          String(r.balance != null ? r.balance : ""),
+          r.by || "",
+        ]);
+      }
+      downloadCsv(`${fundTitle.replace(/\s+/g, "-")}-statement.csv`, rows);
+    } catch (err) {
+      console.error(err);
+      showToast("Could not export CSV", "error");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, margin: 0 }}>Add Funds</h1>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={handleExportFunds}
+            disabled={exporting}
+          >
+            {exporting ? "Exporting…" : "Export CSV"}
+          </button>
           <button className="btn btn-primary" onClick={() => setMode(mode === "income" ? "" : "income")}>
             ↗ Add Income
           </button>

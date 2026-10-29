@@ -17,7 +17,7 @@ const keyOf = (b) => (b.transactionId ? `tx:${b.transactionId}` : `exp:${b.expen
 
 // Payments page, managers: what the company owes ME, bill by bill. Pay everything or just the ticked bills —
 // always from company Cash/Bank (never "by self"); exactly those bills close.
-export default function OwnOutstanding({ companyId, company, user, funds, focus, alwaysShow = false, refreshKey, onPaid }) {
+export default function OwnOutstanding({ companyId, company, user, funds, focus, alwaysShow = false, refreshKey, onPaid, filterSlot }) {
   const { showToast } = useToast();
   const [bills, setBills] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
@@ -76,58 +76,78 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
     });
   };
 
+  const actionButtons = total > 0 && (
+    <div className="own-toolbar-actions">
+      {/* pay an amount: type it, see which bills it covers below, then Pay */}
+      <div className={`own-amount${tooMuch ? " bad" : ""}`}>
+        <span>₹</span>
+        <input
+          type="number"
+          min="0"
+          step="0.01"
+          inputMode="decimal"
+          placeholder="Enter amount"
+          value={amountText}
+          onChange={(e) => {
+            setAmountText(e.target.value);
+            setSelected(new Set());
+          }}
+          aria-label="Amount to pay"
+        />
+        <button type="button" className="btn btn-primary btn-sm" disabled={!byAmount || tooMuch} onClick={() => setPayingAmount(true)}>Pay</button>
+      </div>
+      <button type="button" className="btn btn-outline" disabled={!chosen.length} onClick={() => setPaying(chosen)}>
+        Pay selected{chosen.length ? ` · ${money(chosenTotal)}` : ""}
+      </button>
+    </div>
+  );
+
   return (
-    <section ref={ref} className={`card own-outstanding${focus ? " focus" : ""}`}>
-      {/* sticks to the top while the bill list scrolls; the amount follows the ticked bills */}
-      <div className="own-outstanding-head">
-        <div>
-          <div className="own-outstanding-title">Your outstanding</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>
-            {/* what's chosen (typed amount or ticked bills) comes off the total: what would still be owed after */}
-            {money(round(total - paidNow))}
+    <>
+      {filterSlot && (
+        <div className="card payments-toolbar payments-toolbar-with-actions">
+          {filterSlot}
+          {actionButtons}
+        </div>
+      )}
+
+      <section ref={ref} className={`card own-outstanding${focus ? " focus" : ""}`}>
+        {/* sticks to the top while the bill list scrolls; the amount follows the ticked bills */}
+        <div className="own-outstanding-head">
+          <div>
+            <div className="own-outstanding-title">Your outstanding</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: total > 0 ? "var(--terracotta)" : "var(--forest)" }}>
+              {/* what's chosen (typed amount or ticked bills) comes off the total: what would still be owed after */}
+              {money(round(total - paidNow))}
+            </div>
+            <div style={{ color: tooMuch ? "var(--terracotta)" : "var(--muted)", fontSize: 13 }}>
+              {!(total > 0)
+                ? "The company doesn't owe you anything."
+                : tooMuch
+                  ? `You're owed only ${money(total)}`
+                  : byAmount
+                    ? `${money(typed)} to your oldest bills · left after paying`
+                    : chosen.length
+                      ? `${money(chosenTotal)} selected · left after paying the selected bills`
+                      : `${company?.name || "The company"} owes you this · paid from company Cash/Bank`}
+            </div>
           </div>
-          <div style={{ color: tooMuch ? "var(--terracotta)" : "var(--muted)", fontSize: 13 }}>
-            {!(total > 0)
-              ? "The company doesn't owe you anything."
-              : tooMuch
-                ? `You're owed only ${money(total)}`
-                : byAmount
-                  ? `${money(typed)} to your oldest bills · left after paying`
-                  : chosen.length
-                    ? `${money(chosenTotal)} selected · left after paying the selected bills`
-                    : `${company?.name || "The company"} owes you this · paid from company Cash/Bank`}
+          <div className="own-outstanding-head-actions">
+            {!filterSlot && actionButtons}
+            {total > 0 && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setPaying(bills)}
+              >
+                Pay all · {money(total)}
+              </button>
+            )}
           </div>
         </div>
-        {total > 0 && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {/* pay an amount: type it, see which bills it covers below, then Pay */}
-            <div className={`own-amount${tooMuch ? " bad" : ""}`}>
-              <span>₹</span>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                placeholder="Enter amount"
-                value={amountText}
-                onChange={(e) => {
-                  setAmountText(e.target.value);
-                  setSelected(new Set());
-                }}
-                aria-label="Amount to pay"
-              />
-              <button type="button" className="btn btn-primary btn-sm" disabled={!byAmount || tooMuch} onClick={() => setPayingAmount(true)}>Pay</button>
-            </div>
-            <button type="button" className="btn btn-outline" disabled={!chosen.length} onClick={() => setPaying(chosen)}>
-              Pay selected{chosen.length ? ` · ${money(chosenTotal)}` : ""}
-            </button>
-            <button type="button" className="btn btn-primary" onClick={() => setPaying(bills)}>Pay all · {money(total)}</button>
-          </div>
-        )}
-      </div>
 
-      {bills.length > 0 && (
-        <div className="dt-card" style={{ marginTop: 12 }}>
+        {bills.length > 0 && (
+          <div className="dt-card" style={{ marginTop: 12 }}>
           <div className="dt-scroll">
             <table className="dt">
               <thead>
@@ -217,6 +237,7 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
         />
       )}
     </section>
+    </>
   );
 }
 

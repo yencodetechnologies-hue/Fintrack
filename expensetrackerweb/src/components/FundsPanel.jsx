@@ -143,8 +143,18 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Company Funds</h1>
-      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 28px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Add Funds</h1>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn btn-primary" onClick={() => setMode(mode === "income" ? "" : "income")}>
+            ↗ Add Income
+          </button>
+          <button className="btn btn-outline" onClick={() => setMode(mode === "bank" ? "" : "bank")}>
+            + Add Bank Account
+          </button>
+        </div>
+      </div>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
         Track {cashName} and bank balances, and where company money moves.
       </p>
 
@@ -178,14 +188,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
-        <button className="btn btn-primary" onClick={() => setMode(mode === "income" ? "" : "income")}>
-          ↗ Add Income
-        </button>
-        <button className="btn btn-outline" onClick={() => setMode(mode === "bank" ? "" : "bank")}>
-          + Add Bank Account
-        </button>
-      </div>
+
 
       {mode === "bank" && (
         <form onSubmit={handleSaveBank} className="card" style={{ maxWidth: 440, marginBottom: 28 }}>

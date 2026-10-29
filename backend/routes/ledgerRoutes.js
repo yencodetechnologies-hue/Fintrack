@@ -26,6 +26,7 @@ router.get("/companies/:companyId/audit-log", c.auditLog);
 router.get("/companies/:companyId/descriptions", c.descriptionSuggestions);
 router.get("/companies/:companyId/accounts", c.accountsDays);
 router.get("/companies/:companyId/accounts/entries", c.accountsEntries);
+router.get("/companies/:companyId/accounts/export", c.exportAccountsCsv);
 router.post("/companies/:companyId/accounts/entries/edit", c.editAccountsEntry);
 router.post("/companies/:companyId/accounts/entries/delete", c.deleteAccountsEntry);
 

@@ -1,8 +1,6 @@
-// Used only when VITE_API_BASE_URL is not set at build time: a page served from localhost
-// talks to the local backend, every deployed copy talks to the live one.
+// Live production backend URL
 const LIVE_API_BASE = "https://fintrack.yencodetechnologies.in";
-const DEFAULT_API_BASE = LIVE_API_BASE;
-export const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
+export const API_BASE = LIVE_API_BASE;
 
 // set by realtime.js; sent with writes so the server doesn't announce our own change back to us
 let socketId = null;
@@ -185,6 +183,15 @@ export const editVoucher = (voucherId, userId, changes) => post(ledgerUrl(`/vouc
 // fund: "cash" or a bank account id, for that one account's statement (empty = Cash + all banks)
 export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25, fund = "", movesOnly = false }) =>
   get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}${fund ? `&fund=${fund}` : ""}${movesOnly ? "&moves=1" : ""}`));
+export const getAccountsExportUrl = (companyId, userId, { from, to, q = "", fund = "", movesOnly = false } = {}) => {
+  const params = new URLSearchParams({ userId });
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  if (q) params.set("q", q);
+  if (fund) params.set("fund", fund);
+  if (movesOnly) params.set("moves", "1");
+  return ledgerUrl(`/companies/${companyId}/accounts/export?${params}`);
+};
 // kind: expense | payment | fund
 export const getDescriptionSuggestions = (companyId, userId, kind) =>
   get(ledgerUrl(`/companies/${companyId}/descriptions?userId=${userId}&kind=${kind}`));

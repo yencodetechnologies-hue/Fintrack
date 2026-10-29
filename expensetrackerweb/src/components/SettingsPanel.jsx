@@ -220,8 +220,10 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Company Settings</h1>
-      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 28px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Settings</h1>
+      </div>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
         Manage the join code, direct invites, staff roles, and company configuration.
       </p>
 

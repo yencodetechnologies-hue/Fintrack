@@ -98,10 +98,11 @@ export default function VouchersPanel({ companyId, company, user, members, funds
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
         <h1 style={{ fontSize: 22, margin: 0 }}>Vouchers</h1>
         <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Create voucher</button>
       </div>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and manage staff vouchers and confirm returned balances.</p>
 
       {!data ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner dark" /></div>
@@ -222,13 +223,13 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                               <span className="dt-strong">{v.purpose}</span>
                               {v.status === "claimed" && (
                                 <span className="dt-sub">
-                                  Claimed {money(v.claimedAmount)} on {formatDate(v.claimedAt)}
+                                  Claimed {money(v.claimedAmount)}
                                   {left > 0 ? ` · ${money(left)} left with them` : ""}
                                   {v.owedToRecipient > 0 ? ` · company owes them ${money(v.owedToRecipient)}` : ""}
                                 </span>
                               )}
-                              {v.status === "cancelled" && v.cancelledBy && <span className="dt-sub">Cancelled by {v.cancelledBy.name} · {formatDate(v.cancelledAt)}</span>}
-                              {v.closedBy && <span className="dt-sub">Closed by {v.closedBy.name} · {formatDate(v.closedAt)}</span>}
+                              {v.status === "cancelled" && v.cancelledBy && <span className="dt-sub">Cancelled by {v.cancelledBy.name}</span>}
+                              {v.closedBy && <span className="dt-sub">Closed by {v.closedBy.name}</span>}
                             </td>
                             <td>{v.recipientId?.name || "Staff"}</td>
                             <td>{v.createdBy?.name || "Manager"}</td>

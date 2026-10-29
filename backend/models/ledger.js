@@ -44,6 +44,11 @@ const transactionSchema = new Schema(
 );
 
 transactionSchema.index({ loanId: 1 });
+transactionSchema.index({ companyId: 1, date: -1 });
+transactionSchema.index({ companyId: 1, createdAt: -1 });
+transactionSchema.index({ expenseId: 1 });
+transactionSchema.index({ routeId: 1 });
+transactionSchema.index({ reverses: 1 });
 
 const entrySchema = new Schema(
   {
@@ -56,6 +61,7 @@ const entrySchema = new Schema(
   { timestamps: true }
 );
 entrySchema.index({ accountId: 1 });
+entrySchema.index({ transactionId: 1 });
 
 const auditSchema = new Schema(
   {

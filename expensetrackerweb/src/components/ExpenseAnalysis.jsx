@@ -129,17 +129,15 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-        <div>
-          <h1 style={{ fontSize: 22, margin: 0 }}>Expense analysis</h1>
-          <p style={{ color: "var(--muted)", margin: "4px 0 0" }}>Spending patterns for managers. Rejected and group expenses are excluded.</p>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Analysis</h1>
         <div style={{ display: "flex", gap: 6 }}>
           {[3, 6, 12].map((m) => (
             <button key={m} className={`btn ${months === m ? "btn-dark" : "btn-outline"}`} onClick={() => setMonths(m)}>{m} months</button>
           ))}
         </div>
       </div>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Spending patterns and monthly trends. Rejected and group expenses are excluded.</p>
 
       {error ? (
         <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>

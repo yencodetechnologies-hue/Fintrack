@@ -124,8 +124,10 @@ export default function PermissionsPanel({ companyId, company, members = [], use
 
   return (
     <>
-      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Permissions</h1>
-      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 22px", maxWidth: 680 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+        <h1 style={{ fontSize: 22, margin: 0 }}>Permissions</h1>
+      </div>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px", maxWidth: 680 }}>
         Turn features on or off for everyone in a role. Switched-off features are hidden for them and refused by the server.
         {data.role === "primary" ? " As the primary admin, these never apply to you." : " You can change staff permissions, but only for features managers have."}
       </p>

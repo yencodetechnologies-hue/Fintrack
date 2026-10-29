@@ -15,4 +15,6 @@ const companyIncomeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+companyIncomeSchema.index({ companyId: 1, createdAt: -1 });
+
 module.exports = mongoose.model("CompanyIncome", companyIncomeSchema);

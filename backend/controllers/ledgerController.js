@@ -29,16 +29,30 @@ const BASE_EXPENSE_CATEGORIES = ["General", "Travel", "Food & Dining", "Rent", "
 const round = (n) => Math.round(n * 100) / 100;
 
 // ---------- roles ----------
+// A person's role, remembered for a few seconds: one request checks it several times (and a page makes several
+// requests at once), so this saves a round trip to the database each time. A role change shows within seconds.
+const ROLE_TTL_MS = 3000;
+const roleCache = new Map();
+exports.clearRoleCache = () => roleCache.clear();
 async function roleIn(companyId, userId) {
   if (!userId) return null;
-  const user = await User.findById(userId).select("platformRole");
-  if (user && user.platformRole === "super_admin") return "super_admin";
-  const company = await Company.findById(companyId).select("createdBy external");
-  if (!company) throw fail(404, "Company not found");
-  if (!company.external && company.createdBy && company.createdBy.toString() === userId.toString()) return "admin";
-  const member = await CompanyMember.findOne({ companyId, userId });
-  if (!member) return null;
-  return member.role === "admin" ? "admin" : "employee";
+  const key = `${companyId}:${userId}`;
+  const hit = roleCache.get(key);
+  if (hit && hit.until > Date.now()) return hit.value;
+  // the three reads don't depend on each other
+  const [user, company, member] = await Promise.all([
+    User.findById(userId).select("platformRole").lean(),
+    Company.findById(companyId).select("createdBy external").lean(),
+    CompanyMember.findOne({ companyId, userId }).select("role").lean(),
+  ]);
+  let value;
+  if (user && user.platformRole === "super_admin") value = "super_admin";
+  else if (!company) throw fail(404, "Company not found");
+  else if (!company.external && company.createdBy && company.createdBy.toString() === userId.toString()) value = "admin";
+  else value = !member ? null : member.role === "admin" ? "admin" : "employee";
+  roleCache.set(key, { value, until: Date.now() + ROLE_TTL_MS });
+  if (roleCache.size > 5000) roleCache.clear();
+  return value;
 }
 
 async function requireRole(companyId, userId, allowed) {
@@ -328,8 +342,8 @@ exports.payableBills = handle(async (req, res) => {
   const { userId } = req.query;
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
   if (!isAdminRole(role) && String(personId) !== String(userId)) throw fail(403, "You can only view your own open bills");
-  const recorded = await openPayableBills(companyId, personId);
-  const claims = (await pendingClaims(companyId, personId)).map((c) => ({
+  const [recorded, pending, recordedOwed] = await Promise.all([openPayableBills(companyId, personId), pendingClaims(companyId, personId), adminOwed(companyId, personId)]);
+  const claims = pending.map((c) => ({
     transactionId: null,
     expenseId: c._id,
     description: c.description,
@@ -339,7 +353,7 @@ exports.payableBills = handle(async (req, res) => {
     remaining: c.amount,
     claim: true,
   }));
-  const owed = round((await adminOwed(companyId, personId)) + claims.reduce((s, c) => s + c.amount, 0));
+  const owed = round(recordedOwed + claims.reduce((s, c) => s + c.amount, 0));
   // recorded payables are closed first, then claims in date order (matches how reimburse books them)
   res.json({ success: true, owed, bills: [...recorded, ...claims] });
 });
@@ -1471,16 +1485,22 @@ exports.balances = handle(async (req, res) => {
   const { userId } = req.query;
   const role = await requireRole(companyId, userId, ["employee", "admin", "super_admin"]);
 
-  // Ensure Cash and all Company bank accounts exist as LedgerAccount records
+  // Ensure Cash and all Company bank accounts exist as LedgerAccount records (only the missing ones are created,
+  // so a normal load is a single read instead of one write per account)
   const company = await Company.findById(companyId).select("bankAccounts cashBalance");
   if (company) {
-    await fundAccount(companyId, "cash");
-    for (const b of (company.bankAccounts || [])) {
-      await fundAccount(companyId, b._id);
-    }
+    const have = new Set((await LedgerAccount.find({ companyId, type: "bank" }).select("bankAccountId").lean()).map((a) => (a.bankAccountId ? String(a.bankAccountId) : "cash")));
+    const missingFunds = ["cash", ...(company.bankAccounts || []).map((b) => String(b._id))].filter((id) => !have.has(id));
+    await Promise.all(missingFunds.map((id) => fundAccount(companyId, id)));
   }
 
-  const accounts = await LedgerAccount.find({ companyId, type: { $in: ["admin_payable", "bank"] } }).populate("userId", "name");
+  // these reads don't depend on each other
+  const [accounts, claimRows, advances] = await Promise.all([
+    LedgerAccount.find({ companyId, type: { $in: ["admin_payable", "bank"] } }).populate("userId", "name"),
+    // Approved-but-unpaid expenses are owed to whoever posted them, so they count towards what each person is owed.
+    Expense.find({ companyId, lifecycle: "approved", status: "outstanding", groupId: null }).select("createdBy amount"),
+    advanceHeldByPerson(companyId),
+  ]);
   const totals = await LedgerEntry.aggregate([
     { $match: { accountId: { $in: accounts.map((a) => a._id) } } },
     { $group: { _id: "$accountId", debit: { $sum: "$debit" }, credit: { $sum: "$credit" } } },
@@ -1492,8 +1512,6 @@ exports.balances = handle(async (req, res) => {
     .filter((a) => a.type === "admin_payable")
     .map((a) => ({ userId: a.userId?._id, name: a.userId?.name || a.name, owed: round(get(a).credit - get(a).debit), claims: 0 }));
 
-  // Approved-but-unpaid expenses are owed to whoever posted them, so they count towards what each person is owed.
-  const claimRows = await Expense.find({ companyId, lifecycle: "approved", status: "outstanding", groupId: null }).select("createdBy amount");
   const claimByUser = new Map();
   for (const e of claimRows) claimByUser.set(String(e.createdBy), round((claimByUser.get(String(e.createdBy)) || 0) + e.amount));
   const missing = [...claimByUser.keys()].filter((id) => !admins.some((a) => String(a.userId) === id));
@@ -1504,7 +1522,6 @@ exports.balances = handle(async (req, res) => {
     a.owed = round(a.owed + a.claims);
   }
   const myOwed = admins.find((a) => a.userId && a.userId.toString() === userId.toString())?.owed || 0;
-  const advances = await advanceHeldByPerson(companyId);
   for (const a of admins) a.advance = advances.get(String(a.userId)) || 0;
   const myAdvance = advances.get(String(userId)) || 0;
 
@@ -4071,64 +4088,61 @@ exports.saveCompanyOrder = handle(async (req, res) => {
   res.json({ success: true });
 });
 
-// Accounts statement: every money movement (not day totals) — each Cash/Bank payment in or out, each Add Income,
-// each transfer between my own accounts — newest first, with the Cash + Bank balance after it, paged.
-// GET /companies/:companyId/accounts/entries?userId&from&to&q&page&limit
-exports.accountsEntries = handle(async (req, res) => {
-  const { companyId } = req.params;
-  const { userId } = req.query;
-  await requireRole(companyId, userId, ["admin", "super_admin"]);
-  await requirePermission(companyId, userId, "accounts");
-  const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
-  if (!company) throw fail(404, "Company not found");
+// Which Accounts rows can have their amount changed in place: every kind that moves this company's Cash / Bank
+// through one simple transaction. (Money added is edited through its own record.)
+const AMOUNT_EDIT_TYPES = new Set(["company_paid", "borrowed", "loan_repayment", "reimburse", "lend", "voucher_issue", "advance_return"]);
+function accountsAmountEditable(t, loans) {
+  if (t.reversedBy || t.reverses || !AMOUNT_EDIT_TYPES.has(t.type)) return false;
+  const loan = t.loanId ? loans.get(String(t.loanId)) : null;
+  if (t.type === "company_paid") return Boolean(t.expenseId);
+  if (t.type === "borrowed") return loan?.source === "direct";
+  if (t.type === "loan_repayment") return Boolean(loan);
+  return true;
+}
 
+async function computeAccountsData(company, { from, to, q, fund, moves }) {
   const today = istDay(Date.now());
   const valid = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ""));
-  const toDay = valid(req.query.to) && req.query.to < today ? req.query.to : today;
-  const fromDay = valid(req.query.from) ? (req.query.from > toDay ? toDay : req.query.from) : "2000-01-01";
+  const toDay = valid(to) && to < today ? to : today;
+  const fromDay = valid(from) ? (from > toDay ? toDay : from) : "2000-01-01";
   const since = istStart(fromDay);
-  const limit = Math.min(100, Math.max(5, parseInt(req.query.limit, 10) || 25));
-  const q = String(req.query.q || "").trim().toLowerCase();
+  const searchStr = String(q || "").trim().toLowerCase();
 
   const cashName = company.cashAccountName || "Cash";
   const bankName = (id) => {
     const b = (company.bankAccounts || []).find((x) => String(x._id) === String(id));
     return b ? `${b.bankName}${b.accountNumber ? ` (…${String(b.accountNumber).slice(-4)})` : ""}` : "Bank";
   };
-  // ?fund=cash | <bank account id>: just that account, from its own point of view (a transfer is money in or out)
-  const onlyFund = req.query.fund ? String(req.query.fund) : null;
+  const onlyFund = fund ? String(fund) : null;
   const fundKey = (a) => (a.bankAccountId ? String(a.bankAccountId) : "cash");
-  const fundAccs = (await LedgerAccount.find({ companyId, type: "bank" }).lean()).filter((a) => !onlyFund || fundKey(a) === onlyFund);
+  const fundAccs = (await LedgerAccount.find({ companyId: company._id, type: "bank" }).lean()).filter((a) => !onlyFund || fundKey(a) === onlyFund);
   const fundName = new Map(fundAccs.map((a) => [String(a._id), a.bankAccountId ? bankName(a.bankAccountId) : cashName]));
 
-  // ledger movements that changed the shown Cash/Bank (same rule as the day view), from the first day up to now
-  const txs = await LedgerTransaction.find({ companyId, date: { $gte: since } }).lean();
+  const txs = await LedgerTransaction.find({ companyId: company._id, date: { $gte: since } }).lean();
   const originals = new Map(
     (await LedgerTransaction.find({ _id: { $in: txs.filter((t) => t.reverses).map((t) => t.reverses) } }).lean()).map((t) => [String(t._id), t])
   );
   const loans = new Map(
     (await CompanyLoan.find({ _id: { $in: txs.map((t) => t.loanId).filter(Boolean) } }).select("borrowerCompanyId source").lean()).map((l) => [String(l._id), l])
   );
-  const moves = (t) => {
+  const isMove = (t) => {
     if (FUND_TRACKED_TYPES.has(t.type)) return true;
-    if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(companyId);
+    if (t.type === "loan_repayment" && t.loanId) return String(loans.get(String(t.loanId))?.borrowerCompanyId) === String(company._id);
     return false;
   };
-  // an expense edited by undoing its payment and booking it again: hide the undone payment and its undo
   const editUndos = txs.filter((t) => t.type === "reversal" && /^(Expense edited|Payer changed):/.test(t.memo || ""));
   const hidden = new Set(editUndos.flatMap((t) => [String(t._id), String(t.reverses)]));
-  // the payment booked again keeps the date of the first one, so the edited row stays where it was
   const firstPaid = new Map();
   for (const t of editUndos) {
     const o = originals.get(String(t.reverses));
     if (o?.expenseId && (!firstPaid.has(String(o.expenseId)) || o.date < firstPaid.get(String(o.expenseId)))) firstPaid.set(String(o.expenseId), o.date);
   }
-  const counted = txs.filter((t) => !hidden.has(String(t._id)) && (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && moves(originals.get(String(t.reverses))) : moves(t)));
+  const counted = txs.filter((t) => !hidden.has(String(t._id)) && (t.type === "reversal" ? Boolean(originals.get(String(t.reverses))) && isMove(originals.get(String(t.reverses))) : isMove(t)));
   const lines = await LedgerEntry.find({ transactionId: { $in: counted.map((t) => t._id) }, accountId: { $in: fundAccs.map((a) => a._id) } }).lean();
   const txById = new Map(counted.map((t) => [String(t._id), t]));
   const expenseIds = counted.map((t) => t.expenseId).filter(Boolean);
   const expenses = new Map((await Expense.find({ _id: { $in: expenseIds } }).select("description category").lean()).map((x) => [String(x._id), x]));
-  const incomes = await CompanyIncome.find({ companyId, createdAt: { $gte: since } }).populate("createdBy", "name").lean();
+  const incomes = await CompanyIncome.find({ companyId: company._id, createdAt: { $gte: since } }).populate("createdBy", "name").lean();
   const people = new Map(
     (await User.find({ _id: { $in: counted.map((t) => t.createdBy) } }).select("name").lean()).map((u) => [String(u._id), u.name])
   );
@@ -4148,7 +4162,7 @@ exports.accountsEntries = handle(async (req, res) => {
       details: t.note || x?.description || t.memo || "",
       category: x?.category || "",
       account: fundName.get(String(e.accountId)) || "Fund",
-      amount, // + in, − out
+      amount,
       method: t.method || "",
       reference: t.reference || "",
       by: people.get(String(t.createdBy)) || "",
@@ -4164,7 +4178,6 @@ exports.accountsEntries = handle(async (req, res) => {
     const into = i.destinationType === "cash" ? "cash" : String(i.destinationBankAccountId);
     const from = i.sourceBankAccountId ? String(i.sourceBankAccountId) : null;
     if (onlyFund) {
-      // one account: money that came into it, or left it for another of my accounts
       if (into !== onlyFund && from !== onlyFund) continue;
       const incoming = into === onlyFund;
       all.push({
@@ -4193,7 +4206,6 @@ exports.accountsEntries = handle(async (req, res) => {
       details: i.description || "",
       category: "",
       account: transfer ? `${i.sourceName || "Bank"} → ${to}` : to,
-      // a transfer moves money between my own accounts, so Cash + Bank stays the same
       amount: transfer ? 0 : round(i.amount),
       transferAmount: transfer ? round(i.amount) : 0,
       method: "",
@@ -4205,7 +4217,6 @@ exports.accountsEntries = handle(async (req, res) => {
     });
   }
 
-  // newest first; walk back from today's real Cash + Bank to give each row the balance right after it
   all.sort((a, b) => new Date(b.at) - new Date(a.at));
   const current = onlyFund
     ? round(onlyFund === "cash" ? Number(company.cashBalance || 0) : Number((company.bankAccounts || []).find((b) => String(b._id) === onlyFund)?.balance || 0))
@@ -4219,51 +4230,112 @@ exports.accountsEntries = handle(async (req, res) => {
   const afterPeriod = all.filter((r) => istDay(r.at) > toDay);
   const closing = afterPeriod.length ? round(afterPeriod[afterPeriod.length - 1].balance - afterPeriod[afterPeriod.length - 1].amount) : current;
   const opening = round(closing - inRange.reduce((s, r) => s + r.amount, 0));
-  // ?moves=1 (Company Funds): only money added and moves between my own accounts; balances stay the real ones
   const MOVE_KINDS = new Set(["income", "transfer", "transfer_in", "transfer_out"]);
-  const shown = req.query.moves === "1" ? inRange.filter((r) => MOVE_KINDS.has(r.kind)) : inRange;
-  const matches = q
+  const shown = moves === "1" ? inRange.filter((r) => MOVE_KINDS.has(r.kind)) : inRange;
+  const matches = searchStr
     ? shown.filter((r) =>
         [r.label, r.details, r.category, r.account, r.method, r.reference, r.by, String(Math.abs(r.amount || r.transferAmount))]
           .join(" ")
           .toLowerCase()
-          .includes(q)
+          .includes(searchStr)
       )
     : shown;
 
-  const pages = Math.max(1, Math.ceil(matches.length / limit));
+  return {
+    fromDay,
+    toDay,
+    current,
+    opening,
+    closing,
+    shown,
+    matches,
+    onlyFund,
+  };
+}
+
+// Accounts statement: every money movement (not day totals) — each Cash/Bank payment in or out, each Add Income,
+// each transfer between my own accounts — newest first, with the Cash + Bank balance after it, paged.
+// GET /companies/:companyId/accounts/entries?userId&from&to&q&page&limit
+exports.accountsEntries = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "accounts");
+  const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
+  if (!company) throw fail(404, "Company not found");
+
+  const data = await computeAccountsData(company, {
+    from: req.query.from,
+    to: req.query.to,
+    q: req.query.q,
+    fund: req.query.fund,
+    moves: req.query.moves,
+  });
+
+  const limit = Math.min(100, Math.max(5, parseInt(req.query.limit, 10) || 25));
+  const pages = Math.max(1, Math.ceil(data.matches.length / limit));
   const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1));
   res.json({
     success: true,
-    from: fromDay,
-    to: toDay,
-    currentBalance: current,
+    from: data.fromDay,
+    to: data.toDay,
+    currentBalance: data.current,
     summary: {
-      opening,
-      closing,
-      moneyIn: round(shown.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)),
-      moneyOut: round(shown.reduce((s, r) => s + (r.amount < 0 ? -r.amount : 0), 0)),
-      count: shown.length,
+      opening: data.opening,
+      closing: data.closing,
+      moneyIn: round(data.shown.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)),
+      moneyOut: round(data.shown.reduce((s, r) => s + (r.amount < 0 ? -r.amount : 0), 0)),
+      count: data.shown.length,
     },
-    total: matches.length,
+    total: data.matches.length,
     page,
     pages,
     limit,
-    entries: matches.slice((page - 1) * limit, page * limit),
+    entries: data.matches.slice((page - 1) * limit, page * limit),
   });
 });
 
-// Which Accounts rows can have their amount changed in place: every kind that moves this company's Cash / Bank
-// through one simple transaction. (Money added is edited through its own record.)
-const AMOUNT_EDIT_TYPES = new Set(["company_paid", "borrowed", "loan_repayment", "reimburse", "lend", "voucher_issue", "advance_return"]);
-function accountsAmountEditable(t, loans) {
-  if (t.reversedBy || t.reverses || !AMOUNT_EDIT_TYPES.has(t.type)) return false;
-  const loan = t.loanId ? loans.get(String(t.loanId)) : null;
-  if (t.type === "company_paid") return Boolean(t.expenseId);
-  if (t.type === "borrowed") return loan?.source === "direct";
-  if (t.type === "loan_repayment") return Boolean(loan);
-  return true;
-}
+// Export accounts statement as CSV
+// GET /companies/:companyId/accounts/export?userId&from&to&q&fund&moves
+exports.exportAccountsCsv = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId } = req.query;
+  await requireRole(companyId, userId, ["admin", "super_admin"]);
+  await requirePermission(companyId, userId, "accounts");
+  const company = await Company.findById(companyId).select("name cashBalance cashAccountName bankAccounts").lean();
+  if (!company) throw fail(404, "Company not found");
+
+  const data = await computeAccountsData(company, {
+    from: req.query.from,
+    to: req.query.to,
+    q: req.query.q,
+    fund: req.query.fund,
+    moves: req.query.moves,
+  });
+
+  const rows = [["Date", "Time", "Details", "Account", "Method", "Reference", "Debit (Out)", "Credit (In)", "Balance", "By"]];
+  for (const r of data.matches) {
+    const d = new Date(r.at);
+    const dateStr = d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    const timeStr = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    rows.push([
+      dateStr,
+      timeStr,
+      r.details || r.label || "",
+      r.account || "",
+      r.method || "",
+      r.reference || "",
+      r.amount < 0 ? String(-r.amount) : "",
+      r.amount > 0 ? String(r.amount) : (r.transferAmount ? String(r.transferAmount) : ""),
+      String(r.balance != null ? r.balance : ""),
+      r.by || "",
+    ]);
+  }
+
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${data.onlyFund ? "fund" : "accounts"}-statement.csv"`);
+  res.send("\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n"));
+});
 
 // Changes every line of these transactions from the old amount to the new one, in place: the books stay balanced,
 // and each row keeps its date and place in Accounts. Only simple legs (every line = the same amount) are changed.

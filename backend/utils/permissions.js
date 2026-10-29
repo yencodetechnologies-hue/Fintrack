@@ -104,8 +104,23 @@ const allOn = (list) => resolved(list, null);
 
 // What this person may do in this company: { role: "primary"|"manager"|"staff"|null, perms: { key: bool } }.
 // The primary admin and super admins always have everything.
+// remembered for a few seconds (see roleIn): one request asks several times
+const PERMS_TTL_MS = 3000;
+const permsCache = new Map();
 async function permissionsFor(companyId, userId) {
   if (!userId || !companyId) return { role: null, perms: {} };
+  const key = `${companyId}:${userId}`;
+  const hit = permsCache.get(key);
+  if (hit && hit.until > Date.now()) return hit.value;
+  const value = await loadPermissions(companyId, userId);
+  permsCache.set(key, { value, until: Date.now() + PERMS_TTL_MS });
+  if (permsCache.size > 5000) permsCache.clear();
+  return value;
+}
+
+async function loadPermissions(companyId, userId) {
+  // all three reads at once (the membership is only needed when the person isn't the creator, but it's cheap)
+  const memberPromise = CompanyMember.findOne({ companyId, userId }).select("role customRoleId isAdmin").lean().catch(() => null);
   const [user, company] = await Promise.all([
     User.findById(userId).select("platformRole").lean(),
     Company.findById(companyId).select("createdBy external permissions customRoles").lean(),
@@ -114,7 +129,7 @@ async function permissionsFor(companyId, userId) {
   if (user?.platformRole === "super_admin" || (!company.external && String(company.createdBy) === String(userId))) {
     return { role: "primary", perms: allOn(MANAGER_PERMISSIONS) };
   }
-  const member = await CompanyMember.findOne({ companyId, userId }).select("role customRoleId isAdmin").lean();
+  const member = await memberPromise;
   if (!member) return { role: null, perms: {} };
   // an Admin (made so by an Admin) has full access, same as the creator
   if (member.isAdmin) return { role: "primary", perms: allOn(MANAGER_PERMISSIONS) };
@@ -140,4 +155,7 @@ async function permissionDenied(companyId, userId, key) {
 // an admin power: the primary admin, or a custom role with that switch (or All admin access)
 const hasPower = (mine, key) => mine?.role === "primary" || (mine?.role === "custom" && mine.perms?.[key] === true);
 
-module.exports = { MANAGER_PERMISSIONS, STAFF_PERMISSIONS, CUSTOM_PERMISSIONS, LISTS, resolved, resolvedCustom, roleBase, hasPower, permissionsFor, permissionDenied };
+// forget every remembered role / permission (any change may have altered them)
+const clearPermissionsCache = () => permsCache.clear();
+
+module.exports = { clearPermissionsCache, MANAGER_PERMISSIONS, STAFF_PERMISSIONS, CUSTOM_PERMISSIONS, LISTS, resolved, resolvedCustom, roleBase, hasPower, permissionsFor, permissionDenied };

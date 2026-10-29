@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { deleteAccountsEntry, editAccountsEntry, getAccountsEntries } from "../api.js";
+import { deleteAccountsEntry, editAccountsEntry, getAccountsEntries, getAccountsExportUrl } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import Modal from "./Modal.jsx";
 import { money, PAYMENT_METHODS } from "../utils.js";
@@ -26,6 +26,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
   const [editing, setEditing] = useState(null);
   const [viewing, setViewing] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [reload, setReload] = useState(0);
   // the Period dropdown (same as the Expenses page); starts on this month
   const [from, setFrom] = useState(() => `${ymd(new Date()).slice(0, 8)}01`);
@@ -108,21 +109,133 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
     setViewing(r);
   }
 
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const exportUrl = getAccountsExportUrl(companyId, user.id, {
+        from: range.from,
+        to: range.to,
+        q: query,
+        fund,
+        movesOnly,
+      });
+
+      let downloaded = false;
+      try {
+        const res = await fetch(exportUrl);
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${fundName ? fundName.replace(/\s+/g, "-") : "accounts"}-statement.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          downloaded = true;
+        }
+      } catch {
+        // Fall back to client-side assembly
+      }
+
+      if (!downloaded) {
+        let allEntries = [];
+        const firstPage = await getAccountsEntries(companyId, user.id, {
+          from: range.from,
+          to: range.to,
+          q: query,
+          page: 1,
+          limit: 100,
+          fund,
+          movesOnly,
+        });
+        if (firstPage?.success && Array.isArray(firstPage.entries)) {
+          allEntries = [...firstPage.entries];
+          if (firstPage.pages > 1) {
+            const rest = await Promise.all(
+              Array.from({ length: firstPage.pages - 1 }, (_, i) =>
+                getAccountsEntries(companyId, user.id, {
+                  from: range.from,
+                  to: range.to,
+                  q: query,
+                  page: i + 2,
+                  limit: 100,
+                  fund,
+                  movesOnly,
+                })
+              )
+            );
+            for (const p of rest) {
+              if (p?.success && Array.isArray(p.entries)) allEntries.push(...p.entries);
+            }
+          }
+        } else if (data?.entries) {
+          allEntries = data.entries;
+        }
+
+        const escapeCsv = (v) => {
+          const s = v == null ? "" : String(v);
+          return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+
+        const rows = [["Date", "Time", "Details", "Account", "Method", "Reference", "Debit (Out)", "Credit (In)", "Balance", "By"]];
+        for (const r of allEntries) {
+          const t = when(r.at);
+          rows.push([
+            t.date,
+            t.time,
+            r.details || r.label || "",
+            r.account || "",
+            r.method || "",
+            r.reference || "",
+            r.amount < 0 ? String(-r.amount) : "",
+            r.amount > 0 ? String(r.amount) : (r.transferAmount ? String(r.transferAmount) : ""),
+            String(r.balance != null ? r.balance : ""),
+            r.by || "",
+          ]);
+        }
+        const csvContent = "\uFEFF" + rows.map((r) => r.map(escapeCsv).join(",")).join("\r\n");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${fundName ? fundName.replace(/\s+/g, "-") : "accounts"}-statement.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      showToast("Could not export CSV", "error");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div>
       {!embedded && (
         <>
-          <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Accounts</h1>
-          <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+            <h1 style={{ fontSize: 22, margin: 0 }}>Accounts</h1>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "Export CSV"}
+            </button>
+          </div>
+          <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
             Every money in and out of your Cash and bank accounts, with the balance after each one.
           </p>
         </>
       )}
 
-      <div className="card accounts-filters">
-        <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
-      </div>
 
       {error ? (
         <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>
@@ -136,7 +249,12 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
             <div className="stat-card"><small>Debit (out)</small><strong className="out">{money(data.summary.moneyOut)}</strong></div>
             <div className="stat-card"><small>Credit (in)</small><strong className="in">{money(data.summary.moneyIn)}</strong></div>
             <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
-            <div className="stat-card"><small>Transactions</small><strong>{data.summary.count}</strong></div>
+          </div>
+
+          {/* search and period under the totals */}
+          <div className="card accounts-filters">
+            <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
           </div>
 
           <TableCard title={fundName ? `${fundName} statement` : "Statement"} meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} count={data.total} pageSize={PAGE_SIZE} onPageSize={(n) => { setPageSize(n); setPage(1); }} className={`${loading ? "dt-loading" : ""}${embedded ? " dt-left" : ""}`}>

@@ -760,11 +760,11 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
               style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
           if (claimed)
             Text(
-              "Claimed ${inr(v["claimedAmount"])} on ${dateLabel(v["claimedAt"])}${left > 0 ? " · ${inr(left)} left with them" : ""}${owed > 0 ? " · company owes them ${inr(owed)}" : ""}",
+              "Claimed ${inr(v["claimedAmount"])}${left > 0 ? " · ${inr(left)} left with them" : ""}${owed > 0 ? " · company owes them ${inr(owed)}" : ""}",
               style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55)),
             ),
           if (v["closedBy"] != null)
-            Text("Closed by ${nameOf(v["closedBy"], "Manager")} · ${dateLabel(v["closedAt"])}", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
+            Text("Closed by ${nameOf(v["closedBy"], "Manager")}", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
           const SizedBox(height: 6),
           Row(children: [
             _voucherPill(v["status"]?.toString()),
@@ -961,12 +961,12 @@ Future<void> showVoucherDetail(BuildContext context, LedgerScope s, Map<String, 
                       sub: "The company owes them this amount", icon: Icons.account_balance_wallet_outlined),
               if (claimed) ...[
                 row("Amount spent", inr(claimedAmount)),
-                row("Claimed on", dateLabel(v["claimedAt"])),
+                row("Status", "Claimed", color: kForest),
                 if (left > 0) row("Left with staff", inr(left), sub: "Kept as their voucher balance", color: kTerracotta),
                 if (fromHeld > 0) row("From earlier balance", inr(fromHeld)),
                 if (owed > 0) row("Company owes staff", inr(owed), sub: "Spent more than they held", color: kTerracotta),
               ],
-              if (v["closedBy"] != null) row("Closed by", nameOf(v["closedBy"], "Manager"), sub: "Recorded as used by ${nameOf(v["recipientId"], "staff")} · ${dateLabel(v["closedAt"])}"),
+              if (v["closedBy"] != null) row("Closed by", nameOf(v["closedBy"], "Manager"), sub: "Recorded as used by ${nameOf(v["recipientId"], "staff")}"),
               if (v["status"] == "cancelled") ...[
                 row("Cancelled by", nameOf(v["cancelledBy"], "Manager")),
                 if (v["cancelledAt"] != null) row("Cancelled on", dateLabel(v["cancelledAt"])),

@@ -58,7 +58,7 @@ export default function LoansPanel({ companyId, user, loans, pending = [], refre
 
   return (
     <>
-      <div className="accounts-summary" style={{ marginTop: 18 }}>
+      <div className="accounts-summary">
         <div className="stat-card"><small>We owe</small><strong className="out">{money(totals.weOwe)}</strong></div>
         <div className="stat-card"><small>Owed to us</small><strong className="in">{money(totals.owedToUs)}</strong></div>
         <div className="stat-card"><small>Companies / people</small><strong>{parties.length}</strong></div>

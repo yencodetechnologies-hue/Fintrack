@@ -113,6 +113,8 @@ expenseSchema.pre("save", function () {
 });
 
 expenseSchema.index({ companyId: 1, createdAt: -1 });
+expenseSchema.index({ companyId: 1, lifecycle: 1, status: 1 });
+expenseSchema.index({ payerCompanyId: 1, lifecycle: 1 });
 expenseSchema.index({ companyId: 1, parentExpenseId: 1, lifecycle: 1 });
 
 module.exports = mongoose.model("Expense", expenseSchema);

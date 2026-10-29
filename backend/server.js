@@ -38,6 +38,16 @@ app.use(
     optionsSuccessStatus: 200,
   })
 );
+// compress responses (lists of expenses / transactions shrink a lot)
+app.use(require("compression")());
+// a request that changes something may change someone's role: forget the few-second role / permission memory
+app.use((req, res, next) => {
+  if (req.method !== "GET") {
+    require("./controllers/ledgerController").clearRoleCache();
+    require("./utils/permissions").clearPermissionsCache();
+  }
+  next();
+});
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 

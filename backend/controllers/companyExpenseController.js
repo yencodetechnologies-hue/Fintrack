@@ -487,7 +487,7 @@ exports.getCompanyDetails = async (req, res) => {
     const { companyId } = req.params;
     const { userId } = req.query;
 
-    const company = await Company.findById(companyId);
+    const [company, rawMembers] = await Promise.all([Company.findById(companyId), CompanyMember.find({ companyId }).lean()]);
     if (!company) {
       return res.status(404).json({ success: false, message: "Company not found" });
     }
@@ -496,8 +496,6 @@ exports.getCompanyDetails = async (req, res) => {
       company.joinCodeCreatedAt = company.createdAt || new Date();
       await company.save();
     }
-
-    const rawMembers = await CompanyMember.find({ companyId }).lean();
     
     // Extract all member user IDs
     const memberUserIds = rawMembers
@@ -568,7 +566,7 @@ exports.getCompanyDetails = async (req, res) => {
       members: membersList,
       currentUserRole,
       hiddenStaffIds: (ownMembership?.hiddenStaffIds || []).map(String),
-      ...(userId ? await (async () => { const p = await permissionsFor(companyId, userId); const u = await User.findById(userId).select("platformRole").lean();
+      ...(userId ? await (async () => { const [p, u] = await Promise.all([permissionsFor(companyId, userId), User.findById(userId).select("platformRole").lean()]);
         // reversing ledger entries: the super admin, or a custom role with "Reverse ledger transactions"
         const canReverse = u?.platformRole === "super_admin" || (p.role === "custom" && p.perms.reverse_transactions === true);
         return { permissionRole: p.role, myPermissions: p.perms, myRoleName: p.roleName || null, canReverse }; })() : {}),

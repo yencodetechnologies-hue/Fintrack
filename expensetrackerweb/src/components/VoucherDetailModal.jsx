@@ -36,11 +36,11 @@ export default function VoucherDetailModal({ voucher, user, onClose, onCancel, o
       ? ["Paid by", <span key="paid">Company<span style={subStyle}>From {voucher.fundName || "company fund"}</span></span>]
       : ["Paid by", <span key="paid">{voucher.createdBy?.name || "Manager"} (self)<span style={subStyle}>The company owes them this amount</span></span>],
     claimed && ["Amount spent", <strong key="spent">{money(voucher.claimedAmount)}</strong>],
-    claimed && ["Claimed on", formatDateTime(voucher.claimedAt)],
+    claimed && ["Status", <span key="status" style={{ color: status.color, fontWeight: 700 }}>{status.label}</span>],
     claimed && left > 0 && ["Left with staff", <span key="left" style={{ color: "var(--terracotta)", fontWeight: 700 }}>{money(left)}<span style={subStyle}>Kept as their voucher balance</span></span>],
     claimed && fromHeld > 0 && ["From earlier balance", money(fromHeld)],
     claimed && voucher.owedToRecipient > 0 && ["Company owes staff", <span key="owed" style={{ color: "var(--terracotta)", fontWeight: 700 }}>{money(voucher.owedToRecipient)}<span style={subStyle}>Spent more than they held</span></span>],
-    voucher.closedBy && ["Closed by", <span key="closed">{voucher.closedBy.name}<span style={subStyle}>Recorded as used by {voucher.recipientId?.name || "staff"} · {formatDateTime(voucher.closedAt)}</span></span>],
+    voucher.closedBy && ["Closed by", <span key="closed">{voucher.closedBy.name}<span style={subStyle}>Recorded as used by {voucher.recipientId?.name || "staff"}</span></span>],
     voucher.status === "cancelled" && ["Cancelled by", voucher.cancelledBy?.name || "Manager"],
     voucher.status === "cancelled" && voucher.cancelledAt && ["Cancelled on", formatDateTime(voucher.cancelledAt)],
   ].filter(Boolean);

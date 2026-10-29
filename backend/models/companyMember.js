@@ -46,5 +46,6 @@ const companyMemberSchema = new mongoose.Schema(
 
 // Ensure unique user per company
 companyMemberSchema.index({ companyId: 1, userId: 1 }, { unique: true });
+companyMemberSchema.index({ userId: 1 });
 
 module.exports = mongoose.model("CompanyMember", companyMemberSchema);

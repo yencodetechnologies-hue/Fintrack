@@ -49,11 +49,13 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
   const [historyFrom, setHistoryFrom] = useState("");
   const [historyTo, setHistoryTo] = useState("");
 
+  // both requests start together; each part of the page shows as soon as its own data arrives
   const load = useCallback(async () => {
-    const [b, t] = await Promise.all([getLedgerBalances(companyId, user.id), getLedgerTransactions(companyId, user.id)]);
+    const history = getLedgerTransactions(companyId, user.id).then((t) => { if (t.success) setTxs(t.transactions || []); });
+    const b = await getLedgerBalances(companyId, user.id);
     if (b.success) setBalances(b);
     else showToast(b.message || "Could not load balances", "error");
-    if (t.success) setTxs(t.transactions || []);
+    await history;
   }, [companyId, user.id, showToast]);
 
   async function savePaymentEdit() {
@@ -195,62 +197,81 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner dark" /></div>
       ) : (
         <>
-          <div className="pay-tiles" style={{ marginBottom: 18 }}>
+          <div className="pay-tiles" style={{ marginBottom: 20 }}>
             {[
-              { label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, tone: totals.all > 0 ? "red" : "forest", onClick: () => setRole("all") },
+              { roleKey: "all", label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, color: totals.all > 0 ? "var(--terracotta)" : undefined, onClick: () => setRole("all") },
               ...groups.map((g) => ({
+                roleKey: g.key,
                 label: `Owed to ${g.label.toLowerCase()}`,
                 value: money(g.owed),
                 sub: g.waiting ? `${g.waiting} ${g.waiting === 1 ? "person" : "people"} waiting` : g.count ? "Nothing owed" : "No one in this role",
-                tone: g.owed > 0 ? (g.key === "admin" ? "blue" : "red") : "forest",
+                color: g.owed > 0 ? "var(--terracotta)" : undefined,
                 onClick: () => setRole(g.key),
               })),
-              { label: "Company funds", value: money(funds.reduce((s, f) => s + Number(f.balance || 0), 0)), sub: funds.map((f) => `${f.name} ${money(f.balance)}`).slice(0, 2).join(" · "), tone: "forest" },
-            ].map((t) => (
-              <div
-                key={t.label}
-                className={`pay-tile tone-${t.tone}${t.onClick ? " clickable" : ""}`}
-                onClick={t.onClick}
-                role={t.onClick ? "button" : undefined}
-                tabIndex={t.onClick ? 0 : undefined}
-                title={t.onClick ? "Show only these people" : undefined}
-              >
-                <div className="pay-tile-label">{t.label}</div>
-                <div className="pay-tile-value">{t.value}</div>
-                <div className="pay-tile-sub">{t.sub}</div>
+              { roleKey: null, label: "Company funds", value: money(funds.reduce((s, f) => s + Number(f.balance || 0), 0)), sub: funds.map((f) => `${f.name} ${money(f.balance)}`).slice(0, 2).join(" · ") },
+            ].map((t) => {
+              const isSelected = t.roleKey && role === t.roleKey;
+              return (
+                <div
+                  key={t.label}
+                  className={`stat-card home-tile pay-tile${t.onClick ? " clickable" : ""}${isSelected ? " selected" : ""}`}
+                  onClick={t.onClick}
+                  role={t.onClick ? "button" : undefined}
+                  tabIndex={t.onClick ? 0 : undefined}
+                  title={t.onClick ? "Show only these people" : undefined}
+                >
+                  <div className="home-tile-label" title={t.label}>{t.label}</div>
+                  <div className="home-tile-value" style={t.color ? { color: t.color } : undefined}>{t.value}</div>
+                  <div className="home-tile-sub" title={t.sub}>{t.sub}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {(() => {
+            const filterControls = (
+              <>
+                <input className="field-input" placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)} title="Role">
+                  <option value="all">Everyone</option>
+                  <option value="me">{user.name} (You)</option>
+                  <optgroup label="Roles">
+                    {groups.filter((g) => g.key !== "former").map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+                  </optgroup>
+                  {/* then every person, by name, with their role */}
+                  <optgroup label="People">
+                    {[...people].filter((p) => p.userId !== String(user.id)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                      <option key={p.userId} value={`person:${p.userId}`}>{p.name} ({p.groupLabel})</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </>
+            );
+
+            if (role === "me") {
+              return (
+                <OwnOutstanding
+                  companyId={companyId}
+                  company={company}
+                  user={user}
+                  funds={funds}
+                  focus={focusOwn}
+                  alwaysShow
+                  refreshKey={refreshKey}
+                  onPaid={() => { load(); onChanged?.(); }}
+                  filterSlot={filterControls}
+                />
+              );
+            }
+
+            return (
+              <div className="card payments-toolbar">
+                {filterControls}
               </div>
-            ))}
-          </div>
+            );
+          })()}
 
-          <div className="card payments-toolbar">
-            <input className="field-input" placeholder="Search by name or email…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)} title="Role">
-              <option value="all">Everyone</option>
-              <option value="me">{user.name} (You)</option>
-              <optgroup label="Roles">
-                {groups.filter((g) => g.key !== "former").map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
-              </optgroup>
-              {/* then every person, by name, with their role */}
-              <optgroup label="People">
-                {[...people].filter((p) => p.userId !== String(user.id)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                  <option key={p.userId} value={`person:${p.userId}`}>{p.name} ({p.groupLabel})</option>
-                ))}
-              </optgroup>
-            </select>
-            <select className="field-select" value={show} onChange={(e) => setShow(e.target.value)} title="Show">
-              <option value="owed">Owed money only</option>
-              <option value="all">Include settled</option>
-            </select>
-            <select className="field-select" value={sort} onChange={(e) => setSort(e.target.value)} title="Sort">
-              <option value="owed">Highest owed first</option>
-              <option value="claims">Most unpaid claims</option>
-              <option value="name">Name A–Z</option>
-            </select>
-          </div>
-
-          {role === "me" ? (
-            <OwnOutstanding companyId={companyId} company={company} user={user} funds={funds} focus={focusOwn} alwaysShow refreshKey={refreshKey} onPaid={() => { load(); onChanged?.(); }} />
-          ) : (
+          {role !== "me" && (
           <>
           {selectedPeople.length > 0 && (
             <div className="payments-selection">
@@ -265,6 +286,16 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
           <TableCard
             title="People owed"
             meta={tableMeta(visible.length, pageOf(visible, peoplePage, pageSize).page, pageOf(visible, peoplePage, pageSize).pages, "people")}
+            actions={
+              <label className="payments-check-compact" title="Include members with zero outstanding balance">
+                <input
+                  type="checkbox"
+                  checked={show === "all"}
+                  onChange={(e) => setShow(e.target.checked ? "all" : "owed")}
+                />
+                <span>Include settled</span>
+              </label>
+            }
             page={pageOf(visible, peoplePage, pageSize).page}
             pages={pageOf(visible, peoplePage, pageSize).pages}
             onPage={setPeoplePage}

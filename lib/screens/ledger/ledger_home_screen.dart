@@ -248,7 +248,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
                       alignment: Alignment.centerLeft,
                       // the company creator (primary admin) is "Admin"; others show their role
                       child: Text(scope.isPrimary || idOf(scope.company["createdBy"]) == widget.userId
-                          ? "You're Admin"
+                          ? "You're ${scope.adminName}"
                           : (scope.roleName?.isNotEmpty ?? false) ? "You're ${scope.roleName}" : "You're ${scope.roleLabel(scope.isAdmin ? "admin" : "member")}",
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
                     ),

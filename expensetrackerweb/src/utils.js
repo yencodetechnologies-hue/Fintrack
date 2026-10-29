@@ -35,9 +35,10 @@ export function formatDateTime(d) {
 // The company's names for its two built-in roles (renamable on the Permissions page; blank = Manager / Staff).
 const plural = (w) => (/^staff$/i.test(w) || /s$/i.test(w) ? w : `${w}s`);
 export function roleNames(company) {
+  const admin = String(company?.roleNames?.admin || "").trim() || "Admin";
   const manager = String(company?.roleNames?.manager || "").trim() || "Manager";
   const staff = String(company?.roleNames?.staff || "").trim() || "Staff";
-  return { manager, staff, managers: plural(manager), staffs: plural(staff) };
+  return { admin, admins: plural(admin), manager, staff, managers: plural(manager), staffs: plural(staff) };
 }
 // "admin"/"manager" → the manager name, anything else → the staff name
 export const roleLabel = (company, role) => (role === "admin" || role === "manager" ? roleNames(company).manager : roleNames(company).staff);

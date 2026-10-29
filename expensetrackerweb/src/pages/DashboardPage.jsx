@@ -133,7 +133,7 @@ export default function DashboardPage() {
   const [permissionRole, setPermissionRole] = useState(null);
   const [myRoleName, setMyRoleName] = useState(null); // custom role name, if I have one
   // my role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name
-  const myRoleLabel = permissionRole === "primary" ? "Admin" : myRoleName || roleNames(company).manager;
+  const myRoleLabel = permissionRole === "primary" ? roleNames(company).admin : myRoleName || roleNames(company).manager;
   const [canReverse, setCanReverse] = useState(false); // super admin, or a role with "Reverse ledger transactions"
   const [hiddenStaffIds, setHiddenStaffIds] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -855,7 +855,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <AppLayout companyId={companyId} isAdmin={isAdmin} can={can} permissionRole={permissionRole} roleName={myRoleName} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
+    <AppLayout companyId={companyId} companyRoleNames={company?.roleNames} isAdmin={isAdmin} can={can} permissionRole={permissionRole} roleName={myRoleName} activeTab={activeTab} onTabChange={changeTab} title={company.name}>
         <div className="main-panel">
           {!pageAllowed && (
             <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 28 }}>This page is turned off for you in this company.</div>
@@ -902,13 +902,14 @@ export default function DashboardPage() {
                         </div>
                       )}
                     />
+                    {/* managers: everything the company owes people (yours is in the line under it); staff: what it owes you */}
                     <HomeTile
-                      label={isAdmin ? "My outstanding" : "Company owes you"}
-                      onClick={isAdmin && can("reimburse") ? () => { setFocusOwnOutstanding(true); changeTab("payments"); } : undefined}
-                      title={isAdmin && can("reimburse") ? "Pay your outstanding from company funds" : undefined}
-                      value={money(ledgerBalances?.myOwed)}
-                      color={Number(ledgerBalances?.myOwed) > 0 ? "var(--terracotta)" : undefined}
-                      sub={isAdmin ? `Owed to all people ${money(ledgerBalances?.totalOwedToAdmins)}` : "Paid by you, not yet reimbursed"}
+                      label={isAdmin ? "Company outstanding" : "Company owes you"}
+                      onClick={isAdmin && can("reimburse") ? () => changeTab("payments") : undefined}
+                      title={isAdmin && can("reimburse") ? "See and pay what the company owes" : undefined}
+                      value={money(isAdmin ? ledgerBalances?.totalOwedToAdmins : ledgerBalances?.myOwed)}
+                      color={Number(isAdmin ? ledgerBalances?.totalOwedToAdmins : ledgerBalances?.myOwed) > 0 ? "var(--terracotta)" : undefined}
+                      sub={isAdmin ? `Owed to you ${money(ledgerBalances?.myOwed)}` : "Paid by you, not yet reimbursed"}
                     />
                     {!isAdmin && (
                       <HomeTile
@@ -1408,7 +1409,7 @@ export default function DashboardPage() {
           {activeTab === "analysis" && isAdmin && <ExpenseAnalysis companyId={companyId} userId={user.id} refreshKey={tick("expenses")} />}
 
           {activeTab === "vouchers" && isAdmin && (
-            <VouchersPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("vouchers", "balances")} />
+            <VouchersPanel canEdit={permissionRole === "primary" || (permissionRole === "custom" && myPermissions?.edit_entries === true)} companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("vouchers", "balances")} />
           )}
 
           {activeTab === "payments" && isAdmin && (
@@ -1613,7 +1614,7 @@ export default function DashboardPage() {
       )}
 
       {voucherModal && (
-        <CreateVoucherModal companyId={companyId} user={user} members={members} funds={availableCompanyFunds} onClose={() => setVoucherModal(false)} onCreated={load} />
+        <CreateVoucherModal companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onClose={() => setVoucherModal(false)} onCreated={load} />
       )}
 
       {handBackOpen && (
@@ -1931,7 +1932,7 @@ export default function DashboardPage() {
 
       {visibilityModal && (
         <Modal onClose={() => setVisibilityModal(null)} maxWidth={500}>
-          <h2 style={{ marginTop: 0, marginBottom: 8 }}>Staff Visibility</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 8 }}>{roleNames(company).staff} visibility</h2>
           <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 16px" }}>
             Choose which staff can see &quot;{visibilityModal.expense.description}&quot;.
           </p>

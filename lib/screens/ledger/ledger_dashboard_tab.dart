@@ -223,10 +223,10 @@ class _LedgerDashboardTabState extends State<LedgerDashboardTab> with LedgerAuto
       stat("Expenses", _loading ? null : inr(totalSpent),
           sub: "${periodExpenses.length} expense${periodExpenses.length == 1 ? "" : "s"}", onTap: widget.onOpenExpenses, trailing: _periodPill()),
       if (s.isAdmin) ...[
-        stat("My outstanding", balancesReady ? inr(myOwed) : null, color: kForest,
-            sub: "All people ${inr(_balances?["totalOwedToAdmins"] ?? 0)}",
-            // managers: open Payments, where "Your outstanding" is at the top
-            onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s, mineOnly: true))) : null),
+        // everything the company owes people; what it owes me in the line under it
+        stat("Company outstanding", balancesReady ? inr(_balances?["totalOwedToAdmins"] ?? 0) : null, color: kForest,
+            sub: "Owed to you ${inr(myOwed)}",
+            onTap: s.can("reimburse") ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => PaymentsPage(scope: s))) : null),
         stat("Borrowed", _secondaryLoading ? null : inr(borrowedTotal), color: kForest,
             sub: borrowed.isEmpty ? "Nothing to repay" : null, onTap: widget.onOpenInterco),
         stat("Lent", _secondaryLoading ? null : inr(lentTotal),

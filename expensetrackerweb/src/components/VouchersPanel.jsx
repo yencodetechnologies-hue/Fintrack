@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { cancelVoucher, decideAdvanceReturn, deleteVoucher, getVouchers } from "../api.js";
+import { cancelVoucher, decideAdvanceReturn, deleteVoucher, editVoucher, getVouchers } from "../api.js";
+import Modal from "./Modal.jsx";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money, VOUCHER_STATUS as STATUS } from "../utils.js";
+import { formatDate, money, VOUCHER_STATUS as STATUS, roleNames } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import CreateVoucherModal from "./CreateVoucherModal.jsx";
 import VoucherDetailModal from "./VoucherDetailModal.jsx";
@@ -11,7 +12,7 @@ import { TableCard, pageOf, tableMeta, usePageSize } from "./DataTable.jsx";
 
 
 // Managers: every voucher, what each staff member holds, and hand-backs to confirm.
-export default function VouchersPanel({ companyId, company, user, members, funds, onChanged, refreshKey }) {
+export default function VouchersPanel({ companyId, company, user, members, funds, onChanged, refreshKey, canEdit = false }) {
   const { showToast } = useToast();
   const [data, setData] = useState(null);
   const [filter, setFilter] = useState("all");
@@ -35,6 +36,25 @@ export default function VouchersPanel({ companyId, company, user, members, funds
     load();
   }, [load, refreshKey]);
 
+  // the Admin editing a voucher: { v, purpose, amount, fundId, fundChanged, date }
+  const [editing, setEditing] = useState(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  async function saveEdit() {
+    const e = editing;
+    const value = Number(e.amount);
+    if (!e.purpose.trim()) return showToast("Enter what the voucher is for", "error");
+    if (!(value > 0)) return showToast("Enter an amount greater than zero", "error");
+    const changes = { purpose: e.purpose.trim(), date: e.date || undefined };
+    if (value !== Number(e.v.amount)) changes.amount = value;
+    if (e.v.fundedBy === "company" && e.fundChanged) changes.fundId = e.fundId;
+    setSavingEdit(true);
+    const res = await editVoucher(e.v._id, user.id, changes);
+    setSavingEdit(false);
+    if (!res.success) return showToast(res.message || "Could not save the voucher", "error");
+    showToast("Voucher updated");
+    setEditing(null);
+    changed();
+  }
   const changed = () => {
     load();
     onChanged?.();
@@ -99,7 +119,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                 <>
               <table className="dt">
                 <thead>
-                  <tr><th>Date</th><th>Staff</th><th>Note</th><th className="num">Amount</th><th className="num">Action</th></tr>
+                  <tr><th>Date</th><th>{roleNames(company).staff}</th><th>Note</th><th className="num">Amount</th><th className="num">Action</th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => {
@@ -133,7 +153,7 @@ export default function VouchersPanel({ companyId, company, user, members, funds
             </TableCard>
           )}
 
-          <TableCard title="By staff member" meta={`${people.length} ${people.length === 1 ? "person" : "people"}`} items={people}>
+          <TableCard title={`By ${roleNames(company).staff.toLowerCase()} member`} meta={`${people.length} ${people.length === 1 ? "person" : "people"}`} items={people}>
             {(rows) => (
               <>
             {people.length === 0 ? (
@@ -216,13 +236,23 @@ export default function VouchersPanel({ companyId, company, user, members, funds
                             <td><span className="pill" style={{ fontSize: 11, background: status.bg, color: status.color }}>{status.label}</span></td>
                             <td className="num">{money(v.amount)}</td>
                             <td onClick={(e) => e.stopPropagation()}>
-                              {v.status === "open" && mine && (
-                                <span className="dt-actions">
-                                  <button className="btn btn-primary btn-sm" onClick={() => setClosingVoucher(v)}>Close</button>
-                                  <button className="btn btn-outline-danger btn-sm" onClick={() => setCancelling(v)}>Cancel</button>
-                                  <button className="btn btn-outline-danger btn-sm" onClick={() => setDeleting(v)}>Delete</button>
-                                </span>
-                              )}
+                              <span className="dt-actions">
+                                {canEdit && (
+                                  <button
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setEditing({ v, purpose: v.purpose, amount: String(v.amount), fundId: v.fundId || "cash", fundChanged: false, date: istInput(v.createdAt) })}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                {v.status === "open" && mine && (
+                                  <>
+                                    <button className="btn btn-primary btn-sm" onClick={() => setClosingVoucher(v)}>Close</button>
+                                    <button className="btn btn-outline-danger btn-sm" onClick={() => setCancelling(v)}>Cancel</button>
+                                    <button className="btn btn-outline-danger btn-sm" onClick={() => setDeleting(v)}>Delete</button>
+                                  </>
+                                )}
+                              </span>
                             </td>
                           </tr>
                         );
@@ -236,8 +266,50 @@ export default function VouchersPanel({ companyId, company, user, members, funds
         </>
       )}
 
+      {editing && (
+        <Modal onClose={() => setEditing(null)} maxWidth={460}>
+          <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Edit voucher</h2>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 14px" }}>
+            To {editing.v.recipientId?.name || "staff"} · {(STATUS[editing.v.status] || STATUS.open).label}
+          </p>
+          <div style={{ display: "grid", gap: 10 }}>
+            <div>
+              <label className="field-label">For</label>
+              <input className="field-input" value={editing.purpose} onChange={(e) => setEditing({ ...editing, purpose: e.target.value })} />
+            </div>
+            {editing.v.status !== "cancelled" && (
+              <div>
+                <label className="field-label">Amount given (₹)</label>
+                <input className="field-input" type="number" min="0.01" step="0.01" value={editing.amount} onChange={(e) => setEditing({ ...editing, amount: e.target.value })} />
+              </div>
+            )}
+            {editing.v.status !== "cancelled" && editing.v.fundedBy === "company" && (
+              <div>
+                <label className="field-label">Paid from</label>
+                <select className="field-select" value={editing.fundId} onChange={(e) => setEditing({ ...editing, fundId: e.target.value, fundChanged: true })}>
+                  {!funds.some((f) => String(f.fundId) === String(editing.fundId)) && <option value={editing.fundId}>{editing.v.fundName || "Current account"}</option>}
+                  {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="field-label">Date & time given</label>
+              <input className="field-input" type="datetime-local" value={editing.date} onChange={(e) => setEditing({ ...editing, date: e.target.value })} />
+            </div>
+            <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>
+              {editing.v.status === "claimed"
+                ? `Already claimed (${money(editing.v.claimedAmount)}): a new amount changes what ${editing.v.recipientId?.name || "they"} still hold.`
+                : "A new amount or account moves the balances by the difference."}
+            </p>
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditing(null)} disabled={savingEdit}>Cancel</button>
+              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={saveEdit} disabled={savingEdit}>{savingEdit ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {creating && (
-        <CreateVoucherModal companyId={companyId} user={user} members={members} funds={funds} onClose={() => setCreating(false)} onCreated={changed} />
+        <CreateVoucherModal companyId={companyId} company={company} user={user} members={members} funds={funds} onClose={() => setCreating(false)} onCreated={changed} />
       )}
       {viewing && (
         <VoucherDetailModal voucher={viewing} user={user} onClose={() => setViewing(null)} onCancel={(v) => { setViewing(null); setCancelling(v); }} onDelete={(v) => { setViewing(null); setDeleting(v); }} onCloseVoucher={(v) => { setViewing(null); setClosingVoucher(v); }} />
@@ -275,4 +347,9 @@ export default function VouchersPanel({ companyId, company, user, members, funds
       )}
     </>
   );
+}
+
+// a date as "YYYY-MM-DDTHH:mm" in India time, for the date & time input
+function istInput(at) {
+  return new Date(new Date(at).getTime() + 330 * 60000).toISOString().slice(0, 16);
 }

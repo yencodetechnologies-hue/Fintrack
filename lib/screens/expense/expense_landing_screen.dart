@@ -815,7 +815,7 @@ class _ExpenseLandingScreenState extends State<ExpenseLandingScreen> {
     final customRole = company["customRoleName"]?.toString() ?? "";
     final createdBy = company["createdBy"];
     final isCreator = (createdBy is Map ? createdBy["_id"] : createdBy)?.toString() == widget.userId || company["isCompanyAdmin"] == true;
-    final userRole = (isCreator ? "Admin" : customRole.isNotEmpty ? customRole : roleNameOf(Map<String, dynamic>.from(company), isAdmin ? "manager" : "staff")).toUpperCase();
+    final userRole = (isCreator ? roleNameOf(Map<String, dynamic>.from(company), "admin") : customRole.isNotEmpty ? customRole : roleNameOf(Map<String, dynamic>.from(company), isAdmin ? "manager" : "staff")).toUpperCase();
 
     return Material(
       color: Colors.transparent,

@@ -829,7 +829,7 @@ Future<void> showEditExpenseSheet(BuildContext context, LedgerScope s, Map<Strin
 Future<void> showVisibilitySheet(BuildContext context, LedgerScope s, Map<String, dynamic> e) {
   final staff = s.members.where((m) => m["userId"].toString() != s.userId).toList();
   final selected = <String>{...List.from(e["visibleTo"] ?? const []).map((v) => idOf(v))};
-  return showLedgerSheet(context, "Staff visibility", (ctx) => StatefulBuilder(builder: (ctx, set) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  return showLedgerSheet(context, "${s.staffName} visibility", (ctx) => StatefulBuilder(builder: (ctx, set) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text("Choose who can see \"${e["description"]}\" in their list.", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
         const SizedBox(height: 8),
         if (staff.isEmpty) Text("No other members yet.", style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.6))),

@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { cancelCompanyInvite, getCompanyInvites, inviteCompanyMember } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, roleLabel } from "../utils.js";
+import { formatDate, roleLabel, roleNames } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import { TableCard } from "./DataTable.jsx";
 
 // People invited by email and where they are: invite sent (waiting to sign up), email failed, or joined.
 // Pending ones can be resent or cancelled. refreshKey changes after a new invite is sent.
-export default function InvitesList({ company, user, refreshKey }) {
+export default function InvitesList({ company, user, members = [], refreshKey }) {
   const { showToast } = useToast();
   const [invites, setInvites] = useState(null);
   const [busy, setBusy] = useState("");
@@ -59,7 +59,16 @@ export default function InvitesList({ company, user, refreshKey }) {
               return (
                 <tr key={inv._id}>
                   <td className="dt-strong">{inv.email}</td>
-                  <td>{inv.roleName || roleLabel(company, inv.role)}</td>
+                  <td>
+                    {/* joined: the role they have now (it may have changed since); waiting: the role they were invited as */}
+                    {(() => {
+                      const invited = inv.roleName || roleLabel(company, inv.role);
+                      const member = joined && members.find((m) => String(m.email || "").toLowerCase() === String(inv.email || "").toLowerCase());
+                      if (!member) return invited;
+                      const now = String(company.createdBy) === String(member.userId) || member.isAdmin ? roleNames(company).admin : member.customRoleName || roleLabel(company, member.role);
+                      return now === invited ? now : <>{now}<span className="dt-sub">invited as {invited}</span></>;
+                    })()}
+                  </td>
                   <td>{inv.invitedBy || "—"}</td>
                   <td>
                     <span style={{ fontSize: 12, fontWeight: 700, color: status.color, background: status.bg, padding: "4px 10px", borderRadius: 99, whiteSpace: "nowrap" }}>

@@ -102,6 +102,22 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
             style: GoogleFonts.inter(color: Colors.white70, fontSize: 13),
           ),
           const SizedBox(height: 12),
+          // the Admin role has every permission; only an Admin can rename it
+          if (data["role"] == "primary")
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_renamed?["admin"] ?? s.adminName, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.bold, color: kDark)),
+                    Text("Every permission, always on", style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
+                  ]),
+                ),
+                TextButton(onPressed: () => _rename("admin"), child: const Text("Rename")),
+              ]),
+            ),
           if (data["canEditManagers"] == true) _section("manager", _names.managers, "Every ${_names.manager.toLowerCase()} except the primary admin"),
           _section("staff", _names.staffs, "Every ${_names.staff.toLowerCase()}"),
           if (data["customRoles"] is List)
@@ -138,8 +154,8 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
   }
 
   Future<void> _rename(String role) async {
-    final defaultName = role == "manager" ? "Manager" : "Staff";
-    final name = TextEditingController(text: role == "manager" ? _names.manager : _names.staff);
+    final defaultName = role == "admin" ? "Admin" : role == "manager" ? "Manager" : "Staff";
+    final name = TextEditingController(text: role == "admin" ? (_renamed?["admin"] ?? s.adminName) : role == "manager" ? _names.manager : _names.staff);
     await showLedgerSheet(context, "Rename $defaultName role", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("Shown everywhere in this company, on the web and in the app. Leave it empty to go back to \"$defaultName\".",
               style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.65))),
@@ -151,7 +167,7 @@ class _PermissionsPageState extends State<PermissionsPage> with LedgerAutoRefres
             if (!ctx.mounted) return;
             if (handleResult(ctx, res, "Role renamed")) {
               final names = res["roleNames"];
-              if (names is Map) setState(() => _renamed = {"manager": names["manager"].toString(), "staff": names["staff"].toString()});
+              if (names is Map) setState(() => _renamed = {"admin": names["admin"].toString(), "manager": names["manager"].toString(), "staff": names["staff"].toString()});
               Navigator.pop(ctx);
               notifyLedgerChanged();
             }

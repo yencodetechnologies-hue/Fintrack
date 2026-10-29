@@ -123,7 +123,7 @@ class _CompaniesManagerCardState extends State<CompaniesManagerCard> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text("${c["name"]}${c["_id"].toString() == s.companyId ? " · this company" : ""}",
                         style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: kDark)),
-                    Text(_isAdminOf(c) ? "Admin" : (c["customRoleName"]?.toString() ?? s.roleLabel(c["userRole"])), style: sub),
+                    Text(_isAdminOf(c) ? roleNameOf(Map<String, dynamic>.from(c), "admin") : (c["customRoleName"]?.toString() ?? s.roleLabel(c["userRole"])), style: sub),
                   ]),
                 ),
                 if (_isAdminOf(c))

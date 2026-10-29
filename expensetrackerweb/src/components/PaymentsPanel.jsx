@@ -89,21 +89,23 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         name: m.name,
         email: m.email,
         role: m.role === "admin" ? "manager" : "staff",
+        group: String(company.createdBy?._id || company.createdBy) === id || m.isAdmin ? "admin" : m.customRoleId ? `role:${m.customRoleId}` : m.role === "admin" ? "manager" : "staff",
+        groupLabel: String(company.createdBy?._id || company.createdBy) === id || m.isAdmin ? roleNames(company).admin : m.customRoleId ? m.customRoleName || "Custom role" : m.role === "admin" ? roleNames(company).manager : roleNames(company).staff,
         owed: Number(row?.owed || 0),
         claims: Number(row?.claims || 0),
         advance: Math.max(0, Number(row?.advance || 0)),
       };
     });
     for (const [id, row] of owedRows) {
-      list.push({ userId: id, name: row.name || "Former member", email: "", role: "former", owed: Number(row.owed || 0), claims: Number(row.claims || 0), advance: Math.max(0, Number(row.advance || 0)) });
+      list.push({ userId: id, name: row.name || "Former member", email: "", role: "former", group: "former", groupLabel: "Former", owed: Number(row.owed || 0), claims: Number(row.claims || 0), advance: Math.max(0, Number(row.advance || 0)) });
     }
     return list;
-  }, [balances, members]);
+  }, [balances, members, company]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return people
-      .filter((p) => (role === "all" ? true : role === "managers" ? p.role === "manager" : p.role !== "manager"))
+      .filter((p) => (role === "all" ? true : role.startsWith("person:") ? p.userId === role.slice(7) : p.group === role))
       .filter((p) => (show === "owed" ? p.owed > 0 : true))
       .filter((p) => !q || `${p.name} ${p.email}`.toLowerCase().includes(q))
       .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name) : sort === "claims" ? b.claims - a.claims : b.owed - a.owed));
@@ -132,10 +134,21 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
 
   const totals = {
     all: round(people.reduce((s, p) => s + Math.max(0, p.owed), 0)),
-    managers: round(people.filter((p) => p.role === "manager").reduce((s, p) => s + Math.max(0, p.owed), 0)),
-    staff: round(people.filter((p) => p.role !== "manager").reduce((s, p) => s + Math.max(0, p.owed), 0)),
     waiting: people.filter((p) => p.owed > 0).length,
   };
+  const groups = [
+    { key: "admin", label: roleNames(company).admins },
+    { key: "manager", label: roleNames(company).managers },
+    { key: "staff", label: roleNames(company).staffs },
+    ...(company.customRoles || []).map((r) => ({ key: `role:${r._id}`, label: r.name })),
+    { key: "former", label: "Former members" },
+  ]
+    .map((g) => {
+      const inGroup = people.filter((p) => p.group === g.key);
+      return { ...g, owed: round(inGroup.reduce((sum, p) => sum + Math.max(0, p.owed), 0)), waiting: inGroup.filter((p) => p.owed > 0).length, count: inGroup.length };
+    })
+    // former members only when something is still owed to them
+    .filter((g) => g.key !== "former" || g.owed > 0);
 
   // payments made: company reimbursements, payments by a manager personally, and voucher set-offs
   const history = useMemo(() => {
@@ -175,7 +188,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         <h1 style={{ fontSize: 22, margin: 0 }}>Payments</h1>
         <button className="btn btn-outline" onClick={load}>Refresh</button>
       </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.</p>
+      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each person, from company funds or out of your own pocket.</p>
 
 
       {!balances ? (
@@ -184,12 +197,24 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         <>
           <div className="pay-tiles" style={{ marginBottom: 18 }}>
             {[
-              { label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, tone: totals.all > 0 ? "red" : "forest" },
-              { label: `Owed to ${roleNames(company).managers.toLowerCase()}`, value: money(totals.managers), sub: "Paid out of their own pocket", tone: "blue" },
-              { label: `Owed to ${roleNames(company).staffs.toLowerCase()}`, value: money(totals.staff), sub: "Claims and payments", tone: totals.staff > 0 ? "red" : "forest" },
+              { label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, tone: totals.all > 0 ? "red" : "forest", onClick: () => setRole("all") },
+              ...groups.map((g) => ({
+                label: `Owed to ${g.label.toLowerCase()}`,
+                value: money(g.owed),
+                sub: g.waiting ? `${g.waiting} ${g.waiting === 1 ? "person" : "people"} waiting` : g.count ? "Nothing owed" : "No one in this role",
+                tone: g.owed > 0 ? (g.key === "admin" ? "blue" : "red") : "forest",
+                onClick: () => setRole(g.key),
+              })),
               { label: "Company funds", value: money(funds.reduce((s, f) => s + Number(f.balance || 0), 0)), sub: funds.map((f) => `${f.name} ${money(f.balance)}`).slice(0, 2).join(" · "), tone: "forest" },
             ].map((t) => (
-              <div key={t.label} className={`pay-tile tone-${t.tone}`}>
+              <div
+                key={t.label}
+                className={`pay-tile tone-${t.tone}${t.onClick ? " clickable" : ""}`}
+                onClick={t.onClick}
+                role={t.onClick ? "button" : undefined}
+                tabIndex={t.onClick ? 0 : undefined}
+                title={t.onClick ? "Show only these people" : undefined}
+              >
                 <div className="pay-tile-label">{t.label}</div>
                 <div className="pay-tile-value">{t.value}</div>
                 <div className="pay-tile-sub">{t.sub}</div>
@@ -202,8 +227,15 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             <select className="field-select" value={role} onChange={(e) => setRole(e.target.value)} title="Role">
               <option value="all">Everyone</option>
               <option value="me">{user.name} (You)</option>
-              <option value="managers">{roleNames(company).managers}</option>
-              <option value="staff">{roleNames(company).staffs}</option>
+              <optgroup label="Roles">
+                {groups.filter((g) => g.key !== "former").map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+              </optgroup>
+              {/* then every person, by name, with their role */}
+              <optgroup label="People">
+                {[...people].filter((p) => p.userId !== String(user.id)).sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                  <option key={p.userId} value={`person:${p.userId}`}>{p.name} ({p.groupLabel})</option>
+                ))}
+              </optgroup>
             </select>
             <select className="field-select" value={show} onChange={(e) => setShow(e.target.value)} title="Show">
               <option value="owed">Owed money only</option>
@@ -266,7 +298,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                             {p.name}{me ? " (you)" : ""}
                           </span>
                         </td>
-                        <td><span className={`payments-role ${p.role}`}>{p.role === "manager" ? roleNames(company).manager : p.role === "staff" ? roleNames(company).staff : "Former"}</span></td>
+                        <td><span className={`payments-role ${p.group.startsWith("role:") ? "custom" : p.group}`}>{p.groupLabel}</span></td>
                         <td className="muted">
                           {p.claims > 0 ? `${money(p.claims)} in approved claims` : p.owed > 0 ? "Paid out of pocket" : "Nothing owed"}
                           {p.advance > 0 && <span className="dt-sub">holds {money(p.advance)} voucher money</span>}

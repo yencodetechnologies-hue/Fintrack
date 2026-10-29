@@ -1092,7 +1092,7 @@ a {
 }
 
 /* Payments page */
-.pay-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pay-tiles { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(150px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 2px; }
 .pay-tile {
   --tone: var(--forest);
   position: relative;
@@ -1188,7 +1188,7 @@ a {
 .payments-choice button strong { display: block; font-size: 14px; color: var(--dark-text); }
 .payments-choice button span { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 .payments-choice button.on { border-color: var(--forest); background: rgba(25, 87, 84, 0.06); }
-@media (max-width: 1100px) { .pay-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .pay-tiles { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: visible; } }
 @media (max-width: 900px) {
   .payments-toolbar { grid-template-columns: 1fr 1fr; }
   .payments-toolbar > :first-child { grid-column: 1 / -1; }
@@ -2165,3 +2165,21 @@ a {
 .entry-lines > div + div { border-top: 1px solid var(--slate-border-2); }
 .entry-lines span { color: var(--muted); }
 .entry-lines strong { text-align: right; word-break: break-word; }
+
+.pay-tile.clickable { cursor: pointer; }
+.pay-tile.clickable:hover { border-color: var(--forest); }
+.payments-role.admin { background: rgba(12, 95, 65, 0.1); color: var(--forest); }
+.payments-role.custom { background: rgba(245, 158, 11, 0.12); color: #B45309; }
+
+/* one compact row of totals (Payments) */
+.pay-tiles .pay-tile { padding: 12px 14px; }
+.pay-tiles .pay-tile-value { font-size: 20px; }
+.pay-tiles .pay-tile-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Company Funds: pick an account to see its statement */
+.fund-tile { cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+.fund-tile:hover { border-color: var(--forest); }
+.fund-tile.selected { border: 2px solid var(--forest); box-shadow: 0 0 0 3px rgba(12, 95, 65, 0.12); }
+
+/* every column left-aligned (Company Funds statement) */
+.dt-left .dt th, .dt-left .dt td, .dt-left .dt th.num, .dt-left .dt td.num { text-align: left !important; }

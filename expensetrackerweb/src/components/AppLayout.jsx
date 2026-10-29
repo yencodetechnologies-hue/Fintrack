@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { getUserCompanies } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import { tabAllowed } from "../permissions.js";
-import { roleLabel } from "../utils.js";
+import { roleLabel, roleNames } from "../utils.js";
 
 const LAST_COMPANY_KEY = "et_selected_company";
 
@@ -70,7 +70,7 @@ const WORKSPACE = [
 // On the company workspace, pass activeTab/onTabChange; elsewhere the workspace links open the last-used company.
 const ALL_ON = () => true;
 
-export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, permissionRole, roleName, activeTab, onTabChange, title, light = false }) {
+export default function AppLayout({ children, companyId, companyRoleNames, isAdmin, can = ALL_ON, permissionRole, roleName, activeTab, onTabChange, title, light = false }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -140,7 +140,7 @@ export default function AppLayout({ children, companyId, isAdmin, can = ALL_ON, 
             </select>
             <span className="sidebar-company-chevron" aria-hidden="true" />
             {/* the company creator (primary admin) is "Admin"; others show their role */}
-            {current && <small>{String(current.createdBy?._id || current.createdBy) === String(user.id) || current.isCompanyAdmin || permissionRole === "primary" ? "You're Admin" : (roleName || current.customRoleName) ? `You're ${roleName || current.customRoleName}` : `You're ${roleLabel(current, admin ? "admin" : "member")}`}</small>}
+            {current && <small>{String(current.createdBy?._id || current.createdBy) === String(user.id) || current.isCompanyAdmin || permissionRole === "primary" ? `You're ${roleNames({ roleNames: companyRoleNames || current.roleNames }).admin}` : (roleName || current.customRoleName) ? `You're ${roleName || current.customRoleName}` : `You're ${roleLabel({ roleNames: companyRoleNames || current.roleNames }, admin ? "admin" : "member")}`}</small>}
           </div>
         )}
 

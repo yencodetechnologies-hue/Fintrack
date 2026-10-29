@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { setMemberAdmin, setMemberCustomRole } from "../api.js";
+import { changeCreatorRole, setMemberAdmin, setMemberCustomRole } from "../api.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import ManageCategoriesModal from "./ManageCategoriesModal.jsx";
 import { CompanyLogoCard } from "./CompanyLogo.jsx";
@@ -122,6 +122,17 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
   // the primary admin, or a custom role with "Manage custom roles"
   const isPrimary = Boolean(powers.manageRoles);
   const iAmAdmin = Boolean(powers.admin); // creator or someone an Admin made Admin
+  // another Admin changing the creator's role (asked first): they become the creator
+  const [creatorChange, setCreatorChange] = useState(null); // { member, value, label }
+  async function confirmCreatorChange() {
+    const { member, value } = creatorChange;
+    setCreatorChange(null);
+    const role = value.startsWith("role:") ? "custom" : value;
+    const res = await changeCreatorRole(company._id, member.userId, user.id, role, value.startsWith("role:") ? value.slice(5) : undefined);
+    if (!res.success) return showToast(res.message || "Could not change the creator's role", "error");
+    showToast(`You're now the creator · ${member.name} is ${creatorChange?.label || "changed"}`);
+    onChanged();
+  }
   async function handleAdmin(memberUserId, admin) {
     const res = await setMemberAdmin(company._id, memberUserId, user.id, admin);
     if (res.success) {
@@ -152,7 +163,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
   async function handleRoleChange(memberUserId, newRole) {
     const res = await setCompanyMemberRole(company._id, user.id, memberUserId, newRole);
     if (res.success) {
-      showToast("Staff role updated");
+      showToast("Role updated");
       onChanged();
     } else {
       showToast(res.message || "Failed to change role", "error");
@@ -181,7 +192,7 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
     const res = await removeMember(company._id, removing.userId, user.id);
     setRemoving(null);
     if (res.success) {
-      showToast("Staff removed");
+      showToast(`${names.staff} removed`);
       onChanged();
     } else {
       showToast(res.message || "Failed to remove staff", "error");
@@ -294,12 +305,12 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       )}
 
       {/* emailed invites and whether each person has signed up (joined) yet */}
-      {isAdmin && can("members") && <InvitesList company={company} user={user} refreshKey={invitesKey} />}
+      {isAdmin && can("members") && <InvitesList company={company} user={user} members={members} refreshKey={invitesKey} />}
 
       {/* the count is staff only; managers (incl. the creator) are listed but not counted */}
       <TableCard
         title="Members"
-        meta={`${members.filter((m) => m.role !== "admin").length} ${names.staffs.toLowerCase()} · ${members.filter((m) => m.role === "admin").length} ${(members.filter((m) => m.role === "admin").length === 1 ? names.manager : names.managers).toLowerCase()}`}
+        meta={memberRoleCounts(members, company, names)}
        items={members}>
         {(rows) => (
           <>
@@ -321,7 +332,27 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
                   </td>
                   <td className="muted">{m.email || "—"}</td>
                   <td>
-                    {canManage ? (
+                    {isCreator && iAmAdmin && String(m.userId) !== String(user.id) ? (
+                      // another Admin can change the creator's role; they then become the creator
+                      <select
+                        className="field-select"
+                        style={{ padding: "4px 8px", fontSize: 13, height: 34, width: "auto" }}
+                        value="creator"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          const label = v === "admin" ? names.admin : v === "manager" ? names.manager : v === "staff" ? names.staff : (company.customRoles || []).find((r) => `role:${r._id}` === v)?.name || "a custom role";
+                          setCreatorChange({ member: m, value: v, label });
+                        }}
+                      >
+                        <option value="creator">{names.admin} · Creator</option>
+                        <option value="admin">{names.admin}</option>
+                        <option value="manager">{names.manager}</option>
+                        <option value="staff">{names.staff}</option>
+                        {(company.customRoles || []).map((r) => (
+                          <option key={r._id} value={`role:${r._id}`}>{r.name}</option>
+                        ))}
+                      </select>
+                    ) : canManage ? (
                       <select
                         className="field-select"
                         style={{ padding: "4px 8px", fontSize: 13, height: 34, width: "auto" }}
@@ -340,13 +371,13 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
                         <option value="member">{names.staff}</option>
                         <option value="admin">{names.manager}</option>
                         {/* only an Admin can make someone an Admin (full access, like the creator) */}
-                        {(iAmAdmin || m.isAdmin) && <option value="coadmin" disabled={!iAmAdmin}>Admin</option>}
+                        {(iAmAdmin || m.isAdmin) && <option value="coadmin" disabled={!iAmAdmin}>{names.admin}</option>}
                         {(isPrimary || m.customRoleId) && (company.customRoles || []).map((r) => (
                           <option key={r._id} value={`role:${r._id}`} disabled={!isPrimary}>{r.name}</option>
                         ))}
                       </select>
                     ) : (
-                      isCreator ? "Admin · Creator" : m.isAdmin ? "Admin" : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)
+                      isCreator ? `${names.admin} · Creator` : m.isAdmin ? names.admin : m.customRoleName ? m.customRoleName : roleLabel(company, m.role)
                     )}
                   </td>
                   {isAdmin && (
@@ -459,6 +490,15 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
         />
       )}
 
+      {creatorChange && (
+        <ConfirmDialog
+          title={`Make ${creatorChange.member.name} ${creatorChange.label}?`}
+          message={`${creatorChange.member.name} created ${company.name}. If you change their role, you become the company's creator (${names.admin} · Creator) and ${creatorChange.member.name} becomes ${creatorChange.label}.`}
+          confirmLabel="Change role"
+          onCancel={() => setCreatorChange(null)}
+          onConfirm={confirmCreatorChange}
+        />
+      )}
       {removing && (
         <ConfirmDialog
           title="Remove staff?"
@@ -482,4 +522,16 @@ export default function SettingsPanel({ company, members, user, isAdmin, can = (
       )}
     </div>
   );
+}
+
+// "1 Admin · 3 Partner · 1 Staff": each person counted once, under the role the table shows for them
+function memberRoleCounts(members, company, names) {
+  const counts = new Map();
+  for (const m of members) {
+    const label = String(company.createdBy) === String(m.userId) || m.isAdmin
+      ? names.admin
+      : m.customRoleName || (m.role === "admin" ? names.manager : names.staff);
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts].map(([label, n]) => `${n} ${label}`).join(" · ");
 }

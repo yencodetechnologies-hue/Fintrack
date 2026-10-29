@@ -19,7 +19,8 @@ const when = (at) => {
 
 // Accounts: a statement of every money movement — each payment out of Cash/Bank, each income in, each transfer —
 // newest first, with the Cash + Bank balance after it. Searched and paged on the server.
-export default function AccountsPanel({ companyId, user, canEdit = false, onChanged, onOpenExpense, onOpenLoan, refreshKey }) {
+// fund: one account's statement ("cash" or a bank account id), shown inside Company Funds (embedded: no page heading)
+export default function AccountsPanel({ companyId, user, canEdit = false, onChanged, onOpenExpense, onOpenLoan, refreshKey, fund = "", fundName = "", embedded = false, movesOnly = false }) {
   const { showToast } = useToast();
   // the row shown in the details popup, and its amount while being edited: { row, value }
   const [editing, setEditing] = useState(null);
@@ -43,7 +44,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
   }, [search]);
 
   // a new period or search starts again at page 1
-  useEffect(() => setPage(1), [from, to, query]);
+  useEffect(() => setPage(1), [from, to, query, fund]);
 
   // All time (empty range) = from the very start up to today
   const range = { from: from || "2000-01-01", to: to || ymd(new Date()) };
@@ -51,14 +52,14 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
     let alive = true;
     setLoading(true);
     setError("");
-    getAccountsEntries(companyId, user.id, { from: range.from, to: range.to, q: query, page, limit: PAGE_SIZE }).then((res) => {
+    getAccountsEntries(companyId, user.id, { from: range.from, to: range.to, q: query, page, limit: PAGE_SIZE, fund, movesOnly }).then((res) => {
       if (!alive) return;
       setLoading(false);
       if (res.success) setData(res);
       else setError(res.message || "Could not load accounts");
     });
     return () => { alive = false; };
-  }, [companyId, user.id, range.from, range.to, query, page, PAGE_SIZE, refreshKey, reload]);
+  }, [companyId, user.id, range.from, range.to, query, page, PAGE_SIZE, refreshKey, reload, fund, movesOnly]);
 
   // editing = { id, amount, details, method, reference, date } (the form in the details popup)
   async function saveAmount() {
@@ -109,10 +110,14 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Accounts</h1>
-      <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 18px" }}>
-        Every money in and out of your Cash and bank accounts, with the balance after each one.
-      </p>
+      {!embedded && (
+        <>
+          <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>Accounts</h1>
+          <p style={{ color: "var(--muted)", fontSize: 14, margin: "0 0 18px" }}>
+            Every money in and out of your Cash and bank accounts, with the balance after each one.
+          </p>
+        </>
+      )}
 
       <div className="card accounts-filters">
         <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -134,9 +139,9 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
             <div className="stat-card"><small>Transactions</small><strong>{data.summary.count}</strong></div>
           </div>
 
-          <TableCard title="Statement" meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} count={data.total} pageSize={PAGE_SIZE} onPageSize={(n) => { setPageSize(n); setPage(1); }} className={loading ? "dt-loading" : ""}>
+          <TableCard title={fundName ? `${fundName} statement` : "Statement"} meta={tableMeta(data.total, data.page, data.pages, "entries")} page={data.page} pages={data.pages} onPage={setPage} count={data.total} pageSize={PAGE_SIZE} onPageSize={(n) => { setPageSize(n); setPage(1); }} className={`${loading ? "dt-loading" : ""}${embedded ? " dt-left" : ""}`}>
             {data.total === 0 ? (
-              <div className="dt-empty">{query ? "Nothing matches your search in this period." : "No money in or out in this period."}</div>
+              <div className="dt-empty">{query ? "Nothing matches your search in this period." : movesOnly ? "No money added or moved between accounts in this period." : "No money in or out in this period."}</div>
             ) : (
               <table className="dt">
                 <thead>
@@ -144,7 +149,8 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
                     <th>Time</th>
                     <th>Details</th>
                     <th>Account</th>
-                    <th>Method / Ref</th>
+                    {/* money added and transfers have no method or reference */}
+                    {!movesOnly && <th>Method / Ref</th>}
                     <th className="num">Debit (out)</th>
                     <th className="num">Credit (in)</th>
                     <th className="num">Balance</th>
@@ -162,7 +168,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
                     return [
                       newDay && (
                         <tr key={`day-${w.date}`} className="dt-group">
-                          <td colSpan={7} className="dt-day">
+                          <td colSpan={movesOnly ? 6 : 7} className="dt-day">
                             {w.date}
                             <span className="dt-group-total">
                               {dayRows.length} {dayRows.length === 1 ? "entry" : "entries"}
@@ -179,7 +185,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
                           <span className="dt-sub">{[r.details ? r.label : "", r.category, r.by ? `by ${r.by}` : ""].filter(Boolean).join(" · ")}</span>
                         </td>
                         <td>{r.account || "—"}</td>
-                        <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>
+                        {!movesOnly && <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>}
                         {transfer ? (
                           <td className="num muted" colSpan={2} style={{ textAlign: "center" }}>⇄ moved {money(r.transferAmount)}</td>
                         ) : (
@@ -198,8 +204,9 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
           </TableCard>
 
           <p style={{ color: "var(--muted)", fontSize: 12, marginTop: 10 }}>
-            Balance is Cash + all bank accounts after each entry. A transfer between your own accounts doesn't change it.
-            Expenses a person paid themselves don't appear here until the company pays them back.
+            {fund
+              ? `Balance is what ${fundName || "this account"} holds after each entry. Payments and expenses from it are on the Accounts page.`
+              : "Balance is Cash + all bank accounts after each entry. A transfer between your own accounts doesn't change it. Expenses a person paid themselves don't appear here until the company pays them back."}
           </p>
         </>
       )}

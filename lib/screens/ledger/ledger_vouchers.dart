@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_fund_topup.dart';
@@ -21,7 +22,7 @@ Future<void> showCreateVoucherSheet(BuildContext context, LedgerScope s, {VoidCa
         final fund = s.funds.firstWhere((f) => f.id == fundId, orElse: () => s.funds.first);
         final short = fundedBy == "company" && value > 0 && fund.balance < value;
         if (staff.isEmpty) {
-          return Text("This company has no staff members yet. Vouchers can be given to staff only.",
+          return Text("This company has no ${s.staffsName.toLowerCase()} yet. Vouchers can be given to ${s.staffsName.toLowerCase()} only.",
               style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.7)));
         }
         Widget choice(String key, String title, String sub) => Expanded(
@@ -44,7 +45,7 @@ Future<void> showCreateVoucherSheet(BuildContext context, LedgerScope s, {VoidCa
               ),
             );
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("Give a staff member money up front. They claim what they actually spent.",
+          Text("Give a ${s.staffName.toLowerCase()} member money up front. They claim what they actually spent.",
               style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -667,7 +668,7 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
                       ]),
                     ),
                   ],
-                  sectionTitle("By staff member"),
+                  sectionTitle("By ${s.staffName.toLowerCase()} member"),
                   card(
                     child: people.isEmpty
                         ? Padding(
@@ -777,10 +778,81 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
               const SizedBox(width: 6),
             ],
             if (v["status"] == "open" && idOf(v["createdBy"]) == s.userId && s.can("vouchers")) voucherActionsMenu(context, s, v),
+            if (s.canEditEntries)
+              IconButton(
+                tooltip: "Edit voucher",
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.edit_rounded, size: 18, color: kDark.withValues(alpha: 0.6)),
+                onPressed: () => editVoucherFlow(context, s, v, onDone: _load),
+              ),
           ]),
         ]),
       ),
     );
+  }
+}
+
+/// The Admin edits a voucher: what it was for, the amount given, the account it came from (company-funded) and the
+/// date. Amount and account change its issue entry in place, so Cash / Bank and the staff member's balance follow.
+Future<void> editVoucherFlow(BuildContext context, LedgerScope s, Map<String, dynamic> v, {VoidCallback? onDone}) async {
+  final cancelled = v["status"] == "cancelled";
+  final company = v["fundedBy"] == "company";
+  final purpose = TextEditingController(text: v["purpose"]?.toString() ?? "");
+  final amount = TextEditingController(text: (v["amount"] ?? "").toString());
+  String? fund; // null = keep the same account
+  DateTime when = DateTime.tryParse(v["createdAt"]?.toString() ?? "")?.toLocal() ?? DateTime.now();
+  final saved = await showLedgerSheet<bool>(context, "Edit voucher", (ctx) => StatefulBuilder(builder: (ctx, set) {
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text("To ${nameOf(v["recipientId"], "staff")}", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+          const SizedBox(height: 10),
+          TextField(controller: purpose, decoration: fieldDecoration("For", icon: Icons.notes_rounded)),
+          if (!cancelled) ...[
+            const SizedBox(height: 10),
+            TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount given ₹", icon: Icons.currency_rupee_rounded)),
+          ],
+          if (!cancelled && company) ...[
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String?>(
+              initialValue: fund,
+              isExpanded: true,
+              decoration: fieldDecoration("Paid from", icon: Icons.account_balance_wallet_rounded),
+              items: [
+                DropdownMenuItem<String?>(value: null, child: Text("Keep ${v["fundName"]?.toString().isNotEmpty == true ? v["fundName"] : "the same account"}")),
+                for (final f in s.funds) DropdownMenuItem<String?>(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (x) => set(() => fund = x),
+            ),
+          ],
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.event_rounded, size: 18),
+            label: Text(DateFormat("dd MMM yyyy · h:mm a").format(when)),
+            onPressed: () async {
+              final d = await showDatePicker(context: ctx, initialDate: when, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+              if (d == null || !ctx.mounted) return;
+              final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(when));
+              set(() => when = DateTime(d.year, d.month, d.day, t?.hour ?? when.hour, t?.minute ?? when.minute));
+            },
+          ),
+          const SizedBox(height: 12),
+          primaryButton("Save", () async {
+            if (purpose.text.trim().isEmpty) return toast(ctx, "Enter what the voucher is for", error: true);
+            final value = double.tryParse(amount.text.trim()) ?? 0;
+            if (!cancelled && !(value > 0)) return toast(ctx, "Enter an amount greater than zero", error: true);
+            final res = await LedgerService.editVoucher(v["_id"].toString(), s.userId, {
+              "purpose": purpose.text.trim(),
+              "date": DateFormat("yyyy-MM-dd'T'HH:mm").format(when),
+              if (!cancelled && value != ((v["amount"] as num?) ?? 0)) "amount": value,
+              if (!cancelled && company && fund != null) "fundId": fund,
+            });
+            if (!ctx.mounted) return;
+            if (handleResult(ctx, res, "Voucher updated")) Navigator.pop(ctx, true);
+          }),
+        ]);
+      }));
+  if (saved == true) {
+    notifyLedgerChanged();
+    onDone?.call();
   }
 }
 

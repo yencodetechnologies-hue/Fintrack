@@ -63,7 +63,7 @@ class LedgerScope {
   /// Adding a new company / person to borrow from.
   bool get canAddLender => isAdmin && can("intercompany") && can("add_lenders");
   /// My role as shown on "Post expense as": Admin (company Admin), my custom role (e.g. Partner), or the manager name.
-  String get myRoleLabel => isPrimary ? "Admin" : (roleName?.isNotEmpty ?? false) ? roleName! : managerName;
+  String get myRoleLabel => isPrimary ? adminName : (roleName?.isNotEmpty ?? false) ? roleName! : managerName;
   bool get canEditPermissions =>
       isPrimary ||
       (permissionRole == "custom" && permissions != null && (permissions!["manager_permissions"] == true || permissions!["manage_roles"] == true)) ||
@@ -71,6 +71,7 @@ class LedgerScope {
   /// The primary admin, or a custom role with "Manage custom roles".
   bool get canManageRoles => isPrimary || (permissionRole == "custom" && permissions?["manage_roles"] == true);
   // the company's names for its two built-in roles (renamable on the Permissions page)
+  String get adminName => roleNameOf(company, "admin");
   String get managerName => roleNameOf(company, "manager");
   String get staffName => roleNameOf(company, "staff");
   String get managersName => pluralRole(managerName);
@@ -131,11 +132,11 @@ List<({String value, String label})> payerOptions(LedgerScope s, Map<String, dyn
   ];
 }
 
-/// A company's name for one of its built-in roles; blank = "Manager" / "Staff".
+/// A company's name for one of its built-in roles; blank = "Admin" / "Manager" / "Staff".
 String roleNameOf(Map<String, dynamic>? company, String key) {
   final names = company?["roleNames"];
   final v = names is Map ? (names[key]?.toString().trim() ?? "") : "";
-  return v.isNotEmpty ? v : (key == "manager" ? "Manager" : "Staff");
+  return v.isNotEmpty ? v : (key == "admin" ? "Admin" : key == "manager" ? "Manager" : "Staff");
 }
 
 String pluralRole(String w) => RegExp(r"^staff$", caseSensitive: false).hasMatch(w) || w.toLowerCase().endsWith("s") ? w : "${w}s";

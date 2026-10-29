@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { createCompany, getHiddenCompanies, getUserCompanies, setCompanyHidden } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { roleLabel } from "../utils.js";
+import { roleLabel, roleNames } from "../utils.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
 import { CompanyAvatar } from "./CompanyLogo.jsx";
 
@@ -102,7 +102,7 @@ export default function CompaniesManager({ user, currentCompanyId }) {
                         {c.name}{String(c._id) === String(currentCompanyId) ? " · this company" : ""}
                       </span>
                     </td>
-                    <td>{isAdminOf(c) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}</td>
+                    <td>{isAdminOf(c) ? roleNames(c).admin : c.customRoleName || roleLabel(c, c.userRole)}</td>
                     <td>
                       <span className="dt-actions">
                         {isAdminOf(c) ? (

@@ -61,8 +61,9 @@ const companySchema = new mongoose.Schema(
     },
     // feature switches per role, see utils/permissions.js ({ manager: { key: false }, staff: { key: false } }; missing = on)
     permissions: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
-    // the company's own names for the two built-in roles (blank = "Manager" / "Staff")
+    // the company's own names for the built-in roles (blank = "Admin" / "Manager" / "Staff")
     roleNames: {
+      admin: { type: String, trim: true, default: "" },
       manager: { type: String, trim: true, default: "" },
       staff: { type: String, trim: true, default: "" },
     },

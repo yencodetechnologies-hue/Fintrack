@@ -17,11 +17,12 @@ class _Person {
   final String userId;
   final String name;
   final String email;
-  final String role; // manager | staff | former
+  final String role; // admin | manager | staff | role:<custom role id> | former
+  final String label; // the role's name as shown
   final num owed;
   final num claims;
   final num advance;
-  const _Person(this.userId, this.name, this.email, this.role, this.owed, this.claims, this.advance);
+  const _Person(this.userId, this.name, this.email, this.role, this.owed, this.claims, this.advance, this.label);
 }
 
 /// Managers (web's Payments page): pay off what the company owes any staff member or manager, from company
@@ -93,12 +94,17 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     for (final m in s.members) {
       final id = m["userId"].toString();
       final row = rows.remove(id);
-      list.add(_Person(id, m["name"]?.toString() ?? "Member", m["email"]?.toString() ?? "", m["role"] == "admin" ? "manager" : "staff",
-          (row?["owed"] as num?) ?? 0, (row?["claims"] as num?) ?? 0, _max(0, (row?["advance"] as num?) ?? 0)));
+      // Admin (the creator or made Admin) apart from managers; custom roles by name
+      final admin = idOf(s.company["createdBy"]) == id || m["isAdmin"] == true;
+      final custom = (m["customRoleId"]?.toString() ?? "").isNotEmpty;
+      final group = admin ? "admin" : custom ? "role:${m["customRoleId"]}" : m["role"] == "admin" ? "manager" : "staff";
+      final label = admin ? s.adminName : custom ? (m["customRoleName"]?.toString() ?? "Custom role") : m["role"] == "admin" ? s.managerName : s.staffName;
+      list.add(_Person(id, m["name"]?.toString() ?? "Member", m["email"]?.toString() ?? "", group,
+          (row?["owed"] as num?) ?? 0, (row?["claims"] as num?) ?? 0, _max(0, (row?["advance"] as num?) ?? 0), label));
     }
     for (final e in rows.entries) {
       list.add(_Person(e.key, e.value["name"]?.toString() ?? "Former member", "", "former", (e.value["owed"] as num?) ?? 0,
-          (e.value["claims"] as num?) ?? 0, _max(0, (e.value["advance"] as num?) ?? 0)));
+          (e.value["claims"] as num?) ?? 0, _max(0, (e.value["advance"] as num?) ?? 0), "Former"));
     }
     return list;
   }
@@ -106,7 +112,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   List<_Person> _visible(List<_Person> people) {
     final q = _search.text.trim().toLowerCase();
     final list = people
-        .where((p) => _role == "all" ? true : _role == "managers" ? p.role == "manager" : p.role != "manager")
+        .where((p) => _role == "all" ? true : _role.startsWith("person:") ? p.userId == _role.substring(7) : p.role == _role)
         .where((p) => _show == "owed" ? p.owed > 0 : true)
         .where((p) => q.isEmpty || "${p.name} ${p.email}".toLowerCase().contains(q))
         .toList();
@@ -229,7 +235,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     sliver: SliverToBoxAdapter(
                       child: Text(widget.mineOnly
                               ? "What ${s.companyName} owes you for your expenses. Pay yourself from company funds, all at once or bill by bill."
-                              : "Pay off what the company owes each staff member or manager, from company funds or out of your own pocket.",
+                              : "Pay off what the company owes each person, from company funds or out of your own pocket.",
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
                     ),
                   ),
@@ -251,7 +257,17 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   _filterCard(
                     _searchField(_search, "Search by name or email"),
                     [
-                      _pill(Icons.group_outlined, _role, "all", {"all": "Everyone", "me": "${s.userName} (You)", "managers": s.managersName, "staff": s.staffsName}, (v) => _role = v),
+                      _pill(Icons.group_outlined, _role, "all", {
+                        "all": "Everyone",
+                        "me": "${s.userName} (You)",
+                        "admin": pluralRole(s.adminName),
+                        "manager": s.managersName,
+                        "staff": s.staffsName,
+                        for (final r in List<Map<String, dynamic>>.from(s.company["customRoles"] ?? const [])) "role:${r["_id"]}": r["name"]?.toString() ?? "Custom role",
+                        // then every person, by name, with their role
+                        for (final p in ([..._people.where((p) => p.userId != s.userId)]..sort((a, b) => a.name.compareTo(b.name))))
+                          "person:${p.userId}": "${p.name} (${p.label})",
+                      }, (v) => _role = v),
                       _pill(Icons.filter_list_rounded, _show, "owed", {"owed": "Owed only", "all": "Include settled"}, (v) => _show = v),
                       _pill(Icons.swap_vert_rounded, _sort, "owed", {"owed": "Highest owed", "claims": "Most claims", "name": "Name A–Z"}, (v) => _sort = v),
                     ],
@@ -499,7 +515,15 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
 
   Widget _personRow(_Person p) {
     final me = p.userId == s.userId;
-    final roleColor = p.role == "manager" ? const Color(0xFF1D4ED8) : p.role == "staff" ? kForest : kDark.withValues(alpha: 0.5);
+    final roleColor = p.role == "admin"
+        ? kForestDark
+        : p.role == "manager"
+            ? const Color(0xFF1D4ED8)
+            : p.role == "staff"
+                ? kForest
+                : p.role.startsWith("role:")
+                    ? const Color(0xFFB45309)
+                    : kDark.withValues(alpha: 0.5);
     final meta = [
       p.claims > 0 ? "${inr(p.claims)} in approved claims" : p.owed > 0 ? "Paid out of pocket" : "Nothing owed",
       if (p.advance > 0) "holds ${inr(p.advance)} voucher money",
@@ -521,7 +545,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(99)),
-                  child: Text(p.role == "manager" ? s.managerName : p.role == "staff" ? s.staffName : "Former",
+                  child: Text(p.label,
                       style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: roleColor)),
                 ),
               ]),

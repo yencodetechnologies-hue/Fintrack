@@ -256,6 +256,10 @@ class LedgerService {
       _post("$_base/companies/$companyId/role-names", {"userId": userId, ...names});
 
   /// Admins only: make (or unmake) someone an Admin — full access like the company creator.
+  /// Another Admin changes the creator's role (admin | manager | staff | custom + customRoleId) and becomes the creator.
+  static Future<Map<String, dynamic>> changeCreatorRole(String companyId, String memberUserId, String userId, String role, {String? customRoleId}) =>
+      _post("$_base/companies/$companyId/members/$memberUserId/creator-role", {"userId": userId, "role": role, if (customRoleId != null) "customRoleId": customRoleId});
+
   static Future<Map<String, dynamic>> setMemberAdmin(String companyId, String memberUserId, String userId, bool admin) =>
       _post("$_base/companies/$companyId/members/$memberUserId/admin", {"userId": userId, "admin": admin});
 
@@ -322,6 +326,10 @@ class LedgerService {
   /// The Admin removes a money-added / transfer entry (editId "income:ID"): the money comes back out of that account.
   static Future<Map<String, dynamic>> deleteAccountsEntry(String companyId, String userId, String editId) =>
       _post("$_base/companies/$companyId/accounts/entries/delete", {"userId": userId, "editId": editId});
+
+  /// The Admin edits a voucher: purpose, amount, fundId (company-funded), date ("YYYY-MM-DDTHH:mm", India time).
+  static Future<Map<String, dynamic>> editVoucher(String voucherId, String userId, Map<String, dynamic> changes) =>
+      _post("$_base/vouchers/$voucherId/edit", {"userId": userId, ...changes});
 
   /// Accounts by day (older view): each day's money in/out, expenses and closing Cash + Bank balance.
   static Future<Map<String, dynamic>> accountsDays(String companyId, String userId, String from, String to) =>

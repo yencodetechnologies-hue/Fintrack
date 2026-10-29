@@ -3,10 +3,11 @@ import Modal from "./Modal.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
 import { createVoucher } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { money } from "../utils.js";
+import { money, roleNames } from "../utils.js";
 
 // Manager gives a staff member money up front, paid by the company (from a fund now) or by the manager.
-export default function CreateVoucherModal({ companyId, user, members, funds, onClose, onCreated }) {
+export default function CreateVoucherModal({ companyId, company, user, members, funds, onClose, onCreated }) {
+  const names = roleNames(company);
   const { showToast } = useToast();
   const staff = members.filter((m) => m.role !== "admin" && String(m.userId) !== String(user.id));
   const [recipientId, setRecipientId] = useState(staff.length === 1 ? String(staff[0].userId) : "");
@@ -36,7 +37,7 @@ export default function CreateVoucherModal({ companyId, user, members, funds, on
     const res = await createVoucher(companyId, { userId: user.id, recipientId, amount: value, purpose: purpose.trim(), fundedBy, fundId: fundedBy === "company" ? fundId : undefined });
     setSaving(false);
     if (!res.success) return showToast(res.message || "Could not create voucher", "error");
-    const name = staff.find((m) => String(m.userId) === recipientId)?.name || "staff member";
+    const name = staff.find((m) => String(m.userId) === recipientId)?.name || `${names.staff.toLowerCase()} member`;
     showToast(`Voucher of ${money(value)} given to ${name}`);
     onCreated?.(res.voucher);
     onClose();
@@ -64,14 +65,14 @@ export default function CreateVoucherModal({ companyId, user, members, funds, on
   return (
     <Modal onClose={onClose} maxWidth={460}>
       <h2 style={{ marginTop: 0, marginBottom: 4 }}>Create voucher</h2>
-      <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)" }}>Give a staff member money up front. They claim what they actually spent.</p>
+      <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)" }}>Give a {names.staff.toLowerCase()} member money up front. They claim what they actually spent.</p>
       {staff.length === 0 ? (
-        <div className="card" style={{ color: "var(--muted)", fontSize: 13 }}>This company has no staff members yet. Vouchers can be given to staff only.</div>
+        <div className="card" style={{ color: "var(--muted)", fontSize: 13 }}>This company has no {names.staffs.toLowerCase()} yet. Vouchers can be given to {names.staffs.toLowerCase()} only.</div>
       ) : (
         <form onSubmit={submit}>
           <label className="field-label">For whom</label>
           <select className="field-select" value={recipientId} onChange={(e) => setRecipientId(e.target.value)} required>
-            <option value="">Choose staff member</option>
+            <option value="">Choose {names.staff.toLowerCase()} member</option>
             {staff.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
           </select>
 

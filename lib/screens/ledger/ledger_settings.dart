@@ -183,6 +183,27 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
     if (handleResult(context, res, admin ? "$name is now an Admin" : "$name is no longer an Admin")) notifyLedgerChanged();
   }
 
+  /// Another Admin changes the creator's role: asked first, and they become the creator.
+  Future<void> _changeCreator(Map<String, dynamic> m, String value) async {
+    final name = m["name"]?.toString() ?? "The creator";
+    final roles = List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []);
+    final label = value == "admin"
+        ? s.adminName
+        : value == "manager"
+            ? s.managerName
+            : value == "staff"
+                ? s.staffName
+                : roles.where((r) => "role:${r["_id"]}" == value).firstOrNull?["name"]?.toString() ?? "a custom role";
+    final ok = await confirmDialog(context, "Make $name $label?",
+        "$name created ${s.companyName}. If you change their role, you become the company's creator (${s.adminName} · Creator) and $name becomes $label.",
+        confirmLabel: "Change role");
+    if (!ok || !mounted) return;
+    final res = await LedgerService.changeCreatorRole(s.companyId, m["userId"].toString(), s.userId, value.startsWith("role:") ? "custom" : value,
+        customRoleId: value.startsWith("role:") ? value.substring(5) : null);
+    if (!mounted) return;
+    if (handleResult(context, res, "You're now the creator · $name is $label")) notifyLedgerChanged();
+  }
+
   Future<void> _setCustomRole(Map<String, dynamic> m, String roleId) async {
     final res = await LedgerService.setMemberCustomRole(s.companyId, m["userId"].toString(), s.userId, roleId);
     if (!mounted) return;
@@ -298,6 +319,18 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
     }
   }
 
+  /// Joined: the role they have now (it may have changed since); waiting: the role they were invited as.
+  String _inviteRoleText(Map<String, dynamic> inv, bool joined) {
+    final invited = (inv["roleName"] ?? s.roleLabel(inv["role"])).toString();
+    final email = inv["email"]?.toString().toLowerCase() ?? "";
+    final m = joined ? _members.where((x) => (x["email"]?.toString().toLowerCase() ?? "") == email).firstOrNull : null;
+    if (m == null) return "as $invited";
+    final now = idOf(s.company["createdBy"]) == m["userId"].toString() || m["isAdmin"] == true
+        ? s.adminName
+        : (m["customRoleName"]?.toString().isNotEmpty == true ? m["customRoleName"].toString() : s.roleLabel(m["role"]));
+    return now == invited ? now : "$now (invited as $invited)";
+  }
+
   Widget _inviteRow(Map<String, dynamic> inv) {
     final joined = inv["status"] == "accepted";
     final sent = inv["emailSent"] == true;
@@ -312,7 +345,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
       decoration: BoxDecoration(border: Border(top: BorderSide(color: kDark.withValues(alpha: 0.06)))),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(inv["email"].toString(), style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: kDark)),
-        Text("as ${inv["roleName"] ?? s.roleLabel(inv["role"])}${inv["invitedBy"] != null ? " · by ${inv["invitedBy"]}" : ""}",
+        Text("${_inviteRoleText(inv, joined)}${inv["invitedBy"] != null ? " · by ${inv["invitedBy"]}" : ""}",
             style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
         const SizedBox(height: 6),
         Row(children: [
@@ -440,7 +473,7 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                   for (final inv in _invites) _inviteRow(inv),
                 ]),
           // the count is staff only; managers (incl. the creator) are listed but not counted
-          card("${s.staffsName} (${_members.where((m) => m["role"] != "admin").length}) · ${_members.where((m) => m["role"] == "admin").length} ${(_members.where((m) => m["role"] == "admin").length == 1 ? s.managerName : s.managersName).toLowerCase()}", children: [
+          card("Members · ${_memberRoleCounts()}", children: [
             for (final m in _members)
               Builder(builder: (_) {
                 final id = m["userId"].toString();
@@ -460,10 +493,23 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text("${m["name"] ?? "Member"}${isMe ? " (You)" : ""}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                        Text("${isCreator ? "Admin · Creator" : m["isAdmin"] == true ? "Admin" : (customRole.isNotEmpty ? customRole : (isManager ? s.managerName : s.staffName))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
+                        Text("${isCreator ? "${s.adminName} · Creator" : m["isAdmin"] == true ? s.adminName : (customRole.isNotEmpty ? customRole : (isManager ? s.managerName : s.staffName))}${(m["email"]?.toString() ?? "").isNotEmpty ? " · ${m["email"]}" : ""}",
                             style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.55))),
                       ]),
                     ),
+                    // the creator: another Admin can change their role (and then becomes the creator)
+                    if (isCreator && !isMe && s.isPrimary)
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert_rounded, color: kDark),
+                        onSelected: (v) => _changeCreator(m, v),
+                        itemBuilder: (_) => [
+                          PopupMenuItem(value: "admin", child: Text("Make ${s.adminName} (not creator)")),
+                          PopupMenuItem(value: "manager", child: Text("Make ${s.managerName.toLowerCase()}")),
+                          PopupMenuItem(value: "staff", child: Text("Make ${s.staffName.toLowerCase()}")),
+                          for (final r in List<Map<String, dynamic>>.from(_company["customRoles"] ?? const []))
+                            PopupMenuItem(value: "role:${r["_id"]}", child: Text("Make ${r["name"]}")),
+                        ],
+                      ),
                     // an Admin can only be changed by an Admin
                     if (s.isAdmin && (s.can("members") || s.isPrimary) && !isCreator && !isMe && (m["isAdmin"] != true || s.isPrimary))
                       PopupMenuButton<String>(
@@ -522,5 +568,17 @@ class _SettingsPageState extends State<SettingsPage> with LedgerAutoRefresh {
         ]),
       ),
     );
+  }
+
+  /// "1 Admin · 3 Partner · 1 Staff": each person once, under the role shown for them
+  String _memberRoleCounts() {
+    final counts = <String, int>{};
+    for (final m in _members) {
+      final label = idOf(s.company["createdBy"]) == m["userId"].toString() || m["isAdmin"] == true
+          ? s.adminName
+          : (m["customRoleName"]?.toString().isNotEmpty == true ? m["customRoleName"].toString() : (m["role"] == "admin" ? s.managerName : s.staffName));
+      counts[label] = (counts[label] ?? 0) + 1;
+    }
+    return counts.entries.map((e) => "${e.value} ${e.key}").join(" · ");
   }
 }

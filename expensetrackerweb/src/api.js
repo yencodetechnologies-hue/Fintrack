@@ -180,8 +180,11 @@ export const getAccountsDays = (companyId, userId, from, to) =>
 // changes: { amount?, details?, method?, reference?, date? }
 export const editAccountsEntry = (companyId, userId, editId, changes) => post(ledgerUrl(`/companies/${companyId}/accounts/entries/edit`), { userId, editId, ...changes });
 export const deleteAccountsEntry = (companyId, userId, editId) => post(ledgerUrl(`/companies/${companyId}/accounts/entries/delete`), { userId, editId });
-export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25 }) =>
-  get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`));
+// changes: { purpose?, amount?, fundId?, date? }
+export const editVoucher = (voucherId, userId, changes) => post(ledgerUrl(`/vouchers/${voucherId}/edit`), { userId, ...changes });
+// fund: "cash" or a bank account id, for that one account's statement (empty = Cash + all banks)
+export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25, fund = "", movesOnly = false }) =>
+  get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}${fund ? `&fund=${fund}` : ""}${movesOnly ? "&moves=1" : ""}`));
 // kind: expense | payment | fund
 export const getDescriptionSuggestions = (companyId, userId, kind) =>
   get(ledgerUrl(`/companies/${companyId}/descriptions?userId=${userId}&kind=${kind}`));
@@ -218,6 +221,8 @@ export const updatePermissions = (companyId, userId, role, permissions) => post(
 // rename the built-in Manager / Staff roles for this company ("" = default)
 export const renameBuiltInRoles = (companyId, userId, names) => post(ledgerUrl(`/companies/${companyId}/role-names`), { userId, ...names });
 // Admins only: make (or unmake) someone an Admin — full access like the company creator
+// another Admin changes the creator's role and becomes the creator: role admin | manager | staff | custom (+ customRoleId)
+export const changeCreatorRole = (companyId, memberUserId, userId, role, customRoleId) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/creator-role`), { userId, role, customRoleId });
 export const setMemberAdmin = (companyId, memberUserId, userId, admin) => post(ledgerUrl(`/companies/${companyId}/members/${memberUserId}/admin`), { userId, admin });
 export const createCustomRole = (companyId, userId, name) => post(ledgerUrl(`/companies/${companyId}/roles`), { userId, name });
 export const updateCustomRole = (companyId, roleId, userId, changes) => post(ledgerUrl(`/companies/${companyId}/roles/${roleId}`), { userId, ...changes });

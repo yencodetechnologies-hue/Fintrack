@@ -129,14 +129,24 @@ export default function PermissionsPanel({ companyId, company, members = [], use
         Turn features on or off for everyone in a role. Switched-off features are hidden for them and refused by the server.
         {data.role === "primary" ? " As the primary admin, these never apply to you." : " You can change staff permissions, but only for features managers have."}
       </p>
+      {/* the Admin role has every permission; only an Admin can rename it */}
+      {data.role === "primary" && (
+        <div className="card perm-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16 }}>{names.admin}</h3>
+            <small style={{ color: "var(--muted)" }}>The company's creator and anyone made {names.admin}: every permission, always on.</small>
+          </div>
+          <button type="button" className="voucher-ticket-link" onClick={() => setRenaming({ role: "admin", name: names.admin === "Admin" ? "" : names.admin })}>Rename</button>
+        </div>
+      )}
       <div className="perm-grid">
         {data.canEditManagers && section("manager", names.managers, `Every ${names.manager.toLowerCase()} except the primary admin`)}
         {section("staff", names.staffs, `Every ${names.staff.toLowerCase()}`)}
       </div>
       {renaming && (
         <Modal onClose={() => setRenaming(null)} maxWidth={420}>
-          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Rename {renaming.role === "manager" ? "Manager" : "Staff"} role</h2>
-          <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Shown everywhere in this company, on the web and in the app. Leave it empty to go back to "{renaming.role === "manager" ? "Manager" : "Staff"}".</p>
+          <h2 style={{ marginTop: 0, marginBottom: 4 }}>Rename {DEFAULT_ROLE_NAME[renaming.role]} role</h2>
+          <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: 13 }}>Shown everywhere in this company, on the web and in the app. Leave it empty to go back to "{DEFAULT_ROLE_NAME[renaming.role]}".</p>
           <form
             onSubmit={async (e) => {
               e.preventDefault();
@@ -174,3 +184,5 @@ export default function PermissionsPanel({ companyId, company, members = [], use
     </>
   );
 }
+
+const DEFAULT_ROLE_NAME = { admin: "Admin", manager: "Manager", staff: "Staff" };

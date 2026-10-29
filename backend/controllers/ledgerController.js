@@ -3270,6 +3270,59 @@ exports.claimVoucher = handle(async (req, res) => {
   });
 });
 
+// POST /vouchers/:voucherId/edit { userId, purpose?, amount?, fundId?, date? }
+// The Admin edits a voucher at any time: what it was for, when it was given, how much was given and (company-funded)
+// which account it came from. Amount and account change its issue entry in place (see editAccountsEntry), so Cash /
+// Bank, the staff member's held balance and what a funding manager is owed all follow.
+exports.editVoucher = handle(async (req, res) => {
+  const { userId } = req.body;
+  const voucher = await Voucher.findById(req.params.voucherId);
+  if (!voucher) throw fail(404, "Voucher not found");
+  const companyId = voucher.companyId;
+  const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if (role !== "super_admin" && !hasPower(await permissionsFor(companyId, userId), "edit_entries")) {
+    throw fail(403, "Only the company Admin can edit vouchers");
+  }
+  if (voucher.status === "claiming") throw fail(409, "This voucher is being claimed right now; try again in a moment");
+  const has = (k) => req.body[k] !== undefined && req.body[k] !== null && req.body[k] !== "";
+  const before = { purpose: voucher.purpose, amount: voucher.amount, fundId: voucher.fundId, at: voucher.createdAt };
+
+  // amount / account / date on the issue entry (a cancelled voucher's money is already back, so only its text changes)
+  const issue = voucher.issueTxId ? await LedgerTransaction.findById(voucher.issueTxId) : null;
+  if (issue && !issue.reversedBy && (has("amount") || has("fundId") || has("date"))) {
+    const out = { code: 200, body: null, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } };
+    await exports.editAccountsEntry({
+      params: { companyId: String(companyId) },
+      body: {
+        userId,
+        editId: String(issue._id),
+        ...(has("amount") ? { amount: req.body.amount } : {}),
+        ...(has("fundId") && voucher.fundedBy === "company" ? { fundId: req.body.fundId } : {}),
+        ...(has("date") ? { date: req.body.date } : {}),
+      },
+    }, out);
+    if (!out.body?.success) return res.status(out.code >= 400 ? out.code : 400).json(out.body || { success: false, message: "Could not change the voucher" });
+  }
+
+  const set = {};
+  if (has("purpose")) set.purpose = String(req.body.purpose).trim();
+  if (has("amount")) set.amount = round(parseFloat(req.body.amount));
+  if (has("fundId") && voucher.fundedBy === "company") {
+    const fundId = String(req.body.fundId);
+    const company = await Company.findById(companyId).select("cashAccountName bankAccounts").lean();
+    const bank = (company?.bankAccounts || []).find((b) => String(b._id) === fundId);
+    set.fundId = fundId;
+    set.fundName = fundId === "cash" ? company?.cashAccountName || "Cash" : bank ? bank.bankName : voucher.fundName;
+  }
+  const date = has("date") ? parseEditDate(req.body.date) : null;
+  if (date) set.createdAt = date;
+  // createdAt is fixed by Mongoose timestamps, so the raw collection is updated
+  if (Object.keys(set).length) await Voucher.collection.updateOne({ _id: voucher._id }, { $set: set });
+  if (set.purpose && issue) await LedgerTransaction.updateOne({ _id: issue._id }, { $set: { memo: `Voucher: ${set.purpose}` } });
+  await audit(userId, companyId, "edit", "voucher", voucher._id, before, set);
+  res.json({ success: true, voucher: await voucherPopulate(Voucher.findById(voucher._id)) });
+});
+
 // The manager who created a voucher closes it for the staff member: recorded as that staff member's use, amount editable.
 exports.closeVoucher = handle(async (req, res) => {
   const { userId } = req.body;
@@ -3522,7 +3575,7 @@ async function customRolesView(companyId, company) {
 }
 
 const roleNameTaken = (company, name, exceptId) =>
-  ["manager", "managers", "staff", "admin", "primary admin", company.roleNames?.manager, company.roleNames?.staff]
+  ["manager", "managers", "staff", "admin", "primary admin", company.roleNames?.admin, company.roleNames?.manager, company.roleNames?.staff]
     .filter(Boolean)
     .map((n) => n.toLowerCase())
     .includes(name.toLowerCase()) ||
@@ -3636,26 +3689,31 @@ exports.setMemberCustomRole = handle(async (req, res) => {
 // A company can call its managers and staff something else (e.g. "Supervisor" / "Employee"); blank = default.
 async function builtInRoleNames(companyId) {
   const company = await Company.findById(companyId).select("roleNames").lean();
-  return { manager: company?.roleNames?.manager || "Manager", staff: company?.roleNames?.staff || "Staff" };
+  return { admin: company?.roleNames?.admin || "Admin", manager: company?.roleNames?.manager || "Manager", staff: company?.roleNames?.staff || "Staff" };
 }
 
-// body: { userId, manager?, staff? } — "" puts the default back. Primary admin or "Manage custom roles".
+// body: { userId, admin?, manager?, staff? } — "" puts the default back. Primary admin or "Manage custom roles";
+// the Admin role's own name only by an Admin.
 exports.renameBuiltInRoles = handle(async (req, res) => {
   const { companyId } = req.params;
   const { userId } = req.body;
   await requirePrimary(companyId, userId);
+  if (req.body.admin !== undefined && (await permissionsFor(companyId, userId)).role !== "primary") {
+    throw fail(403, "Only an Admin can rename the Admin role");
+  }
   const company = await Company.findById(companyId).select("roleNames customRoles");
-  const before = { manager: company.roleNames?.manager || "", staff: company.roleNames?.staff || "" };
+  const before = { admin: company.roleNames?.admin || "", manager: company.roleNames?.manager || "", staff: company.roleNames?.staff || "" };
   const next = { ...before };
-  for (const key of ["manager", "staff"]) {
+  for (const key of ["admin", "manager", "staff"]) {
     if (req.body[key] === undefined) continue;
     const name = String(req.body[key] || "").trim();
     if (name.length > 30) throw fail(400, "Keep role names under 30 characters");
     next[key] = name;
   }
-  const shown = { manager: next.manager || "Manager", staff: next.staff || "Staff" };
-  if (shown.manager.toLowerCase() === shown.staff.toLowerCase()) throw fail(400, "The two roles need different names");
-  for (const key of ["manager", "staff"]) {
+  const shown = { admin: next.admin || "Admin", manager: next.manager || "Manager", staff: next.staff || "Staff" };
+  const lower = Object.values(shown).map((n) => n.toLowerCase());
+  if (new Set(lower).size !== lower.length) throw fail(400, "Each role needs a different name");
+  for (const key of ["admin", "manager", "staff"]) {
     if ((company.customRoles || []).some((r) => r.name.toLowerCase() === shown[key].toLowerCase())) {
       throw fail(400, `A custom role is already called "${shown[key]}"`);
     }
@@ -3693,6 +3751,52 @@ exports.setMemberAdmin = handle(async (req, res) => {
     body: admin ? `You now have full Admin access in ${company.name}` : `You are now ${names.manager} in ${company.name}`,
     data: { companyId },
   });
+  res.json({ success: true });
+});
+
+// Another Admin changes the creator's role: the creator is handed over to the Admin who does it, and the old creator
+// gets the role picked (still Admin, Manager, Staff or a custom role). body: { userId, role: "admin"|"manager"|"staff"|"custom", customRoleId? }
+exports.changeCreatorRole = handle(async (req, res) => {
+  const { companyId, memberUserId } = req.params;
+  const { userId, role, customRoleId } = req.body;
+  const company = await Company.findById(companyId).select("createdBy name customRoles external");
+  if (!company) throw fail(404, "Company not found");
+  if (String(company.createdBy) !== String(memberUserId)) throw fail(400, "That person isn't the company's creator");
+  if (String(userId) === String(memberUserId)) throw fail(400, "Another Admin has to do this");
+  if ((await permissionsFor(companyId, userId)).role !== "primary") throw fail(403, "Only an Admin can change the creator's role");
+  if (!["admin", "manager", "staff", "custom"].includes(role)) throw fail(400, "Choose a role");
+  const custom = role === "custom" ? (company.customRoles || []).find((r) => String(r._id) === String(customRoleId)) : null;
+  if (role === "custom" && !custom) throw fail(400, "Choose one of this company's roles");
+
+  // the old creator's membership (a creator may have none), with the new role
+  let old = await CompanyMember.findOne({ companyId, userId: memberUserId });
+  if (!old) old = new CompanyMember({ companyId, userId: memberUserId, role: "admin" });
+  const before = { createdBy: String(company.createdBy), role: old.role, isAdmin: old.isAdmin, customRoleId: old.customRoleId };
+  Object.assign(old, {
+    isAdmin: role === "admin",
+    role: role === "staff" ? "member" : role === "custom" ? (roleBase(custom) === "manager" ? "admin" : "member") : "admin",
+    customRoleId: custom ? custom._id : null,
+  });
+  await old.save();
+
+  // the Admin who did it becomes the creator
+  const me = await CompanyMember.findOne({ companyId, userId });
+  if (me) {
+    Object.assign(me, { isAdmin: true, role: "admin", customRoleId: null });
+    await me.save();
+  }
+  company.createdBy = userId;
+  await company.save();
+
+  await audit(userId, companyId, "transfer_creator", "company", company._id, before, { createdBy: String(userId), oldCreatorRole: role, customRoleId: custom ? String(custom._id) : null });
+  const names = await builtInRoleNames(companyId);
+  const [actor] = await Promise.all([User.findById(userId).select("name")]);
+  const now = role === "custom" ? custom.name : names[role === "admin" ? "admin" : role];
+  notifyUsers([memberUserId], {
+    title: "Your role changed",
+    body: `${actor?.name || "An Admin"} is now the creator of ${company.name}; you are ${now}`,
+    data: { companyId },
+  }, userId);
   res.json({ success: true });
 });
 
@@ -3991,7 +4095,10 @@ exports.accountsEntries = handle(async (req, res) => {
     const b = (company.bankAccounts || []).find((x) => String(x._id) === String(id));
     return b ? `${b.bankName}${b.accountNumber ? ` (…${String(b.accountNumber).slice(-4)})` : ""}` : "Bank";
   };
-  const fundAccs = await LedgerAccount.find({ companyId, type: "bank" }).lean();
+  // ?fund=cash | <bank account id>: just that account, from its own point of view (a transfer is money in or out)
+  const onlyFund = req.query.fund ? String(req.query.fund) : null;
+  const fundKey = (a) => (a.bankAccountId ? String(a.bankAccountId) : "cash");
+  const fundAccs = (await LedgerAccount.find({ companyId, type: "bank" }).lean()).filter((a) => !onlyFund || fundKey(a) === onlyFund);
   const fundName = new Map(fundAccs.map((a) => [String(a._id), a.bankAccountId ? bankName(a.bankAccountId) : cashName]));
 
   // ledger movements that changed the shown Cash/Bank (same rule as the day view), from the first day up to now
@@ -4054,6 +4161,30 @@ exports.accountsEntries = handle(async (req, res) => {
   for (const i of incomes) {
     const transfer = Boolean(i.sourceBankAccountId);
     const to = i.destinationType === "cash" ? cashName : i.destinationName || "Bank";
+    const into = i.destinationType === "cash" ? "cash" : String(i.destinationBankAccountId);
+    const from = i.sourceBankAccountId ? String(i.sourceBankAccountId) : null;
+    if (onlyFund) {
+      // one account: money that came into it, or left it for another of my accounts
+      if (into !== onlyFund && from !== onlyFund) continue;
+      const incoming = into === onlyFund;
+      all.push({
+        _id: String(i._id),
+        at: i.createdAt,
+        kind: transfer ? (incoming ? "transfer_in" : "transfer_out") : "income",
+        label: transfer ? (incoming ? `Transfer from ${i.sourceName || "Bank"}` : `Transfer to ${to}`) : "Money added",
+        details: i.description || "",
+        category: "",
+        account: incoming ? to : i.sourceName || "Bank",
+        amount: incoming ? round(i.amount) : -round(i.amount),
+        method: "",
+        reference: "",
+        by: i.createdBy?.name || "",
+        expenseId: null,
+        editId: `income:${i._id}`,
+        amountEditable: true,
+      });
+      continue;
+    }
     all.push({
       _id: String(i._id),
       at: i.createdAt,
@@ -4076,7 +4207,9 @@ exports.accountsEntries = handle(async (req, res) => {
 
   // newest first; walk back from today's real Cash + Bank to give each row the balance right after it
   all.sort((a, b) => new Date(b.at) - new Date(a.at));
-  const current = round(Number(company.cashBalance || 0) + (company.bankAccounts || []).reduce((s, b) => s + Number(b.balance || 0), 0));
+  const current = onlyFund
+    ? round(onlyFund === "cash" ? Number(company.cashBalance || 0) : Number((company.bankAccounts || []).find((b) => String(b._id) === onlyFund)?.balance || 0))
+    : round(Number(company.cashBalance || 0) + (company.bankAccounts || []).reduce((s, b) => s + Number(b.balance || 0), 0));
   let running = current;
   for (const r of all) {
     r.balance = running;
@@ -4086,14 +4219,17 @@ exports.accountsEntries = handle(async (req, res) => {
   const afterPeriod = all.filter((r) => istDay(r.at) > toDay);
   const closing = afterPeriod.length ? round(afterPeriod[afterPeriod.length - 1].balance - afterPeriod[afterPeriod.length - 1].amount) : current;
   const opening = round(closing - inRange.reduce((s, r) => s + r.amount, 0));
+  // ?moves=1 (Company Funds): only money added and moves between my own accounts; balances stay the real ones
+  const MOVE_KINDS = new Set(["income", "transfer", "transfer_in", "transfer_out"]);
+  const shown = req.query.moves === "1" ? inRange.filter((r) => MOVE_KINDS.has(r.kind)) : inRange;
   const matches = q
-    ? inRange.filter((r) =>
+    ? shown.filter((r) =>
         [r.label, r.details, r.category, r.account, r.method, r.reference, r.by, String(Math.abs(r.amount || r.transferAmount))]
           .join(" ")
           .toLowerCase()
           .includes(q)
       )
-    : inRange;
+    : shown;
 
   const pages = Math.max(1, Math.ceil(matches.length / limit));
   const page = Math.min(pages, Math.max(1, parseInt(req.query.page, 10) || 1));
@@ -4105,9 +4241,9 @@ exports.accountsEntries = handle(async (req, res) => {
     summary: {
       opening,
       closing,
-      moneyIn: round(inRange.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)),
-      moneyOut: round(inRange.reduce((s, r) => s + (r.amount < 0 ? -r.amount : 0), 0)),
-      count: inRange.length,
+      moneyIn: round(shown.reduce((s, r) => s + (r.amount > 0 ? r.amount : 0), 0)),
+      moneyOut: round(shown.reduce((s, r) => s + (r.amount < 0 ? -r.amount : 0), 0)),
+      count: shown.length,
     },
     total: matches.length,
     page,
@@ -4242,7 +4378,7 @@ exports.editAccountsEntry = handle(async (req, res) => {
     const inflow = Boolean(fundLine && fundLine.debit > 0);
     // more going out, or less having come in: the account must have the difference
     const takes = inflow ? -diff : diff;
-    if (takes > 0 && (await getEffectiveFundBalance(companyId, fund)) < takes) throw fail(400, "Not enough in that account for this change");
+    if (fundLine && takes > 0 && (await getEffectiveFundBalance(companyId, fund)) < takes) throw fail(400, "Not enough in that account for this change");
     const legs = tx.routeId ? await LedgerTransaction.find({ routeId: tx.routeId, reversedBy: null, type: { $ne: "reversal" } }) : [tx];
 
     if (tx.type === "company_paid") {
@@ -4273,9 +4409,9 @@ exports.editAccountsEntry = handle(async (req, res) => {
       if (tx.type === "voucher_issue" && tx.voucherId) await Voucher.updateOne({ _id: tx.voucherId }, { $set: { amount } });
       if (tx.type === "advance_return" && tx.advanceReturnId) await AdvanceReturn.updateOne({ _id: tx.advanceReturnId }, { $set: { amount } });
     }
-    await applyIfTracked(await Company.findById(companyId), fund, inflow ? diff : -diff);
-    // what a person is owed follows a reimbursement / manager loan: re-check which of their bills are now paid
-    if (tx.type === "reimburse" || tx.type === "lend") {
+    if (fundLine) await applyIfTracked(await Company.findById(companyId), fund, inflow ? diff : -diff);
+    // what a person is owed follows a reimbursement / manager loan / manager-funded voucher: re-check their bills
+    if (tx.type === "reimburse" || tx.type === "lend" || tx.type === "voucher_issue") {
       const payables = await LedgerAccount.find({ _id: { $in: entries.map((e) => e.accountId) }, type: "admin_payable" }).select("userId").lean();
       for (const p of payables) if (p.userId) await recomputeReimbursed(companyId, p.userId);
     }

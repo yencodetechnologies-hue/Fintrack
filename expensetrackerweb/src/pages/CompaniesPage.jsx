@@ -9,7 +9,7 @@ import AppLayout from "../components/AppLayout.jsx";
 import Modal from "../components/Modal.jsx";
 import CreateGroupModal from "../components/CreateGroupModal.jsx";
 import CompanyGroupModal from "../components/CompanyGroupModal.jsx";
-import { roleLabel } from "../utils.js";
+import { roleLabel, roleNames } from "../utils.js";
 
 // Company groups first (in my arranged order), then companies in no group. Ungrouped ones get an "Other companies" title
 // only when there are groups above them.
@@ -283,7 +283,7 @@ export default function CompaniesPage() {
                 <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6, color: "#fff" }}>{c.name}</div>
                 <div style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span className="pill" style={{ background: c.userRole === "admin" ? "#fff" : "rgba(255,255,255,0.18)", color: c.userRole === "admin" ? "var(--forest)" : "#fff" }}>
-                    {c.isCompanyAdmin || String(c.createdBy?._id || c.createdBy) === String(user.id) ? "Admin" : c.customRoleName || roleLabel(c, c.userRole)}
+                    {c.isCompanyAdmin || String(c.createdBy?._id || c.createdBy) === String(user.id) ? roleNames(c).admin : c.customRoleName || roleLabel(c, c.userRole)}
                   </span>
                   {c.details ? <span>{c.details}</span> : null}
                 </div>

@@ -1,8 +1,7 @@
 // Used only when VITE_API_BASE_URL is not set at build time: a page served from localhost
 // talks to the local backend, every deployed copy talks to the live one.
 const LIVE_API_BASE = "https://fintrack.yencodetechnologies.in";
-const isLocalPage = typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname);
-const DEFAULT_API_BASE = isLocalPage ? "http://localhost:3009" : LIVE_API_BASE;
+const DEFAULT_API_BASE = LIVE_API_BASE;
 export const API_BASE = (import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE).replace(/\/+$/, "");
 
 // set by realtime.js; sent with writes so the server doesn't announce our own change back to us
@@ -180,6 +179,7 @@ export const getAccountsDays = (companyId, userId, from, to) =>
 // Accounts statement: every money in/out with the balance after it, searched and paged on the server
 // changes: { amount?, details?, method?, reference?, date? }
 export const editAccountsEntry = (companyId, userId, editId, changes) => post(ledgerUrl(`/companies/${companyId}/accounts/entries/edit`), { userId, editId, ...changes });
+export const deleteAccountsEntry = (companyId, userId, editId) => post(ledgerUrl(`/companies/${companyId}/accounts/entries/delete`), { userId, editId });
 export const getAccountsEntries = (companyId, userId, { from, to, q = "", page = 1, limit = 25 }) =>
   get(ledgerUrl(`/companies/${companyId}/accounts/entries?userId=${userId}&from=${from}&to=${to}&q=${encodeURIComponent(q)}&page=${page}&limit=${limit}`));
 // kind: expense | payment | fund

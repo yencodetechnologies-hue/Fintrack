@@ -502,7 +502,8 @@ exports.createExpense = handle(async (req, res) => {
       const debit = await expenseAccount(companyId, expense.category);
       const credit = await fundAccount(companyId, fund);
       const verification = (await needsVerification(companyId, expense.amount)) ? "pending" : null;
-      const base = { method: method || "Bank", reference: reference || "", expenseId: expense._id, createdBy: userId, verification };
+      // no method given: say how it was actually paid (from Cash = "Cash", from a bank account = "Bank")
+      const base = { method: method || (fund === "cash" ? "Cash" : "Bank"), reference: reference || "", expenseId: expense._id, createdBy: userId, verification };
       const txs = await postAll([
         [
           { ...base, companyId, type: "company_paid", memo: expense.description },
@@ -524,7 +525,7 @@ exports.createExpense = handle(async (req, res) => {
     // if it fails, the new expense is removed so nothing half-done is left behind
     const result = { code: 200, body: null, status(c) { this.code = c; return this; }, json(b) { this.body = b; return this; } };
     await exports.payExpense({ params: { expenseId: String(expense._id) }, body: {
-      userId, payer: "borrow", method: method || "Bank", reference: reference || "",
+      userId, payer: "borrow", method: method || "Borrowed", reference: reference || "",
       sourceCompanyId: req.body.sourceCompanyId, newCompany: req.body.newCompany, sourceFundId: req.body.sourceFundId,
     } }, result);
     if (!result.body?.success) {
@@ -4149,6 +4150,32 @@ function parseEditDate(v) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// POST /companies/:companyId/accounts/entries/delete { userId, editId: "income:<id>" }
+// The Admin removes a money-added (or transfer) entry: the money comes back out of the account it went into
+// (a transfer puts it back where it came from) and the record is deleted.
+exports.deleteAccountsEntry = handle(async (req, res) => {
+  const { companyId } = req.params;
+  const { userId, editId } = req.body;
+  const role = await requireRole(companyId, userId, ["admin", "super_admin"]);
+  if (role !== "super_admin" && !hasPower(await permissionsFor(companyId, userId), "edit_entries")) {
+    throw fail(403, "Only the company Admin can delete entries");
+  }
+  const id = String(editId || "");
+  if (!id.startsWith("income:")) throw fail(400, "Only money added to Cash or a bank can be deleted here");
+  const income = await CompanyIncome.findOne({ _id: id.slice(7), companyId });
+  if (!income) throw fail(404, "Entry not found");
+  const into = income.destinationType === "cash" ? "cash" : String(income.destinationBankAccountId);
+  const from = income.sourceBankAccountId ? String(income.sourceBankAccountId) : null;
+  // the money has to still be in the account it went into
+  const available = await getEffectiveFundBalance(companyId, into);
+  if (available < income.amount) throw fail(400, `Only ₹${available.toFixed(2)} is left in that account, so this ₹${income.amount} can't be taken back out`);
+  await applyCompanyFund(companyId, into, -income.amount);
+  if (from) await applyCompanyFund(companyId, from, income.amount);
+  await CompanyIncome.deleteOne({ _id: income._id });
+  await audit(userId, companyId, "delete", "income", income._id, { amount: income.amount, description: income.description, into: income.destinationName, from: income.sourceName || "", at: income.createdAt }, null);
+  res.json({ success: true });
+});
+
 // POST /companies/:companyId/accounts/entries/edit { userId, editId, amount?, details?, method?, reference?, date? }
 // The Admin edits one Accounts row at any time: its amount (in place; Cash/Bank moves by the difference and any
 // loan, expense, voucher or person's balance follows), its description, method, reference and date.
@@ -4255,6 +4282,33 @@ exports.editAccountsEntry = handle(async (req, res) => {
     changed.push("amount");
   }
 
+  // which of this company's Cash / Bank accounts it was paid from (or went into): move the line and both balances
+  if (has("fundId")) {
+    const newFund = String(req.body.fundId || "cash");
+    const lines = await LedgerEntry.find({ transactionId: tx._id }).lean();
+    const accs = await LedgerAccount.find({ _id: { $in: lines.map((e) => e.accountId) }, type: "bank", companyId }).lean();
+    const line = accs[0] ? lines.find((e) => String(e.accountId) === String(accs[0]._id)) : null;
+    const oldFund = accs[0]?.bankAccountId ? String(accs[0].bankAccountId) : "cash";
+    if (line && newFund !== oldFund) {
+      if (newFund !== "cash") {
+        const co = await Company.findById(companyId).select("bankAccounts").lean();
+        if (!(co?.bankAccounts || []).some((b) => String(b._id) === newFund)) throw fail(400, "Choose one of this company's accounts");
+      }
+      const value = round(line.debit || line.credit);
+      const inflow = line.debit > 0;
+      // money that went out now has to come from the new account
+      if (!inflow && (await getEffectiveFundBalance(companyId, newFund)) < value) throw fail(400, "Not enough in that account");
+      if (inflow && (await getEffectiveFundBalance(companyId, oldFund)) < value) throw fail(400, "Not enough left in the old account to move this");
+      const moved = await fundAccount(companyId, newFund);
+      await LedgerEntry.updateOne({ _id: line._id }, { $set: { accountId: moved._id } });
+      if (await legMovesCompanyFunds(tx)) {
+        await applyCompanyFund(companyId, oldFund, inflow ? -value : value);
+        await applyCompanyFund(companyId, newFund, inflow ? value : -value);
+      }
+      changed.push("fund");
+    }
+  }
+
   // description, method, reference, date: on this row's transaction
   const set = {};
   if (has("details")) set.note = String(req.body.details).trim();
@@ -4266,7 +4320,7 @@ exports.editAccountsEntry = handle(async (req, res) => {
     // a company-paid expense keeps its own description in step
     if (set.note && tx.type === "company_paid" && tx.expenseId) await Expense.updateOne({ _id: tx.expenseId }, { $set: { description: set.note } });
   }
-  await audit(userId, companyId, "edit_entry", "transaction", tx._id, before, { ...set, ...(changed.includes("amount") ? { amount } : {}) });
+  await audit(userId, companyId, "edit_entry", "transaction", tx._id, before, { ...set, ...(changed.includes("amount") ? { amount } : {}), ...(changed.includes("fund") ? { fundId: String(req.body.fundId) } : {}) });
   res.json({ success: true });
 });
 

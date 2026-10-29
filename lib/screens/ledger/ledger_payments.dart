@@ -53,8 +53,8 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   List<Map<String, dynamic>> _txs = [];
   final _search = TextEditingController();
   // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
-  // opened from the Home "My outstanding" tile it starts on "me"
-  late String _role = widget.focusOwn || widget.mineOnly ? "me" : "all";
+  // starts on my own bills; the filter shows everyone else's
+  late String _role = "me";
   String _show = "owed"; // owed | all
   String _sort = "owed"; // owed | claims | name
   final Set<String> _selected = {};
@@ -121,7 +121,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   bool _payable(_Person p) => p.owed > 0 && p.userId != s.userId;
 
   // payments made: company reimbursements, payments by a manager personally, and voucher set-offs
-  ({String name, String how, num amount, String date, String by, String method, String reference})? _historyRow(Map<String, dynamic> t) {
+  ({String name, String how, num amount, String date, String by, String method, String reference, Map<String, dynamic> tx})? _historyRow(Map<String, dynamic> t) {
     if ((t["type"] != "reimburse" && t["type"] != "advance_offset") || t["reversedBy"] != null) return null;
     final entries = List<Map<String, dynamic>>.from(t["entries"] ?? const []);
     String acct(Map<String, dynamic> e) => e["accountId"] is Map ? (e["accountId"]["name"]?.toString() ?? "") : "";
@@ -138,9 +138,13 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
       how: how,
       amount: (debit?["debit"] as num?) ?? 0,
       date: (t["date"] ?? t["createdAt"])?.toString() ?? "",
-      by: nameOf(t["createdBy"], "Manager"),
+      // who paid: the company (its name), or the manager who paid out of their own pocket
+      by: memo.endsWith("personally")
+          ? (RegExp(r"^Paid by (.+) personally$").firstMatch(memo)?.group(1) ?? nameOf(t["createdBy"], "Manager"))
+          : s.companyName,
       method: t["method"]?.toString() ?? "",
       reference: t["reference"]?.toString() ?? "",
+      tx: t,
     );
   }
 
@@ -156,7 +160,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     final allSelected = payableVisible.isNotEmpty && payableVisible.every((p) => _selected.contains(p.userId));
     num sum(Iterable<_Person> list) => _round(list.fold<num>(0, (a, p) => a + _max(0, p.owed)));
 
-    final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference})>().toList()
+    final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference, Map<String, dynamic> tx})>().toList()
       // newest payment date first (a payment can be backdated)
       ..sort((a, b) => (DateTime.tryParse(b.date) ?? DateTime(0)).compareTo(DateTime.tryParse(a.date) ?? DateTime(0)));
     final historyNames = allHistory.map((h) => h.name).toSet().toList()..sort();
@@ -308,7 +312,9 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                       child: Column(children: [
                         for (var i = 0; i < history.length; i++) ...[
                           if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          Padding(
+                          InkWell(
+                            onTap: s.canEditEntries && history[i].tx["type"] == "reimburse" ? () => _editPayment(history[i]) : null,
+                            child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                             child: Row(children: [
                               Expanded(
@@ -329,7 +335,12 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                               ),
                               const SizedBox(width: 10),
                               Text(inr(history[i].amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kForest)),
+                              if (s.canEditEntries && history[i].tx["type"] == "reimburse") ...[
+                                const SizedBox(width: 6),
+                                Icon(Icons.edit_rounded, size: 14, color: kDark.withValues(alpha: 0.35)),
+                              ],
                             ]),
+                          ),
                           ),
                         ],
                       ]),
@@ -770,6 +781,75 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     ref.dispose();
     for (final c in amounts.values) {
       c.dispose();
+    }
+  }
+
+  /// The Admin edits a payment: amount, the account it was paid from (company payments), method, reference, date &
+  /// time and description. Balances and what the person is owed follow.
+  Future<void> _editPayment(({String name, String how, num amount, String date, String by, String method, String reference, Map<String, dynamic> tx}) h) async {
+    final t = h.tx;
+    final company = !(t["memo"]?.toString() ?? "").endsWith("personally");
+    final amount = TextEditingController(text: h.amount.toString());
+    final reference = TextEditingController(text: h.reference);
+    final note = TextEditingController(text: t["note"]?.toString() ?? "");
+    String method = h.method;
+    String? fund; // null = leave it where it is
+    DateTime when = DateTime.tryParse(h.date)?.toLocal() ?? DateTime.now();
+    final saved = await showLedgerSheet<bool>(context, "Edit payment", (ctx) => StatefulBuilder(builder: (ctx, set) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("To ${h.name} · ${h.how}", style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+            const SizedBox(height: 10),
+            TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
+            if (company) ...[
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String?>(
+                initialValue: fund,
+                isExpanded: true,
+                decoration: fieldDecoration("Paid from", icon: Icons.account_balance_wallet_rounded),
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text("Keep the same account")),
+                  for (final f in s.funds) DropdownMenuItem<String?>(value: f.id, child: Text("${f.name} · ${inr(f.balance)}", overflow: TextOverflow.ellipsis)),
+                ],
+                onChanged: (v) => set(() => fund = v),
+              ),
+            ],
+            const SizedBox(height: 10),
+            methodChips(method, (m) => set(() => method = m)),
+            const SizedBox(height: 10),
+            TextField(controller: reference, decoration: fieldDecoration("Reference", icon: Icons.tag_rounded)),
+            const SizedBox(height: 10),
+            TextField(controller: note, decoration: fieldDecoration("Description (optional)", icon: Icons.notes_rounded)),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.event_rounded, size: 18),
+              label: Text(DateFormat("dd MMM yyyy · h:mm a").format(when)),
+              onPressed: () async {
+                final d = await showDatePicker(context: ctx, initialDate: when, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+                if (d == null || !ctx.mounted) return;
+                final tm = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(when));
+                set(() => when = DateTime(d.year, d.month, d.day, tm?.hour ?? when.hour, tm?.minute ?? when.minute));
+              },
+            ),
+            const SizedBox(height: 12),
+            primaryButton("Save", () async {
+              final v = double.tryParse(amount.text.trim()) ?? 0;
+              if (!(v > 0)) return toast(ctx, "Enter an amount greater than zero", error: true);
+              final res = await LedgerService.editAccountsEntry(s.companyId, s.userId, t["_id"].toString(), {
+                "amount": v,
+                "method": method,
+                "reference": reference.text.trim(),
+                "details": note.text.trim(),
+                "date": DateFormat("yyyy-MM-dd'T'HH:mm").format(when),
+                if (company && fund != null) "fundId": fund,
+              });
+              if (!ctx.mounted) return;
+              if (handleResult(ctx, res, "Payment updated")) Navigator.pop(ctx, true);
+            }),
+          ]);
+        }));
+    if (saved == true && mounted) {
+      notifyLedgerChanged();
+      _load();
     }
   }
 }

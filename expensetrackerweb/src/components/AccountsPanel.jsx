@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { editAccountsEntry, getAccountsEntries } from "../api.js";
+import { deleteAccountsEntry, editAccountsEntry, getAccountsEntries } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
 import Modal from "./Modal.jsx";
 import { money, PAYMENT_METHODS } from "../utils.js";
@@ -86,6 +86,20 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
     onChanged?.();
   }
 
+  // money added / a transfer: the Admin can remove it (the money comes back out of that account)
+  async function deleteEntry(row) {
+    if (!window.confirm(`Delete this entry? ${money(row.kind === "transfer" ? row.transferAmount : Math.abs(row.amount))} will be taken back out of ${row.account}.`)) return;
+    setSaving(true);
+    const res = await deleteAccountsEntry(companyId, user.id, row.editId);
+    setSaving(false);
+    if (!res.success) return showToast(res.message || "Could not delete it", "error");
+    showToast("Deleted · balances adjusted");
+    setViewing(null);
+    setEditing(null);
+    setReload((n) => n + 1);
+    onChanged?.();
+  }
+
   // a row click: its expense (full details + Edit), or this entry's details
   function openRow(r) {
     if (r.kind === "company_paid" && r.expenseId && onOpenExpense?.(r.expenseId)) return;
@@ -112,9 +126,10 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
       ) : (
         <>
           <div className="accounts-summary">
-            <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>
-            <div className="stat-card"><small>Debit (out)</small><strong className="out">−{money(data.summary.moneyOut)}</strong></div>
-            <div className="stat-card"><small>Credit (in)</small><strong className="in">+{money(data.summary.moneyIn)}</strong></div>
+            {/* nothing to carry in (e.g. All time from the start): no opening balance tile */}
+            {Number(data.summary.opening) !== 0 && <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>}
+            <div className="stat-card"><small>Debit (out)</small><strong className="out">{money(data.summary.moneyOut)}</strong></div>
+            <div className="stat-card"><small>Credit (in)</small><strong className="in">{money(data.summary.moneyIn)}</strong></div>
             <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
             <div className="stat-card"><small>Transactions</small><strong>{data.summary.count}</strong></div>
           </div>
@@ -169,8 +184,8 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
                           <td className="num muted" colSpan={2} style={{ textAlign: "center" }}>⇄ moved {money(r.transferAmount)}</td>
                         ) : (
                           <>
-                            <td className="num out">{r.amount < 0 ? `−${money(-r.amount)}` : "—"}</td>
-                            <td className="num in">{r.amount > 0 ? `+${money(r.amount)}` : "—"}</td>
+                            <td className="num out">{r.amount < 0 ? money(-r.amount) : "—"}</td>
+                            <td className="num in">{r.amount > 0 ? money(r.amount) : "—"}</td>
                           </>
                         )}
                         <td className="num">{money(r.balance)}</td>
@@ -197,6 +212,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
           saving={saving}
           onSave={saveAmount}
           onOpenLoan={onOpenLoan}
+          onDelete={deleteEntry}
           onClose={() => { setViewing(null); setEditing(null); }}
         />
       )}
@@ -205,7 +221,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
 }
 
 // One Accounts entry in full; where allowed its amount can be changed here (in place, same date).
-function EntryModal({ row, canEdit, editing, setEditing, saving, onSave, onOpenLoan, onClose }) {
+function EntryModal({ row, canEdit, editing, setEditing, saving, onSave, onOpenLoan, onDelete, onClose }) {
   const transfer = row.kind === "transfer";
   const amount = transfer ? row.transferAmount : Math.abs(row.amount);
   const w = when(row.at);
@@ -224,7 +240,7 @@ function EntryModal({ row, canEdit, editing, setEditing, saving, onSave, onOpenL
     <Modal onClose={onClose} maxWidth={460}>
       <h2 style={{ margin: "0 0 4px", fontSize: 20, paddingRight: 40 }}>{row.details || row.label}</h2>
       <div style={{ fontSize: 26, fontWeight: 800, margin: "6px 0 14px", color: transfer ? "var(--muted)" : row.amount > 0 ? "var(--forest)" : "var(--terracotta)" }}>
-        {transfer ? `⇄ ${money(amount)}` : `${row.amount > 0 ? "+" : "−"}${money(amount)}`}
+        {transfer ? `⇄ ${money(amount)}` : money(amount)}
       </div>
       <div className="entry-lines">
         {lines.map(([k, v]) => (
@@ -278,6 +294,7 @@ function EntryModal({ row, canEdit, editing, setEditing, saving, onSave, onOpenL
       {!editing && (
         <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onClose}>Close</button>
+          {editable && String(row.editId).startsWith("income:") && <button type="button" className="btn btn-outline-danger" style={{ flex: 1 }} disabled={saving} onClick={() => onDelete(row)}>Delete</button>}
           {row.loanId && onOpenLoan && <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => { if (onOpenLoan(row.loanId)) onClose(); }}>View loan</button>}
           {editable && (
             <button

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_description_field.dart';
@@ -235,11 +236,11 @@ class _FundsPageState extends State<FundsPage> {
               Expanded(child: primaryButton("+ Add Bank Account", _addBank, color: kForestDark)),
             ]),
             if (_income.isNotEmpty) ...[
-              sectionTitle("Recent income"),
+              sectionTitle("Income"),
               Container(
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                 child: Column(children: [
-                  for (final i in _income.take(10))
+                  for (final i in _income)
                     ListTile(
                       dense: true,
                       leading: Text(i["destinationType"] == "cash" ? "💵" : "🏦", style: const TextStyle(fontSize: 20)),
@@ -255,7 +256,9 @@ class _FundsPageState extends State<FundsPage> {
                         "${(i["description"]?.toString() ?? "").isNotEmpty ? "${_incomeRoute(i)} · " : ""}${dateLabel(i["createdAt"])}",
                         style: GoogleFonts.inter(fontSize: 12),
                       ),
-                      trailing: Text("+${inr(i["amount"])}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kForest)),
+                      trailing: Text(inr(i["amount"]), style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kForest)),
+                      // the Admin: tap to edit or delete
+                      onTap: s.canEditEntries ? () => _incomeActions(i) : null,
                     ),
                 ]),
               ),
@@ -264,5 +267,59 @@ class _FundsPageState extends State<FundsPage> {
         ),
       ),
     );
+  }
+
+  /// Edit (amount, description, date & time) or delete one income entry. A new amount moves that account's balance by
+  /// the difference; deleting takes the money back out (a transfer goes back where it came from).
+  Future<void> _incomeActions(Map<String, dynamic> i) async {
+    final amount = TextEditingController(text: (i["amount"] ?? "").toString());
+    final desc = TextEditingController(text: i["description"]?.toString() ?? "");
+    DateTime when = DateTime.tryParse(i["createdAt"]?.toString() ?? "")?.toLocal() ?? DateTime.now();
+    final done = await showLedgerSheet<bool>(context, "Income", (ctx) => StatefulBuilder(builder: (ctx, set) {
+          return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_incomeRoute(i), style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.6))),
+            const SizedBox(height: 10),
+            TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: fieldDecoration("Amount ₹", icon: Icons.currency_rupee_rounded)),
+            const SizedBox(height: 10),
+            TextField(controller: desc, decoration: fieldDecoration("Description", icon: Icons.notes_rounded)),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.event_rounded, size: 18),
+              label: Text(DateFormat("dd MMM yyyy · h:mm a").format(when)),
+              onPressed: () async {
+                final d = await showDatePicker(context: ctx, initialDate: when, firstDate: DateTime(2020), lastDate: DateTime.now().add(const Duration(days: 1)));
+                if (d == null || !ctx.mounted) return;
+                final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(when));
+                set(() => when = DateTime(d.year, d.month, d.day, t?.hour ?? when.hour, t?.minute ?? when.minute));
+              },
+            ),
+            const SizedBox(height: 12),
+            primaryButton("Save", () async {
+              final v = double.tryParse(amount.text.trim()) ?? 0;
+              if (!(v > 0)) return toast(ctx, "Enter an amount greater than zero", error: true);
+              final res = await LedgerService.editAccountsEntry(s.companyId, s.userId, "income:${i["_id"]}",
+                  {"amount": v, "details": desc.text.trim(), "date": DateFormat("yyyy-MM-dd'T'HH:mm").format(when)});
+              if (!ctx.mounted) return;
+              if (handleResult(ctx, res, "Income updated · balances adjusted")) Navigator.pop(ctx, true);
+            }),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton(
+                onPressed: () async {
+                  final ok = await confirmDialog(ctx, "Delete this income?", "${inr(i["amount"])} will be taken back out of the account it went into, and the entry removed.", confirmLabel: "Delete", danger: true);
+                  if (!ok || !ctx.mounted) return;
+                  final res = await LedgerService.deleteAccountsEntry(s.companyId, s.userId, "income:${i["_id"]}");
+                  if (!ctx.mounted) return;
+                  if (handleResult(ctx, res, "Deleted · balances adjusted")) Navigator.pop(ctx, true);
+                },
+                child: const Text("Delete this income", style: TextStyle(color: kTerracotta, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ]);
+        }));
+    if (done == true && mounted) {
+      notifyLedgerChanged();
+      _loadIncome();
+    }
   }
 }

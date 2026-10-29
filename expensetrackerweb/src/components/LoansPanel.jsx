@@ -190,8 +190,8 @@ function PartyStatement({ companyId, user, party, refreshKey, onBack, onOpenLoan
                       </td>
                       <td>{r.takenBy || r.by || "—"}{r.by && r.takenBy && r.by !== r.takenBy && <span className="dt-sub">recorded by {r.by}</span>}</td>
                       <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>
-                      <td className="num out">{r.moneyOut ? `−${money(r.moneyOut)}` : "—"}</td>
-                      <td className="num in">{r.moneyIn ? `+${money(r.moneyIn)}` : "—"}</td>
+                      <td className="num out">{r.moneyOut ? money(r.moneyOut) : "—"}</td>
+                      <td className="num in">{r.moneyIn ? money(r.moneyIn) : "—"}</td>
                       <td className="num">{r.balance > 0 ? `${money(r.balance)} due` : r.balance < 0 ? `${money(-r.balance)} to get` : money(0)}</td>
                     </tr>
                   ))}

@@ -319,6 +319,10 @@ class LedgerService {
   static Future<Map<String, dynamic>> editAccountsEntry(String companyId, String userId, String editId, Map<String, dynamic> changes) =>
       _post("$_base/companies/$companyId/accounts/entries/edit", {"userId": userId, "editId": editId, ...changes});
 
+  /// The Admin removes a money-added / transfer entry (editId "income:ID"): the money comes back out of that account.
+  static Future<Map<String, dynamic>> deleteAccountsEntry(String companyId, String userId, String editId) =>
+      _post("$_base/companies/$companyId/accounts/entries/delete", {"userId": userId, "editId": editId});
+
   /// Accounts by day (older view): each day's money in/out, expenses and closing Cash + Bank balance.
   static Future<Map<String, dynamic>> accountsDays(String companyId, String userId, String from, String to) =>
       _get("$_base/companies/$companyId/accounts?userId=$userId&from=$from&to=$to");

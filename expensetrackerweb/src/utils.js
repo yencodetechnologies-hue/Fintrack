@@ -115,6 +115,9 @@ export const PAYMENT_MODES = {
 
 export const PAYMENT_METHODS = ["UPI", "Bank", "Cash", "Card"];
 
+// the method that matches the account money is paid from: Cash -> "Cash", any bank account -> "Bank"
+export const methodForFund = (fundId) => (!fundId || fundId === "cash" ? "Cash" : "Bank");
+
 export const LEGACY_PAYMENT_MODES = {
   cash: "Cash 💵",
   upi: "UPI / GPay / PhonePe 📲",

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import DescriptionInput from "./DescriptionInput.jsx";
-import { addBankAccount, addIncome, deleteBankAccount, getIncomeHistory, updateCashAccountName } from "../api.js";
+import { addBankAccount, addIncome, deleteAccountsEntry, deleteBankAccount, editAccountsEntry, getCompanyDetails, getIncomeHistory, updateCashAccountName } from "../api.js";
+import ConfirmDialog from "./ConfirmDialog.jsx";
+import Modal from "./Modal.jsx";
 import { useToast } from "../context/ToastContext.jsx";
 import { bankAccountLabel, formatDate, money } from "../utils.js";
 import { TableCard } from "./DataTable.jsx";
@@ -10,7 +12,7 @@ function incomeRoute(i, cashName) {
   return i.sourceName ? `${to} ← ${i.sourceName}` : to;
 }
 
-export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged, refreshKey }) {
+export default function FundsPanel({ company, user, bankAccounts, cashBalance, onChanged, refreshKey, canEdit = false }) {
   const { showToast } = useToast();
   const [accounts, setAccounts] = useState(bankAccounts);
   const [cash, setCash] = useState(cashBalance);
@@ -20,6 +22,10 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   const [savingCashName, setSavingCashName] = useState(false);
 
   const [income, setIncome] = useState([]);
+  // the Admin editing / deleting an income entry
+  const [editingIncome, setEditingIncome] = useState(null); // { id, amount, description, date }
+  const [deletingIncome, setDeletingIncome] = useState(null);
+  const [savingIncome, setSavingIncome] = useState(false);
   const [mode, setMode] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -49,6 +55,38 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
       if (res.success) setIncome(res.income || []);
     });
   }, [company._id, user.id, refreshKey]);
+
+  // after an income edit / delete: fresh list and balances
+  async function reloadAfterIncomeChange() {
+    const [list, details] = await Promise.all([getIncomeHistory(company._id, user.id), getCompanyDetails(company._id, user.id)]);
+    if (list.success) setIncome(list.income || []);
+    if (details.success && details.company) {
+      setAccounts(details.company.bankAccounts || []);
+      setCash(details.company.cashBalance ?? cash);
+      onChanged(details.company.bankAccounts || [], details.company.cashBalance ?? cash, cashName);
+    }
+  }
+
+  async function saveIncomeEdit() {
+    const value = Number(editingIncome.amount);
+    if (!(value > 0)) return showToast("Enter an amount greater than zero", "error");
+    setSavingIncome(true);
+    const res = await editAccountsEntry(company._id, user.id, `income:${editingIncome.id}`, { amount: value, details: editingIncome.description.trim(), date: editingIncome.date || undefined });
+    setSavingIncome(false);
+    if (!res.success) return showToast(res.message || "Could not save the changes", "error");
+    showToast("Income updated · balances adjusted");
+    setEditingIncome(null);
+    reloadAfterIncomeChange();
+  }
+
+  async function confirmDeleteIncome() {
+    const entry = deletingIncome;
+    setDeletingIncome(null);
+    const res = await deleteAccountsEntry(company._id, user.id, `income:${entry._id}`);
+    if (!res.success) return showToast(res.message || "Could not delete it", "error");
+    showToast(`Deleted · ${money(entry.amount)} taken back out`);
+    reloadAfterIncomeChange();
+  }
 
   function handleStartEditCashName() {
     setEditCashNameInput(cashName);
@@ -240,7 +278,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
             <>
           <table className="dt">
             <thead>
-              <tr><th>Date</th><th>Details</th><th>Into</th><th className="num">Amount</th></tr>
+              <tr><th>Date</th><th>Details</th><th>Into</th><th className="num">Amount</th>{canEdit && <th className="num">Action</th>}</tr>
             </thead>
             <tbody>
               {rows.map((i) => (
@@ -248,7 +286,15 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
                   <td className="nowrap">{formatDate(i.createdAt)}</td>
                   <td className="dt-wrap-text dt-strong">{i.description || incomeRoute(i, cashName)}</td>
                   <td>{i.destinationType === "cash" ? "💵" : "🏦"} {incomeRoute(i, cashName)}</td>
-                  <td className="num in">+{money(i.amount)}</td>
+                  <td className="num in">{money(i.amount)}</td>
+                  {canEdit && (
+                    <td>
+                      <span className="dt-actions">
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingIncome({ id: i._id, amount: String(i.amount), description: i.description || "", date: istInput(i.createdAt) })}>Edit</button>
+                        <button type="button" className="btn btn-outline-danger btn-sm" onClick={() => setDeletingIncome(i)}>Delete</button>
+                      </span>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -257,6 +303,40 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
             </>
           )}
         </TableCard>
+      )}
+      {editingIncome && (
+        <Modal onClose={() => setEditingIncome(null)} maxWidth={440}>
+          <h2 style={{ margin: "0 0 14px", fontSize: 20 }}>Edit income</h2>
+          <div style={{ display: "grid", gap: 10 }}>
+            <div>
+              <label className="field-label">Amount (₹)</label>
+              <input className="field-input" type="number" min="0.01" step="0.01" autoFocus value={editingIncome.amount} onChange={(e) => setEditingIncome({ ...editingIncome, amount: e.target.value })} />
+            </div>
+            <div>
+              <label className="field-label">Description</label>
+              <input className="field-input" value={editingIncome.description} onChange={(e) => setEditingIncome({ ...editingIncome, description: e.target.value })} />
+            </div>
+            <div>
+              <label className="field-label">Date & time</label>
+              <input className="field-input" type="datetime-local" value={editingIncome.date} onChange={(e) => setEditingIncome({ ...editingIncome, date: e.target.value })} />
+            </div>
+            <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>A new amount changes that account's balance by the difference.</p>
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditingIncome(null)} disabled={savingIncome}>Cancel</button>
+              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={saveIncomeEdit} disabled={savingIncome}>{savingIncome ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {deletingIncome && (
+        <ConfirmDialog
+          title="Delete this income?"
+          message={`${money(deletingIncome.amount)}${deletingIncome.description ? ` (${deletingIncome.description})` : ""} will be taken back out of ${deletingIncome.destinationType === "cash" ? cashName : deletingIncome.destinationName || "the bank"}${deletingIncome.sourceName && deletingIncome.sourceBankAccountId ? ` and put back into ${deletingIncome.sourceName}` : ""}, and the entry removed.`}
+          confirmLabel="Delete"
+          danger
+          onCancel={() => setDeletingIncome(null)}
+          onConfirm={confirmDeleteIncome}
+        />
       )}
     </div>
   );
@@ -357,4 +437,9 @@ function FundTile({
       )}
     </div>
   );
+}
+
+// a date as "YYYY-MM-DDTHH:mm" in India time, for the date & time input
+function istInput(at) {
+  return new Date(new Date(at).getTime() + 330 * 60000).toISOString().slice(0, 16);
 }

@@ -322,7 +322,9 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
     final ref = TextEditingController();
     final note = TextEditingController(); // description saved with the payment
     var fund = s.funds.first.id;
-    var method = "Bank";
+    // the method follows the account paid from (Cash -> "Cash", a bank -> "Bank") until it is picked by hand
+    var method = fund == "cash" ? "Cash" : "Bank";
+    var methodPicked = false;
     var date = DateTime.now();
     await showLedgerSheet(context, "Pay ${inr(amount)}", (ctx) => StatefulBuilder(builder: (ctx, set) {
           final selected = s.funds.firstWhere((f) => f.id == fund, orElse: () => s.funds.first);
@@ -331,7 +333,10 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
             Text("From company funds to you, applied to your oldest bills first (shown on the card).",
                 style: GoogleFonts.inter(fontSize: 13, color: kDark.withValues(alpha: 0.7))),
             const SizedBox(height: 12),
-            fundDropdown(s, fund, (v) => set(() => fund = v ?? "cash"), hint: "Paid from"),
+            fundDropdown(s, fund, (v) => set(() {
+                  fund = v ?? "cash";
+                  if (!methodPicked) method = fund == "cash" ? "Cash" : "Bank";
+                }), hint: "Paid from"),
             if (short)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
@@ -339,7 +344,10 @@ class _OwnOutstandingCardState extends State<OwnOutstandingCard> with LedgerAuto
                     style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: kTerracotta)),
               ),
             const SizedBox(height: 10),
-            methodChips(method, (m) => set(() => method = m)),
+            methodChips(method, (m) => set(() {
+                  method = m;
+                  methodPicked = true;
+                })),
             const SizedBox(height: 10),
             InkWell(
               onTap: () async {

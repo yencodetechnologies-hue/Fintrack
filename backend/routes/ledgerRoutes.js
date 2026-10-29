@@ -27,6 +27,7 @@ router.get("/companies/:companyId/descriptions", c.descriptionSuggestions);
 router.get("/companies/:companyId/accounts", c.accountsDays);
 router.get("/companies/:companyId/accounts/entries", c.accountsEntries);
 router.post("/companies/:companyId/accounts/entries/edit", c.editAccountsEntry);
+router.post("/companies/:companyId/accounts/entries/delete", c.deleteAccountsEntry);
 
 router.post("/transactions/:transactionId/verify", c.verifyTransaction);
 router.post("/routed-payments", c.routedPayment);

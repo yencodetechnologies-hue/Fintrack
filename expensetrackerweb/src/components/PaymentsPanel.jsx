@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getLedgerBalances, getLedgerTransactions, getPayableBills, reimburseAdmin } from "../api.js";
+import { editAccountsEntry, getLedgerBalances, getLedgerTransactions, getPayableBills, reimburseAdmin } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money, PAYMENT_METHODS, roleNames } from "../utils.js";
+import { formatDate, money, PAYMENT_METHODS, roleNames, methodForFund } from "../utils.js";
 import Modal from "./Modal.jsx";
 import PayableBillsPreview from "./PayableBillsPreview.jsx";
 import PeriodFilter from "./PeriodFilter.jsx";
@@ -14,14 +14,24 @@ const initial = (name) => String(name || "?").trim().charAt(0).toUpperCase();
 
 // Managers: pay off everything the company owes any staff member or manager, by company funds or out of
 // their own pocket ("by self": the company then owes the paying manager instead). One person or many at once.
-export default function PaymentsPanel({ companyId, company, user, members, funds, onChanged, refreshKey, focusOwn = false }) {
+export default function PaymentsPanel({ companyId, company, user, members, funds, onChanged, refreshKey, focusOwn = false, homeKey, canEditPayments = false }) {
   const { showToast } = useToast();
   const [balances, setBalances] = useState(null);
   const [txs, setTxs] = useState([]);
   const [search, setSearch] = useState("");
   // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
   // opened from the Home "My outstanding" tile it starts on "me"
-  const [role, setRole] = useState(focusOwn ? "me" : "all");
+  // starts on my own bills; the filter shows everyone else's
+  const [role, setRole] = useState("me");
+  // the Admin editing a payment from the history: { row, amount, fundId, method, reference, date, note }
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [savingPayment, setSavingPayment] = useState(false);
+  // opened again from the menu: back to my own bills
+  const [seenHome, setSeenHome] = useState(homeKey);
+  if (homeKey !== seenHome) {
+    setSeenHome(homeKey);
+    setRole("me");
+  }
   useEffect(() => {
     if (focusOwn) setRole("me");
   }, [focusOwn]);
@@ -45,6 +55,23 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
     else showToast(b.message || "Could not load balances", "error");
     if (t.success) setTxs(t.transactions || []);
   }, [companyId, user.id, showToast]);
+
+  async function savePaymentEdit() {
+    const e = editingPayment;
+    const value = Number(e.amount);
+    if (!(value > 0)) return showToast("Enter an amount greater than zero", "error");
+    const changes = { amount: value, method: e.method, reference: e.reference.trim(), details: e.note.trim() };
+    if (e.date) changes.date = e.date;
+    if (e.row.company && e.fundId && e.fundChanged) changes.fundId = e.fundId;
+    setSavingPayment(true);
+    const res = await editAccountsEntry(companyId, user.id, String(e.row.id), changes);
+    setSavingPayment(false);
+    if (!res.success) return showToast(res.message || "Could not save the payment", "error");
+    showToast("Payment updated");
+    setEditingPayment(null);
+    load();
+    onChanged?.();
+  }
 
   useEffect(() => {
     load();
@@ -120,7 +147,8 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
         const personName = debit?.accountId?.name?.replace(/^Payable to /, "") || "Someone";
         const bySelf = /personally$/.test(t.memo || "");
         const how = t.type === "advance_offset" ? "Set off from voucher balance" : bySelf ? t.memo : `Company · ${credit?.accountId?.name || "fund"}`;
-        return { id: t._id, date: t.date || t.createdAt, personName, amount: Number(debit?.debit || 0), by: t.createdBy?.name || "Manager", how, method: t.method, reference: t.reference };
+        return { id: t._id, note: t.note || "", company: !bySelf && t.type === "reimburse", fundName: credit?.accountId?.name || "", date: t.date || t.createdAt, personName, amount: Number(debit?.debit || 0), // who paid: the company (its name), or the manager who paid out of their own pocket
+        by: bySelf ? (t.memo.match(/^Paid by (.+) personally$/)?.[1] || t.createdBy?.name || "Manager") : company?.name || "Company", how, method: t.method, reference: t.reference };
       })
       .sort((a, b) => new Date(b.date) - new Date(a.date)); // by payment date, which can be backdated
     const q = historySearch.trim().toLowerCase();
@@ -132,7 +160,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
       if (q && !`${r.personName} ${r.how} ${r.by} ${r.reference || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [txs, historyPerson, historySearch, historyFrom, historyTo]);
+  }, [txs, historyPerson, historySearch, historyFrom, historyTo, company?.name]);
   const historyNames = [...new Set(txs.filter((t) => t.type === "reimburse" || t.type === "advance_offset").map((t) => (t.entries || []).find((e) => Number(e.debit) > 0 && /^Payable to /.test(e.accountId?.name || ""))?.accountId?.name?.replace(/^Payable to /, "")).filter(Boolean))];
 
   const done = () => {
@@ -284,7 +312,7 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                 ) : (
                   <table className="dt">
                     <thead>
-                      <tr><th>Date</th><th>Paid to</th><th>How</th><th>Method</th><th>Reference</th><th>Paid by</th><th className="num">Amount</th></tr>
+                      <tr><th>Date</th><th>Paid to</th><th>How</th><th>Method</th><th>Reference</th><th>Paid by</th><th className="num">Amount</th>{canEditPayments && <th className="num">Action</th>}</tr>
                     </thead>
                     <tbody>
                       {paged.rows.map((h) => (
@@ -296,6 +324,23 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
                           <td className="dt-mono">{h.reference || "—"}</td>
                           <td>{h.by}</td>
                           <td className="num in">{money(h.amount)}</td>
+                          {canEditPayments && (
+                            <td>
+                              <span className="dt-actions">
+                                <button
+                                  type="button"
+                                  className="btn btn-outline btn-sm"
+                                  onClick={() => {
+                                    // start on the account it was paid from (matched by name), so nothing moves unless changed
+                                    const current = funds.find((f) => h.fundName && (f.name === h.fundName || h.fundName.startsWith(f.name) || f.name.startsWith(h.fundName)));
+                                    setEditingPayment({ row: h, amount: String(h.amount), fundId: current?.fundId || "", method: h.method || "", reference: h.reference || "", date: istInput(h.date), note: h.note });
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              </span>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -305,6 +350,54 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
             );
           })()}
         </>
+      )}
+
+      {editingPayment && (
+        <Modal onClose={() => setEditingPayment(null)} maxWidth={460}>
+          <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>Edit payment</h2>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: "0 0 14px" }}>To {editingPayment.row.personName} · {editingPayment.row.how}</p>
+          <div style={{ display: "grid", gap: 10 }}>
+            <div>
+              <label className="field-label">Amount (₹)</label>
+              <input className="field-input" type="number" min="0.01" step="0.01" autoFocus value={editingPayment.amount} onChange={(ev) => setEditingPayment({ ...editingPayment, amount: ev.target.value })} />
+            </div>
+            {editingPayment.row.company && (
+              <div>
+                <label className="field-label">Paid from</label>
+                <select className="field-select" value={editingPayment.fundId} onChange={(ev) => setEditingPayment({ ...editingPayment, fundId: ev.target.value, fundChanged: true })}>
+                  {!editingPayment.fundId && <option value="">{editingPayment.row.fundName || "Current account"}</option>}
+                  {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
+                </select>
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label className="field-label">Method</label>
+                <select className="field-select" value={editingPayment.method} onChange={(ev) => setEditingPayment({ ...editingPayment, method: ev.target.value })}>
+                  <option value="">—</option>
+                  {[...new Set([...PAYMENT_METHODS, editingPayment.method].filter(Boolean))].map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="field-label">Reference</label>
+                <input className="field-input" value={editingPayment.reference} onChange={(ev) => setEditingPayment({ ...editingPayment, reference: ev.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label className="field-label">Date & time</label>
+              <input className="field-input" type="datetime-local" value={editingPayment.date} onChange={(ev) => setEditingPayment({ ...editingPayment, date: ev.target.value })} />
+            </div>
+            <div>
+              <label className="field-label">Description (optional)</label>
+              <input className="field-input" value={editingPayment.note} onChange={(ev) => setEditingPayment({ ...editingPayment, note: ev.target.value })} />
+            </div>
+            <p style={{ color: "var(--muted)", fontSize: 12, margin: 0 }}>A new amount or account moves the balances by the difference; what {editingPayment.row.personName} is owed follows.</p>
+            <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditingPayment(null)} disabled={savingPayment}>Cancel</button>
+              <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={savePaymentEdit} disabled={savingPayment}>{savingPayment ? "Saving…" : "Save"}</button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {viewing && (
@@ -354,7 +447,9 @@ function BillsModal({ companyId, user, person, onClose, onPay }) {
 function PayModal({ companyId, company, user, people, funds, onClose, onDone, showToast }) {
   const [paidBy, setPaidBy] = useState("company");
   const [fundId, setFundId] = useState(funds[0]?.fundId || "cash");
-  const [method, setMethod] = useState("UPI");
+  // the method follows the account paid from (Cash -> "Cash", a bank -> "Bank") until it is picked by hand
+  const [method, setMethod] = useState(() => methodForFund(funds[0]?.fundId || "cash"));
+  const [methodPicked, setMethodPicked] = useState(false);
   const [reference, setReference] = useState("");
   const [offset, setOffset] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -490,7 +585,7 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
       {paidBy === "company" && (
         <>
           <label className="field-label" style={{ display: "block", marginTop: 12 }}>Paid from</label>
-          <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)}>
+          <select className="field-select" value={fundId} onChange={(e) => { setFundId(e.target.value); if (!methodPicked) setMethod(methodForFund(e.target.value)); }}>
             {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
           </select>
           {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
@@ -498,7 +593,7 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
       )}
 
       <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
-      <select className="field-select" value={method} onChange={(e) => setMethod(e.target.value)}>
+      <select className="field-select" value={method} onChange={(e) => { setMethod(e.target.value); setMethodPicked(true); }}>
         {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
       </select>
       <label className="field-label" style={{ display: "block", marginTop: 12 }}>Reference (optional)</label>
@@ -520,4 +615,9 @@ function PayModal({ companyId, company, user, people, funds, onClose, onDone, sh
       {topUp.ui}
     </Modal>
   );
+}
+
+// a date as "YYYY-MM-DDTHH:mm" in India time, for the date & time input
+function istInput(at) {
+  return new Date(new Date(at).getTime() + 330 * 60000).toISOString().slice(0, 16);
 }

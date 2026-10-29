@@ -357,7 +357,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
       if ((r["reference"]?.toString() ?? "").isNotEmpty) "Ref ${r["reference"]}",
       if ((r["by"]?.toString() ?? "").isNotEmpty) "by ${r["by"]}",
     ].join(" · ");
-    final amountText = transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : "${amount > 0 ? "+" : "−"}${inr(amount.abs())}";
+    final amountText = transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : inr(amount.abs());
     final amountColor = transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta);
 
     return InkWell(
@@ -422,7 +422,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     ];
     final details = r["details"]?.toString() ?? "";
     await showLedgerSheet(context, details.isNotEmpty ? details : r["label"]?.toString() ?? "Entry", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : "${amount > 0 ? "+" : "−"}${inr(amount.abs())}",
+          Text(transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : inr(amount.abs()),
               style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta))),
           const SizedBox(height: 10),
           for (final l in lines)

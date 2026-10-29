@@ -147,10 +147,13 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState(() => tabFromUrl(searchParams.get("tab")) || "home");
   // Loans opened from the menu always starts at the list of companies / people (not a statement left open)
   const [loansFocus, setLoansFocus] = useState({ id: "", n: 0 });
+  const [paymentsHome, setPaymentsHome] = useState(0);
   const changeTab = useCallback((tab) => {
     setActiveTab(tab);
     setSearchParams({ tab }, { replace: true });
     if (tab === "interco") setLoansFocus((f) => ({ id: "", n: f.n + 1 }));
+    // Payments opened from the menu always starts on my own bills
+    if (tab === "payments") setPaymentsHome((n) => n + 1);
   }, [setSearchParams]);
   const urlTab = searchParams.get("tab");
   useEffect(() => {
@@ -1409,7 +1412,7 @@ export default function DashboardPage() {
           )}
 
           {activeTab === "payments" && isAdmin && (
-            <PaymentsPanel companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("balances", "expenses")} focusOwn={focusOwnOutstanding} />
+            <PaymentsPanel homeKey={paymentsHome} canEditPayments={permissionRole === "primary" || (permissionRole === "custom" && myPermissions?.edit_entries === true)} companyId={companyId} company={company} user={user} members={members} funds={availableCompanyFunds} onChanged={load} refreshKey={tick("balances", "expenses")} focusOwn={focusOwnOutstanding} />
           )}
 
           {activeTab === "transactions" && isAdmin && (
@@ -1527,6 +1530,7 @@ export default function DashboardPage() {
             <FundsPanel
               company={company}
               user={user}
+              canEdit={permissionRole === "primary" || (permissionRole === "custom" && myPermissions?.edit_entries === true)}
               bankAccounts={bankAccounts}
               cashBalance={cashBalance}
               refreshKey={tick("funds")}

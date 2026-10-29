@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getPayableBills, payOwnOutstanding } from "../api.js";
 import { useToast } from "../context/ToastContext.jsx";
-import { formatDate, money, PAYMENT_METHODS } from "../utils.js";
+import { formatDate, money, PAYMENT_METHODS, methodForFund } from "../utils.js";
 import Modal from "./Modal.jsx";
 import DescriptionInput from "./DescriptionInput.jsx";
 import { useFundTopUp } from "./FundTopUp.jsx";
@@ -225,7 +225,9 @@ export default function OwnOutstanding({ companyId, company, user, funds, focus,
 function PayOwnModal({ companyId, user, bills, funds, byAmount = false, presetAmount, onClose, onDone }) {
   const { showToast } = useToast();
   const [fundId, setFundId] = useState(funds[0]?.fundId || "cash");
-  const [method, setMethod] = useState("Bank");
+  // the method follows the account paid from (Cash -> "Cash", a bank -> "Bank") until it is picked by hand
+  const [method, setMethod] = useState(() => methodForFund(funds[0]?.fundId || "cash"));
+  const [methodPicked, setMethodPicked] = useState(false);
   const [reference, setReference] = useState("");
   const [note, setNote] = useState(""); // description saved with the payment
   const [date, setDate] = useState(todayLocal);
@@ -302,12 +304,12 @@ function PayOwnModal({ companyId, user, bills, funds, byAmount = false, presetAm
           </>
         )}
         <label className="field-label">Paid from</label>
-        <select className="field-select" value={fundId} onChange={(e) => setFundId(e.target.value)}>
+        <select className="field-select" value={fundId} onChange={(e) => { setFundId(e.target.value); if (!methodPicked) setMethod(methodForFund(e.target.value)); }}>
           {funds.map((f) => <option key={f.fundId} value={f.fundId}>{f.name} · {money(f.balance)}</option>)}
         </select>
         {short && <div style={{ marginTop: 6, fontSize: 12, color: "var(--terracotta)", fontWeight: 600 }}>Only {money(fund.balance)} available in {fund.name}. You can add money when you pay.</div>}
         <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment method</label>
-        <select className="field-select" value={method} onChange={(e) => setMethod(e.target.value)}>
+        <select className="field-select" value={method} onChange={(e) => { setMethod(e.target.value); setMethodPicked(true); }}>
           {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
         </select>
         <label className="field-label" style={{ display: "block", marginTop: 12 }}>Payment date</label>

@@ -129,23 +129,19 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>Analysis</h1>
-        <div style={{ display: "flex", gap: 6 }}>
-          {[3, 6, 12].map((m) => (
-            <button key={m} className={`btn ${months === m ? "btn-dark" : "btn-outline"}`} onClick={() => setMonths(m)}>{m} months</button>
-          ))}
+      <div className="page-sticky-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Analysis</h1>
+          <div style={{ display: "flex", gap: 6 }}>
+            {[3, 6, 12].map((m) => (
+              <button key={m} className={`btn ${months === m ? "btn-dark" : "btn-outline"}`} onClick={() => setMonths(m)}>{m} months</button>
+            ))}
+          </div>
         </div>
-      </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Spending patterns and monthly trends. Rejected and group expenses are excluded.</p>
+        <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>Spending patterns and monthly trends. Rejected and group expenses are excluded.</p>
 
-      {error ? (
-        <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>
-      ) : !data ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><div className="spinner" /></div>
-      ) : (
-        <>
-          <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
+        {s && (
+          <div className="m-tiles-2" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 0 }}>
             <Tile
               label="THIS MONTH"
               value={money(s.thisMonth)}
@@ -156,7 +152,15 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
             <Tile label="MONTHLY AVERAGE" value={money(s.monthlyAverage)} sub={`Avg expense ${money(s.average)}`} />
             <Tile label="LARGEST EXPENSE" value={s.largest ? money(s.largest.amount) : "—"} sub={s.largest ? `${s.largest.description} · ${formatDate(s.largest.date)}` : ""} />
           </div>
+        )}
+      </div>
 
+      {error ? (
+        <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>
+      ) : !data ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 48 }}><div className="spinner" /></div>
+      ) : (
+        <>
           <Panel
             title="Monthly spend"
             action={<button className="btn btn-outline" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => setShowTable((v) => !v)}>{showTable ? "Chart" : "Table"}</button>}

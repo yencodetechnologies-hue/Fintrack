@@ -206,58 +206,60 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
   }
 
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>Add Funds</h1>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={handleExportFunds}
-            disabled={exporting}
-          >
-            {exporting ? "Exporting…" : "Export CSV"}
-          </button>
-          <button className="btn btn-primary" onClick={() => setMode(mode === "income" ? "" : "income")}>
-            ↗ Add Income
-          </button>
-          <button className="btn btn-outline" onClick={() => setMode(mode === "bank" ? "" : "bank")}>
-            + Add Bank Account
-          </button>
+    <>
+      <div className="page-sticky-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Add Funds</h1>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleExportFunds}
+              disabled={exporting}
+            >
+              {exporting ? "Exporting…" : "Export CSV"}
+            </button>
+            <button className="btn btn-primary" onClick={() => setMode(mode === "income" ? "" : "income")}>
+              ↗ Add Income
+            </button>
+            <button className="btn btn-outline" onClick={() => setMode(mode === "bank" ? "" : "bank")}>
+              + Add Bank Account
+            </button>
+          </div>
         </div>
-      </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
-        Track {cashName} and bank balances, and where company money moves.
-      </p>
+        <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>
+          Track {cashName} and bank balances, and where company money moves.
+        </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 28 }}>
-        <FundTile
-          icon="💵"
-          title={cashName}
-          subtitle="Cash in hand"
-          balance={cash}
-          isEditing={isEditingCashName}
-          editValue={editCashNameInput}
-          onEditChange={setEditCashNameInput}
-          onStartEdit={handleStartEditCashName}
-          onCancelEdit={handleCancelEditCashName}
-          onSaveEdit={handleSaveCashName}
-          savingEdit={savingCashName}
-          selected={viewFund === "cash"}
-          onSelect={() => setViewFund("cash")}
-        />
-        {accounts.map((a) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14, marginBottom: 0 }}>
           <FundTile
-            key={a._id}
-            icon="🏦"
-            title={a.bankName}
-            subtitle={[a.accountHolder, `A/C ${a.accountNumber}`, a.ifsc ? `IFSC ${a.ifsc}` : ""].filter(Boolean).join(" • ")}
-            balance={a.balance || 0}
-            onDelete={() => handleDelete(a)}
-            selected={viewFund === String(a._id)}
-            onSelect={() => setViewFund(String(a._id))}
+            icon="💵"
+            title={cashName}
+            subtitle="Cash in hand"
+            balance={cash}
+            isEditing={isEditingCashName}
+            editValue={editCashNameInput}
+            onEditChange={setEditCashNameInput}
+            onStartEdit={handleStartEditCashName}
+            onCancelEdit={handleCancelEditCashName}
+            onSaveEdit={handleSaveCashName}
+            savingEdit={savingCashName}
+            selected={viewFund === "cash"}
+            onSelect={() => setViewFund("cash")}
           />
-        ))}
+          {accounts.map((a) => (
+            <FundTile
+              key={a._id}
+              icon="🏦"
+              title={a.bankName}
+              subtitle={[a.accountHolder, `A/C ${a.accountNumber}`, a.ifsc ? `IFSC ${a.ifsc}` : ""].filter(Boolean).join(" • ")}
+              balance={a.balance || 0}
+              onDelete={() => handleDelete(a)}
+              selected={viewFund === String(a._id)}
+              onSelect={() => setViewFund(String(a._id))}
+            />
+          ))}
+        </div>
       </div>
 
 
@@ -327,7 +329,7 @@ export default function FundsPanel({ company, user, bankAccounts, cashBalance, o
         refreshKey={`${refreshKey}-${statementKey}`}
         onChanged={reloadAfterIncomeChange}
       />
-    </div>
+    </>
   );
 }
 

@@ -98,22 +98,26 @@ export default function VouchersPanel({ companyId, company, user, members, funds
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>Vouchers</h1>
-        <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Create voucher</button>
+      <div className="page-sticky-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Vouchers</h1>
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>+ Create voucher</button>
+        </div>
+        <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>Review and manage staff vouchers and confirm returned balances.</p>
+
+        {data && (
+          <div className="home-tiles staff m-voucher-tiles" style={{ maxWidth: 840, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
+            <div className="stat-card home-tile"><div className="home-tile-label">Given (not cancelled)</div><div className="home-tile-value">{money(totals.given)}</div></div>
+            <div className="stat-card home-tile"><div className="home-tile-label">Open, not claimed</div><div className="home-tile-value">{money(totals.open)}</div></div>
+            <div className="stat-card home-tile"><div className="home-tile-label">Held by staff</div><div className="home-tile-value" style={{ color: totals.held > 0 ? "var(--terracotta)" : undefined }}>{money(totals.held)}</div></div>
+          </div>
+        )}
       </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and manage staff vouchers and confirm returned balances.</p>
 
       {!data ? (
         <div style={{ display: "flex", justifyContent: "center", padding: 32 }}><div className="spinner dark" /></div>
       ) : (
         <>
-          <div className="home-tiles staff m-voucher-tiles" style={{ maxWidth: 840, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
-            <div className="stat-card home-tile"><div className="home-tile-label">Given (not cancelled)</div><div className="home-tile-value">{money(totals.given)}</div></div>
-            <div className="stat-card home-tile"><div className="home-tile-label">Open, not claimed</div><div className="home-tile-value">{money(totals.open)}</div></div>
-            <div className="stat-card home-tile"><div className="home-tile-label">Held by staff</div><div className="home-tile-value" style={{ color: totals.held > 0 ? "var(--terracotta)" : undefined }}>{money(totals.held)}</div></div>
-          </div>
-
           {pendingReturns.length > 0 && (
             <TableCard title="Hand-backs to confirm" meta={`${pendingReturns.length} waiting`} items={pendingReturns}>
               {(rows) => (

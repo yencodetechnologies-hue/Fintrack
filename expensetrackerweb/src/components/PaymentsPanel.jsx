@@ -223,23 +223,20 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>Payments</h1>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button type="button" className="btn btn-outline" onClick={handleExportPayments}>
-            Export CSV
-          </button>
-          <button className="btn btn-outline" onClick={load}>Refresh</button>
+      <div className="page-sticky-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Payments</h1>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-outline" onClick={handleExportPayments}>
+              Export CSV
+            </button>
+            <button className="btn btn-outline" onClick={load}>Refresh</button>
+          </div>
         </div>
-      </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Pay off what the company owes each person, from company funds or out of your own pocket.</p>
+        <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>Pay off what the company owes each person, from company funds or out of your own pocket.</p>
 
-
-      {!balances ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner dark" /></div>
-      ) : (
-        <>
-          <div className="pay-tiles" style={{ marginBottom: 20 }}>
+        {balances && (
+          <div className="pay-tiles" style={{ marginBottom: 0 }}>
             {[
               { roleKey: "all", label: "Total owed", value: money(totals.all), sub: `${totals.waiting} ${totals.waiting === 1 ? "person" : "people"} waiting`, color: totals.all > 0 ? "var(--terracotta)" : undefined, onClick: () => setRole("all") },
               ...groups.map((g) => ({
@@ -269,7 +266,13 @@ export default function PaymentsPanel({ companyId, company, user, members, funds
               );
             })}
           </div>
+        )}
+      </div>
 
+      {!balances ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><div className="spinner dark" /></div>
+      ) : (
+        <>
           {(() => {
             const filterControls = (
               <>

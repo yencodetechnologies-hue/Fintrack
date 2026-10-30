@@ -1109,154 +1109,156 @@ export default function DashboardPage() {
 
           {activeTab === "expenses" && (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-                <h1 style={{ fontSize: 22, margin: 0 }}>Expenses</h1>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="btn btn-outline" onClick={exportExpensesToCsv}>
-                    Export CSV
-                  </button>
-                  {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
-                </div>
-              </div>
-              <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and track company expense submissions.</p>
-              <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
-                <div className="m-chip-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                  {["All", "Submitted", "Approved", ...(isAdmin ? ["Verify"] : [])].map((filter) => (
-                    <button
-                      key={filter}
-                      className={`btn ${statusFilter === filter ? "btn-dark" : "btn-outline"}`}
-                      onClick={() => setStatusFilter(filter)}
-                    >
-                      {filter}
+              <div className="expenses-sticky-header">
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+                  <h1 style={{ fontSize: 22, margin: 0 }}>Expenses</h1>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" className="btn btn-outline" onClick={exportExpensesToCsv}>
+                      Export CSV
                     </button>
-                  ))}
+                    {can("post_expenses") && <button className="btn btn-primary" onClick={() => setModal({ type: "add" })}>+ Post Expense</button>}
+                  </div>
                 </div>
-
-                <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
-                  <svg
-                    width="15"
-                    height="15"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}
-                  >
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    className="field-input"
-                    style={{ paddingLeft: 34, paddingRight: search ? 30 : 12, height: 38, marginBottom: 0, width: "100%", background: "#fff" }}
-                    placeholder="Search expenses by description, staff, amount…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  {search && (
-                    <button
-                      type="button"
-                      onClick={() => setSearch("")}
-                      style={{
-                        position: "absolute",
-                        right: 8,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        background: "none",
-                        border: "none",
-                        color: "var(--muted)",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        padding: 4,
-                        lineHeight: 1,
-                      }}
-                      title="Clear search"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div
-                className="card m-filter-bar"
-                style={{
-                  marginBottom: 18,
-                  padding: "10px 14px",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  background: "#fff",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Posted by</span>
-                    <select
-                      className="field-select"
-                      style={{ height: 38, padding: "0 10px", fontSize: 13, width: "auto", minWidth: 150, marginBottom: 0 }}
-                      value={postedByFilter}
-                      onChange={(e) => setPostedByFilter(e.target.value)}
-                      title="Show expenses posted by"
-                    >
-                      <option value="all">Everyone</option>
-                      <option value="company">{company.name} (company)</option>
-                      <option value="managers">All {roleNames(company).managers.toLowerCase()}</option>
-                      <option value="staff">All {roleNames(company).staffs.toLowerCase()}</option>
-                      {members.some((m) => m.role === "admin") && (
-                        <optgroup label={roleNames(company).managers}>
-                          {members.filter((m) => m.role === "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
-                        </optgroup>
-                      )}
-                      {members.some((m) => m.role !== "admin") && (
-                        <optgroup label={roleNames(company).staffs}>
-                          {members.filter((m) => m.role !== "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
-                        </optgroup>
-                      )}
-                    </select>
+                <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Review and track company expense submissions.</p>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+                  <div className="m-chip-row" style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                    {["All", "Submitted", "Approved", ...(isAdmin ? ["Verify"] : [])].map((filter) => (
+                      <button
+                        key={filter}
+                        className={`btn ${statusFilter === filter ? "btn-dark" : "btn-outline"}`}
+                        onClick={() => setStatusFilter(filter)}
+                      >
+                        {filter}
+                      </button>
+                    ))}
                   </div>
 
-                  <PeriodFilter
-                    from={expenseDateFrom}
-                    to={expenseDateTo}
-                    years={expenseYears}
-                    onChange={(from, to) => { setExpenseDateFrom(from); setExpenseDateTo(to); }}
-                  />
-
-                  {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All" || postedByFilter !== "all") && (
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ height: 38, padding: "0 12px", fontSize: 13 }}
-                      onClick={() => {
-                        setSearch("");
-                        setExpenseDateFrom("");
-                        setExpenseDateTo("");
-                        setStatusFilter("All");
-                        setPostedByFilter("all");
-                      }}
+                  <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                      style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }}
                     >
-                      Reset
-                    </button>
-                  )}
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                      type="text"
+                      className="field-input"
+                      style={{ paddingLeft: 34, paddingRight: search ? 30 : 12, height: 38, marginBottom: 0, width: "100%", background: "#fff" }}
+                      placeholder="Search expenses by description, staff, amount…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    {search && (
+                      <button
+                        type="button"
+                        onClick={() => setSearch("")}
+                        style={{
+                          position: "absolute",
+                          right: 8,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          background: "none",
+                          border: "none",
+                          color: "var(--muted)",
+                          cursor: "pointer",
+                          fontSize: 14,
+                          padding: 4,
+                          lineHeight: 1,
+                        }}
+                        title="Clear search"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* total of everything the filters show (all dates in the period, search, status, posted by) */}
-                {groupedLedgerExpenses.length > 0 && (() => {
-                  const count = groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0);
-                  return (
-                    <div className="expense-filter-total">
-                      <small>{count} {count === 1 ? "expense" : "expenses"} · Total</small>
-                      <strong>{money(groupedLedgerExpenses.reduce((sum, g) => sum + g.total, 0))}</strong>
+                <div
+                  className="card m-filter-bar"
+                  style={{
+                    marginBottom: 0,
+                    padding: "10px 14px",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>Posted by</span>
+                      <select
+                        className="field-select"
+                        style={{ height: 38, padding: "0 10px", fontSize: 13, width: "auto", minWidth: 150, marginBottom: 0 }}
+                        value={postedByFilter}
+                        onChange={(e) => setPostedByFilter(e.target.value)}
+                        title="Show expenses posted by"
+                      >
+                        <option value="all">Everyone</option>
+                        <option value="company">{company.name} (company)</option>
+                        <option value="managers">All {roleNames(company).managers.toLowerCase()}</option>
+                        <option value="staff">All {roleNames(company).staffs.toLowerCase()}</option>
+                        {members.some((m) => m.role === "admin") && (
+                          <optgroup label={roleNames(company).managers}>
+                            {members.filter((m) => m.role === "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
+                          </optgroup>
+                        )}
+                        {members.some((m) => m.role !== "admin") && (
+                          <optgroup label={roleNames(company).staffs}>
+                            {members.filter((m) => m.role !== "admin").map((m) => <option key={m.userId} value={String(m.userId)}>{m.name}</option>)}
+                          </optgroup>
+                        )}
+                      </select>
                     </div>
-                  );
-                })()}
+
+                    <PeriodFilter
+                      from={expenseDateFrom}
+                      to={expenseDateTo}
+                      years={expenseYears}
+                      onChange={(from, to) => { setExpenseDateFrom(from); setExpenseDateTo(to); }}
+                    />
+
+                    {(search || expenseDateFrom || expenseDateTo || statusFilter !== "All" || postedByFilter !== "all") && (
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        style={{ height: 38, padding: "0 12px", fontSize: 13 }}
+                        onClick={() => {
+                          setSearch("");
+                          setExpenseDateFrom("");
+                          setExpenseDateTo("");
+                          setStatusFilter("All");
+                          setPostedByFilter("all");
+                        }}
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  {/* total of everything the filters show (all dates in the period, search, status, posted by) */}
+                  {groupedLedgerExpenses.length > 0 && (() => {
+                    const count = groupedLedgerExpenses.reduce((n, g) => n + g.items.length, 0);
+                    return (
+                      <div className="expense-filter-total">
+                        <small>{count} {count === 1 ? "expense" : "expenses"} · Total</small>
+                        <strong>{money(groupedLedgerExpenses.reduce((sum, g) => sum + g.total, 0))}</strong>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
               {groupedLedgerExpenses.length === 0 ? (
                 <div className="card" style={{ textAlign: "center", color: "var(--muted)", padding: 24 }}>
@@ -1367,23 +1369,8 @@ export default function DashboardPage() {
 
           {activeTab === "interco" && (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-                <h1 style={{ fontSize: 22, margin: 0 }}>Loans</h1>
-                <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                  <button type="button" className="btn btn-outline" onClick={exportLoansToCsv}>
-                    Export CSV
-                  </button>
-                  {isAdmin && can("intercompany") && (
-                    <>
-                      <button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button>
-                      <button className="btn btn-primary" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Record a loan</button>
-                    </>
-                  )}
-                </div>
-              </div>
-              <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>Track borrowings, lendings, and settlements with other companies and people.</p>
               {isAdmin && payerRequests.length > 0 && (
-                <div style={{ marginTop: 18 }}>
+                <div style={{ marginBottom: 18 }}>
                   <TableCard title="Payment confirmations" meta={`${payerRequests.length} waiting`} items={payerRequests}>
                     {(rows) => (
                       <>
@@ -1421,7 +1408,34 @@ export default function DashboardPage() {
                   </TableCard>
                 </div>
               )}
-              <LoansPanel companyId={companyId} user={user} loans={loans} pending={pendingBorrows} focus={loansFocus} refreshKey={tick("loans")} onOpenLoan={(loanId) => { const loan = loans.find((l) => String(l._id) === String(loanId)); if (loan) setViewingLoan(loan); }} />
+              <LoansPanel
+                companyId={companyId}
+                user={user}
+                loans={loans}
+                pending={pendingBorrows}
+                focus={loansFocus}
+                refreshKey={tick("loans")}
+                onOpenLoan={(loanId) => { const loan = loans.find((l) => String(l._id) === String(loanId)); if (loan) setViewingLoan(loan); }}
+                header={
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+                      <h1 style={{ fontSize: 22, margin: 0 }}>Loans</h1>
+                      <div className="m-action-row" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                        <button type="button" className="btn btn-outline" onClick={exportLoansToCsv}>
+                          Export CSV
+                        </button>
+                        {isAdmin && can("intercompany") && (
+                          <>
+                            <button className="btn btn-outline" onClick={() => { setRouteDraft({ sourceCompanyId: "", adminUserId: "", amount: "", method: "UPI", reference: "" }); setIntercoModal({ type: "routed" }); }}>Routed payment to manager</button>
+                            <button className="btn btn-primary" onClick={() => { setIntercoDraft({ companyId: "", amount: "", fundId: availableCompanyFunds[0]?.fundId || "cash", method: "UPI", reference: "" }); setIntercoModal({ type: "borrow" }); }}>Record a loan</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>Track borrowings, lendings, and settlements with other companies and people.</p>
+                  </>
+                }
+              />
             </>
           )}
 
@@ -2244,22 +2258,24 @@ function LedgerHistory({ companyId, userId, loader, title, isAdmin, onReverse, r
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-        <h1 style={{ fontSize: 22, margin: 0 }}>{title}</h1>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleExport}
-          disabled={!rows.length}
-        >
-          Export CSV
-        </button>
+      <div className="page-sticky-header">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
+          <h1 style={{ fontSize: 22, margin: 0 }}>{title}</h1>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={handleExport}
+            disabled={!rows.length}
+          >
+            Export CSV
+          </button>
+        </div>
+        <p style={{ color: "var(--muted)", margin: 0 }}>
+          {ledger
+            ? "Complete transaction ledger and record of all account entries."
+            : "Immutable timeline of all financial changes and user actions."}
+        </p>
       </div>
-      <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
-        {ledger
-          ? "Complete transaction ledger and record of all account entries."
-          : "Immutable timeline of all financial changes and user actions."}
-      </p>
       <TableCard title={title} meta={tableMeta(rows.length, paged.page, paged.pages)} page={paged.page} pages={paged.pages} onPage={setPage} count={rows.length} pageSize={pageSize} onPageSize={(n) => { setPageSize(n); setPage(1); }}>
       {!rows.length ? (
         <div className="dt-empty">No {title.toLowerCase()} records yet.</div>

@@ -216,9 +216,9 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
   }
 
   return (
-    <div>
+    <>
       {!embedded && (
-        <>
+        <div className="page-sticky-header">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
             <h1 style={{ fontSize: 22, margin: 0 }}>Accounts</h1>
             <button
@@ -230,12 +230,27 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
               {exporting ? "Exporting…" : "Export CSV"}
             </button>
           </div>
-          <p style={{ color: "var(--muted)", margin: "0 0 18px" }}>
+          <p style={{ color: "var(--muted)", margin: "0 0 14px" }}>
             Every money in and out of your Cash and bank accounts, with the balance after each one.
           </p>
-        </>
-      )}
 
+          {data?.summary && (
+            <div className="accounts-summary" style={{ marginBottom: 12 }}>
+              {/* nothing to carry in (e.g. All time from the start): no opening balance tile */}
+              {Number(data.summary.opening) !== 0 && <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>}
+              <div className="stat-card"><small>Debit (out)</small><strong className="out">{money(data.summary.moneyOut)}</strong></div>
+              <div className="stat-card"><small>Credit (in)</small><strong className="in">{money(data.summary.moneyIn)}</strong></div>
+              <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
+            </div>
+          )}
+
+          {/* search and period under the totals */}
+          <div className="card accounts-filters" style={{ marginBottom: 0 }}>
+            <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
+          </div>
+        </div>
+      )}
 
       {error ? (
         <div className="card" style={{ color: "var(--terracotta)" }}>{error}</div>
@@ -243,19 +258,23 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
         <div style={{ display: "flex", justifyContent: "center", padding: 50 }}><div className="spinner dark" /></div>
       ) : (
         <>
-          <div className="accounts-summary">
-            {/* nothing to carry in (e.g. All time from the start): no opening balance tile */}
-            {Number(data.summary.opening) !== 0 && <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>}
-            <div className="stat-card"><small>Debit (out)</small><strong className="out">{money(data.summary.moneyOut)}</strong></div>
-            <div className="stat-card"><small>Credit (in)</small><strong className="in">{money(data.summary.moneyIn)}</strong></div>
-            <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
-          </div>
+          {embedded && (
+            <>
+              <div className="accounts-summary">
+                {/* nothing to carry in (e.g. All time from the start): no opening balance tile */}
+                {Number(data.summary.opening) !== 0 && <div className="stat-card"><small>Opening balance</small><strong>{money(data.summary.opening)}</strong></div>}
+                <div className="stat-card"><small>Debit (out)</small><strong className="out">{money(data.summary.moneyOut)}</strong></div>
+                <div className="stat-card"><small>Credit (in)</small><strong className="in">{money(data.summary.moneyIn)}</strong></div>
+                <div className="stat-card"><small>Closing balance</small><strong>{money(data.summary.closing)}</strong></div>
+              </div>
 
-          {/* search and period under the totals */}
-          <div className="card accounts-filters">
-            <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
-          </div>
+              {/* search and period under the totals */}
+              <div className="card accounts-filters">
+                <input className="field-input" placeholder="Search details, account, person, reference, amount…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <PeriodFilter from={from} to={to} initialMode="month" onChange={(f, t) => { setFrom(f); setTo(t); }} />
+              </div>
+            </>
+          )}
 
           <TableCard
             title={fundName ? `${fundName} statement` : "Statement"}
@@ -363,7 +382,7 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
           onClose={() => { setViewing(null); setEditing(null); }}
         />
       )}
-    </div>
+    </>
   );
 }
 

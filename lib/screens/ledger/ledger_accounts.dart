@@ -17,7 +17,6 @@ class AccountsPage extends StatefulWidget {
 }
 
 class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
-  static const int _pageSize = 25;
   LedgerScope get s => widget.scope;
   final _fmt = DateFormat("yyyy-MM-dd");
   final _search = TextEditingController();
@@ -41,7 +40,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
   @override
   void initState() {
     super.initState();
-    _load();
+    ListPaging.load().then((_) => _load());
   }
 
   @override
@@ -66,7 +65,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
       _error = null;
     });
     final res = await LedgerService.accountsEntries(s.companyId, s.userId,
-        from: _fmt.format(from), to: _fmt.format(to), q: _query, page: _page, limit: _pageSize);
+        from: _fmt.format(from), to: _fmt.format(to), q: _query, page: _page, limit: ListPaging.size);
     if (!mounted || id != _request) return; // a newer period / page / search was picked meanwhile
     setState(() {
       _loading = false;
@@ -199,8 +198,6 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     final entries = List<Map<String, dynamic>>.from(_data?["entries"] ?? const []);
     final total = (_data?["total"] as num?)?.toInt() ?? 0;
     final pages = (_data?["pages"] as num?)?.toInt() ?? 1;
-    final first = total == 0 ? 0 : (_page - 1) * _pageSize + 1;
-    final last = (_page * _pageSize).clamp(0, total);
 
     return Theme(
       data: sheetTheme,
@@ -265,26 +262,28 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
                     clipBehavior: Clip.antiAlias,
                     child: Column(children: [
                       for (var i = 0; i < entries.length; i++) ...[
-                        if (i > 0) Divider(height: 1, color: kDark.withValues(alpha: 0.06)),
+                        if (i == 0 || dayKey(entries[i - 1]["at"]) != dayKey(entries[i]["at"]))
+                          listDayRow(dayKey(entries[i]["at"]), _dayTotals(entries, dayKey(entries[i]["at"])))
+                        else
+                          Divider(height: 1, color: kDark.withValues(alpha: 0.06)),
                         _entryTile(entries[i]),
                       ],
                     ]),
                   ),
                 ),
-              if (total > 0) ...[
-                const SizedBox(height: 10),
-                // pagination
-                Row(children: [
-                  Text("$first–$last of $total", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-                  const Spacer(),
-                  _pagerButton(Icons.chevron_left_rounded, "Prev", !_loading && _page > 1 ? () => _goTo(_page - 1) : null),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Text("$_page / $pages", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                  ),
-                  _pagerButton(Icons.chevron_right_rounded, "Next", !_loading && _page < pages ? () => _goTo(_page + 1) : null, iconAfter: true),
-                ]),
-              ],
+              pagerBar(
+                page: _page,
+                pages: pages,
+                total: total,
+                onPage: (p) {
+                  if (!_loading) _goTo(p);
+                },
+                onSize: (n) async {
+                  await ListPaging.setSize(n);
+                  setState(() => _page = 1);
+                  _load();
+                },
+              ),
               const SizedBox(height: 10),
               Text("Balance is Cash + all bank accounts after each entry. A transfer between your own accounts doesn't change it.",
                   style: GoogleFonts.inter(color: Colors.white60, fontSize: 12)),
@@ -295,22 +294,6 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     );
   }
 
-  Widget _pagerButton(IconData icon, String label, VoidCallback? onTap, {bool iconAfter = false}) => Material(
-        color: Colors.white.withValues(alpha: onTap == null ? 0.06 : 0.14),
-        shape: const StadiumBorder(),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              if (!iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
-              Text(label, style: GoogleFonts.inter(color: onTap == null ? Colors.white30 : Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-              if (iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
-            ]),
-          ),
-        ),
-      );
 
   Widget _summaryCard(Map summary) {
     Widget cell(String label, String value, {Color color = kForest}) => Expanded(
@@ -331,12 +314,15 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     return Container(
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
       child: Column(children: [
-        Row(children: [cell("Opening balance", inr(summary["opening"] ?? 0)), cell("Closing balance", inr(summary["closing"] ?? 0))]),
+        Row(children: [
+          // nothing to carry in (e.g. All time from the start): no opening balance
+          if (((summary["opening"] as num?) ?? 0) != 0) cell("Opening balance", inr(summary["opening"] ?? 0)),
+          cell("Closing balance", inr(summary["closing"] ?? 0)),
+        ]),
         line,
         Row(children: [
-          cell("Debit (out)", "−${inr(summary["moneyOut"] ?? 0)}", color: kTerracotta),
-          cell("Credit (in)", "+${inr(summary["moneyIn"] ?? 0)}"),
-          cell("Entries", "${summary["count"] ?? 0}", color: kDark),
+          cell("Debit (out)", inr(summary["moneyOut"] ?? 0), color: kTerracotta),
+          cell("Credit (in)", inr(summary["moneyIn"] ?? 0)),
         ]),
       ]),
     );
@@ -378,7 +364,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
             const SizedBox(height: 1),
             Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
             if (at != null)
-              Text(DateFormat("dd MMM yyyy · h:mm a").format(at), style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.45))),
+              Text(timeLabel(r["at"]), style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.45))),
           ]),
         ),
         const SizedBox(width: 8),
@@ -439,6 +425,25 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
               Navigator.pop(ctx);
               _editAmount(r);
             }),
+            // money added / a transfer can be removed (the money comes back out of that account)
+            if (r["editId"].toString().startsWith("income:"))
+              Center(
+                child: TextButton(
+                  onPressed: () async {
+                    final ok = await confirmDialog(ctx, "Delete this entry?", "${inr(transfer ? (r["transferAmount"] ?? 0) : amount.abs())} will be taken back out of ${r["account"] ?? "that account"}, and the entry removed.",
+                        confirmLabel: "Delete", danger: true);
+                    if (!ok || !ctx.mounted) return;
+                    final res = await LedgerService.deleteAccountsEntry(s.companyId, s.userId, r["editId"].toString());
+                    if (!ctx.mounted) return;
+                    if (handleResult(ctx, res, "Deleted · balances adjusted")) {
+                      Navigator.pop(ctx);
+                      notifyLedgerChanged();
+                      _load();
+                    }
+                  },
+                  child: const Text("Delete this entry", style: TextStyle(color: kTerracotta, fontWeight: FontWeight.w600)),
+                ),
+              ),
           ],
         ]));
   }
@@ -504,5 +509,22 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
       notifyLedgerChanged();
       _load();
     }
+  }
+
+  /// "3 entries · out ₹200.00 · in ₹500.00" for one day on this page (transfers between my accounts not counted).
+  String _dayTotals(List<Map<String, dynamic>> entries, String day) {
+    final rows = entries.where((e) => dayKey(e["at"]) == day).toList();
+    num into = 0, out = 0;
+    for (final e in rows) {
+      if (e["kind"] == "transfer") continue;
+      final a = (e["amount"] as num?) ?? 0;
+      if (a > 0) into += a;
+      if (a < 0) out -= a;
+    }
+    return [
+      "${rows.length} ${rows.length == 1 ? "entry" : "entries"}",
+      if (out > 0) "out ${inr(out)}",
+      if (into > 0) "in ${inr(into)}",
+    ].join(" · ");
   }
 }

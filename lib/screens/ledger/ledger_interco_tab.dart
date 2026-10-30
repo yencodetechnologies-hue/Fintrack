@@ -51,10 +51,12 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
   List<Map<String, dynamic>> _requests = [];
   final Map<String, String> _requestFunds = {};
   bool _loading = true;
+  int _partyPage = 1;
 
   @override
   void initState() {
     super.initState();
+    ListPaging.load().then((_) { if (mounted) setState(() {}); });
     _load();
   }
 
@@ -141,6 +143,7 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
 
   List<Widget> _partiesSection() {
     final parties = _parties;
+    final partyPage = ListPaging.slice(parties, _partyPage);
     final weOwe = parties.fold<double>(0, (t, p) => t + ((p["owed"] as double) > 0 ? p["owed"] as double : 0));
     final owedToUs = parties.fold<double>(0, (t, p) => t + ((p["owed"] as double) < 0 ? -(p["owed"] as double) : 0));
     Widget stat(String label, double v, Color c) => Expanded(
@@ -159,7 +162,7 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
       sectionTitle("Loans"),
       if (parties.isEmpty) _emptyCard("No loans yet. Use Record a loan when you borrow from a company or a person."),
       if (parties.isNotEmpty)
-        _listCard(parties.map((p) {
+        _listCard(partyPage.rows.map((p) {
           final owed = p["owed"] as double;
           final color = owed > 0 ? kTerracotta : owed < 0 ? kForest : kDark.withValues(alpha: 0.5);
           return InkWell(
@@ -195,6 +198,17 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
             ),
           );
         }).toList()),
+      if (parties.isNotEmpty)
+        pagerBar(
+          page: partyPage.page,
+          pages: partyPage.pages,
+          total: parties.length,
+          onPage: (p) => setState(() => _partyPage = p),
+          onSize: (n) async {
+            await ListPaging.setSize(n);
+            setState(() => _partyPage = 1);
+          },
+        ),
     ];
   }
 
@@ -936,6 +950,7 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
   @override
   Set<String> get ledgerTopics => const {"loans"};
 
+  int _rowPage = 1;
   Map<String, dynamic>? _data;
   String? _error;
   List<Map<String, dynamic>> _loans = [];
@@ -943,6 +958,7 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
   @override
   void initState() {
     super.initState();
+    ListPaging.load().then((_) { if (mounted) setState(() {}); });
     _loans = widget.loans;
     _load();
   }
@@ -1019,7 +1035,7 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
                             child: Text("No loans with ${widget.partyName}.", style: GoogleFonts.inter(color: kDark.withValues(alpha: 0.6))),
                           )
                         else if (rows.isNotEmpty)
-                          _statementCard(rows.map((r) {
+                          _statementCard(ListPaging.slice(rows, _rowPage).rows.map((r) {
                             final b = (r["balance"] as num?) ?? 0;
                             final particulars = r["particulars"]?.toString() ?? "";
                             return _statementLine(
@@ -1033,6 +1049,17 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
                               onTap: () => _openLoan(r["loanId"].toString()),
                             );
                           }).toList()),
+                        if (rows.isNotEmpty)
+                          pagerBar(
+                            page: ListPaging.slice(rows, _rowPage).page,
+                            pages: ListPaging.slice(rows, _rowPage).pages,
+                            total: rows.length,
+                            onPage: (p) => setState(() => _rowPage = p),
+                            onSize: (n) async {
+                              await ListPaging.setSize(n);
+                              setState(() => _rowPage = 1);
+                            },
+                          ),
                         if (pending.isNotEmpty) ...[
                           const SizedBox(height: 14),
                           Text("Awaiting confirmation", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),

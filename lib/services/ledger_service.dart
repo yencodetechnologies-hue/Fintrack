@@ -115,8 +115,8 @@ class LedgerService {
       _get("$_base/companies/$companyId/payables/$personId?userId=$userId");
 
   // ---- reports ----
-  static Future<Map<String, dynamic>> outstanding(String companyId, String userId) =>
-      _get("$_base/companies/$companyId/outstanding?userId=$userId");
+  static Future<Map<String, dynamic>> outstanding(String companyId, String userId, {String? role}) =>
+      _get("$_base/companies/$companyId/outstanding?${_q({"userId": userId, "role": role == "all" ? null : role})}");
 
   static Future<Map<String, dynamic>> analysis(String companyId, String userId, {int months = 12}) =>
       _get("$_base/companies/$companyId/analysis?userId=$userId&months=$months");
@@ -315,9 +315,10 @@ class LedgerService {
 
   /// Accounts statement: every money in/out with the balance after it, searched and paged on the server.
   static Future<Map<String, dynamic>> accountsEntries(String companyId, String userId,
-          {required String from, required String to, String q = "", int page = 1, int limit = 25}) =>
-      _get("$_base/companies/$companyId/accounts/entries?userId=$userId&from=$from&to=$to&q=${Uri.encodeQueryComponent(q)}&page=$page&limit=$limit");
-
+          {required String from, required String to, String q = "", int page = 1, int limit = 25, String? fund, bool movesOnly = false}) {
+    final extra = "${fund != null && fund.isNotEmpty ? "&fund=$fund" : ""}${movesOnly ? "&moves=1" : ""}";
+    return _get("$_base/companies/$companyId/accounts/entries?userId=$userId&from=$from&to=$to&q=${Uri.encodeQueryComponent(q)}&page=$page&limit=$limit$extra");
+  }
   /// Changes one Accounts entry's amount in place (money added, company-paid expense, borrowed loan, repayment).
   /// changes: amount, details, method, reference, date ("YYYY-MM-DDTHH:mm", India time) — any of them.
   static Future<Map<String, dynamic>> editAccountsEntry(String companyId, String userId, String editId, Map<String, dynamic> changes) =>
@@ -341,11 +342,11 @@ class LedgerService {
   static Future<Map<String, dynamic>> borrowSources(String companyId, String userId) =>
       _get("$_base/companies/$companyId/borrow-sources?userId=$userId");
 
-  static Future<Map<String, dynamic>> report(String companyId, String userId, {String? from, String? to, String? category}) =>
-      _get("$_base/companies/$companyId/report?${_q({"userId": userId, "from": from, "to": to, "category": category})}");
+  static Future<Map<String, dynamic>> report(String companyId, String userId, {String? from, String? to, String? category, String? role}) =>
+      _get("$_base/companies/$companyId/report?${_q({"userId": userId, "from": from, "to": to, "category": category, "role": role == "all" ? null : role})}");
 
-  static String exportUrl(String companyId, String userId, {required bool full, String? from, String? to}) =>
-      "$_base/companies/$companyId/export?${_q({"userId": userId, "scope": full ? "full" : "company", "from": from, "to": to})}";
+  static String exportUrl(String companyId, String userId, {required bool full, String? from, String? to, String? category, String? role}) =>
+      "$_base/companies/$companyId/export?${_q({"userId": userId, "scope": full ? "full" : "company", "from": from, "to": to, "category": category == "All" ? null : category, "role": role == "all" ? null : role})}";
 
   static Future<Map<String, dynamic>> updateSettings(String companyId, Map<String, dynamic> body) =>
       _post("$_base/companies/$companyId/settings", body);

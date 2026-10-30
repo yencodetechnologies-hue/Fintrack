@@ -130,6 +130,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
   String _from = "";
   String _to = "";
   String _category = "All";
+  String _role = "all";
   Map<String, dynamic>? _report;
   bool _loading = true;
 
@@ -142,7 +143,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
   Future<void> _load({bool quiet = false}) async {
     if (!quiet) setState(() => _loading = true);
     final res = await LedgerService.report(s.companyId, s.userId,
-        from: _from.isEmpty ? null : _from, to: _to.isEmpty ? null : _to, category: _category);
+        from: _from.isEmpty ? null : _from, to: _to.isEmpty ? null : _to, category: _category, role: _role);
     if (!mounted) return;
     setState(() {
       _report = res["report"];
@@ -191,6 +192,25 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
+              key: ValueKey("role_$_role"),
+              initialValue: _role,
+              isExpanded: true,
+              decoration: fieldDecoration("Role", icon: Icons.group_outlined),
+              items: [
+                const DropdownMenuItem(value: "all", child: Text("All Roles")),
+                DropdownMenuItem(value: "manager", child: Text(s.managersName)),
+                DropdownMenuItem(value: "staff", child: Text(s.staffsName)),
+                for (final r in List<Map<String, dynamic>>.from(s.company["customRoles"] ?? const []))
+                  DropdownMenuItem(value: "role:${r["_id"]}", child: Text(r["name"]?.toString() ?? "Custom role")),
+              ],
+              onChanged: (v) {
+                setState(() => _role = v ?? "all");
+                _load();
+              },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String>(
+              key: ValueKey("cat_$_category"),
               initialValue: _category,
               isExpanded: true,
               decoration: fieldDecoration("Category", icon: Icons.category_rounded),
@@ -200,7 +220,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
                 _load();
               },
             ),
-            if (_from.isNotEmpty || _to.isNotEmpty || _category != "All")
+            if (_from.isNotEmpty || _to.isNotEmpty || _category != "All" || _role != "all")
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
@@ -209,6 +229,7 @@ class _ReportViewState extends State<_ReportView> with LedgerAutoRefresh {
                       _from = "";
                       _to = "";
                       _category = "All";
+                      _role = "all";
                     });
                     _load();
                   },
@@ -266,6 +287,8 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
   @override
   Set<String> get ledgerTopics => const {"expenses", "balances", "loans", "funds"};
 
+  String _role = "all";
+
   Map<String, dynamic>? _data;
   String? _error;
 
@@ -276,7 +299,7 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
   }
 
   Future<void> _load() async {
-    final res = await LedgerService.outstanding(widget.scope.companyId, widget.scope.userId);
+    final res = await LedgerService.outstanding(widget.scope.companyId, widget.scope.userId, role: _role);
     if (!mounted) return;
     setState(() {
       if (res["success"] == true) {
@@ -297,6 +320,25 @@ class _OutstandingViewState extends State<_OutstandingView> with LedgerAutoRefre
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 30), children: [
+        _panel(
+          child: DropdownButtonFormField<String>(
+              key: ValueKey("role_$_role"),
+              initialValue: _role,
+            isExpanded: true,
+            decoration: fieldDecoration("Role", icon: Icons.group_outlined),
+            items: [
+              const DropdownMenuItem(value: "all", child: Text("All Roles")),
+              DropdownMenuItem(value: "manager", child: Text(widget.scope.managersName)),
+              DropdownMenuItem(value: "staff", child: Text(widget.scope.staffsName)),
+              for (final r in List<Map<String, dynamic>>.from(widget.scope.company["customRoles"] ?? const []))
+                DropdownMenuItem(value: "role:${r["_id"]}", child: Text(r["name"]?.toString() ?? "Custom role")),
+            ],
+            onChanged: (v) {
+              setState(() => _role = v ?? "all");
+              _load();
+            },
+          ),
+        ),
         _grid([
           _statTile("OWED TO MANAGERS", (t["owedToManagers"] as num?) ?? 0, color: kTerracotta),
           _statTile("OWED TO STAFF", (t["owedToStaff"] as num?) ?? 0, color: kTerracotta),

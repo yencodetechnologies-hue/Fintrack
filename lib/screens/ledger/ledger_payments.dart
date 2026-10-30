@@ -7,6 +7,7 @@ import 'ledger_fund_topup.dart';
 import 'ledger_dashboard_tab.dart' show BillsPreview;
 import 'ledger_period_filter.dart';
 import 'ledger_own_outstanding.dart';
+import 'ledger_funds.dart';
 
 num _round(num n) => (n * 100).round() / 100;
 num _max(num a, num b) => a > b ? a : b;
@@ -56,6 +57,8 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   // people filter: all | me | managers | staff — "me" shows my own outstanding (pay it here) instead of the list;
   // starts on my own bills; the filter shows everyone else's
   late String _role = "me";
+  int _peoplePage = 1;
+  int _historyPage = 1;
   String _show = "owed"; // owed | all
   String _sort = "owed"; // owed | claims | name
   final Set<String> _selected = {};
@@ -67,6 +70,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
   @override
   void initState() {
     super.initState();
+    ListPaging.load().then((_) { if (mounted) setState(() {}); });
     _load();
   }
 
@@ -160,11 +164,61 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     // Pay people lists everyone but me: my own expenses are paid from the Payments tab
     final others = people.where((p) => p.userId != s.userId).toList();
     final visible = _visible(others);
+    final peoplePage = ListPaging.slice(visible, _peoplePage);
     final payableVisible = visible.where(_payable).toList();
     final selectedPeople = people.where((p) => _selected.contains(p.userId) && _payable(p)).toList();
     final selectedTotal = _round(selectedPeople.fold<num>(0, (a, p) => a + p.owed));
     final allSelected = payableVisible.isNotEmpty && payableVisible.every((p) => _selected.contains(p.userId));
     num sum(Iterable<_Person> list) => _round(list.fold<num>(0, (a, p) => a + _max(0, p.owed)));
+
+    final totalOwed = sum(people);
+    final waitingCount = people.where((p) => p.owed > 0).length;
+    final myOwed = sum(people.where((p) => p.userId == s.userId));
+
+    final groups = <({String key, String label, num owed, int waiting, int count})>[
+      (
+        key: "admin",
+        label: "Owed to ${pluralRole(s.adminName).toLowerCase()}",
+        owed: sum(people.where((p) => p.role == "admin")),
+        waiting: people.where((p) => p.role == "admin" && p.owed > 0).length,
+        count: people.where((p) => p.role == "admin").length,
+      ),
+      (
+        key: "manager",
+        label: "Owed to ${s.managersName.toLowerCase()}",
+        owed: sum(people.where((p) => p.role == "manager")),
+        waiting: people.where((p) => p.role == "manager" && p.owed > 0).length,
+        count: people.where((p) => p.role == "manager").length,
+      ),
+      (
+        key: "staff",
+        label: "Owed to ${s.staffsName.toLowerCase()}",
+        owed: sum(people.where((p) => p.role == "staff")),
+        waiting: people.where((p) => p.role == "staff" && p.owed > 0).length,
+        count: people.where((p) => p.role == "staff").length,
+      ),
+      for (final r in List<Map<String, dynamic>>.from(s.company["customRoles"] ?? const []))
+        (
+          key: "role:${r["_id"]}",
+          label: "Owed to ${(r["name"]?.toString() ?? "Custom role").toLowerCase()}",
+          owed: sum(people.where((p) => p.role == "role:${r["_id"]}")),
+          waiting: people.where((p) => p.role == "role:${r["_id"]}" && p.owed > 0).length,
+          count: people.where((p) => p.role == "role:${r["_id"]}").length,
+        ),
+      (
+        key: "former",
+        label: "Owed to former members",
+        owed: sum(people.where((p) => p.role == "former")),
+        waiting: people.where((p) => p.role == "former" && p.owed > 0).length,
+        count: people.where((p) => p.role == "former").length,
+      ),
+    ].where((g) => g.key != "former" || g.owed > 0).toList();
+
+    final totalFunds = s.cashBalance + s.bankAccounts.fold<num>(0, (prev, b) => prev + ((b["balance"] as num?) ?? 0));
+    final fundsSub = [
+      "Cash ${inr(s.cashBalance)}",
+      for (final b in s.bankAccounts) "${b["bankName"] ?? "Bank"} ${inr(b["balance"] ?? 0)}"
+    ].take(2).join(" · ");
 
     final allHistory = _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference, Map<String, dynamic> tx})>().toList()
       // newest payment date first (a payment can be backdated)
@@ -180,6 +234,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
       if (hq.isNotEmpty && !"${h.name} ${h.how} ${h.by} ${h.reference}".toLowerCase().contains(hq)) return false;
       return true;
     }).toList();
+    final historyPage = ListPaging.slice(history, _historyPage);
 
     final input = InputDecoration(
       isDense: true,
@@ -239,43 +294,79 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                           style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
                     ),
                   ),
-                  if (!widget.mineOnly) SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    sliver: SliverList(delegate: SliverChildListDelegate([
-                  // one total only: what the company owes me (Payments tab) or everyone else (Pay people)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: widget.mineOnly
-                        ? _tile("Total owed to you", inr(sum(people.where((p) => p.userId == s.userId))), "Your approved expenses not yet paid back",
-                            sum(people.where((p) => p.userId == s.userId)) > 0 ? kTerracotta : kForest)
-                        : _tile("Total owed", inr(sum(others)), "${others.where((p) => p.owed > 0).length} ${others.where((p) => p.owed > 0).length == 1 ? "person" : "people"} waiting",
-                            sum(others) > 0 ? kTerracotta : kForest),
-                  ),
-                  // everyone-else view only: the people filters
-                  if (!widget.mineOnly) ...[
-                  const SizedBox(height: 4),
-                  _filterCard(
-                    _searchField(_search, "Search by name or email"),
-                    [
-                      _pill(Icons.group_outlined, _role, "all", {
-                        "all": "Everyone",
-                        "me": "${s.userName} (You)",
-                        "admin": pluralRole(s.adminName),
-                        "manager": s.managersName,
-                        "staff": s.staffsName,
-                        for (final r in List<Map<String, dynamic>>.from(s.company["customRoles"] ?? const [])) "role:${r["_id"]}": r["name"]?.toString() ?? "Custom role",
-                        // then every person, by name, with their role
-                        for (final p in ([..._people.where((p) => p.userId != s.userId)]..sort((a, b) => a.name.compareTo(b.name))))
-                          "person:${p.userId}": "${p.name} (${p.label})",
-                      }, (v) => _role = v),
-                      _pill(Icons.filter_list_rounded, _show, "owed", {"owed": "Owed only", "all": "Include settled"}, (v) => _show = v),
-                      _pill(Icons.swap_vert_rounded, _sort, "owed", {"owed": "Highest owed", "claims": "Most claims", "name": "Name A–Z"}, (v) => _sort = v),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ],
-                    ])),
-                  ),
+                  if (!widget.mineOnly)
+                    SliverToBoxAdapter(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Row(
+                          children: [
+                            _summaryTile(
+                              label: "Total owed",
+                              value: inr(totalOwed),
+                              sub: "$waitingCount ${waitingCount == 1 ? "person" : "people"} waiting",
+                              color: totalOwed > 0 ? kTerracotta : kForest,
+                              isSelected: _role == "all",
+                              onTap: () => setState(() => _role = "all"),
+                            ),
+                            _summaryTile(
+                              label: "Owed to you",
+                              value: inr(myOwed),
+                              sub: myOwed > 0 ? "Your unpaid expenses" : "Nothing owed",
+                              color: myOwed > 0 ? kTerracotta : kForest,
+                              isSelected: _role == "me",
+                              onTap: () => setState(() => _role = _role == "me" ? "all" : "me"),
+                            ),
+                            for (final g in groups)
+                              _summaryTile(
+                                label: g.label,
+                                value: inr(g.owed),
+                                sub: g.waiting > 0
+                                    ? "${g.waiting} ${g.waiting == 1 ? "person" : "people"} waiting"
+                                    : g.count > 0
+                                        ? "Nothing owed"
+                                        : "No one in this role",
+                                color: g.owed > 0 ? kTerracotta : null,
+                                isSelected: _role == g.key,
+                                onTap: () => setState(() => _role = _role == g.key ? "all" : g.key),
+                              ),
+                            _summaryTile(
+                              label: "Company funds",
+                              value: inr(totalFunds),
+                              sub: fundsSub.isEmpty ? "Tap to view funds" : fundsSub,
+                              color: kDark,
+                              isSelected: false,
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FundsPage(scope: s))),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (!widget.mineOnly)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      sliver: SliverList(delegate: SliverChildListDelegate([
+                        const SizedBox(height: 4),
+                        _filterCard(
+                          _searchField(_search, "Search by name or email"),
+                          [
+                            _pill(Icons.group_outlined, _role, "all", {
+                              "all": "Everyone",
+                              "me": "${s.userName} (You)",
+                              "admin": pluralRole(s.adminName),
+                              "manager": s.managersName,
+                              "staff": s.staffsName,
+                              for (final r in List<Map<String, dynamic>>.from(s.company["customRoles"] ?? const [])) "role:${r["_id"]}": r["name"]?.toString() ?? "Custom role",
+                              for (final p in ([..._people.where((p) => p.userId != s.userId)]..sort((a, b) => a.name.compareTo(b.name))))
+                                "person:${p.userId}": "${p.name} (${p.label})",
+                            }, (v) => _role = v),
+                            _pill(Icons.filter_list_rounded, _show, "owed", {"owed": "Owed only", "all": "Include settled"}, (v) => _show = v),
+                            _pill(Icons.swap_vert_rounded, _sort, "owed", {"owed": "Highest owed", "claims": "Most claims", "name": "Name A–Z"}, (v) => _sort = v),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                      ])),
+                    ),
                   // "Name (You)": what the company owes me, payable right here (amount / selected / all)
                   if (_role == "me") SliverPadding(padding: EdgeInsets.fromLTRB(16, widget.mineOnly ? 4 : 0, 16, widget.mineOnly ? 24 : 0), sliver: OwnOutstandingCard(scope: s, onPaid: _load, showEmpty: widget.mineOnly)),
                   if (!widget.mineOnly) SliverPadding(
@@ -305,11 +396,22 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                             }),
                             title: Text("Select all owed (${payableVisible.length})", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: kDark)),
                           ),
-                        for (var i = 0; i < visible.length; i++) ...[
+                        for (var i = 0; i < peoplePage.rows.length; i++) ...[
                           if (i > 0 || payableVisible.isNotEmpty) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _personRow(visible[i]),
+                          _personRow(peoplePage.rows[i]),
                         ],
                       ]),
+                    ),
+                  if (visible.isNotEmpty)
+                    pagerBar(
+                      page: peoplePage.page,
+                      pages: peoplePage.pages,
+                      total: visible.length,
+                      onPage: (p) => setState(() => _peoplePage = p),
+                      onSize: (n) async {
+                        await ListPaging.setSize(n);
+                        setState(() => _peoplePage = 1);
+                      },
                     ),
                   sectionTitle(widget.mineOnly ? "My payment history" : "Payment history"),
                   _filterCard(
@@ -326,32 +428,32 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                     Container(
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
                       child: Column(children: [
-                        for (var i = 0; i < history.length; i++) ...[
+                        for (var i = 0; i < historyPage.rows.length; i++) ...[
                           if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           InkWell(
-                            onTap: s.canEditEntries && history[i].tx["type"] == "reimburse" ? () => _editPayment(history[i]) : null,
+                            onTap: s.canEditEntries && historyPage.rows[i].tx["type"] == "reimburse" ? () => _editPayment(historyPage.rows[i]) : null,
                             child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                             child: Row(children: [
                               Expanded(
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(history[i].name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: kDark)),
+                                  Text(historyPage.rows[i].name, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: kDark)),
                                   const SizedBox(height: 2),
                                   Text(
                                     [
-                                      dateLabel(history[i].date),
-                                      history[i].how,
-                                      if (history[i].method.isNotEmpty) history[i].method,
-                                      if (history[i].reference.isNotEmpty) "Ref ${history[i].reference}",
-                                      "by ${history[i].by}",
+                                      dateLabel(historyPage.rows[i].date),
+                                      historyPage.rows[i].how,
+                                      if (historyPage.rows[i].method.isNotEmpty) historyPage.rows[i].method,
+                                      if (historyPage.rows[i].reference.isNotEmpty) "Ref ${historyPage.rows[i].reference}",
+                                      "by ${historyPage.rows[i].by}",
                                     ].join(" · "),
                                     style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6)),
                                   ),
                                 ]),
                               ),
                               const SizedBox(width: 10),
-                              Text(inr(history[i].amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kForest)),
-                              if (s.canEditEntries && history[i].tx["type"] == "reimburse") ...[
+                              Text(inr(historyPage.rows[i].amount), style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: kForest)),
+                              if (s.canEditEntries && historyPage.rows[i].tx["type"] == "reimburse") ...[
                                 const SizedBox(width: 6),
                                 Icon(Icons.edit_rounded, size: 14, color: kDark.withValues(alpha: 0.35)),
                               ],
@@ -360,6 +462,17 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                           ),
                         ],
                       ]),
+                    ),
+                  if (history.isNotEmpty)
+                    pagerBar(
+                      page: historyPage.page,
+                      pages: historyPage.pages,
+                      total: history.length,
+                      onPage: (p) => setState(() => _historyPage = p),
+                      onSize: (n) async {
+                        await ListPaging.setSize(n);
+                        setState(() => _historyPage = 1);
+                      },
                     ),
                     ])),
                   ),
@@ -499,19 +612,72 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
         child: _chip(Icons.calendar_today_rounded, _periodLabel, _historyFrom.isNotEmpty || _historyTo.isNotEmpty),
       );
 
-  Widget _tile(String label, String value, String sub, Color color) => Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label.toUpperCase(), style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: kDark.withValues(alpha: 0.55))),
-          const SizedBox(height: 4),
-          FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(value, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w800, color: color))),
-          if (sub.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
-          ],
-        ]),
+  Widget _summaryTile({
+    required String label,
+    required String value,
+    required String sub,
+    Color? color,
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) =>
+      Container(
+        width: 168,
+        margin: const EdgeInsets.only(right: 10),
+        child: Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isSelected ? kForest : const Color(0xFFE2E8F0),
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [BoxShadow(color: kForest.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 2))]
+                    : null,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(children: [
+                    Expanded(
+                      child: Text(label.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                              color: isSelected ? kForest : kDark.withValues(alpha: 0.55))),
+                    ),
+                    if (isSelected)
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(color: kForest, shape: BoxShape.circle),
+                      ),
+                  ]),
+                  const SizedBox(height: 6),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(value, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800, color: color ?? kDark)),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: GoogleFonts.inter(fontSize: 11, color: kDark.withValues(alpha: 0.55))),
+                ],
+              ),
+            ),
+          ),
+        ),
       );
+
 
   Widget _personRow(_Person p) {
     final me = p.userId == s.userId;

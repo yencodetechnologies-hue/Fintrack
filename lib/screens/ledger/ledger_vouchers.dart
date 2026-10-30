@@ -545,11 +545,13 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
   LedgerScope get s => widget.scope;
   Map<String, dynamic>? _data;
   String _filter = "all";
+  int _vPage = 1;
   final Set<String> _busy = {};
 
   @override
   void initState() {
     super.initState();
+    ListPaging.load().then((_) { if (mounted) setState(() {}); });
     _load();
   }
 
@@ -577,6 +579,7 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
     final d = _data;
     final vouchers = List<Map<String, dynamic>>.from(d?["vouchers"] ?? const []);
     final shown = _filter == "all" ? vouchers : vouchers.where((v) => v["status"] == _filter).toList();
+    final shownPage = ListPaging.slice(shown, _vPage);
     final pending = List<Map<String, dynamic>>.from(d?["returns"] ?? const []).where((r) => r["status"] == "pending").toList();
     final people = List<Map<String, dynamic>>.from(d?["people"] ?? const [])
         .where((p) => ((p["given"] as num?) ?? 0) != 0 || ((p["held"] as num?) ?? 0) != 0)
@@ -710,7 +713,10 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
                         DropdownMenuItem(value: "claimed", child: Text("Claimed")),
                         DropdownMenuItem(value: "cancelled", child: Text("Cancelled")),
                       ],
-                      onChanged: (v) => setState(() => _filter = v ?? "all"),
+                      onChanged: (v) => setState(() {
+                        _filter = v ?? "all";
+                        _vPage = 1;
+                      }),
                     ),
                   ]),
                   if (shown.isEmpty)
@@ -721,12 +727,22 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
                   else
                     card(
                       child: Column(children: [
-                        for (var i = 0; i < shown.length; i++) ...[
+                        for (var i = 0; i < shownPage.rows.length; i++) ...[
                           if (i > 0) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          _voucherRow(shown[i]),
+                          _voucherRow(shownPage.rows[i]),
                         ],
                       ]),
                     ),
+                  pagerBar(
+                    page: shownPage.page,
+                    pages: shownPage.pages,
+                    total: shown.length,
+                    onPage: (p) => setState(() => _vPage = p),
+                    onSize: (n) async {
+                      await ListPaging.setSize(n);
+                      setState(() => _vPage = 1);
+                    },
+                  ),
                 ]),
               ),
       ),

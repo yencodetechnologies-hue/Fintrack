@@ -50,6 +50,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
   @override
   void initState() {
     super.initState();
+    ListPaging.load().then((_) { if (mounted) setState(() {}); });
     _load();
   }
 
@@ -116,9 +117,9 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     });
   }
 
-  // Pagination: 25 a page over the filtered list, still grouped by day. A day split across pages keeps its full
+  // Pagination: the viewer's rows per page over the filtered list, still grouped by day. A day split across pages keeps its full
   // count and total in its header. Any filter / search change goes back to page 1.
-  static const int _perPage = 25;
+  int get _perPage => ListPaging.size;
   int _page = 1;
   String _pageFilterSig = "";
   final ScrollController _listScroll = ScrollController();
@@ -128,39 +129,16 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
     if (_listScroll.hasClients) _listScroll.animateTo(0, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
   }
 
-  Widget _pager(int total, int pages) {
-    Widget button(IconData icon, String label, VoidCallback? onTap, {bool iconAfter = false}) => Material(
-          color: Colors.white.withValues(alpha: onTap == null ? 0.06 : 0.14),
-          shape: const StadiumBorder(),
-          child: InkWell(
-            customBorder: const StadiumBorder(),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (!iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
-                Text(label, style: GoogleFonts.inter(color: onTap == null ? Colors.white30 : Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                if (iconAfter) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
-              ]),
-            ),
-          ),
-        );
-    final first = (_page - 1) * _perPage + 1;
-    final last = (_page * _perPage).clamp(0, total);
-    return Padding(
-      padding: const EdgeInsets.only(top: 12),
-      child: Row(children: [
-        Text("$first–$last of $total", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
-        const Spacer(),
-        button(Icons.chevron_left_rounded, "Prev", _page > 1 ? () => _goToPage(_page - 1) : null),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Text("$_page / $pages", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-        ),
-        button(Icons.chevron_right_rounded, "Next", _page < pages ? () => _goToPage(_page + 1) : null, iconAfter: true),
-      ]),
-    );
-  }
+  Widget _pager(int total, int pages) => pagerBar(
+        page: _page,
+        pages: pages,
+        total: total,
+        onPage: _goToPage,
+        onSize: (n) async {
+          await ListPaging.setSize(n);
+          setState(() => _page = 1);
+        },
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -377,7 +355,7 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
           ]),
           const SizedBox(height: 2),
           Text(
-            "${e["category"] ?? "General"} · ${postedByName(e, s.companyName)} · ${dateLabel(e["date"] ?? e["createdAt"])}${hasReceipt ? " · 📎 Receipt" : ""}",
+            "${timeLabel(e["createdAt"])} · ${e["category"] ?? "General"} · ${postedByName(e, s.companyName)}${hasReceipt ? " · 📎 Receipt" : ""}",
             style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 6),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 import '../../services/ledger_service.dart';
 import 'ledger_common.dart';
 import 'ledger_accounts.dart';
@@ -92,11 +91,12 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
 
   List<Map<String, dynamic>> _txs = [];
   bool _loading = true;
+  int _pageNo = 1;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    ListPaging.load().then((_) => _load());
   }
 
   Future<void> _load() async {
@@ -139,7 +139,35 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 if (_txs.isEmpty) emptyState("No transactions yet"),
-                ..._txs.map((t) {
+                ...() {
+                  final paged = ListPaging.slice(_txs, _pageNo);
+                  final rows = paged.rows;
+                  return [
+                    for (var i = 0; i < rows.length; i++) ...[
+                      // a header per day; each transaction shows just its time
+                      if (i == 0 || dayKey(rows[i - 1]["createdAt"]) != dayKey(rows[i]["createdAt"]))
+                        dayHeaderRow(dayKey(rows[i]["createdAt"]),
+                            trailing: "${rows.where((x) => dayKey(x["createdAt"]) == dayKey(rows[i]["createdAt"])).length} records"),
+                      _txCard(rows[i]),
+                    ],
+                    pagerBar(
+                      page: paged.page,
+                      pages: paged.pages,
+                      total: _txs.length,
+                      onPage: (p) => setState(() => _pageNo = p),
+                      onSize: (n) async {
+                        await ListPaging.setSize(n);
+                        setState(() => _pageNo = 1);
+                      },
+                    ),
+                  ];
+                }(),
+              ],
+            ),
+    );
+  }
+
+  Widget _txCard(Map<String, dynamic> t) {
                   final reversed = t["reversedBy"] != null;
                   return Container(
                     margin: const EdgeInsets.only(bottom: 4),
@@ -159,7 +187,7 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text("${t["memo"]} · ${dateLabel(t["createdAt"])} · ${nameOf(t["createdBy"])}",
+                        Text("${t["memo"]} · ${timeLabel(t["createdAt"])} · ${nameOf(t["createdBy"])}",
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.inter(fontSize: 11, height: 1.2, color: kDark.withValues(alpha: 0.6))),
@@ -189,10 +217,6 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
                       ],
                     ),
                   );
-                }),
-              ],
-            ),
-    );
   }
 }
 
@@ -215,11 +239,12 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
   bool _loading = true;
   String? _error;
   String _action = "All";
+  int _pageNo = 1;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    ListPaging.load().then((_) => _load());
   }
 
   Future<void> _load() async {
@@ -295,11 +320,37 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
                                   child: Text(a == "All" ? "All actions" : a.replaceAll("_", " ")),
                                 ))
                             .toList(),
-                        onChanged: (v) => setState(() => _action = v ?? "All"),
+                        onChanged: (v) => setState(() {
+                          _action = v ?? "All";
+                          _pageNo = 1;
+                        }),
                       ),
                       const SizedBox(height: 10),
                       if (shown.isEmpty) emptyState("No activity recorded"),
-                      ...shown.map((l) {
+                      for (final (i, l) in ListPaging.slice(shown, _pageNo).rows.indexed) ...[
+                        if (i == 0 || dayKey(ListPaging.slice(shown, _pageNo).rows[i - 1]["at"]) != dayKey(l["at"]))
+                          dayHeaderRow(dayKey(l["at"]),
+                              trailing: "${ListPaging.slice(shown, _pageNo).rows.where((x) => dayKey(x["at"]) == dayKey(l["at"])).length} records"),
+                        _auditCard(l),
+                      ],
+                      pagerBar(
+                        page: ListPaging.slice(shown, _pageNo).page,
+                        pages: ListPaging.slice(shown, _pageNo).pages,
+                        total: shown.length,
+                        onPage: (p) => setState(() => _pageNo = p),
+                        onSize: (n) async {
+                          await ListPaging.setSize(n);
+                          setState(() => _pageNo = 1);
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _auditCard(Map<String, dynamic> l) {
+                        {
                         final at = DateTime.tryParse(l["at"]?.toString() ?? "")?.toLocal();
                         final flagged = l["action"] == "reverse" || l["action"] == "verify";
                         return ledgerCard(
@@ -310,7 +361,7 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text("${nameOf(l["userId"], "Someone")} · ${l["action"].toString().replaceAll("_", " ")} ${l["object"].toString().replaceAll("advance_return", "hand-back").replaceAll("_", " ")}", style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: kDark)),
-                                    Text(at == null ? "" : DateFormat("dd MMM yyyy, hh:mm a").format(at), style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
+                                    Text(at == null ? "" : timeLabel(l["at"]), style: GoogleFonts.inter(fontSize: 12, color: kDark.withValues(alpha: 0.6))),
                                   ],
                                 ),
                               ),
@@ -318,11 +369,7 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
                             ],
                           ),
                         );
-                      }),
-                    ],
-                  ),
-                ),
-    );
+                        }
   }
 }
 

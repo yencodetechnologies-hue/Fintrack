@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 export '../../services/ledger_events.dart';
 
 const Color kForest = Color(0xFF195754);
@@ -205,6 +206,36 @@ String dateLabel(dynamic raw) {
   final d = raw == null ? null : DateTime.tryParse(raw.toString())?.toLocal();
   return d == null ? "" : DateFormat("dd MMM yyyy").format(d);
 }
+
+String dayHeaderLabel(dynamic raw) {
+  final d = raw is DateTime ? raw : (raw == null ? null : DateTime.tryParse(raw.toString())?.toLocal());
+  if (d == null) return "Undated";
+  final now = DateTime.now();
+  final yesterday = now.subtract(const Duration(days: 1));
+  bool same(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  if (same(d, now)) return "Today · ${DateFormat("dd MMM yyyy").format(d)}";
+  if (same(d, yesterday)) return "Yesterday · ${DateFormat("dd MMM yyyy").format(d)}";
+  return DateFormat("dd MMM yyyy").format(d);
+}
+
+Widget dayHeaderRow(String label, {String? trailing}) => Padding(
+      padding: const EdgeInsets.fromLTRB(2, 10, 2, 6),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white),
+            const SizedBox(width: 5),
+            Text(label, style: GoogleFonts.inter(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+          ]),
+        ),
+        if (trailing != null && trailing.isNotEmpty) ...[
+          const Spacer(),
+          Text(trailing, style: GoogleFonts.inter(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
+        ],
+      ]),
+    );
 
 String idOf(dynamic ref) {
   if (ref == null) return "";
@@ -679,3 +710,115 @@ class NewLender {
 
 /// A lender's name in a picker: people are marked "(person)", outside companies "(outside)".
 String lenderLabel(Map c) => "${c["name"]}${c["lenderKind"] == "person" ? " (person)" : c["external"] == true ? " (outside)" : ""}";
+
+// ---------- lists: rows per page and day headers (same as the web) ----------
+
+/// Rows per page, chosen by the viewer and remembered on this phone (one choice for every list).
+class ListPaging {
+  static const sizes = [10, 25, 50, 100];
+  static int size = 25;
+  static bool _loaded = false;
+  static Future<void> load() async {
+    if (_loaded) return;
+    _loaded = true;
+    try {
+      final saved = (await SharedPreferences.getInstance()).getInt("et_page_size");
+      if (saved != null && sizes.contains(saved)) size = saved;
+    } catch (_) {}
+  }
+
+  static Future<void> setSize(int n) async {
+    size = n;
+    try {
+      await (await SharedPreferences.getInstance()).setInt("et_page_size", n);
+    } catch (_) {}
+  }
+
+  /// The rows of one page, with the page clamped to what exists.
+  static ({List<T> rows, int page, int pages}) slice<T>(List<T> all, int page) {
+    final pages = all.isEmpty ? 1 : ((all.length + size - 1) ~/ size);
+    final p = page.clamp(1, pages);
+    final start = (p - 1) * size;
+    return (rows: all.sublist(start.clamp(0, all.length), (start + size).clamp(0, all.length)), page: p, pages: pages);
+  }
+}
+
+/// "Rows 25 ▾    ‹ Prev   2 / 5   Next ›" under a list, in white on the green background.
+/// Shown whenever the list has rows (even one page), like the web.
+Widget pagerBar({required int page, required int pages, required int total, required ValueChanged<int> onPage, required ValueChanged<int> onSize}) {
+  if (total == 0) return const SizedBox.shrink();
+  Widget arrow(IconData icon, String label, VoidCallback? onTap, {bool after = false}) => Material(
+        color: Colors.white.withValues(alpha: onTap == null ? 0.06 : 0.14),
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (!after) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
+              Text(label, style: GoogleFonts.inter(color: onTap == null ? Colors.white30 : Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+              if (after) Icon(icon, size: 18, color: onTap == null ? Colors.white30 : Colors.white),
+            ]),
+          ),
+        ),
+      );
+  return Padding(
+    padding: const EdgeInsets.only(top: 10),
+    child: Row(children: [
+      Text("Rows", style: GoogleFonts.inter(color: Colors.white70, fontSize: 12)),
+      const SizedBox(width: 6),
+      Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(16)),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int>(
+            value: ListPaging.size,
+            dropdownColor: kForestDark,
+            iconEnabledColor: Colors.white,
+            style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+            items: [for (final n in ListPaging.sizes) DropdownMenuItem(value: n, child: Text("$n"))],
+            onChanged: (n) {
+              if (n != null) onSize(n);
+            },
+          ),
+        ),
+      ),
+      const Spacer(),
+      arrow(Icons.chevron_left_rounded, "Prev", page > 1 ? () => onPage(page - 1) : null),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Text("$page / $pages", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+      ),
+      arrow(Icons.chevron_right_rounded, "Next", page < pages ? () => onPage(page + 1) : null, after: true),
+    ]),
+  );
+}
+
+/// A day's header inside a white list: the date in bold, and its count / totals on the right.
+Widget listDayRow(String date, String trailing) => Container(
+      width: double.infinity,
+      color: const Color(0xFFF1F5F9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      child: Row(children: [
+        Text(date.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.4, color: kDark)),
+        const Spacer(),
+        Flexible(
+          child: Text(trailing, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: kDark.withValues(alpha: 0.75))),
+        ),
+      ]),
+    );
+
+/// "29 Oct 2026" (local time) for grouping rows by day; "" when the date is missing.
+String dayKey(dynamic at) {
+  final d = DateTime.tryParse(at?.toString() ?? "")?.toLocal();
+  return d == null ? "" : DateFormat("dd MMM yyyy").format(d);
+}
+
+/// "11:50 am" (local time).
+String timeLabel(dynamic at) {
+  final d = DateTime.tryParse(at?.toString() ?? "")?.toLocal();
+  return d == null ? "" : DateFormat("h:mm a").format(d).toLowerCase();
+}

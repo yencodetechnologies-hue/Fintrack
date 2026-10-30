@@ -46,16 +46,26 @@ class LedgerMoreTab extends StatelessWidget {
   }
 }
 
-Widget _page(String title, Widget body) => Theme(data: sheetTheme, child: Scaffold(
-      backgroundColor: kForest,
-      appBar: AppBar(
+Widget _page(String title, {required Widget body, Widget? action}) => Theme(
+      data: sheetTheme,
+      child: Scaffold(
         backgroundColor: kForest,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        appBar: AppBar(
+          backgroundColor: kForest,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          title: Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          actions: [
+            if (action != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: action,
+              ),
+          ],
+        ),
+        body: body,
       ),
-      body: body,
-    ));
+    );
 
 const Map<String, String> _txLabels = {
   "admin_paid": "Paid by manager",
@@ -108,6 +118,33 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
     });
   }
 
+Future<void> _exportLedger() async {
+    if (_txs.isEmpty) {
+      toast(context, "No transactions to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Transaction", "By", "Entries", "Amount", "Status"]
+    ];
+    for (final t in _txs) {
+      final at = DateTime.tryParse(t["date"]?.toString() ?? t["createdAt"]?.toString() ?? "")?.toLocal();
+      final total = (t["entries"] as List? ?? []).fold<num>(0, (sum, e) => sum + ((e["debit"] as num?) ?? 0));
+      final entriesSummary = (t["entries"] as List? ?? [])
+          .map((e) => "${((e["debit"] as num?) ?? 0) > 0 ? "Dr" : "Cr"} ${nameOf(e["accountId"], "Account")} (${inr(e["debit"] ?? e["credit"] ?? 0)})")
+          .join("; ");
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        t["memo"]?.toString() ?? _txLabels[t["type"]] ?? t["type"]?.toString() ?? "",
+        nameOf(t["createdBy"], "Staff"),
+        entriesSummary,
+        total > 0 ? total.toStringAsFixed(2) : "",
+        t["reversedBy"] != null ? "Reversed" : "Active",
+      ]);
+    }
+    await shareCsv(context, "${widget.scope.companyName}-ledger.csv", rows);
+  }
+
   Future<void> _reverse(Map<String, dynamic> t) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -133,7 +170,8 @@ class _LedgerPageState extends State<_LedgerPage> with LedgerAutoRefresh {
   Widget build(BuildContext context) {
     return _page(
       "Ledger",
-      _loading
+      action: exportCsvButton(_exportLedger),
+      body: _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -266,13 +304,36 @@ class _AuditPageState extends State<_AuditPage> with LedgerAutoRefresh {
     });
   }
 
+  Future<void> _exportAudit() async {
+    final logs = _action == "All" ? _logs : _logs.where((l) => l["action"] == _action).toList();
+    if (logs.isEmpty) {
+      toast(context, "No activity to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Action", "By", "Record"]
+    ];
+    for (final l in logs) {
+      final at = DateTime.tryParse(l["at"]?.toString() ?? "")?.toLocal();
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        l["action"]?.toString().replaceAll("_", " ") ?? "",
+        nameOf(l["userId"], "Someone"),
+        "${l["object"]?.toString() ?? ""} ${l["details"]?.toString() ?? ""}".trim(),
+      ]);
+    }
+    await shareCsv(context, "${widget.scope.companyName}-audit-log.csv", rows);
+  }
+
   @override
   Widget build(BuildContext context) {
     final actions = {"All", ..._logs.map((l) => l["action"].toString())}.toList();
     final shown = _action == "All" ? _logs : _logs.where((l) => l["action"] == _action).toList();
     return _page(
       "Audit log",
-      _loading
+      action: exportCsvButton(_exportAudit),
+      body: _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.white))
           : _error != null
               ? Center(

@@ -5006,3 +5006,6 @@ a {
   accent-color: var(--forest);
   cursor: pointer;
 }
+/* a transfer between my own accounts: shown in both columns, grey */
+.dt td.num.transfer-cell { color: var(--muted); font-weight: 600; }
+.dt td.num.transfer-cell .dt-sub { font-weight: 500; }

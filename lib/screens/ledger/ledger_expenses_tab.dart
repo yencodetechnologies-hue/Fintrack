@@ -107,6 +107,32 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
 
   bool get _filtering => _search.text.isNotEmpty || _from.isNotEmpty || _to.isNotEmpty || _status != "All" || _postedBy != "all";
 
+  Future<void> _exportExpenses() async {
+    final items = _filtered;
+    if (items.isEmpty) {
+      toast(context, "No expenses to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Description", "Category", "Posted By", "Status", "Amount", "Verification", "Payment Method"]
+    ];
+    for (final e in items) {
+      final at = DateTime.tryParse(e["date"]?.toString() ?? e["createdAt"]?.toString() ?? "")?.toLocal();
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        e["description"]?.toString() ?? "",
+        e["category"]?.toString() ?? "",
+        postedByName(e, s.companyName),
+        expenseStatusLabel(e, s.companyName),
+        ((e["amount"] as num?) ?? 0).toStringAsFixed(2),
+        e["verification"]?.toString() ?? "",
+        e["paymentMode"]?.toString() ?? "",
+      ]);
+    }
+    await shareCsv(context, "${s.companyName}-expenses.csv", rows);
+  }
+
   void _reset() {
     setState(() {
       _search.clear();
@@ -179,24 +205,32 @@ class _LedgerExpensesTabState extends State<LedgerExpensesTab> with LedgerAutoRe
                 controller: _listScroll,
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 96),
                 children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: ["All", "Submitted", "Approved", if (s.isAdmin) "Verify"]
-                          .map((f) => Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  label: Text(f),
-                                  selected: _status == f,
-                                  selectedColor: Colors.white,
-                                  backgroundColor: kForestDark,
-                                  showCheckmark: false,
-                                  labelStyle: GoogleFonts.inter(color: _status == f ? kForest : Colors.white, fontWeight: FontWeight.w700),
-                                  onSelected: (_) => setState(() => _status = f),
-                                ),
-                              ))
-                          .toList(),
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: ["All", "Submitted", "Approved", if (s.isAdmin) "Verify"]
+                                .map((f) => Padding(
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: ChoiceChip(
+                                        label: Text(f),
+                                        selected: _status == f,
+                                        selectedColor: Colors.white,
+                                        backgroundColor: kForestDark,
+                                        showCheckmark: false,
+                                        labelStyle: GoogleFonts.inter(color: _status == f ? kForest : Colors.white, fontWeight: FontWeight.w700),
+                                        onSelected: (_) => setState(() => _status = f),
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      exportCsvButton(_exportExpenses),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   _filterCard(),

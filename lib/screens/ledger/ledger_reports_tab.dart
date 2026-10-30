@@ -22,11 +22,14 @@ class _LedgerReportsTabState extends State<LedgerReportsTab> {
   Widget build(BuildContext context) {
     final s = widget.scope;
     // Report + Outstanding need "Reports & CSV export"; Analysis has its own switch
-    final views = [if (s.can("reports")) "report", if (s.can("reports")) "outstanding", if (s.can("analysis")) "analysis"];
+    // Reports is turned off for now (same as the web): only Analysis is shown
+    // final views = [if (s.can("reports")) "report", if (s.can("reports")) "outstanding", if (s.can("analysis")) "analysis"];
+    final views = [if (s.can("analysis")) "analysis"];
     if (views.isEmpty) return const SizedBox.shrink();
     final view = views.contains(_view) ? _view : views.first;
     return Column(children: [
-      Padding(
+      // the view switcher only when there is more than one view
+      if (views.length > 1) Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
         child: SizedBox(
           width: double.infinity,

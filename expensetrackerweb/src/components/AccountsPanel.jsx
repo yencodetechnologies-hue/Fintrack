@@ -346,7 +346,17 @@ export default function AccountsPanel({ companyId, user, canEdit = false, onChan
                         <td>{r.account || "—"}</td>
                         {!movesOnly && <td>{r.method || "—"}{r.reference && <span className="dt-sub dt-mono">{r.reference}</span>}</td>}
                         {transfer ? (
-                          <td className="num muted" colSpan={2} style={{ textAlign: "center" }}>⇄ moved {money(r.transferAmount)}</td>
+                          // a move between my own accounts: out of one (debit) and into the other (credit); grey, since the total stays the same
+                          <>
+                            <td className="num transfer-cell">
+                              {money(r.transferAmount)}
+                              <span className="dt-sub">from {String(r.account || "").split(" → ")[0] || "account"}</span>
+                            </td>
+                            <td className="num transfer-cell">
+                              {money(r.transferAmount)}
+                              <span className="dt-sub">to {String(r.account || "").split(" → ")[1] || "account"}</span>
+                            </td>
+                          </>
                         ) : (
                           <>
                             <td className="num out">{r.amount < 0 ? money(-r.amount) : "—"}</td>

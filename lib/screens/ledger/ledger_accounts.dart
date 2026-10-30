@@ -190,7 +190,36 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
             const Icon(Icons.expand_more_rounded, size: 18, color: kForest),
           ]),
         ),
-      );
+      );  Future<void> _exportAccounts() async {
+    final entries = List<Map<String, dynamic>>.from(_data?["entries"] ?? const []);
+    if (entries.isEmpty) {
+      toast(context, "No entries to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Details", "Category", "Account", "Method", "Reference", "Debit (Out)", "Credit (In)", "Balance After", "Recorded By"]
+    ];
+    for (final e in entries) {
+      final at = DateTime.tryParse(e["at"]?.toString() ?? "")?.toLocal();
+      final amount = (e["amount"] as num?) ?? 0;
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        e["details"]?.toString().isNotEmpty == true ? e["details"] : (e["label"] ?? ""),
+        e["category"] ?? "",
+        e["account"] ?? "",
+        e["method"] ?? "",
+        e["reference"] ?? "",
+        amount < 0 ? (-amount).toStringAsFixed(2) : "",
+        amount > 0 ? amount.toStringAsFixed(2) : "",
+        ((e["balance"] as num?) ?? 0).toStringAsFixed(2),
+        e["by"] ?? "",
+      ]);
+    }
+    await shareCsv(context, "${s.companyName}-accounts.csv", rows);
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -208,6 +237,12 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
           foregroundColor: Colors.white,
           elevation: 0,
           title: Text("Accounts", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: exportCsvButton(_exportAccounts),
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: _load,
@@ -337,13 +372,17 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     final title = details.isNotEmpty ? details : r["label"]?.toString() ?? "Entry";
     final sub = [
       if (details.isNotEmpty) r["label"],
-      r["account"],
+      // a transfer names its two accounts beside the amount instead
+      if (!transfer) r["account"],
       if ((r["category"]?.toString() ?? "").isNotEmpty) r["category"],
       if ((r["method"]?.toString() ?? "").isNotEmpty) r["method"],
       if ((r["reference"]?.toString() ?? "").isNotEmpty) "Ref ${r["reference"]}",
       if ((r["by"]?.toString() ?? "").isNotEmpty) "by ${r["by"]}",
     ].join(" · ");
-    final amountText = transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : inr(amount.abs());
+    final amountText = transfer ? inr(r["transferAmount"] ?? 0) : inr(amount.abs());
+    // a move between my own accounts: out of one, into the other (grey: the total stays the same)
+    final parts = (r["account"]?.toString() ?? "").split(" → ");
+    final fromTo = parts.length == 2 ? "${parts[0]} → ${parts[1]}" : (r["account"]?.toString() ?? "");
     final amountColor = transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta);
 
     return InkWell(
@@ -370,6 +409,8 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
         const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(amountText, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w800, color: amountColor)),
+          if (transfer && fromTo.isNotEmpty)
+            Text(fromTo, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.5))),
           const SizedBox(height: 2),
           Text("Bal ${inr(r["balance"] ?? 0)}", style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: kDark.withValues(alpha: 0.55))),
         ]),
@@ -408,7 +449,7 @@ class _AccountsPageState extends State<AccountsPage> with LedgerAutoRefresh {
     ];
     final details = r["details"]?.toString() ?? "";
     await showLedgerSheet(context, details.isNotEmpty ? details : r["label"]?.toString() ?? "Entry", (ctx) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(transfer ? "⇄ ${inr(r["transferAmount"] ?? 0)}" : inr(amount.abs()),
+          Text(inr(transfer ? (r["transferAmount"] ?? 0) : amount.abs()),
               style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w800, color: transfer ? kDark.withValues(alpha: 0.5) : (amount > 0 ? kForest : kTerracotta))),
           const SizedBox(height: 10),
           for (final l in lines)

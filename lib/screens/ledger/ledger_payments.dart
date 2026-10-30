@@ -158,6 +158,22 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     );
   }
 
+  Future<void> _exportPayments() async {
+    final list = _people;
+    if (list.isEmpty && _txs.isEmpty) {
+      toast(context, "Nothing to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Type", "Name / Person", "Role / Paid By", "How / Details", "Method", "Reference", "Amount Owed / Paid", "Date"],
+      for (final p in list)
+        ["Owed", p.name, p.label, "${p.claims} claims", "", "", p.owed.toStringAsFixed(2), ""],
+      for (final h in _txs.map(_historyRow).whereType<({String name, String how, num amount, String date, String by, String method, String reference, Map<String, dynamic> tx})>())
+        ["History", h.name, h.by, h.how, h.method, h.reference, h.amount.toStringAsFixed(2), csvDate(h.date)],
+    ];
+    await shareCsv(context, "${s.companyName}-payments.csv", rows);
+  }
+
   @override
   Widget build(BuildContext context) {
     final people = _people;
@@ -173,7 +189,6 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
 
     final totalOwed = sum(people);
     final waitingCount = people.where((p) => p.owed > 0).length;
-    final myOwed = sum(people.where((p) => p.userId == s.userId));
 
     final groups = <({String key, String label, num owed, int waiting, int count})>[
       (
@@ -236,6 +251,7 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
     }).toList();
     final historyPage = ListPaging.slice(history, _historyPage);
 
+
     final input = InputDecoration(
       isDense: true,
       filled: true,
@@ -256,6 +272,12 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                 foregroundColor: Colors.white,
                 elevation: 0,
                 title: Text("Payments", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: exportCsvButton(_exportPayments),
+                  ),
+                ],
               ),
         bottomNavigationBar: selectedPeople.isEmpty || _role == "me"
             ? null
@@ -288,10 +310,20 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                   if (!widget.mineOnly) SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
                     sliver: SliverToBoxAdapter(
-                      child: Text(widget.mineOnly
-                              ? "What ${s.companyName} owes you for your expenses. Pay yourself from company funds, all at once or bill by bill."
-                              : "Pay off what the company owes each person, from company funds or out of your own pocket.",
-                          style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(widget.mineOnly
+                                    ? "What ${s.companyName} owes you for your expenses. Pay yourself from company funds, all at once or bill by bill."
+                                    : "Pay off what the company owes each person, from company funds or out of your own pocket.",
+                                style: GoogleFonts.inter(color: Colors.white70, fontSize: 13)),
+                          ),
+                          if (widget.embedded) ...[
+                            const SizedBox(width: 8),
+                            exportCsvButton(_exportPayments),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                   if (!widget.mineOnly)
@@ -308,14 +340,6 @@ class _PaymentsPageState extends State<PaymentsPage> with LedgerAutoRefresh {
                               color: totalOwed > 0 ? kTerracotta : kForest,
                               isSelected: _role == "all",
                               onTap: () => setState(() => _role = "all"),
-                            ),
-                            _summaryTile(
-                              label: "Owed to you",
-                              value: inr(myOwed),
-                              sub: myOwed > 0 ? "Your unpaid expenses" : "Nothing owed",
-                              color: myOwed > 0 ? kTerracotta : kForest,
-                              isSelected: _role == "me",
-                              onTap: () => setState(() => _role = _role == "me" ? "all" : "me"),
                             ),
                             for (final g in groups)
                               _summaryTile(

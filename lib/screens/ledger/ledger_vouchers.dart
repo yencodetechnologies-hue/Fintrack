@@ -565,6 +565,32 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
     }
   }
 
+  Future<void> _exportVouchers() async {
+    final vouchers = List<Map<String, dynamic>>.from(_data?["vouchers"] ?? const []);
+    if (vouchers.isEmpty) {
+      toast(context, "No vouchers to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Purpose", "Given To", "Given By", "Paid From", "Status", "Amount", "Balance Left"]
+    ];
+    for (final v in vouchers) {
+      final at = DateTime.tryParse(v["date"]?.toString() ?? v["createdAt"]?.toString() ?? "")?.toLocal();
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        v["purpose"]?.toString() ?? "",
+        nameOf(v["staffId"], "Staff"),
+        nameOf(v["issuedBy"], "Manager"),
+        v["fundName"]?.toString() ?? "Company",
+        v["status"]?.toString() ?? "open",
+        ((v["amount"] as num?) ?? 0).toStringAsFixed(2),
+        ((v["balance"] as num?) ?? 0).toStringAsFixed(2),
+      ]);
+    }
+    await shareCsv(context, "${s.companyName}-vouchers.csv", rows);
+  }
+
   Future<void> _decide(Map<String, dynamic> r, bool accept) async {
     final id = r["_id"].toString();
     setState(() => _busy.add(id));
@@ -617,6 +643,12 @@ class _VouchersPageState extends State<VouchersPage> with LedgerAutoRefresh {
           foregroundColor: Colors.white,
           elevation: 0,
           title: Text("Vouchers", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: exportCsvButton(_exportVouchers),
+            ),
+          ],
         ),
         floatingActionButton: FloatingActionButton.extended(
           backgroundColor: kForestDark,

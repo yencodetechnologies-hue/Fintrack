@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 export '../../services/ledger_events.dart';
 
 const Color kForest = Color(0xFF195754);
@@ -822,3 +824,105 @@ String timeLabel(dynamic at) {
   final d = DateTime.tryParse(at?.toString() ?? "")?.toLocal();
   return d == null ? "" : DateFormat("h:mm a").format(d).toLowerCase();
 }
+
+// ---------- CSV export / download (same columns as the web's Export CSV) ----------
+
+const MethodChannel _downloaderChannel = MethodChannel("com.yencode.fintrack/downloader");
+
+/// Writes the rows to a .csv file and downloads it directly to the device's Downloads folder.
+Future<void> shareCsv(BuildContext context, String filename, List<List<dynamic>> rows) async {
+  if (rows.length <= 1) {
+    toast(context, "Nothing to export", error: true);
+    return;
+  }
+  String cell(dynamic v) {
+    final t = v == null ? "" : v.toString();
+    return RegExp(r'[",\n\r]').hasMatch(t) ? '"${t.replaceAll('"', '""')}"' : t;
+  }
+  final csv = "\uFEFF${rows.map((r) => r.map(cell).join(",")).join("\r\n")}";
+  final rawSafe = filename.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), "-");
+  final safeName = rawSafe.endsWith(".csv") ? rawSafe : "$rawSafe.csv";
+
+  // Android: save directly to public Downloads folder via MediaStore
+  if (Platform.isAndroid) {
+    try {
+      final res = await _downloaderChannel.invokeMapMethod<String, dynamic>("downloadFile", {
+        "fileName": safeName,
+        "content": csv,
+        "mimeType": "text/csv",
+      });
+      final actualName = res?["fileName"]?.toString() ?? safeName;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.download_done_rounded, color: Colors.white, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    "Downloaded $actualName to Downloads",
+                    style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF195754),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    } on MissingPluginException {
+      await Clipboard.setData(ClipboardData(text: csv));
+      if (context.mounted) {
+        toast(context, "CSV copied to clipboard! Re-run app with 'flutter run' to enable direct download.");
+      }
+      return;
+    } catch (e) {
+      // Proceed to fallback
+    }
+  }
+
+  // Fallback for other platforms (iOS / Desktop)
+  try {
+    Directory? dir;
+    try {
+      dir = await getDownloadsDirectory();
+    } catch (_) {}
+    dir ??= await getApplicationDocumentsDirectory();
+    final file = File("${dir.path}/$safeName");
+    await file.writeAsString(csv);
+    if (context.mounted) {
+      toast(context, "Downloaded $safeName to ${dir.path}");
+    }
+  } catch (e) {
+    await Clipboard.setData(ClipboardData(text: csv));
+    if (context.mounted) toast(context, "CSV copied to clipboard: $e", error: true);
+  }
+}
+
+/// The "Export CSV" pill used above lists (white on the green background).
+Widget exportCsvButton(VoidCallback onTap) => Material(
+      color: Colors.white.withValues(alpha: 0.14),
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.file_download_outlined, size: 17, color: Colors.white),
+            const SizedBox(width: 5),
+            Text("Export CSV", style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12)),
+          ]),
+        ),
+      ),
+    );
+
+/// "dd MMM yyyy" and "h:mm a" for CSV cells (local time).
+String csvDate(dynamic at) => dayKey(at);
+String csvTime(dynamic at) => timeLabel(at);

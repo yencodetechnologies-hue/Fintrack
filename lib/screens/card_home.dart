@@ -11,6 +11,7 @@ import 'LendLiabilityPage.dart';
 import 'trips/trips_home_screen.dart';
 import 'vehicles/vehicle_dashboard_screen.dart';
 import 'expense/expense_landing_screen.dart';
+import 'currency/currency_exchange_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:http/http.dart' as http;
@@ -728,6 +729,14 @@ class _GridViewPageState extends State<GridViewPage> {
         "badge": "Daily Expenses",
         "color": terracotta,
         "page": (context) => ExpenseLandingScreen(userId: widget.userId, userName: widget.userName),
+      },
+      {
+        "title": "Currency Exchange",
+        "subtitle": "Convert between any currencies with daily rates",
+        "icon": FontAwesomeIcons.arrowRightArrowLeft,
+        "badge": "Daily Rates",
+        "color": const Color(0xFFD97706),
+        "page": (context) => const CurrencyExchangeScreen(),
       },
 
 

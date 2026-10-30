@@ -60,6 +60,34 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
     _load();
   }
 
+  Future<void> _exportLoans() async {
+    if (_loans.isEmpty) {
+      toast(context, "No loans to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Lender", "Borrower", "Type", "Amount", "Outstanding Balance", "Method", "Reference", "Status", "Note"]
+    ];
+    for (final l in _loans) {
+      final isPerson = l["lenderType"] == "person" || (l["lenderCompanyId"] is Map && l["lenderCompanyId"]["lenderKind"] == "person");
+      final lenderName = isPerson ? (l["lenderPersonName"] ?? "Person") : nameOf(l["lenderCompanyId"], "Company");
+      final borrowerName = nameOf(l["borrowerCompanyId"], "Company");
+      rows.add([
+        csvDate(l["date"] ?? l["createdAt"]),
+        lenderName,
+        borrowerName,
+        isPerson ? "Person lender" : "Company loan",
+        ((l["amount"] as num?) ?? 0).toStringAsFixed(2),
+        ((l["balance"] as num?) ?? (l["amount"] as num?) ?? 0).toStringAsFixed(2),
+        l["method"]?.toString() ?? "",
+        l["reference"]?.toString() ?? "",
+        l["status"]?.toString() ?? "open",
+        l["note"]?.toString() ?? "",
+      ]);
+    }
+    await shareCsv(context, "${s.companyName}-loans.csv", rows);
+  }
+
   Future<void> _load() async {
     final r = await Future.wait([
       LedgerService.borrowSources(s.companyId, s.userId),
@@ -84,12 +112,18 @@ class _LedgerIntercoTabState extends State<LedgerIntercoTab> with LedgerAutoRefr
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 30),
         children: [
-          if (s.isAdmin && s.can("intercompany"))
-            Row(children: [
-              Expanded(child: _headerButton("Routed payment to manager", Icons.alt_route_rounded, _openRouted, outlined: true)),
-              const SizedBox(width: 8),
-              Expanded(child: _headerButton("Record a loan", Icons.handshake_rounded, _openLoan)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(children: [
+              exportCsvButton(_exportLoans),
+              if (s.isAdmin && s.can("intercompany")) ...[
+                const SizedBox(width: 8),
+                Expanded(child: _headerButton("Routed payment", Icons.alt_route_rounded, _openRouted, outlined: true)),
+                const SizedBox(width: 8),
+                Expanded(child: _headerButton("Record loan", Icons.handshake_rounded, _openLoan)),
+              ],
             ]),
+          ),
           if (s.isAdmin && s.can("intercompany") && _requests.isNotEmpty) ...[
             sectionTitle("Payment confirmations"),
             ..._requests.map(_requestCard),
@@ -963,6 +997,29 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
     _load();
   }
 
+  Future<void> _exportStatement() async {
+    final rows = List<Map<String, dynamic>>.from(_data?["rows"] ?? const []).reversed.toList();
+    if (rows.isEmpty) {
+      toast(context, "Nothing to export", error: true);
+      return;
+    }
+    final csvRows = [
+      ["Date", "Action", "Amount", "Method", "Reference", "Note", "Balance After"]
+    ];
+    for (final r in rows) {
+      csvRows.add([
+        csvDate(r["date"] ?? r["createdAt"]),
+        r["action"]?.toString() ?? "",
+        ((r["amount"] as num?) ?? 0).toStringAsFixed(2),
+        r["method"]?.toString() ?? "",
+        r["reference"]?.toString() ?? "",
+        r["note"]?.toString() ?? "",
+        ((r["balance"] as num?) ?? 0).toStringAsFixed(2),
+      ]);
+    }
+    await shareCsv(context, "${widget.partyName.replaceAll(" ", "-")}-loan-statement.csv", csvRows);
+  }
+
   Future<void> _load() async {
     final s = widget.scope;
     final r = await Future.wait([LedgerService.loanPartyStatement(s.companyId, widget.partyId, s.userId), LedgerService.loans(s.companyId, s.userId)]);
@@ -1010,6 +1067,12 @@ class _LoanPartyPageState extends State<LoanPartyPage> with LedgerAutoRefresh {
           foregroundColor: Colors.white,
           elevation: 0,
           title: Text(widget.partyName, style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: exportCsvButton(_exportStatement),
+            ),
+          ],
         ),
         body: _error != null
             ? Center(child: Text(_error!, style: GoogleFonts.inter(color: Colors.white)))

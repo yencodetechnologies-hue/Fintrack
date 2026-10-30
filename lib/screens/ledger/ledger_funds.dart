@@ -391,7 +391,34 @@ class _FundsPageState extends State<FundsPage> with LedgerAutoRefresh {
             }
           }),
         ])));
+  }  Future<void> _exportStatement() async {
+    final entries = List<Map<String, dynamic>>.from(_statementData?["entries"] ?? const []);
+    if (entries.isEmpty) {
+      toast(context, "No entries to export", error: true);
+      return;
+    }
+    final rows = [
+      ["Date", "Time", "Details", "Category", "Account", "Debit (Out)", "Credit (In)", "Balance After", "Recorded By"]
+    ];
+    for (final e in entries) {
+      final at = DateTime.tryParse(e["at"]?.toString() ?? "")?.toLocal();
+      final amount = (e["amount"] as num?) ?? 0;
+      rows.add([
+        csvDate(at),
+        csvTime(at),
+        e["details"]?.toString().isNotEmpty == true ? e["details"] : (e["label"] ?? ""),
+        e["category"] ?? "",
+        e["account"] ?? "",
+        amount < 0 ? (-amount).toStringAsFixed(2) : "",
+        amount > 0 ? amount.toStringAsFixed(2) : "",
+        ((e["balance"] as num?) ?? 0).toStringAsFixed(2),
+        e["by"] ?? "",
+      ]);
+    }
+    await shareCsv(context, "${_selectedFundName.replaceAll(" ", "-")}-statement.csv", rows);
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -464,6 +491,12 @@ class _FundsPageState extends State<FundsPage> with LedgerAutoRefresh {
           foregroundColor: Colors.white,
           elevation: 0,
           title: Text("Company funds", style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: exportCsvButton(_exportStatement),
+            ),
+          ],
         ),
         body: RefreshIndicator(
           onRefresh: () async {
@@ -504,8 +537,7 @@ class _FundsPageState extends State<FundsPage> with LedgerAutoRefresh {
             Row(children: [
               Text("$_selectedFundName statement", style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white)),
               const Spacer(),
-              if (total > 0)
-                Text("$total ${total == 1 ? "entry" : "entries"}", style: GoogleFonts.inter(fontSize: 12, color: Colors.white70)),
+              exportCsvButton(_exportStatement),
             ]),
             const SizedBox(height: 10),
 

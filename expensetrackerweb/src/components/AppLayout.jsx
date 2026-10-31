@@ -55,7 +55,7 @@ const WORKSPACE = [
   { tab: "expenses", label: "Expenses" },
   { tab: "interco", label: "Loans" },
   // { tab: "reports", label: "Reports", adminOnly: true },
-  { tab: "analysis", label: "Analysis", adminOnly: true },
+  { tab: "analysis", label: "Analytics", adminOnly: true },
   { tab: "vouchers", label: "Vouchers", adminOnly: true },
   { tab: "payments", label: "Payments", adminOnly: true },
   { tab: "funds", label: "Add Funds", adminOnly: true },

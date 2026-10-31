@@ -189,7 +189,7 @@ class _LedgerHomeScreenState extends State<LedgerHomeScreen> with LedgerAutoRefr
       // if (admin && (scope!.can("reports") || scope.can("analysis")))
       //   (icon: Icons.bar_chart_rounded, label: "Reports", build: (s) => LedgerReportsTab(scope: s)),
       if (admin && scope!.can("analysis"))
-        (icon: Icons.bar_chart_rounded, label: "Analysis", build: (s) => LedgerReportsTab(scope: s)),
+        (icon: Icons.bar_chart_rounded, label: "Analytics", build: (s) => LedgerReportsTab(scope: s)),
       (icon: Icons.more_horiz_rounded, label: "More", build: (s) => LedgerMoreTab(scope: s)),
     ];
     final tab = _tab < tabs.length ? _tab : 0;

@@ -61,9 +61,11 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is required to scan your card and fill in card details.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Location access is required for the live speedometer and ride distance tracking.</string>
+	<string>Q Fin needs access to your location while using the app to show your real-time speed and calculate vehicle ride distance.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Location access is required for the live speedometer and ride distance tracking.</string>
+	<string>Q Fin needs background location access to continue recording your vehicle ride distance and mileage even when the screen is locked or the app is minimized.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Q Fin needs background location access to continue recording your vehicle ride distance and mileage even when the screen is locked or the app is minimized.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>

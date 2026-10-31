@@ -43,7 +43,7 @@ class _LedgerReportsTabState extends State<LedgerReportsTab> {
             segments: [
               if (views.contains("report")) const ButtonSegment(value: "report", label: Text("Report")),
               if (views.contains("outstanding")) const ButtonSegment(value: "outstanding", label: Text("Outstanding")),
-              if (views.contains("analysis")) const ButtonSegment(value: "analysis", label: Text("Analysis")),
+              if (views.contains("analysis")) const ButtonSegment(value: "analysis", label: Text("Analytics")),
             ],
             selected: {view},
             showSelectedIcon: false,

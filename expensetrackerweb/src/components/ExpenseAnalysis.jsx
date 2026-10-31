@@ -131,7 +131,7 @@ export default function ExpenseAnalysis({ companyId, userId, refreshKey }) {
     <>
       <div className="page-sticky-header">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 6 }}>
-          <h1 style={{ fontSize: 22, margin: 0 }}>Analysis</h1>
+          <h1 style={{ fontSize: 22, margin: 0 }}>Analytics</h1>
           <div style={{ display: "flex", gap: 6 }}>
             {[3, 6, 12].map((m) => (
               <button key={m} className={`btn ${months === m ? "btn-dark" : "btn-outline"}`} onClick={() => setMonths(m)}>{m} months</button>

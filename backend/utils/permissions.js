@@ -19,7 +19,7 @@ const MANAGER_PERMISSIONS = [
   { key: "funds", label: "Company Funds", hint: "Bank accounts, add money, cash name" },
   { key: "accounts", label: "Accounts statement", hint: "Every money in and out of Cash and banks" },
   { key: "reports", label: "Reports & CSV export" },
-  { key: "analysis", label: "Analysis" },
+  { key: "analysis", label: "Analytics" },
   { key: "ledger_audit", label: "Ledger & Audit log" },
   { key: "members", label: "Members", hint: "Add, invite, remove, change role" },
   { key: "settings", label: "Company settings", hint: "GSTIN, threshold, categories, join code" },

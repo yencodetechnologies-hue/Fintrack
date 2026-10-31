@@ -4256,13 +4256,29 @@ a {
   }
 
   /* Wide tables scroll sideways; the name column stays pinned */
-  .main-panel table th:first-child,
+  .main-panel table th:first-child {
+    position: sticky;
+    left: 0;
+    top: 0;
+    z-index: 15;
+    background: var(--slate-bg);
+    box-shadow: 1px 1px 0 var(--slate-border-2);
+  }
+
   .main-panel table td:first-child {
     position: sticky;
     left: 0;
-    z-index: 1;
+    z-index: 2;
     background: #fff;
     box-shadow: 1px 0 0 var(--slate-border-2);
+  }
+
+  .dt tbody tr:nth-child(even) td:first-child {
+    background: #F0FAF5;
+  }
+
+  .dt tbody tr.dt-click:hover td:first-child {
+    background: #E3F4EC;
   }
 
   /* Popups stay centred; just a little less margin and padding so they fit a phone */
@@ -4413,6 +4429,9 @@ a {
   padding: 14px 20px;
   border-bottom: 1px solid var(--slate-border-2);
   flex-wrap: wrap;
+  background: #fff;
+  position: relative;
+  z-index: 12;
 }
 
 .dt-title h3 {
@@ -4440,16 +4459,43 @@ a {
 
 .dt-scroll {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 280px);
+  min-height: 180px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-border-2) transparent;
+}
+
+.dt-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dt-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dt-scroll::-webkit-scrollbar-thumb {
+  background: var(--slate-border-2);
+  border-radius: 6px;
+}
+
+.dt-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 .dt {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 14px;
   color: var(--dark-text);
 }
 
 .dt th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   background: var(--slate-bg);
   color: var(--muted);
   font-size: 12px;
@@ -4460,6 +4506,7 @@ a {
   padding: 14px 16px;
   white-space: nowrap;
   border-bottom: 1px solid var(--slate-border-2);
+  box-shadow: 0 1px 0 var(--slate-border-2);
 }
 
 .dt td {
@@ -4622,6 +4669,10 @@ a {
 @media (max-width: 760px) {
   .dt-title {
     padding: 12px 14px;
+  }
+
+  .dt-scroll {
+    max-height: calc(100vh - 220px);
   }
 
   .dt th,
